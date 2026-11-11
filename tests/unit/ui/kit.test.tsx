@@ -356,6 +356,13 @@ describe("Button", () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
+  it("ignores auto-repeated Enter, so a held key clicks once", () => {
+    mount(<Button>Go</Button>);
+    const b = $("button");
+    expect(key(b, "keydown", "Enter").defaultPrevented).toBe(false);
+    expect(key(b, "keydown", "Enter", { repeat: true }).defaultPrevented).toBe(true);
+  });
+
   it("takes a label for icon-only content, and a variant", () => {
     mount(
       <Button label="Play" variant="primary">
@@ -641,6 +648,18 @@ describe("Dialog", () => {
     key($("#one"), "keydown", "Escape");
     expect(host.querySelector("dialog")).toBeNull();
     expect(document.activeElement).toBe(opener);
+    expect(windowKey).not.toHaveBeenCalled();
+  });
+
+  it("swallows auto-repeated Enter and Space, so a held key can't flash it shut and open", () => {
+    mount(<DialogHarness />);
+    click($("#opener"));
+    const close = $("dialog button");
+    for (const k of ["Enter", " "]) {
+      const e = key(close, "keydown", k, { repeat: true });
+      expect(e.defaultPrevented).toBe(true);
+    }
+    expect(host.querySelector("dialog")).not.toBeNull();
     expect(windowKey).not.toHaveBeenCalled();
   });
 

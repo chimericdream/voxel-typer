@@ -89,6 +89,14 @@ export function Dialog({ open, onClose, title, closeLabel, children }: DialogPro
   const onKeyDown = (e: KeyboardEvent): void => {
     const root = ref.current;
     if (!root) return;
+    // A key held from the opener keeps repeating once focus lands in here. Swallow repeated
+    // Enter/Space so one long press can't close the dialog and reopen it over and over (a flashing
+    // backdrop; PLAN §4.6).
+    if (e.repeat && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
     if (e.key === "Escape") {
       e.preventDefault();
       e.stopPropagation();

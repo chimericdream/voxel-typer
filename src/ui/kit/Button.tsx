@@ -46,6 +46,9 @@ export function Button({
       aria-label={label}
       onClick={onClick}
       onKeyDown={(e) => {
+        // A held Enter auto-repeats and would fire onClick on every repeat (PLAN §4.6: tolerate
+        // key-repeat). Only the first press clicks. Space already clicks once, on keyup.
+        if (e.repeat && e.key === "Enter") e.preventDefault();
         if (PRESS_KEYS.has(e.key)) setPressed(true);
       }}
       onKeyUp={(e) => {

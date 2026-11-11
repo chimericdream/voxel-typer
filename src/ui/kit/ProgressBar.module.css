@@ -4,7 +4,9 @@
   box-sizing: border-box;
   width: 100%;
   min-width: 12rem;
-  height: calc(1.75rem * var(--text-scale));
+  /* min-height, not height: at text scale 1 the border and padding alone are taller than 1.75rem,
+     which squashed the blocks to 0px. The blocks keep a floor of their own and the bar grows. */
+  min-height: calc(1.75rem * var(--text-scale));
   padding: calc(var(--bevel-unit) * 2);
   border: var(--bevel-w) solid var(--c-track-outline);
   border-image: var(--bevel-track, none) var(--bevel-slice) fill / var(--bevel-w) repeat;
@@ -15,6 +17,7 @@
 
 .block {
   flex: 1 1 0;
+  min-height: calc(0.75rem * var(--text-scale));
   /* Empty blocks are dark sockets; filled ones are raised and bright, so the fill reads by shape too. */
   background: rgb(0 0 0 / 0.3);
   box-shadow: inset var(--bevel-unit) var(--bevel-unit) 0 rgb(0 0 0 / 0.35);
