@@ -1,0 +1,60 @@
+{
+  "name": "voxel-typer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A voxel-world typing game for kids. Local-only, offline, no accounts.",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chimericdream/voxel-typer.git"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:test": "vite build --mode test",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
+    "lint": "oxlint && oxfmt --check && npm run tool -- check-boundaries",
+    "format": "oxfmt",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:cov": "vitest run --coverage",
+    "e2e": "playwright test",
+    "e2e:docker": "tsx tools/e2e-docker.ts",
+    "size": "tsx tools/check-bundle-size.ts",
+    "verify": "npm run typecheck && npm run lint && npm test && npm run build && npm run size",
+    "tool": "tsx tools/run.ts"
+  },
+  "dependencies": {
+    "@preact/signals": "2.11.4",
+    "idb": "8.0.4",
+    "preact": "11.2.0",
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.65.0",
+    "@preact/preset-vite": "2.10.6",
+    "@types/node": "26.6.6",
+    "@types/three": "0.187.0",
+    "@vitest/coverage-v8": "5.1.0",
+    "fake-indexeddb": "6.2.8",
+    "fast-check": "4.10.2",
+    "happy-dom": "21.0.4",
+    "oxc-parser": "0.158.0",
+    "oxfmt": "0.78.0",
+    "oxlint": "1.93.0",
+    "oxlint-tsgolint": "7.0.2006",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
+  },
+  "engines": {
+    "node": ">=26"
+  },
+  "allowScripts": {
+    "esbuild": false
+  }
+}
