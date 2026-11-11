@@ -76,12 +76,12 @@ Waves are a schedule hint. The real rule is "dependencies merged" plus rules 2�
 
 | ID | Title | Size/Tier | Depends on | Status |
 |---|---|---|---|---|
-| M0-01 | Toolchain scaffold | M/B | — | todo |
-| M0-02 | Docs, agent conventions, copy lint | S/C | M0-01 | todo |
-| M0-03 | CI: test everything on every PR | M/B | M0-01 | todo |
-| M0-04 | Hello voxel | S/B | M0-01, M0-03 | todo |
-| M0-05 | Container image + Proxmox deploy | M/B | M0-01, M0-03 | todo |
-| M0-GATE | Gate | — | M0-02..05 | todo |
+| M0-01 | Toolchain scaffold | M/B | — | merged |
+| M0-02 | Docs, agent conventions, copy lint | S/C | M0-01 | merged |
+| M0-03 | CI: test everything on every PR | M/B | M0-01 | merged |
+| M0-04 | Hello voxel | S/B | M0-01, M0-03 | merged |
+| M0-05 | Container image + Proxmox deploy | M/B | M0-01, M0-03 | merged |
+| M0-GATE | Gate | — | M0-02..05 | passed |
 | M1-01 | ✦ Contracts into code | M/A | M0-GATE | todo |
 | M1-02 | Seeded RNG | S/B | M1-01 | todo |
 | M1-03 | ✦ Typing session and matcher | L/A | M1-01 | todo |

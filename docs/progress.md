@@ -6,12 +6,14 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 
 ## M0: Foundations
 
-- [ ] **M0-01** Toolchain scaffold (M/B) — review (PR #89)
-- [ ] **M0-02** Docs, agent conventions, copy lint (S/C) — todo
-- [ ] **M0-03** CI: test everything on every PR (M/B) — todo
-- [ ] **M0-04** Hello voxel (S/B) — todo
-- [ ] **M0-05** Container image + Proxmox deploy (M/B) — todo
-- [ ] **M0-GATE** Gate — todo
+- [x] **M0-01** Toolchain scaffold (M/B) — merged (PR #89)
+- [x] **M0-02** Docs, agent conventions, copy lint (S/C) — merged (PR #90)
+- [x] **M0-03** CI: test everything on every PR (M/B) — merged (PR #91)
+- [x] **M0-04** Hello voxel (S/B) — merged (PR #94)
+- [x] **M0-05** Container image + Proxmox deploy (M/B) — merged (PR #97)
+- [x] **M0-FIX-1** CI hardening from the M0-03 review — merged (PR #96)
+- [x] **M0-FIX-2** Purity enforcement: allow-list and banned globals — merged (PR #100)
+- [x] **M0-GATE** Gate — passed 2026-11-11, tag `m0`
 
 ## M1: Engine and foundation lanes
 
@@ -117,4 +119,42 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 
 Each gate records its result here: the date, the reviewer's verdict, owner checks (👤) and any accepted debt with its reason.
 
-- (none yet)
+### M0 — passed 2026-11-11 (tag `m0`)
+
+- **Cards:** M0-01..05 merged with handoff notes, plus two fix cards (M0-FIX-1 from the M0-03 review,
+  M0-FIX-2 from the gate review). M0-01 (#89) merged before CI existed, so it has no `ci-ok`; every
+  later PR merged on a green `ci-ok`. Accepted, since M0-01 is the PR that created the toolchain CI
+  runs.
+- **Clean clone:** `npm ci`, `npm run verify` (initial JS 126.4 KB gzip of 450 KB) and `npm run e2e`
+  (2/2) pass on a fresh clone of `main` at 6d3ee95; `npm run dev` serves `/` (200). CI on `main` is
+  green, including the Linux screenshot baseline.
+- **PLAN Phase 0 acceptance:** dev, test, e2e and build pass on a clean checkout; the hello-voxel cube
+  renders with a nearest-filtered procedural texture (pixel check plus Linux baseline). Bundle-size
+  and `jsx-a11y` lint run in CI.
+- **Branch protection:** on, verified after M0-03 (`ci-ok` required, strict, no force push or delete).
+- **Publish:** `:edge` and `:sha-a6aa924` reached GHCR (amd64 + arm64) on the first merge after
+  M0-05. Tag `m0` publishes the first `:stable`.
+- **Review (fresh Opus reviewer, `cf84915..main`):** no blocking issues. Fixed in the gate: purity
+  allow-list and banned globals (M0-FIX-2); `.env` git-ignored; `publish.yml` refuses non-exact tags
+  (`v1.0.0-rc.1` would have moved `:stable`) and promotes the tested `:sha-` image instead of
+  rebuilding; stale handoff boxes ticked.
+- **Owner checks (👤):** running the build on Proxmox can wait until M2 (card allows it). Still open
+  with the owner: turn on the dependency graph; Tailscale certificates, MagicDNS and `TS_AUTHKEY`
+  before the M2 playtest.
+- **Accepted debt:**
+  - No Playwright image cache in CI: the pull costs about 20 s per shard; caching a multi-GB image
+    would cost more.
+  - Watchtower image not pinned → M6-06.
+  - SPA fallback answers 200 for missing non-asset files, and old hashed chunks vanish after an image
+    swap → M6-05 (service worker and update flow).
+  - Base images (`node`, `nginx-unprivileged:alpine`) are tags, not digests, so a rebuild can differ
+    from what CI tested; promotion now avoids this for `:stable` in normal cases → M6-06.
+  - If the `tailscale` container restarts alone, `voxel-typer` keeps its old network namespace and
+    `tailscale serve` fails until both are recreated (documented gotcha) → M6-05, ask the owner
+    before changing the compose layout.
+  - `tools/check-ui-literals.ts` checks only DOM text props, so `<Button label="Play">` passes →
+    M2-07 extends it to the UI kit's text props.
+  - The hello-voxel build on `:stable` has no not-affiliated footer, ignores
+    `prefers-reduced-motion` and shows a blank page without WebGL. It is a dev demo the kids won't
+    use; M2-10/M2-11 replace it.
+  - README appendix proxy wording → M6-09.
