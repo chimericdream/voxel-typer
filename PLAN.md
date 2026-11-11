@@ -2,7 +2,7 @@
 
 A browser-based typing game for kids aged 6–13, set in a blocky, voxel-built world. Kids learn touch typing by mining, crafting and defending a block world with their keyboards.
 
-This document is written for an implementing agent (Opus 5.5 / Fable 5.2). It is meant to be followed top to bottom. Where it says **DECISION**, the choice is made; don't relitigate it. Where it says **OPEN**, use your judgement and record what you chose in `docs/decisions.md`.
+This document is written for an implementing agent (Opus 5.5 / Fable 5.2). It is meant to be followed top to bottom. **For multi-agent execution, start at [`docs/impl/README.md`](docs/impl/README.md)**: it breaks this plan into task cards with frozen interface contracts, a dependency graph and review gates, and lists clarifications to this document (§8 there). Where it says **DECISION**, the choice is made; don't relitigate it. Where it says **OPEN**, use your judgement and record what you chose in `docs/decisions.md`.
 
 ---
 
