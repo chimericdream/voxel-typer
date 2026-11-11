@@ -23,7 +23,7 @@ test("hello voxel: frozen cube with hard texel edges", async ({ page }) => {
     if (msg.type() === "error") errors.push(msg.text());
   });
 
-  await page.goto("/?freeze=1&seed=1");
+  await page.goto("/hello.html?freeze=1&seed=1");
   await expect(page.locator("#app")).toHaveAttribute("data-ready", "1");
   const canvas = page.locator("#app canvas");
   await expect(canvas).toBeVisible();

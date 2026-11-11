@@ -8,11 +8,13 @@
 import common from "./common";
 import blocks from "./blocks";
 import lessonsMeadow from "./lessons-meadow";
+import app from "./app";
 
 const en = {
   common,
   blocks,
   lessonsMeadow,
+  app,
 } as const;
 
 export default en;

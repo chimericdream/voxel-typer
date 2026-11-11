@@ -36,10 +36,7 @@ export const EN_INDEX = "src/i18n/en/index.ts";
  * may be unused without failing the check. A pending key that becomes used (or is deleted) fails the
  * check until its entry here is removed, so this list only shrinks.
  */
-export const PENDING_KEYS: Readonly<Record<string, string>> = {
-  "common.appName": "title screen and menus (M2)",
-  "common.notAffiliated": "the required footer, PLAN.md §1 (M2)",
-};
+export const PENDING_KEYS: Readonly<Record<string, string>> = {};
 
 /** Where a key is asked for. */
 export interface KeyUse {
