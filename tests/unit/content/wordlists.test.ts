@@ -20,6 +20,8 @@ import {
   formatProblem,
   loadBlocklist,
   inflections,
+  isContraction,
+  normalizedWords,
   parseBlocklist,
   registryIds,
   validateWordlists,
@@ -100,6 +102,9 @@ describe("validator on seeded bad fixtures", () => {
       `${bad("disguised.txt")}:4: "What the fu-ck is that?" is on the blocklist ("fuck", profanity, strict)`,
       `${bad("disguised.txt")}:5: "Do not k.i.l.l the bee." is on the blocklist ("kill", violence)`,
       `${bad("disguised.txt")}:6: "The Ki11er Bee is here." is on the blocklist ("killer", violence)`,
+      // an apostrophe inside a term is still joined; real contractions, times and room numbers
+      // on lines 11-13 pass (M1-FIX-1)
+      `${bad("disguised.txt")}:10: "Do not ki'll the bee." is on the blocklist ("kill", violence)`,
       // duplicates within a file and across files of the same band
       `${bad("duplicate.txt")}:5: "rock" is a duplicate (first at line 3; band=builder)`,
       `${bad("duplicate.txt")}:6: "glass" is a duplicate (first at ${bad("blocked.txt")}:4; band=builder)`,
@@ -136,7 +141,7 @@ describe("validator on seeded bad fixtures", () => {
     const r = runTool("--dir", "tests/fixtures/wordlists/bad");
     expect(r.status).toBe(1);
     expect(r.stderr).toContain(`${bad("too-long.txt")}:4: "elephant"`);
-    expect(r.stderr).toContain("31 problem(s)");
+    expect(r.stderr).toContain("32 problem(s)");
   });
 
   it("checks pools.ts against the files", () => {
@@ -168,6 +173,13 @@ describe("validator on seeded bad fixtures", () => {
 describe("blocklist", () => {
   const blocklist = loadBlocklist();
   const hit = (item: string) => blocklistHits(item, blocklist).map((t) => t.term);
+  /** The term on a blocklist line; fails loudly if the line moved. */
+  const at = (line: number, category: string): string => {
+    const t = blocklist.terms.find((x) => x.line === line);
+    expect(t?.category, `blocklist line ${line}`).toBe(category);
+    return t?.term ?? "";
+  };
+  const lines = (s: string) => blocklistHits(s, blocklist).map((t) => t.line);
 
   it("is well formed", () => {
     expect(blocklist.problems).toEqual([]);
@@ -247,12 +259,151 @@ describe("blocklist", () => {
     expect(hit("Room 7 is a well-made, warm room.")).toEqual([]);
   });
 
+  it("leaves contractions and plain numbers alone in the look-alike pass (M1-FIX-1)", () => {
+    // tokens with no letter are numbers, times or scores, never words
+    for (const s of [
+      "Room 455 is up.",
+      "It is 4:55 now.",
+      "Score: 5155!",
+      "We met in 1455, then 3:45.",
+      "It costs 55 gems.",
+    ]) {
+      expect(hit(s), s).toEqual([]);
+    }
+    expect(normalizedWords("Room 455 at 4:55 k1ll")).toEqual([
+      ["room", "at", "kill"],
+      ["room", "at", "klll"],
+    ]);
+    // common contractions are split at the apostrophe, not joined into another word
+    for (const s of [
+      "He'll be here soon.",
+      "She'll, we'll, I'll and they'll go.",
+      "He'd say it's fine, and we're sure you've won.",
+      "Let's go! I'm ready, but I can't, won't, don't or shouldn't run.",
+      "There's a cat. What's that? Who'd know?",
+    ]) {
+      expect(hit(s), s).toEqual([]);
+    }
+    expect(isContraction("he'll")).toBe(true);
+    expect(isContraction("can't")).toBe(true);
+    // a contraction shape with a stem that isn't a pronoun or auxiliary is still joined
+    expect(isContraction("ki'll")).toBe(false);
+    expect(hit("ki'll")).toEqual(["kill"]);
+    expect(hit("he'l.l")).toEqual(["hell"]);
+    // tokens that mix letters with digits or symbols are still read as disguises
+    expect(hit("a55")).toEqual(["ass"]);
+    expect(hit("@$$")).toEqual(["ass"]);
+    expect(hit("5h1t")).toEqual(["shit"]);
+  });
+
+  describe("allow section scope (M1-FIX-1)", () => {
+    // harmless stand-in terms, so the rules are easy to read
+    const list = parseBlocklist(
+      [
+        "# section: food strict",
+        "plum",
+        "# section: food",
+        "pea",
+        "# section: allow",
+        "peas", // an inflection of "pea": allowed
+        "plums", // contains a strict term: rejected
+        "apple", // not a form of any term: rejected
+        "pea", // the term itself: rejected
+      ].join("\n"),
+      "b.txt",
+    );
+    const hits = (s: string) => blocklistHits(s, list).map((t) => t.term);
+
+    it("accepts only inflections of a term, never strict forms or other words", () => {
+      expect(list.problems.map(formatProblem)).toEqual([
+        'b.txt:9: "pea" is already listed on line 4',
+        `b.txt:7: allowed word "plums" contains the strict term on line 2; allow can't cancel strict hits`,
+        'b.txt:8: allowed word "apple" is not an inflection of any term, so allowing it does nothing; remove it',
+      ]);
+      expect([...list.allow]).toEqual(["peas"]);
+    });
+
+    it("cancels only the derived hit of an allowed word, plain or disguised", () => {
+      expect(hits("peas")).toEqual([]);
+      expect(hits("pe4s")).toEqual([]);
+      expect(hits("pea")).toEqual(["pea"]);
+      expect(hits("peaed")).toEqual(["pea"]);
+      // a strict hit is never cancelled, even in a word that is also allowed
+      expect(hits("plums")).toEqual(["plum"]);
+      expect(hits("plumber")).toEqual(["plum"]);
+      // the matcher holds that line too, even for an allow set the parser didn't check
+      const forced = { ...list, allow: new Set(["plums", "pea", "peas"]) };
+      expect(blocklistHits("plums", forced).map((t) => t.term)).toEqual(["plum"]);
+      expect(blocklistHits("pl.ums", forced).map((t) => t.term)).toEqual(["plum"]);
+      expect(blocklistHits("pea", forced).map((t) => t.term)).toEqual(["pea"]);
+    });
+
+    it("in the real blocklist holds only inflections, and no allowed word hides a strict term", () => {
+      for (const word of blocklist.allow) {
+        expect(
+          blocklist.terms.filter((t) => t.strict && word.includes(t.term)),
+          word,
+        ).toEqual([]);
+        expect(
+          blocklist.terms.some((t) => inflections(t.term).includes(word)),
+          word,
+        ).toBe(true);
+        expect(hit(word), word).toEqual([]);
+      }
+      // the plural of an allowed word is allowed too (re-review §2)
+      expect(hit("lusters")).toEqual([]);
+    });
+  });
+
+  it("rejects the terms the M1-10 re-review found missing (cited by blocklist line)", () => {
+    // §6 sexual (666-681), chat acronyms (684-689), extremism (693-700): each is rejected,
+    // alone and in a sentence
+    const added: [number, string][] = [
+      ...[666, 667, 668, 669, 670, 671, 673, 674, 675, 676, 677, 678, 679, 680, 681].map(
+        (n): [number, string] => [n, "sexual"],
+      ),
+      ...[684, 685, 686, 687, 688, 689, 690, 691].map((n): [number, string] => [n, "profanity"]),
+      ...[693, 694, 695, 696, 698, 699, 700].map((n): [number, string] => [n, "extremism"]),
+      ...[703, 704, 705, 706, 708, 709].map((n): [number, string] => [n, "violence"]),
+      ...[711, 712, 713, 714, 716].map((n): [number, string] => [n, "drugs"]),
+    ];
+    for (const [n, category] of added) {
+      const term = at(n, category);
+      expect(lines(term), `line ${n}`).toContain(n);
+      expect(lines(`Look at the ${term} now!`), `line ${n} in a sentence`).toContain(n);
+    }
+
+    // forms the inflection rules didn't produce before, built from older lines
+    const derived: [string, number][] = [
+      [`${at(190, "sexual")}y`, 190], // -ey with the e kept (§1)
+      [`${at(189, "sexual")}ually`, 666], // the adverb of line 189 (§6)
+      [`${at(132, "profanity")}ties`, 675], // the diminutive plural of line 132 (§6)
+      [`${at(186, "sexual").slice(0, 4)}y`, 676], // the clipped form of line 186 + -y (§6)
+      [`${at(512, "sexual").slice(0, 4)}s`, 674], // the clipped form of line 512 (§6)
+      [`${at(576, "violence").slice(0, 2)}${at(576, "violence").slice(3)}`, 708], // past of 576
+      [`${at(126, "profanity")}head`, 690], // compounds of whole-word terms (§1)
+      [`${at(120, "profanity")}hat`, 691],
+      [`${at(226, "violence")}shot`, 703],
+      [`${at(226, "violence")}fire`, 704],
+      [`${at(226, "violence")}point`, 705],
+      [`${at(581, "violence")}ist`, 706],
+      [`${at(651, "drugs")}head`, 711],
+      [`${at(416, "drugs")}head`, 713],
+      [`${at(426, "drugs")}ard`, 714],
+      [at(552, "extremism").replace(" ", ""), 693], // run-together spellings (§6)
+      [at(553, "extremism").replace(" ", ""), 695],
+    ];
+    for (const [word, n] of derived) expect(lines(word), `line ${n}`).toContain(n);
+    // the past of line 260 is listed by hand at line 709, as irregular forms must be
+    expect(inflections(at(260, "violence"))).not.toContain(at(709, "violence"));
+  });
+
   it("lists inflections by spelling rule", () => {
     expect(inflections("stab")).toEqual(
       expect.arrayContaining(["stabs", "stabbed", "stabbing", "stabber", "stabman"]),
     );
     expect(inflections("bake")).toEqual(
-      expect.arrayContaining(["baked", "baker", "baking", "baky"]),
+      expect.arrayContaining(["baked", "baker", "baking", "baky", "bakey"]),
     );
     expect(inflections("die")).toEqual(expect.arrayContaining(["died", "dying"]));
     expect(inflections("bully")).toEqual(expect.arrayContaining(["bullies", "bullied"]));

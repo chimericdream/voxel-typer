@@ -15,7 +15,7 @@
 #   # section: <category> strict   the terms below also match inside other words: "shit" blocks
 #                                  "shitty". Only for terms that are never part of a harmless
 #                                  word (check that "stab" is not hiding in "stable" first)
-#   # section: allow               the words below are NOT blocked: see the last section
+#   # section: allow               inflections that are not blocked as derived forms: last section
 #   one term per line, lowercase a-z; a term with spaces matches those words in a row
 #
 # Every term also blocks its common forms, so list only the base word: "shoot" blocks "shoots",
@@ -658,9 +658,67 @@ betting
 poker
 slot machine
 
-# Allowed words: ordinary words that an inflection or a look-alike reading of a term above
-# happens to spell (see README.md, "The blocklist"). They cancel only those derived hits. Add
-# a word here only when it is a harmless word a child would read in a book.
+# ---------------------------------------------------------------------------------------------
+# Added after the M1-10 re-review (task M1-FIX-1): forms the inflection rules can't produce
+# (clipped forms, adjectives, irregular past tenses, compounds), chat acronyms, and run-together
+# spellings of the phrases above.
+# section: sexual strict
+sexual
+skank
+schlong
+coochie
+ballsack
+nutsack
+# section: sexual
+anal
+clit
+titty
+perv
+fap
+thot
+vag
+dong
+pecker
+# Profane chat acronyms, and compounds of whole-word profanity terms.
+# section: profanity strict
+wtf
+stfu
+gtfo
+omfg
+lmfao
+nsfw
+dickhead
+asshat
+# section: extremism strict
+alqaeda
+alqaida
+whitepower
+klansman
+# section: extremism
+heil
+aryan
+klan
+# Irregular past tenses and compounds of whole-word violence terms.
+# section: violence strict
+gunshot
+gunfire
+gunpoint
+arsonist
+# section: violence
+bled
+fought
+# section: drugs strict
+crackhead
+pothead
+weedhead
+drunkard
+# section: drugs
+stoner
+
+# Allowed words: ordinary words that an inflection of a term above happens to spell (see
+# README.md, "The blocklist"). Each cancels only that derived hit, in plain or look-alike
+# spelling, never an exact or strict hit. The validator rejects an entry that is not an
+# inflection of some term. Add a word here only when a child would read it in a book.
 # section: allow
 baby
 brass
@@ -681,3 +739,4 @@ jagged
 shaggy
 bray
 luster
+lusters

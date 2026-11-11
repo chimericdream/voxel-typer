@@ -44,3 +44,33 @@ categories, more sexual, violence, drug, slang, brand and IP terms, and the `all
 It errs on excluding. Some everyday words are blocked for now (`kiss`, `hit`, `beat`, `ghost`,
 `monster`, `sword`, `god`, `vote`, `hospital`, …), which the orchestrator accepted. The owner can
 loosen them at the M6-08 content read-through.
+
+### M1-FIX-1 additions (re-review of M1-10)
+
+- **Added:** clipped forms, adjectives and slang in the sexual category; profane chat acronyms;
+  run-together spellings of two extremism phrases and more extremism terms; irregular past
+  tenses and compounds of whole-word violence, profanity and drug terms (blocklist lines
+  661-716). Terms that end in `e` now also block their `-ey` form. Every new term is whole-word
+  unless it can't hide inside a harmless word.
+- **Not added, content-owner call:** the "expl…" family for blowing things up (cartoon explosions
+  may be wanted for mining). The hate-group acronym the review asked for was already strict at
+  line 346.
+- **Matcher precision:** number tokens (`455`, `4:55`) and common contractions ("he'll") no longer
+  read as blocked words in phrase and sentence lists. The `allow` section now cancels only derived
+  hits, and only entries that are inflections of a term are accepted.
+
+### Everyday words blocked for now (for the M6-08 read-through)
+
+The strict default stays. These ordinary words are blocked by a term with an unrelated sense. The
+owner decides at M6-08 whether to loosen any of them; until then, pick another word.
+
+- **New in M1-FIX-1:** "dong" (blocks "ding dong"), "bled", "fought", "dopey" (from the `-ey`
+  rule), "pecker" ("woodpecker" still passes).
+- **From inflections (M1-10 re-review §2):** gravy, flaky, titter, rummy, ginny, knobby, sucker
+  (the lollipop), beater and beats (egg beater, music), hangman (the word game), weeds and weeding
+  (gardening, likely in a farm biome), strips and stripy (comic strips, a stripy cat), deviled,
+  crackers and cracked (the snack, a cracked egg).
+- **From strict substrings (older rule):** thorny (roses), booboo and "boo-boo" (a kid's word for a
+  scrape), swanky, pakistan (a country), condominium, retardant, ghastly and aghast. The review
+  suggests moving the terms behind "thorny" and "booboo" to whole-word sections first.
+- **From the plain hyphen split:** "yo-yo".

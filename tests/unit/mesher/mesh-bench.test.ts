@@ -94,7 +94,8 @@ function meshAll(g: VoxelGrid): number {
   return quads;
 }
 
-const ON_CI = Boolean(process.env.CI);
+// CI runners are noisy, and coverage instrumentation slows the mesher down; both get the relaxed bound.
+const ON_CI = Boolean(process.env.CI) || process.env.VT_COVERAGE === "1";
 const BOUND_MS = ON_CI ? 200 : 50;
 
 describe("mesher benchmark", () => {

@@ -18,27 +18,28 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 ## M1: Engine and foundation lanes
 
 - [x] **M1-01** ✦ Contracts into code (M/A) — merged (PR #101); contracts frozen
-- [ ] **M1-02** Seeded RNG (S/B) — todo
-- [ ] **M1-03** ✦ Typing session and matcher (L/A) — todo
-- [ ] **M1-04** Stats, stars, key-stat folding (M/B) — todo
-- [ ] **M1-05** Adaptive engine (M/A) — todo
-- [ ] **M1-06** Content generator (M/B) — todo
-- [ ] **M1-07** Replay harness and simulator (M/B) — todo
-- [ ] **M1-08** Input normalization (S/B) — todo
-- [ ] **M1-09** Save layer (M/B) — todo
-- [ ] **M1-10** Word-list pipeline (M/B) — todo
-- [ ] **M1-11** Keyboard layouts (S/C) — todo
-- [ ] **M1-12** i18n runtime (S/B) — todo
-- [ ] **M1-13** Voxel grid and mesher (M/A) — todo
-- [ ] **M1-14** Palette, recipes, atlas (M/A) — todo
-- [ ] **M1-GATE** Gate — todo
+- [x] **M1-02** Seeded RNG (S/B) — merged (PR #107)
+- [x] **M1-03** ✦ Typing session and matcher (L/A) — merged (PR #103)
+- [x] **M1-04** Stats, stars, key-stat folding (M/B) — merged (PR #106, SRS follow-up #110)
+- [x] **M1-05** Adaptive engine (M/A) — merged (PR #104)
+- [x] **M1-06** Content generator (M/B) — merged (PR #111)
+- [x] **M1-07** Replay harness and simulator (M/B) — merged (PR #115)
+- [x] **M1-08** Input normalization (S/B) — merged (PR #114)
+- [x] **M1-09** Save layer (M/B) — merged (PR #108)
+- [x] **M1-10** Word-list pipeline (M/B) — merged (PR #112)
+- [x] **M1-11** Keyboard layouts (S/C) — merged (PR #117)
+- [x] **M1-12** i18n runtime (S/B) — merged (PR #105)
+- [x] **M1-13** Voxel grid and mesher (M/A) — merged (PR #109)
+- [x] **M1-14** Palette, recipes, atlas (M/A) — merged (PR #113)
+- [ ] **M1-FIX-1** Blocklist precision follow-up (S/B) — todo
+- [x] **M1-GATE** Gate — passed 2026-11-11, tag `m1`
 
 ## M2: Vertical slice: Mine mode on Meadow (go/no-go)
 
-- [ ] **M2-01** Render core (M/A) — todo
+- [ ] **M2-01** Render core (M/A) — running
 - [ ] **M2-02** Sky, clouds, day/night (M/A) — todo
 - [ ] **M2-03** Meadow diorama (M/A) — todo
-- [ ] **M2-04** Block registry v1 + loot (M/B) — todo
+- [ ] **M2-04** Block registry v1 + loot (M/B) — running
 - [ ] **M2-05** FX (M/A) — todo
 - [ ] **M2-06** Audio synth and SFX (M/A) — todo
 - [ ] **M2-07** Voxel UI kit (M/A) — todo
