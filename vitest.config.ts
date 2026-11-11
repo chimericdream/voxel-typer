@@ -4,11 +4,18 @@ import { defineConfig } from "vitest/config";
 const DOM_TESTS = ["tests/unit/dom/**/*.test.{ts,tsx}", "tests/unit/ui/**/*.test.{ts,tsx}"];
 
 /**
- * Per-folder coverage thresholds (`npm run test:cov`). They start switched off;
- * M1-GATE turns them on by flipping `enforceThresholds` (or CI sets COVERAGE_THRESHOLDS=1).
+ * Per-folder coverage thresholds (`npm run test:cov`). M1-GATE switched them on for good.
  * Add folders here as their owners reach their targets.
  */
-const enforceThresholds = process.env.COVERAGE_THRESHOLDS === "1";
+const enforceThresholds = true;
+
+/**
+ * True for `vitest run --coverage`. Instrumented code runs slower, so timing tests (the mesher
+ * benchmark) read `VT_COVERAGE` and use their relaxed bound, as they do on CI.
+ */
+const coverageRun = process.argv.some(
+  (arg) => arg === "--coverage" || arg.startsWith("--coverage."),
+);
 const folderThresholds: Record<string, { lines: number }> = {
   "src/engine/**": { lines: 95 },
 };
@@ -40,6 +47,7 @@ export default defineConfig({
       },
     ],
     passWithNoTests: true,
+    env: coverageRun ? { VT_COVERAGE: "1" } : {},
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],

@@ -234,3 +234,59 @@ type in §1–§18 matches `src/`).
     `types.test-d.ts` runs under `npm run typecheck`, not Vitest. M1-01 created some files that later
     cards own (`src/i18n/en/common.ts` → M1-12, `layouts/index.ts` → M1-11, `input/*` → M1-08,
     `save/*` → M1-09, and others in the handoff note); those cards replace the stubs.
+
+## 2026-11-11: M1 engine and foundation lanes, and the M1 gate
+
+Sources: the handoff notes in `docs/handoffs/M1-02.md` … `M1-14.md`, the review comments on their
+PRs, and the orchestrator's rulings in those PRs.
+
+55. **Delegation.** After the 5-hour cap, the owner briefly routed work to Codex and OpenCode, then
+    stopped all non-Claude delegation. Workers and reviewers are Opus (Fable for ✦ cards), as in
+    `HANDOFF.md` §6.
+56. **Typing session rulings (M1-03, PR #103, written into contracts §3).** In `sequential`, a key fed
+    when no target remains is ignored (no event, not a keystroke). Under `lockOn` + `stay`, Backspace
+    while locked unlocks the target and resets its progress. `TargetView.marks` has
+    `text.length + 1` entries while a trailing space is required. `consistency` uses the population
+    standard deviation. A pause in progress never counts toward a target's duration.
+57. **Stats and stars (M1-04, PRs #106 and #110).** `summarize` takes the session's
+    `SummaryContext`. Stars stay additive as contracts §6 is written. Folding a session into key or
+    bigram stats now reschedules SRS with `scheduleSrs`. M1-07 should still decide whether bigrams
+    need a minimum-attempts threshold before an interval doubles.
+58. **Adaptive engine (M1-05, PR #104; tuned in M1-07, PR #115).** `weakKeys` ties keep `allowed`
+    order (digit keys included), and a non-positive target latency counts as "not slow". The
+    simulator retuned `errorWeight` 6 → 10 and `latencyWeight` 1.5 → 1 (evidence in `docs/sim.md`).
+    The §4 formula text keeps the starting values; `ADAPTIVE_CONSTANTS` is the source of truth.
+59. **Content generator (M1-06, PR #111).** Rule priority: allowed set, then a small
+    `BLOCKED_RUNS` list for random letters, then no char more than 3 times in a row, then the
+    comfort cap. `capitalize: 'first'` capitalizes the first char of every target.
+60. **Input (M1-08, PR #114; additive contract change to §9).** `InputCtx = { inPlay; band?; undo?;
+    wantsEnter? }`. Cmd+Z (plain Meta+Z) is Undo like Ctrl+Z when `ctx.undo` is on; the Shift
+    variants are not redo.
+61. **Save layer (M1-09, PR #108; additive contract change to §15).** An older build never writes
+    over a newer-schema record: `save` throws `NewerSaveError` and writes nothing, and `load` returns
+    `null` instead of the older `prev`. `load` and `listProfiles` never reject on storage failures.
+    `createIdbStore`/`createMemoryStore` take an optional `onProblem` callback (`restoredPrev`,
+    `unreadable`, `newerVersion`, `storageError`) so the UI can tell families about a restored save.
+    Records are migrated before they are validated. **Open for M3-12:** export leaves out newer or
+    unreadable profiles without saying so; the export screen must list them. Autosave must catch
+    `NewerSaveError`.
+62. **Word lists (M1-10, PR #112).** The blocklist is strict and matches inflections and look-alike
+    spellings. It also excludes everyday words such as kiss, ghost, monster, sword, gravy and
+    hangman; the owner can loosen it at the M6-08 content read-through. The Dolch list was written
+    from memory and checked against the standard list by the reviewer. **M1-FIX-1** fixes the false
+    positives that block sentence content (contractions, numbers) and adds the missing terms.
+63. **Voxel grid (M1-13, PR #109).** The grid rejects wrong-length data, non-integer sizes and ids
+    outside 0–65535; `fromJSON` caps grids at `MAX_GRID_CELLS` (2^24) and sums run lengths before it
+    allocates. **Open for M2-01:** confirm the AO quad-diagonal split looks right on screen.
+64. **Atlas (M1-14, PR #113).** The orchestrator's visual review found the set original. It follows
+    genre conventions closely in a few places (grass side "drips", 16 knit wool colors, ore specks,
+    the `grass-block` id); flagged to the owner, not blocking. `atlas.html` is in the test build only.
+65. **GitHub Actions outage (2026-11-11, ~20:18 UTC).** Runs queued with zero jobs. After local
+    `npm run verify` on each branch merged with `main`, the owner admin-merged #112, #113, #115 and
+    #116. #116 sets `DOCKER_BUILD_RECORD_UPLOAD: "false"` in `publish.yml`, so an artifact-service
+    error can't fail a publish after the image is pushed.
+66. **M1 gate.** Coverage thresholds are on for good (`src/engine/**` lines ≥ 95%; every engine
+    module is at 98–100%). Timing tests use their relaxed bound when coverage is on (`VT_COVERAGE`),
+    since instrumentation slows them down. Phase 1 acceptance (`PLAN.md` §8) holds: the generator
+    safety property (2000 cases, M1-06), hand-computed WPM fixtures (M1-04), deterministic replay of
+    every fixture log and a byte-identical sim run for a seed (M1-07).

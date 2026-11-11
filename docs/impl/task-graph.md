@@ -83,24 +83,25 @@ Waves are a schedule hint. The real rule is "dependencies merged" plus rules 2�
 | M0-05 | Container image + Proxmox deploy | M/B | M0-01, M0-03 | merged |
 | M0-GATE | Gate | — | M0-02..05 | passed |
 | M1-01 | ✦ Contracts into code | M/A | M0-GATE | merged |
-| M1-02 | Seeded RNG | S/B | M1-01 | todo |
-| M1-03 | ✦ Typing session and matcher | L/A | M1-01 | todo |
-| M1-04 | Stats, stars, key-stat folding | M/B | M1-01 | todo |
-| M1-05 | Adaptive engine | M/A | M1-01 | todo |
-| M1-06 | Content generator | M/B | M1-01, M1-02 | todo |
-| M1-07 | Replay harness and simulator | M/B | M1-03..06 | todo |
-| M1-08 | Input normalization | S/B | M1-01 | todo |
-| M1-09 | Save layer | M/B | M1-01 | todo |
-| M1-10 | Word-list pipeline | M/B | M1-01 | todo |
-| M1-11 | Keyboard layouts | S/C | M1-01 | todo |
-| M1-12 | i18n runtime | S/B | M1-01 | todo |
-| M1-13 | Voxel grid and mesher | M/A | M1-01 | todo |
-| M1-14 | Palette, recipes, atlas | M/A | M1-01, M1-02 | todo |
-| M1-GATE | Gate | — | all M1 | todo |
-| M2-01 | Render core | M/A | M1-13, M1-14 | todo |
+| M1-02 | Seeded RNG | S/B | M1-01 | merged |
+| M1-03 | ✦ Typing session and matcher | L/A | M1-01 | merged |
+| M1-04 | Stats, stars, key-stat folding | M/B | M1-01 | merged |
+| M1-05 | Adaptive engine | M/A | M1-01 | merged |
+| M1-06 | Content generator | M/B | M1-01, M1-02 | merged |
+| M1-07 | Replay harness and simulator | M/B | M1-03..06 | merged |
+| M1-08 | Input normalization | S/B | M1-01 | merged |
+| M1-09 | Save layer | M/B | M1-01 | merged |
+| M1-10 | Word-list pipeline | M/B | M1-01 | merged |
+| M1-11 | Keyboard layouts | S/C | M1-01 | merged |
+| M1-12 | i18n runtime | S/B | M1-01 | merged |
+| M1-13 | Voxel grid and mesher | M/A | M1-01 | merged |
+| M1-14 | Palette, recipes, atlas | M/A | M1-01, M1-02 | merged |
+| M1-FIX-1 | Blocklist precision follow-up | S/B | M1-10 | todo |
+| M1-GATE | Gate | — | all M1 | passed |
+| M2-01 | Render core | M/A | M1-13, M1-14 | running |
 | M2-02 | Sky, clouds, day/night | M/A | M2-01 | todo |
 | M2-03 | Meadow diorama | M/A | M2-01, M2-04 | todo |
-| M2-04 | Block registry v1 + loot | M/B | M1-14 | todo |
+| M2-04 | Block registry v1 + loot | M/B | M1-14 | running |
 | M2-05 | FX | M/A | M2-01 | todo |
 | M2-06 | Audio synth and SFX | M/A | M1-01 | todo |
 | M2-07 | Voxel UI kit | M/A | M0-01, M1-12, M1-14 | todo |
