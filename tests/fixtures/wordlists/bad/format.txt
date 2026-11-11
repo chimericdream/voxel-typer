@@ -1,0 +1,8 @@
+# Case, spacing, keys and tag-order mistakes.
+# tags: band=builder reading=grade4 kind=phrases keys=asdfghjkl;
+glad lad
+Glad dad
+sad  dad
+flag 
+glad cat
+# tags: theme=late

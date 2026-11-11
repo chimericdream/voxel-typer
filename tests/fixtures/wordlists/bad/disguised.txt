@@ -1,0 +1,9 @@
+# Letters disguised with digits and punctuation, then harmless sentences with digits.
+# tags: band=builder reading=grade4 kind=sentences case=mixed
+Oh sh1t, the cave is dark.
+What the fu-ck is that?
+Do not k.i.l.l the bee.
+The Ki11er Bee is here.
+I have 3 cats and 10 dogs.
+Room 101 is warm.
+Hi! It is a well-made box.

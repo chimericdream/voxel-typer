@@ -1,0 +1,4 @@
+# A non-ASCII char.
+# tags: band=miner reading=grade2
+cafe
+café
