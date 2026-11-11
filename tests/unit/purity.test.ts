@@ -259,7 +259,7 @@ describe("check-boundaries import allow-list", () => {
     ["src/engine/session.ts", "../../../outside", true],
     ["src/render/mesher/mesh.ts", "../atlas/build", true],
     ["src/render/mesher/mesh.ts", "..", true],
-    ["src/render/atlas/recipes.ts", "./painters", true],
+    ["src/render/atlas/recipes.ts", "./painters", false],
     ["src/engine/session.ts", "@/save/store", true],
     ["src/engine/session.ts", "@/modes/mine", true],
     ["src/engine/session.ts", "@/ui/x", true],
