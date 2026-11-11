@@ -7,6 +7,7 @@
 export * from "./compact";
 export * from "./id";
 export * from "./migrations";
+export * from "./problems";
 export * from "./schema";
 export * from "./settings";
 export * from "./store";
