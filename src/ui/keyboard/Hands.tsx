@@ -142,8 +142,9 @@ function Hand({
             >
               {on ? <Box r={grow(d.body, 2)} class={styles.glow} /> : null}
               {on ? <Box r={grow(d.tip, 2)} class={styles.glow} /> : null}
-              <Box r={grow(d.body, 1)} class={styles.outline} />
-              <Box r={grow(d.tip, 1)} class={styles.outline} />
+              {/* A lit finger gets a two-tone edge: dark inside, the selection color outside. */}
+              <Box r={grow(d.body, 1)} class={on ? styles.litEdge : styles.outline} />
+              <Box r={grow(d.tip, 1)} class={on ? styles.litEdge : styles.outline} />
               <Box r={d.body} class={styles.glove} />
               <Box r={d.tip} class={styles.tip} />
               {zone === "thumb" ? null : (

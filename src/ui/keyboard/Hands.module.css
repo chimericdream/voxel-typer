@@ -65,6 +65,9 @@
 .glow {
   fill: var(--c-selected);
 }
+.litEdge {
+  fill: var(--c-keycap-text);
+}
 
 .caption {
   display: flex;

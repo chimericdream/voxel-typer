@@ -39,6 +39,7 @@ import {
   THEME_IDS,
   composite,
   contrastRatio,
+  worstContrast,
   cssVar,
   parseColor,
   themeProperties,
@@ -372,6 +373,56 @@ describe("finger zones", () => {
       }
     });
   }
+
+  for (const id of THEME_IDS) {
+    it(`${id}: the next-key ring stands out from every zone, from the plate, and as two bands`, () => {
+      const th = THEMES[id];
+      const outer = th.ink.selected;
+      const inner = th.ink.keycapText;
+      // The inner dark band meets the key's own face and the neighbor keys' faces.
+      for (const token of Object.values(ZONE_TOKENS)) {
+        expect(worstContrast(inner, th.ink[token]), `inner vs ${token}`).toBeGreaterThanOrEqual(3);
+      }
+      // The outer band meets the plate (and the 2-px gap between keys shows the plate).
+      expect(worstContrast(outer, th.ink.plate), "outer vs plate").toBeGreaterThanOrEqual(3);
+      // The two bands read as two, not one blur.
+      expect(worstContrast(outer, inner), "outer vs inner").toBeGreaterThanOrEqual(3);
+      // Either band, wherever the ring sits: no zone matches both.
+      for (const token of Object.values(ZONE_TOKENS)) {
+        const best = Math.max(
+          worstContrast(outer, th.ink[token]),
+          worstContrast(inner, th.ink[token]),
+        );
+        expect(best, token).toBeGreaterThanOrEqual(3);
+      }
+    });
+  }
+
+  it("draw the ring from those two tokens, inside the key, clear of the row above", () => {
+    const at = css.indexOf(".slot[data-next] > kbd::after {");
+    expect(at).toBeGreaterThanOrEqual(0);
+    const block = css.slice(at, css.indexOf("}", at));
+    expect(block).toContain("border: var(--bevel-unit) solid var(--c-selected)");
+    expect(block).toContain("box-shadow: inset 0 0 0 var(--bevel-unit) var(--c-keycap-text)");
+    // Painted over the key's own bevel frame: never outside the key, so no neighbor is covered.
+    expect(block).toContain("inset: calc(var(--bevel-w) * -1)");
+    expect(css).not.toMatch(/\.slot\[data-next\] > kbd \{[^}]*outline/);
+    // The lift (3 px) is less than the gap plus the row above's bottom padding and label inset.
+    expect(css).toContain("translate: 0 calc(var(--bevel-unit) * -1)");
+  });
+
+  it("keep the ring and lift on the next key while it wobbles", () => {
+    // The wobble animates `rotate`, the lift and bob `translate`: separate properties.
+    const wobble = css.slice(css.indexOf("@keyframes wobble"));
+    expect(wobble).toContain("rotate:");
+    expect(wobble).not.toContain("transform");
+    const bob = css.slice(css.indexOf("@keyframes bob"), css.indexOf("@keyframes wobble"));
+    expect(bob).toContain("translate:");
+    expect(bob).not.toContain("transform");
+    expect(css).toMatch(
+      /\.slot\[data-next\]\[data-wobble\] > kbd \{\s*animation:\s*wobble[^;]*,\s*bob/,
+    );
+  });
 
   it("are in the kit's checked text pairs", () => {
     for (const token of Object.values(ZONE_TOKENS)) {

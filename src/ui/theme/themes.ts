@@ -346,8 +346,10 @@ export const UI_PAIRS: readonly (readonly [a: ColorToken, b: ColorToken])[] = [
   ["accent", "track"],
   ["selected", "slot"],
   ["focus", "focusHalo"],
-  // On-screen keyboard (M2-09): the next-key ring sits on the keyboard's text plate.
+  // On-screen keyboard (M2-09): the next-key ring is two-tone, `selected` outside (on the
+  // keyboard's text plate) and `keycapText` inside (on the zone faces, checked as TEXT_PAIRS).
   ["selected", "plate"],
+  ["selected", "keycapText"],
 ];
 
 /** Surfaces a focused control can sit on (the focus ring is drawn outside the control). */

@@ -111,7 +111,7 @@
   right: 0;
   bottom: 2px;
   left: 0;
-  z-index: 1;
+  z-index: 2;
   display: flex;
   justify-content: center;
   visibility: hidden;
@@ -140,20 +140,34 @@
   padding-bottom: calc(var(--u) * 0.16);
 }
 
-/* The next key (and its Shift): a thick ring in the selection color, lifted, bobbing gently. */
+/*
+ * The next key (and its Shift): a two-tone ring painted over the key's own bevel frame, an outer
+ * band in the selection color and an inner dark band in the glyph color. The dark band stands out
+ * from every zone face (4.5:1 or more, the glyph pairs) and the light band from the plate (3:1 or
+ * more), so the ring never depends on one color, and it never reaches over a neighbor's label. The
+ * key is also lifted, and bobs gently when motion is on.
+ */
 .slot[data-next] {
   z-index: 2;
 }
 .slot[data-next] > kbd {
-  outline: var(--bevel-unit) solid var(--c-selected);
-  outline-offset: 1px;
+  translate: 0 calc(var(--bevel-unit) * -1);
   animation: bob calc(1.2s * var(--motion-ok)) ease-in-out infinite alternate;
-  transform: translateY(calc(var(--bevel-unit) * -1));
+}
+.slot[data-next] > kbd::after {
+  position: absolute;
+  inset: calc(var(--bevel-w) * -1);
+  border: var(--bevel-unit) solid var(--c-selected);
+  box-shadow: inset 0 0 0 var(--bevel-unit) var(--c-keycap-text);
+  pointer-events: none;
+  content: "";
 }
 
 /*
  * A wrong key: a short dashed outline, plus a small wobble when motion is on. Never red, never
- * more than one flash per WOBBLE_GAP_MS (src/ui/keyboard/model.ts).
+ * more than one flash per WOBBLE_GAP_MS (src/ui/keyboard/model.ts). The wobble turns the key
+ * (`rotate`) and the lift moves it (`translate`), so a wobble on the next key keeps its ring and
+ * lift.
  */
 .slot[data-wobble] {
   z-index: 3;
@@ -163,28 +177,33 @@
   outline-offset: 1px;
   animation: wobble calc(420ms * var(--motion-ok)) ease-in-out 1;
 }
+.slot[data-next][data-wobble] > kbd {
+  animation:
+    wobble calc(420ms * var(--motion-ok)) ease-in-out 1,
+    bob calc(1.2s * var(--motion-ok)) ease-in-out infinite alternate;
+}
 
 @keyframes bob {
   from {
-    transform: translateY(calc(var(--bevel-unit) * -1));
+    translate: 0 calc(var(--bevel-unit) * -1);
   }
   to {
-    transform: translateY(calc(var(--bevel-unit) * -2));
+    translate: 0 calc(var(--bevel-unit) * -2);
   }
 }
 
 @keyframes wobble {
   0%,
   100% {
-    transform: rotate(0deg);
+    rotate: 0deg;
   }
   25% {
-    transform: rotate(-5deg);
+    rotate: -5deg;
   }
   50% {
-    transform: rotate(4deg);
+    rotate: 4deg;
   }
   75% {
-    transform: rotate(-2deg);
+    rotate: -2deg;
   }
 }
