@@ -1,0 +1,72 @@
+{
+  "name": "backspace, sequential: fix a wrong char after a pause",
+  "why": [
+    "One target, s1 'go on' (the inner space is part of the text; it is the last target, so no trailing space).",
+    "Keys: g o space i(wrong for o at index 3) n(right at index 4, but the target cannot complete while index 3 is wrong) x(the target is full: wrong with no expected char).",
+    "Pause at 2000, resume at 12000 (10000 ms paused). Then Backspace, Backspace, o, n: the target completes at 13600. End at 40000.",
+    "startedAtT = 0. activeMs = 2000 + (40000 - 12000) = 30000, minutes = 0.5.",
+    "keystrokes = g o space i n x o n = 8 (Backspace is not a keystroke). correct = g o space n o n = 6. errors = 2. accuracy = 6 / 8 = 0.75.",
+    "grossWpm = (6 / 5) / 0.5 = 2.4. uncorrected is always 0 under backspace, so netWpm = 2.4.",
+    "Latencies: o 400, space 400, n 400; after the resume the first key is a Backspace, so o at 13200 is 400 after the Backspace at 12800, and n is 400. Five samples, so consistency = 0.",
+    "Streak: g o space = 3, broken by i; n = 1, broken by x; o n = 2. longestStreak = 3.",
+    "perKey: o = right (index 1) + wrong i (index 3) + right (index 3 again) = 3 attempts, 1 error. n is typed right twice. The x past the end belongs to no key.",
+    "bigrams: ' o' = wrong + right = 2 attempts, 1 error. 'on' = 2 attempts."
+  ],
+  "snapshot": {
+    "version": 1,
+    "config": {
+      "policy": "backspace",
+      "targeting": "sequential",
+      "caseSensitive": true,
+      "end": { "kind": "manual" },
+      "mode": "minecart",
+      "seed": 33
+    },
+    "initialTargets": [{ "id": "s1", "text": "go on" }],
+    "log": [
+      { "k": "key", "input": { "key": "g", "t": 0, "shift": false } },
+      { "k": "key", "input": { "key": "o", "t": 400, "shift": false } },
+      { "k": "key", "input": { "key": " ", "t": 800, "shift": false } },
+      { "k": "key", "input": { "key": "i", "t": 1200, "shift": false } },
+      { "k": "key", "input": { "key": "n", "t": 1600, "shift": false } },
+      { "k": "key", "input": { "key": "x", "t": 1800, "shift": false } },
+      { "k": "pause", "t": 2000 },
+      { "k": "resume", "t": 12000 },
+      { "k": "key", "input": { "key": "Backspace", "t": 12400, "shift": false } },
+      { "k": "key", "input": { "key": "Backspace", "t": 12800, "shift": false } },
+      { "k": "key", "input": { "key": "o", "t": 13200, "shift": false } },
+      { "k": "key", "input": { "key": "n", "t": 13600, "shift": false } },
+      { "k": "end", "t": 40000 }
+    ]
+  },
+  "expected": {
+    "summary": {
+      "mode": "minecart",
+      "seed": 33,
+      "startedAtT": 0,
+      "activeMs": 30000,
+      "keystrokes": 8,
+      "correct": 6,
+      "errors": 2,
+      "uncorrected": 0,
+      "grossWpm": 2.4,
+      "netWpm": 2.4,
+      "accuracy": 0.75,
+      "consistency": 0,
+      "perKey": {
+        "g": { "attempts": 1, "errors": 0, "latencies": [] },
+        "o": { "attempts": 3, "errors": 1, "latencies": [400, 400] },
+        " ": { "attempts": 1, "errors": 0, "latencies": [400] },
+        "n": { "attempts": 2, "errors": 0, "latencies": [400, 400] }
+      },
+      "bigrams": {
+        "go": { "attempts": 1, "errors": 0, "latencies": [400] },
+        "o ": { "attempts": 1, "errors": 0, "latencies": [400] },
+        " o": { "attempts": 2, "errors": 1, "latencies": [400] },
+        "on": { "attempts": 2, "errors": 0, "latencies": [400, 400] }
+      },
+      "longestStreak": 3,
+      "targetsCompleted": 1
+    }
+  }
+}
