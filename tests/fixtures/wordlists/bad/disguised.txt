@@ -1,4 +1,4 @@
-# Letters disguised with digits and punctuation, then harmless sentences with digits.
+# Disguised letters, then harmless sentences with digits, times and contractions.
 # tags: band=builder reading=grade4 kind=sentences case=mixed
 Oh sh1t, the cave is dark.
 What the fu-ck is that?
@@ -7,3 +7,7 @@ The Ki11er Bee is here.
 I have 3 cats and 10 dogs.
 Room 101 is warm.
 Hi! It is a well-made box.
+Do not ki'll the bee.
+He'll be home at 4:55.
+Room 455 is up, and we'll go at 10:15!
+She'd say it's fine. I'm sure they're right, but we can't stay.

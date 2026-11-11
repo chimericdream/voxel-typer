@@ -104,9 +104,10 @@ export interface BlockTerm {
 export interface Blocklist {
   terms: readonly BlockTerm[];
   /**
-   * The `# section: allow` words: real, harmless words that an inflected or normalized form of a
-   * term happens to spell ("butter" from "butt" + "er"). They cancel those derived hits only. An
-   * item word that is exactly a term is always a hit.
+   * The `# section: allow` words: real, harmless words that an inflection of a term happens to
+   * spell ("butter" from "butt" + "er"). An allowed word cancels only that derived hit, in plain
+   * text and in look-alike spellings. It never cancels an exact or a strict hit, and
+   * {@link parseBlocklist} rejects an entry that is not an inflection of some term.
    */
   allow: ReadonlySet<string>;
   /** Problems in the blocklist file itself. */
@@ -122,6 +123,8 @@ export const ALLOW_SECTION = "allow";
 export function parseBlocklist(text: string, file = BLOCKLIST_NAME): Blocklist {
   const terms: BlockTerm[] = [];
   const allow = new Set<string>();
+  /** Allow entries and their lines, checked once every term is known. */
+  const allowLines = new Map<string, number>();
   const problems: Problem[] = [];
   const seen = new Map<string, number>();
   let category: string | null = null;
@@ -175,8 +178,29 @@ export function parseBlocklist(text: string, file = BLOCKLIST_NAME): Blocklist {
       continue;
     }
     seen.set(raw, line);
-    if (category === ALLOW_SECTION) allow.add(raw);
+    if (category === ALLOW_SECTION) allowLines.set(raw, line);
     else terms.push({ term: raw, category, strict, line });
+  }
+  // An allow entry may only release an inflection of a term, so the section can't become a
+  // general bypass list. It can't release a strict hit either (collectHits never skips those).
+  const derived = new Set(terms.flatMap((t) => inflections(t.term)));
+  for (const [word, line] of allowLines) {
+    const strictHit = terms.find((t) => t.strict && word.includes(t.term));
+    if (strictHit) {
+      problems.push({
+        file,
+        line,
+        message: `allowed word "${word}" contains the strict term on line ${strictHit.line}; allow can't cancel strict hits`,
+      });
+    } else if (derived.has(word)) {
+      allow.add(word);
+    } else {
+      problems.push({
+        file,
+        line,
+        message: `allowed word "${word}" is not an inflection of any term, so allowing it does nothing; remove it`,
+      });
+    }
   }
   return { terms, allow, problems };
 }
@@ -197,8 +221,8 @@ const PLAIN_SUFFIXES = ["ed", "ing", "er", "ers", "y"] as const;
  * - after s, x, z, ch, sh or o: `-es` (punch → punches)
  * - ending in `ee`: `-d`, `-ing` (agree → agreed, agreeing)
  * - ending in `ie`: `-d`, `-r`, `ie` → `ying` (die → died, dying)
- * - ending in `e`: `-d`, `-r`, `-rs`, and the `e` dropped before `-ing` and `-y` (bake → baked,
- *   baker, baking; gore → gory)
+ * - ending in `e`: `-d`, `-r`, `-rs`, `-y`, and the `e` dropped before `-ing` and `-y` (bake →
+ *   baked, baker, bakey, baking, baky; gore → gory)
  * - ending in consonant + `y`: `y` → `ies ied ier iers iest`, plus `-ing`, `-er` (bully → bullies)
  * - anything else: `-ed -ing -er -ers -y`, and again with the last consonant doubled when the word
  *   ends consonant-vowel-consonant (stab → stabbed, stabbing; slap → slapped)
@@ -221,7 +245,7 @@ export function inflections(term: string): string[] {
     out.add(`${w.slice(0, -2)}ying`);
   } else if (w.endsWith("e")) {
     const stem = w.slice(0, -1);
-    for (const s of ["d", "r", "rs"]) out.add(w + s);
+    for (const s of ["d", "r", "rs", "y"]) out.add(w + s);
     for (const s of ["ing", "y"]) out.add(stem + s);
   } else if (last === "y" && isConsonant(prev)) {
     const stem = w.slice(0, -1);
@@ -303,20 +327,53 @@ const LOOKALIKES: Readonly<Record<string, string>> = {
   "|": "l",
 };
 
+/** Stems that take `'ll 'd 're 've 'm 's` in a contraction ("he'll", "we're", "let's"). */
+const PRONOUN_STEMS: ReadonlySet<string> = new Set(
+  "i you he she it we they there that who what where when why how this here let".split(" "),
+);
+/** Stems that take `n't`, without the `n` ("ca" for "can't", "wo" for "won't"). */
+const NOT_STEMS: ReadonlySet<string> = new Set(
+  "ca wo do does did is are was were has have had could would should must need ai sha".split(" "),
+);
+
+/**
+ * True for a common English contraction: a pronoun (or "there", "that", "let" …) + `'ll 'd 're
+ * 've 'm 's`, or an auxiliary + `n't`. Joining one would spell another word ("he'll"), so the
+ * look-alike pass splits it at the apostrophe instead, as the plain pass does. Only these fixed
+ * stems count, so an apostrophe put inside a term to disguise it is still joined.
+ */
+export function isContraction(token: string): boolean {
+  const m = /^([a-z]+)'(ll|d|re|ve|m|s|t)$/.exec(token);
+  const stem = m?.[1];
+  if (stem === undefined) return false;
+  if (m?.[2] === "t") return stem.endsWith("n") && NOT_STEMS.has(stem.slice(0, -1));
+  return PRONOUN_STEMS.has(stem);
+}
+
 /**
  * The words of `item` with disguises undone: split on spaces only, punctuation trimmed from the
- * ends of each word, look-alikes inside it mapped to letters (`sh1t`, `k1ll`, `a$$`), and any
+ * ends of each token, look-alikes inside it mapped to letters (`sh1t`, `k1ll`, `a$$`), and any
  * other punctuation inside it removed (`k.i.l.l`, `sh-it`). Two variants: `1` read as `i`, and
  * as `l`.
+ *
+ * Only tokens that mix letters with digits or symbols are rewritten:
+ * - A token with no letter and no `@ $ |` is a number, a time or a score ("455", "4:55", "10!").
+ *   It is dropped, so it never reads as a word.
+ * - A plain contraction ({@link isContraction}) is split at the apostrophe, not joined.
  */
 export function normalizedWords(item: string): string[][] {
   const tokens = item
     .toLowerCase()
     .split(/\s+/)
-    .map((t) => t.replace(/^[^a-z0-9@$]+|[^a-z0-9@$]+$/g, ""));
+    .map((t) => t.replace(/^[^a-z0-9@$|]+|[^a-z0-9@$|]+$/g, ""))
+    .filter((t) => /[a-z@$|]/.test(t));
   return (["i", "l"] as const).map((one) =>
     tokens
-      .map((t) => t.replace(/[^a-z]/g, (c) => (c === "1" ? one : (LOOKALIKES[c] ?? ""))))
+      .flatMap((t) =>
+        isContraction(t)
+          ? t.split("'")
+          : [t.replace(/[^a-z]/g, (c) => (c === "1" ? one : (LOOKALIKES[c] ?? "")))],
+      )
       .filter((w) => w !== ""),
   );
 }
@@ -325,10 +382,11 @@ function collectHits(words: readonly string[], m: Matcher, found: Set<BlockTerm>
   for (const w of words) {
     const exact = m.exact.get(w);
     if (exact) found.add(exact);
+    for (const t of m.strict) if (w.includes(t.term)) found.add(t);
+    // An allowed word cancels only its derived hit, never an exact or a strict one.
     if (m.allow.has(w)) continue;
     const derived = m.derived.get(w);
     if (derived) found.add(derived);
-    for (const t of m.strict) if (w.includes(t.term)) found.add(t);
   }
   if (m.phrases.length === 0) return;
   const spaced = ` ${words.join(" ")} `;
@@ -347,7 +405,7 @@ function collectHits(words: readonly string[], m: Matcher, found: Set<BlockTerm>
  * - Strict terms also match inside any single word, but never across a space.
  * - The checks run on the plain words and again on the {@link normalizedWords}, with look-alike
  *   digits and punctuation undone.
- * - A word in the `allow` section is never a derived or strict hit, only an exact one.
+ * - A word in the `allow` section is never a derived hit. It is still an exact or strict hit.
  */
 export function blocklistHits(item: string, blocklist: Blocklist): BlockTerm[] {
   const m = matcherFor(blocklist);
