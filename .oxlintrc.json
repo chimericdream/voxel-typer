@@ -23,7 +23,8 @@
     "coverage/**",
     "test-results/**",
     "playwright-report/**",
-    "tests/fixtures/purity/**"
+    "tests/fixtures/purity/**",
+    "tests/fixtures/ui-literals/**"
   ],
   "rules": {
     "react/react-in-jsx-scope": "off",
