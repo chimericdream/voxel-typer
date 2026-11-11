@@ -1,0 +1,24 @@
+.points {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  box-sizing: border-box;
+  width: min(100%, calc(38rem * var(--text-scale)));
+  max-width: 100%;
+  margin: 0;
+  padding: var(--sp-5) var(--sp-5) var(--sp-5) calc(var(--sp-5) + 1.5em);
+  border: var(--bevel-w) solid var(--c-panel-outline);
+  border-image: var(--bevel-panel, none) var(--bevel-slice) fill / var(--bevel-w) repeat;
+  background-color: var(--c-panel);
+  background-clip: padding-box;
+  color: var(--c-text);
+  list-style: square;
+  image-rendering: pixelated;
+}
+
+.point {
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}

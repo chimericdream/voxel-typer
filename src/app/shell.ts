@@ -222,6 +222,7 @@ export function createShell(deps: ShellDeps): Shell {
     profile: () => profile.value,
     setProfile,
     saveProfile,
+    readOnlyProfiles: () => readOnly,
     lessons: deps.lessons,
     lesson: lessonById,
     lastResult: () => play.lastResult(),
@@ -250,6 +251,7 @@ export function createShell(deps: ShellDeps): Shell {
     play,
     router,
     onSaveProblem(p) {
+      if (p.kind === "newerVersion" && p.profileId !== null) readOnly.add(p.profileId);
       notify(p.kind);
     },
     dismissNotice(id) {

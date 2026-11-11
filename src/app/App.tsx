@@ -9,6 +9,7 @@ import { t } from "@/i18n";
 import { Button } from "@/ui/kit/Button";
 import { Panel } from "@/ui/kit/Panel";
 import { Toast } from "@/ui/kit/Toast";
+import { ComingSoon, nextLessonFor } from "@/ui/screens/ComingSoon";
 import { Pause } from "@/ui/screens/Pause";
 import styles from "./App.module.css";
 import { realClock } from "./clock";
@@ -17,25 +18,22 @@ import type { Route } from "./routes";
 import type { Shell } from "./shell";
 import type { ScreenProps } from "./types";
 
-function ComingSoon({ shell }: { shell: Shell }) {
+/** The screen kit's coming-soon panel (M2-11), wired to the shell. */
+function Soon({ shell }: { shell: Shell }) {
   const { api } = shell;
+  const id = api.route().id;
+  const profile = api.profile();
+  const lesson = id === "map" && profile ? nextLessonFor(profile, api.lessons) : null;
+  const toMap = id !== "map" && profile !== null;
   return (
-    <div class={styles.center}>
-      {api.route().id === "splash" ? <h1 class={styles.title}>{t("common.appName")}</h1> : null}
-      <Panel heading={t("app.comingSoon.title")}>
-        <p class={styles.text}>{t("app.comingSoon.body")}</p>
-        <div class={styles.actions}>
-          {api.canGoBack() ? (
-            <Button onClick={() => api.back()}>{t("app.comingSoon.back")}</Button>
-          ) : null}
-          {api.route().id === "splash" ? null : (
-            <Button variant="secondary" onClick={() => api.navigate({ id: "splash" })}>
-              {t("app.comingSoon.start")}
-            </Button>
-          )}
-        </div>
-      </Panel>
-    </div>
+    <ComingSoon
+      onBack={api.canGoBack() ? () => api.back() : null}
+      onMap={toMap ? () => api.navigate({ id: "map" }) : null}
+      onStart={toMap || id === "splash" ? null : () => api.navigate({ id: "splash" })}
+      next={
+        lesson ? { lesson, go: () => api.navigate({ id: "lessonIntro", lesson: lesson.id }) } : null
+      }
+    />
   );
 }
 
@@ -58,7 +56,7 @@ function ScreenView({ shell, route }: { shell: Shell; route: Route }) {
     };
   }, [route.id, loader, shell.api]);
 
-  if (loader === undefined) return <ComingSoon shell={shell} />;
+  if (loader === undefined) return <Soon shell={shell} />;
   if (loaded === null || loaded.id !== route.id) return null;
   const { Screen } = loaded;
   return <Screen app={shell.api} route={route} />;
@@ -66,7 +64,7 @@ function ScreenView({ shell, route }: { shell: Shell; route: Route }) {
 
 function PlayView({ shell }: { shell: Shell }) {
   const status = shell.playStatus.value;
-  if (status === "failed") return <ComingSoon shell={shell} />;
+  if (status === "failed") return <Soon shell={shell} />;
   if (status === "loading") {
     return (
       <div class={styles.center}>

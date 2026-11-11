@@ -1,0 +1,68 @@
+.splash {
+  gap: var(--sp-6);
+}
+
+.heading {
+  margin: 0;
+  width: min(90%, 36rem);
+}
+
+.logo {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.side {
+  fill: var(--c-primary-outline);
+}
+
+.face {
+  fill: var(--c-primary);
+}
+
+.shine {
+  fill: var(--c-accent);
+  opacity: 0.55;
+}
+
+.cube[data-tone="accent"] .side {
+  fill: var(--c-accent-edge);
+}
+
+.cube[data-tone="accent"] .face {
+  fill: var(--c-accent);
+}
+
+.cube[data-tone="accent"] .shine {
+  fill: var(--c-primary);
+  opacity: 0.35;
+}
+
+.press {
+  animation: press-bob calc(1.6s * var(--motion-ok)) steps(2, jump-none) infinite;
+}
+
+.privacy {
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+}
+
+@keyframes press-bob {
+  from {
+    translate: 0 0;
+  }
+
+  to {
+    translate: 0 -4px;
+  }
+}
+
+/* The logo's name, for screen readers only (the SVG is decorative). */
+.name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

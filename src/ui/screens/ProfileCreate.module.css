@@ -1,0 +1,184 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  box-sizing: border-box;
+  width: min(100%, calc(44rem * var(--text-scale)));
+  max-width: 100%;
+  padding: var(--sp-5);
+  border: var(--bevel-w) solid var(--c-panel-outline);
+  border-image: var(--bevel-panel, none) var(--bevel-slice) fill / var(--bevel-w) repeat;
+  background-color: var(--c-panel);
+  background-clip: padding-box;
+  color: var(--c-text);
+  image-rendering: pixelated;
+}
+
+.nameRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+.nameField {
+  display: flex;
+  flex: 1 1 14rem;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.label {
+  padding: 0;
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  line-height: var(--lh);
+  color: var(--c-text);
+}
+
+.input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  border: 3px solid var(--c-slot-outline);
+  background-color: var(--c-panel);
+  color: var(--c-text);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+}
+
+.input:focus-visible {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+  box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
+}
+
+.hint {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  line-height: 1.4;
+  color: var(--c-text-muted);
+}
+
+.count {
+  white-space: nowrap;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.bands {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(11rem * var(--text-scale))), 1fr));
+  gap: var(--sp-3);
+}
+
+.band {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+  border: 3px solid var(--c-slot-outline);
+  background-color: var(--c-panel);
+  cursor: pointer;
+}
+
+.band[data-checked] {
+  border-width: 6px;
+  border-color: var(--c-selected);
+  padding: calc(var(--sp-3) - 3px);
+}
+
+.band[data-checked]::after {
+  content: "✓";
+  position: absolute;
+  top: var(--sp-1);
+  right: var(--sp-2);
+  font-family: var(--font-body);
+  font-weight: 700;
+  color: var(--c-text);
+}
+
+.band:has(:focus-visible),
+.skin:has(:focus-visible) {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+  box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
+}
+
+.radio {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+}
+
+.bandName {
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  color: var(--c-text);
+}
+
+.bandInfo {
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  line-height: 1.35;
+  color: var(--c-text);
+}
+
+.skins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+.skin {
+  position: relative;
+  display: block;
+  padding: 3px;
+  border: 3px solid var(--c-slot-outline);
+  background-color: var(--c-slot);
+  cursor: pointer;
+}
+
+.skin[data-checked] {
+  border-color: var(--c-selected);
+  border-width: 6px;
+  padding: 0;
+}
+
+.swatch {
+  display: block;
+  width: calc(3rem * var(--text-scale));
+  height: calc(3rem * var(--text-scale));
+}
+
+.tick {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+  font-weight: 700;
+  color: var(--c-badge-text);
+  text-shadow:
+    0 0 3px var(--c-badge),
+    0 0 3px var(--c-badge);
+}
+
+.skin[data-checked] .tick {
+  display: flex;
+}

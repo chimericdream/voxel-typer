@@ -1,0 +1,63 @@
+/*
+ * Layout shared by the menu screens (task M2-11). Sizes scale with --text-scale; every row wraps,
+ * so nothing overflows at text scale 2 on a 1024 px wide window.
+ */
+.screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-5);
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100%;
+  padding: var(--sp-5) var(--sp-4);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  box-sizing: border-box;
+  width: min(100%, calc(40rem * var(--text-scale)));
+  max-width: 100%;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-xl) * var(--text-scale));
+  line-height: var(--lh);
+  text-align: center;
+  color: var(--c-bg-text);
+  overflow-wrap: anywhere;
+}
+
+.text {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  line-height: 1.4;
+  color: var(--c-text);
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  line-height: 1.4;
+  color: var(--c-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-3);
+}
+
+.actions > * {
+  max-width: 100%;
+}

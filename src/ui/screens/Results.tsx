@@ -1,0 +1,173 @@
+/**
+ * Results (task M2-11): stars that fill in one by one, each with the `star` sound, the blocks
+ * found filling their slots, a personal-best badge, a warm message (never negative) and Again /
+ * Next / Map. Miner and Builder also see "Great aim: 94%"; Sprout sees stars only.
+ *
+ * Under reduced motion the stars and slots appear at once and one `star` sound plays.
+ *
+ * The screen comes up while a child may still be typing. For a short moment the buttons ignore
+ * presses, so a stray Space or Enter can't skip past the stars.
+ */
+import { useEffect, useMemo, useRef } from "preact/hooks";
+import type { ScreenProps } from "@/app/types";
+import { blocks } from "@/content/blocks";
+import { createRng } from "@/engine/rng";
+import { t } from "@/i18n";
+import { BASE_PALETTE } from "@/render/atlas/palettes";
+import { TILE_SIZE } from "@/render/atlas/painters";
+import { paintTile } from "@/render/atlas/recipes";
+import { Button } from "@/ui/kit/Button";
+import { Slot } from "@/ui/kit/Slot";
+import { Stars } from "@/ui/kit/Stars";
+import { focusOnControl, prefersReducedMotion, useScreenInput } from "./nav";
+import { aimLine, isPersonalBest, lootRows, messageText, nextLesson } from "./results-logic";
+import screen from "./screen.module.css";
+import styles from "./Results.module.css";
+
+/** Matches the kit Stars stagger (350 ms per star) and lands each sound as its star fills. */
+export const STAR_STEP_MS = 350;
+export const STAR_LAND_MS = 300;
+/** Presses are ignored this long after the screen appears. */
+export const ARM_MS = 700;
+
+const icons = new Map<string, string>();
+
+/** A 16×16 icon of the block's side face, as a data URI ("" without a 2D canvas). */
+function blockIcon(id: string): string {
+  const cached = icons.get(id);
+  if (cached !== undefined) return cached;
+  const def = blocks.find((b) => b.id === id);
+  let uri = "";
+  const canvas = document.createElement("canvas");
+  const ctx = def ? canvas.getContext("2d") : null;
+  if (def && ctx) {
+    canvas.width = TILE_SIZE;
+    canvas.height = TILE_SIZE;
+    const px = paintTile(def.faces.side, BASE_PALETTE, createRng(def.num));
+    ctx.putImageData(new ImageData(new Uint8ClampedArray(px), TILE_SIZE, TILE_SIZE), 0, 0);
+    uri = canvas.toDataURL("image/png");
+  }
+  icons.set(id, uri);
+  return uri;
+}
+
+function blockName(id: string): string {
+  const def = blocks.find((b) => b.id === id);
+  return def ? t(def.nameKey) : id;
+}
+
+export default function Results({ app, route }: ScreenProps) {
+  const result = app.lastResult();
+  const profile = app.profile();
+  const lesson = route.lesson === undefined ? null : app.lesson(route.lesson);
+  const actions = useRef<HTMLDivElement>(null);
+  const armed = useRef(false);
+  const reduced = prefersReducedMotion(profile?.settings.reducedMotion);
+  const stars = result?.stars ?? 0;
+
+  useEffect(() => {
+    actions.current?.querySelector("button")?.focus();
+    const timers = [setTimeout(() => (armed.current = true), ARM_MS)];
+    if (stars > 0) {
+      if (reduced) app.audio.sfx("star");
+      else {
+        for (let i = 0; i < stars; i++) {
+          timers.push(setTimeout(() => app.audio.sfx("star"), i * STAR_STEP_MS + STAR_LAND_MS));
+        }
+      }
+    }
+    return () => timers.forEach(clearTimeout);
+  }, [app, stars, reduced]);
+
+  const loot = useMemo(() => lootRows(result?.loot ?? {}), [result]);
+  const next = lesson ? nextLesson(app.lessons, lesson) : null;
+  const band = profile?.ageBand ?? "miner";
+
+  const act = (fn: () => void) => (): void => {
+    if (armed.current) fn();
+  };
+  const again = act(() => {
+    if (lesson) app.navigate({ id: "play", lesson: lesson.id }, { replace: true });
+  });
+  const goNext = act(() => {
+    if (next) app.navigate({ id: "lessonIntro", lesson: next.id }, { replace: true });
+  });
+  const map = act(() => app.navigate({ id: "map" }, { replace: true }));
+
+  useScreenInput(app, (i) => {
+    if (i.kind === "control" && i.action === "confirm" && !focusOnControl()) {
+      (next ? goNext : map)();
+      return true;
+    }
+    return false;
+  });
+
+  if (result === null || lesson === null) {
+    return (
+      <div class={screen.screen}>
+        <p class={styles.message}>{t("screens.results.none")}</p>
+        <div class={screen.actions} ref={actions}>
+          <Button variant="primary" onClick={() => app.navigate({ id: "map" }, { replace: true })}>
+            {t("screens.results.map")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const aim = aimLine(result.summary.accuracy, band);
+  const best = profile !== null && isPersonalBest(profile, lesson.id, result.summary);
+
+  return (
+    <div class={screen.screen}>
+      <h1 class={screen.title}>{t("screens.results.title")}</h1>
+      <div class={styles.card}>
+        <Stars
+          value={stars}
+          size="lg"
+          animate={!reduced}
+          label={t("screens.results.stars", { count: stars })}
+        />
+        {best ? <p class={styles.best}>{t("screens.results.best")}</p> : null}
+        <p class={styles.message}>{messageText(stars, band)}</p>
+        {aim ? <p class={styles.aim}>{t(aim.key, { pct: aim.pct })}</p> : null}
+        <section class={styles.loot} aria-labelledby="results-loot">
+          <h2 id="results-loot" class={styles.lootHeading}>
+            {t("screens.results.loot")}
+          </h2>
+          {loot.length === 0 ? (
+            <p class={styles.aim}>{t("screens.results.noLoot")}</p>
+          ) : (
+            <ul class={styles.slots} data-animate={reduced ? undefined : "1"}>
+              {loot.map(([id, count], i) => {
+                const icon = blockIcon(id);
+                return (
+                  <li key={id} class={styles.slot} style={{ "--i": i + stars }}>
+                    <Slot
+                      label={t("screens.results.lootItem", { name: blockName(id), count })}
+                      count={count}
+                      icon={icon === "" ? undefined : <img src={icon} alt="" />}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      </div>
+      <div class={screen.actions} ref={actions}>
+        {next ? (
+          <Button variant="primary" size="lg" onClick={goNext}>
+            {t("screens.results.next")}
+          </Button>
+        ) : null}
+        <Button variant={next ? "secondary" : "primary"} size="lg" onClick={again}>
+          {t("screens.results.again")}
+        </Button>
+        <Button size="lg" onClick={map}>
+          {t("screens.results.map")}
+        </Button>
+      </div>
+    </div>
+  );
+}

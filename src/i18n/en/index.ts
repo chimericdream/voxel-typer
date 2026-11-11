@@ -10,6 +10,7 @@ import blocks from "./blocks";
 import lessonsMeadow from "./lessons-meadow";
 import app from "./app";
 import keyboard from "./keyboard";
+import screens from "./screens";
 
 const en = {
   common,
@@ -17,6 +18,7 @@ const en = {
   lessonsMeadow,
   app,
   keyboard,
+  screens,
 } as const;
 
 export default en;
