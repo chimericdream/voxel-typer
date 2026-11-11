@@ -1,0 +1,196 @@
+# The only way screenshot baselines are made (docs/impl/README.md §3.7): Playwright runs with
+# --update-snapshots in the same Linux container as CI and commits changed PNGs to the branch.
+#
+# Start it with `gh workflow run update-snapshots.yml -f branch=task/M0-04`, or comment
+# `/update-snapshots` on the PR (repo owner only).
+#
+# Commits pushed with GITHUB_TOKEN don't start workflows, so after pushing, the `finish` job
+# dispatches ci.yml on the branch. That run reports every check (including ci-ok) on the new head.
+name: Update snapshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch to update (the PR's head branch)
+        required: true
+        type: string
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: update-snapshots-${{ inputs.branch || github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: resolve branch
+    # Comment trigger: PR comments only, starting with /update-snapshots, by the repo owner.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.issue.pull_request &&
+       startsWith(github.event.comment.body, '/update-snapshots') &&
+       github.event.comment.user.login == github.repository_owner)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write # reacts to the comment
+    outputs:
+      branch: ${{ steps.branch.outputs.branch }}
+      pr: ${{ steps.branch.outputs.pr }}
+      playwright: ${{ steps.pw.outputs.version }}
+    steps:
+      - name: Resolve branch
+        id: branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          INPUT_BRANCH: ${{ inputs.branch }}
+          ISSUE: ${{ github.event.issue.number }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = issue_comment ]; then
+            gh api -X POST "repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes > /dev/null || true
+            head_repo="$(gh api "repos/$REPO/pulls/$ISSUE" --jq .head.repo.full_name)"
+            if [ "$head_repo" != "$REPO" ]; then echo "::error::PR #$ISSUE comes from a fork ($head_repo). Not updating it."; exit 1; fi
+            branch="$(gh api "repos/$REPO/pulls/$ISSUE" --jq .head.ref)"
+            pr="$ISSUE"
+          else
+            branch="$INPUT_BRANCH"
+            pr="$(gh api "repos/$REPO/pulls?state=open&head=${REPO%%/*}:$branch" --jq '.[0].number // empty')"
+          fi
+          if [ "$branch" = main ]; then echo "::error::Baselines reach main through a PR. Run this on the PR branch."; exit 1; fi
+          gh api "repos/$REPO/branches/$branch" --silent || { echo "::error::No branch '$branch'"; exit 1; }
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "pr=$pr" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.branch.outputs.branch }}
+          sparse-checkout: package-lock.json
+          sparse-checkout-cone-mode: false
+      - name: Playwright version (picks the container image)
+        id: pw
+        run: echo "version=$(jq -r '.packages["node_modules/@playwright/test"].version' package-lock.json)" >> "$GITHUB_OUTPUT"
+
+  update:
+    name: update snapshots
+    needs: resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # pushes the baseline commit
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.resolve.outputs.playwright }}-noble
+      options: --ipc=host --init
+    outputs:
+      pushed: ${{ steps.commit.outputs.pushed }}
+      sha: ${{ steps.commit.outputs.sha }}
+      files: ${{ steps.commit.outputs.files }}
+      tests: ${{ steps.test.outputs.status }}
+    env:
+      CI: "1"
+      E2E_SKIP_BUILD: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.resolve.outputs.branch }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build:test
+      - name: Playwright with --update-snapshots
+        id: test
+        run: |
+          set +e
+          npx playwright test --update-snapshots=changed --retries=0 --pass-with-no-tests
+          echo "status=$?" >> "$GITHUB_OUTPUT"
+      - name: Commit changed baselines
+        id: commit
+        env:
+          BRANCH: ${{ needs.resolve.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git add -A -- 'tests/e2e/__screenshots__'
+          if git diff --cached --quiet; then
+            echo "No baseline changes."
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files="$(git diff --cached --name-only | tr '\n' ' ')"
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "test(snapshots): update e2e baselines" -m "Made by the Update snapshots workflow: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          git push origin "HEAD:refs/heads/$BRANCH"
+          {
+            echo "pushed=true"
+            echo "sha=$(git rev-parse HEAD)"
+            echo "files=$files"
+          } >> "$GITHUB_OUTPUT"
+          { echo "### Updated baselines"; echo; for f in $files; do echo "- \`$f\`"; done; } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload report
+        if: ${{ !cancelled() && steps.test.outputs.status != '0' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+
+  finish:
+    name: rerun CI and report
+    needs: [resolve, update]
+    if: ${{ !cancelled() && needs.resolve.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write # dispatches ci.yml
+      pull-requests: write # comments on the PR
+    steps:
+      - name: Dispatch CI on the new head
+        if: ${{ needs.update.outputs.pushed == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ needs.resolve.outputs.branch }}
+        run: gh workflow run ci.yml --repo "$REPO" --ref "$BRANCH"
+      - name: Comment on the PR
+        if: ${{ needs.resolve.outputs.pr != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.resolve.outputs.pr }}
+          RESULT: ${{ needs.update.result }}
+          PUSHED: ${{ needs.update.outputs.pushed }}
+          SHA: ${{ needs.update.outputs.sha }}
+          FILES: ${{ needs.update.outputs.files }}
+          TESTS: ${{ needs.update.outputs.tests }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          {
+            echo "### Update snapshots"
+            if [ "$RESULT" != success ]; then
+              echo "The workflow failed before committing anything. See [the run]($RUN)."
+            elif [ "$PUSHED" = true ]; then
+              echo "Committed ${SHA:0:7} with these baselines. Review the PNG diff in **Files changed**."
+              echo; for f in $FILES; do echo "- \`$f\`"; done
+              echo; echo "CI was dispatched on the new head, because pushes made with GITHUB_TOKEN don't start workflows."
+            else
+              echo "No baseline changed."
+            fi
+            if [ "${TESTS:-0}" != 0 ]; then echo; echo "Some tests failed for reasons other than screenshots. See [the run]($RUN)."; fi
+          } > comment.md
+          gh api -X POST "repos/$REPO/issues/$PR/comments" -F body=@comment.md > /dev/null
+      - name: Fail when tests failed
+        if: ${{ needs.update.result != 'success' || needs.update.outputs.tests != '0' }}
+        run: |
+          echo "::error::Playwright failed (other than screenshot updates), or the update job failed."
+          exit 1
