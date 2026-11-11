@@ -69,7 +69,7 @@ export function presetPose(name: PresetName, box: THREE.Box3, target: Vec3): Cam
   const radius = Math.hypot(size.x, size.z) / 2 + size.y * 0.25;
   const distance = (radius / Math.tan(THREE.MathUtils.degToRad(fov / 2))) * 0.7;
   return {
-    target: { x: center.x, y: center.y - size.y * 0.3, z: center.z },
+    target: { x: center.x, y: center.y - size.y * 0.45, z: center.z },
     yaw: THREE.MathUtils.degToRad(35),
     pitch: THREE.MathUtils.degToRad(33),
     distance,
