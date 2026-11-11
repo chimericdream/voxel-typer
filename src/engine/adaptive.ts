@@ -18,14 +18,17 @@
 import type { Ms } from "@/types/core";
 import type { KeyStat } from "./stats";
 
-/** Starting balance from contracts §4; M1-07 can tune these with the simulator. */
+/**
+ * Balance values. Contracts §4 gave the starting point; M1-07 tuned `errorWeight` (6 → 10) and
+ * `latencyWeight` (1.5 → 1) with the typist simulator. Evidence: docs/sim.md.
+ */
 export const ADAPTIVE_CONSTANTS = {
   priorErrorRate: 0.05,
   priorAttempts: 5,
   maxSmoothingAttempts: 50,
   baseWeight: 1,
-  errorWeight: 6,
-  latencyWeight: 1.5,
+  errorWeight: 10,
+  latencyWeight: 1,
   maxSlowness: 2,
   focusMinWeight: 3,
   unseenAttempts: 5,

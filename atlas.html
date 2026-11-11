@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Developer page (M1-14): served by `npm run dev` and the e2e build, never in dist/. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'"
+    />
+    <title>Atlas preview · Voxel Typer</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font:
+          13px/1.35 system-ui,
+          sans-serif;
+        background: #1b1d22;
+        color: #e8e6e1;
+      }
+      body {
+        margin: 0;
+        padding: 16px 24px 32px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 20px;
+      }
+      h2 {
+        margin: 20px 0 8px;
+        font-size: 15px;
+        color: #c9c4b8;
+      }
+      header p {
+        margin: 4px 0 0;
+        color: #a9a49a;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, 136px);
+        gap: 12px 10px;
+      }
+      .card {
+        margin: 0;
+        width: 136px;
+      }
+      .tile,
+      .atlas {
+        display: block;
+        image-rendering: pixelated;
+        /* Checkerboard behind see-through pixels. */
+        background: repeating-conic-gradient(#3a3d44 0% 25%, #2a2c31 0% 50%) 0 0 / 16px 16px;
+        border: 4px solid #2a2c31;
+      }
+      .card figcaption {
+        display: flex;
+        flex-direction: column;
+        margin-top: 3px;
+        overflow-wrap: anywhere;
+      }
+      .card figcaption span {
+        color: #a9a49a;
+        font-size: 11px;
+      }
+      .atlas {
+        width: calc(var(--size, 128px) * 2);
+      }
+      .ramps {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .ramp {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .ramp > code {
+        width: 110px;
+      }
+      .strip {
+        display: inline-flex;
+      }
+      .swatch {
+        width: 22px;
+        height: 18px;
+      }
+      .variant {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .variant small {
+        color: #a9a49a;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="atlas"></main>
+    <script type="module" src="/src/dev/atlas-preview.ts"></script>
+  </body>
+</html>
