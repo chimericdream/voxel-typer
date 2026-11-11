@@ -4,7 +4,7 @@
  */
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { WATER_WOBBLE, createWaterMaterial } from "../../../src/render/water";
+import { WATER_WOBBLE, createWaterMaterial, patchWaterShader } from "../../../src/render/water";
 
 describe("createWaterMaterial", () => {
   it("is a see-through Lambert material that doesn't write depth", () => {
@@ -31,17 +31,13 @@ describe("createWaterMaterial", () => {
   });
 
   it("moves only top faces, in the vertex shader", () => {
-    const { material } = createWaterMaterial(() => true);
-    const shader = {
-      uniforms: {},
-      vertexShader: "#include <common>\nvoid main() {\n#include <begin_vertex>\n}",
-      fragmentShader: "",
-    };
-    // reason: onBeforeCompile takes three's WebGLProgramParametersWithUniforms; the test passes
-    // only the fields the hook reads.
-    material.onBeforeCompile(shader as unknown as Parameters<typeof material.onBeforeCompile>[0], {} as THREE.WebGLRenderer);
-    expect(shader.vertexShader).toContain("uniform float uWaterTime;");
-    expect(shader.vertexShader).toContain("if (normal.y > 0.5)");
-    expect(Object.keys(shader.uniforms).toSorted()).toEqual(["uWaterAmp", "uWaterTime"]);
+    const out = patchWaterShader(
+      ["#include <common>", "void main() {", "#include <begin_vertex>", "}"].join("\n"),
+    );
+    expect(out).toContain("uniform float uWaterTime;");
+    expect(out).toContain("uniform float uWaterAmp;");
+    expect(out).toContain("if (normal.y > 0.5)");
+    // The offset comes after begin_vertex, where `transformed` exists.
+    expect(out.indexOf("#include <begin_vertex>")).toBeLessThan(out.indexOf("transformed.y +="));
   });
 });

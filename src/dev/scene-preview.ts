@@ -10,12 +10,19 @@
 //   ?t01=<0..1>               progress through the time of day (default 0.3; pinned under freeze)
 //   ?sky=flat                 the render core's flat background instead of the sky (M2-02)
 //   ?reducedMotion=1          force reduced motion (otherwise the OS setting)
+//   ?world=meadow             the generated Meadow diorama (M2-03) with the real block registry,
+//                             instead of the test grid; a stand-in target block floats on the stage
+//   ?target=0                 with ?world: hide the stand-in target block
+//   ?still=1                  no camera drift, water wobble still on (idle check, M2-03)
 //   ?fx=1                     effects demo (M2-05): letter keys chip the target block, Enter or
 //                             Space breaks it (hit-stop, burst, shake, "+1"); Shift adds streak
 //
 // Developer page: the text here is not kid-facing and doesn't go through t().
 import { fixedStepClock, realClock } from "@/app/clock";
+import { blocks as registryBlocks } from "@/content/blocks";
 import type { BlockDef } from "@/content/blocks/types";
+import { DIORAMA_SIZE, dioramaStage, generateDiorama } from "@/content/worldgen/diorama";
+import type { DioramaStage } from "@/content/worldgen/diorama";
 import { createRng } from "@/engine/rng";
 import type { Rng } from "@/engine/rng";
 import type { PaletteRampId, TextureRecipe } from "@/render/atlas/recipes";
@@ -26,6 +33,7 @@ import { cellCenter, createSceneHandle } from "@/render/scene";
 import type { RenderStats, SceneCore } from "@/render/scene";
 import { createSkyEnvironment } from "@/render/sky";
 import type { SkyController } from "@/render/sky";
+import type { Vec3 } from "@/render/types";
 import type { QualityLevel, TimeOfDay } from "@/types/core";
 
 const noise = (ramp: PaletteRampId, scale = 4, contrast = 1): TextureRecipe => ({
@@ -271,6 +279,9 @@ function readParams(search: string): {
   flatSky: boolean;
   reducedMotion: boolean | null;
   fx: boolean;
+  world: "meadow" | null;
+  target: boolean;
+  still: boolean;
 } {
   const p = new URLSearchParams(search);
   const n = Number.parseInt(p.get("seed") ?? "", 10);
@@ -286,6 +297,9 @@ function readParams(search: string): {
     flatSky: p.get("sky") === "flat",
     reducedMotion: rm === null ? null : rm === "1",
     fx: p.get("fx") === "1",
+    world: p.get("world") === "meadow" ? "meadow" : null,
+    target: p.get("target") !== "0",
+    still: p.get("still") === "1",
   };
 }
 
@@ -308,6 +322,10 @@ export interface ScenePreviewHooks {
    * many had lost their WebGL context after `dispose()`.
    */
   cycle(count: number): Promise<{ idle: number; contextLost: number }>;
+  /** With `?world`: the diorama's stage (M2-03). Null on the test grid. */
+  stage: DioramaStage | null;
+  /** Number of chunk meshes, and how many chunks the grid has in all. */
+  meshes(): { meshes: number; chunks: number };
   /** Block nums of the preview blocks, for edit tests. */
   blocks: Readonly<Record<keyof typeof B, number>>;
   /** The effects module (M2-05). */
@@ -340,12 +358,26 @@ async function start(root: HTMLElement): Promise<void> {
   let sky: SkyController | null = null;
   const skyFactory = createSkyEnvironment({ frozen: params.freeze });
   const made: { fx: FxCore | null } = { fx: null };
+  const world = params.world;
+  const blocks = world ? registryBlocks : BLOCKS;
+  const targetBlock = world ? "meadowstone" : "gem-ore";
+  const stage = world ? dioramaStage(world, DIORAMA_SIZE) : null;
+  // A stand-in for the Mine target on the stage (M2-13 floats its own block there).
+  const standIn = world && params.target ? registryBlocks.find((b) => b.id === targetBlock) : null;
+  const makeGrid = (): { grid: VoxelGrid; target: Vec3 } => {
+    if (!world || !stage) return testGrid(params.seed);
+    const { x, y, z } = stage.target;
+    const g = generateDiorama(world, params.seed, DIORAMA_SIZE);
+    if (standIn) g.set(x, y, z, standIn.num);
+    return { grid: g, target: cellCenter(x, y, z) };
+  };
   const handle = createSceneHandle(canvas, {
-    blocks: BLOCKS,
+    blocks,
     seed: params.seed,
     quality: params.quality,
     clock: params.freeze ? fixedStepClock(0, 16) : realClock,
-    ambientMotion: !params.freeze,
+    ambientMotion: !params.freeze && !params.still,
+    waterMotion: !params.freeze,
     reducedMotion: () => params.reducedMotion ?? media.matches,
     preserveDrawingBuffer: true,
     ...(!params.flatSky && {
@@ -362,7 +394,7 @@ async function start(root: HTMLElement): Promise<void> {
   const { fx } = made;
   if (!fx) throw new Error("createFx was not called");
   const baseline = handle.renderStats();
-  const { grid, target } = testGrid(params.seed);
+  const { grid, target } = makeGrid();
 
   handle.setEnvironment({
     biome: "meadow",
@@ -382,7 +414,7 @@ async function start(root: HTMLElement): Promise<void> {
     async reload(times) {
       for (let i = 0; i < times; i++) {
         handle.clearDiorama();
-        await handle.loadDiorama(`test-${params.seed}`, testGrid(params.seed).grid);
+        await handle.loadDiorama(`test-${params.seed}`, makeGrid().grid);
       }
       handle.requestRender();
       await nextFrame();
@@ -401,8 +433,8 @@ async function start(root: HTMLElement): Promise<void> {
         c.width = 320;
         c.height = 180;
         root.append(c);
-        const h = createSceneHandle(c, { blocks: BLOCKS, seed: params.seed });
-        await h.loadDiorama(`cycle-${i}`, testGrid(params.seed).grid);
+        const h = createSceneHandle(c, { blocks, seed: params.seed });
+        await h.loadDiorama(`cycle-${i}`, makeGrid().grid);
         // Idle = stops requesting frames once loaded (a resize may ask for one more first).
         for (let f = 0; f < 10 && (f < 2 || h.loop.scheduled); f++) await nextFrame();
         if (!h.loop.scheduled) idle++;
@@ -413,15 +445,20 @@ async function start(root: HTMLElement): Promise<void> {
       }
       return { idle, contextLost };
     },
+    stage,
+    meshes() {
+      const c = handle.chunks();
+      return { meshes: c?.meshCount() ?? 0, chunks: c ? c.dims.cx * c.dims.cy * c.dims.cz : 0 };
+    },
     blocks: B,
     fx,
     chip(letter) {
-      handle.fx.burst(target, { blockId: "gem-ore", count: 3, speed: 0.5 });
+      handle.fx.burst(target, { blockId: targetBlock, count: 3, speed: 0.5 });
       handle.fx.floatText({ x: target.x, y: target.y + 0.6, z: target.z }, letter);
     },
     breakBlock(streak, count = 24) {
       handle.fx.hitStop(40);
-      handle.fx.burst(target, { blockId: "gem-ore", count });
+      handle.fx.burst(target, { blockId: targetBlock, count });
       const shake = breakShake(streak);
       handle.camera.shake(shake.intensity01, shake.durationMs);
       handle.fx.floatText({ x: target.x, y: target.y + 0.8, z: target.z }, "+1");

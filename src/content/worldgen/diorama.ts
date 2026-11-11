@@ -34,7 +34,6 @@ import { blocks as terrainBlocks } from "@/content/blocks/terrain";
 import { blocks as woodBlocks } from "@/content/blocks/wood";
 import { MEADOW_WORLDGEN } from "@/content/biomes/meadow";
 import { createRng } from "@/engine/rng";
-import type { Rng } from "@/engine/rng";
 import { VoxelGrid } from "@/render/mesher/voxel-grid";
 import type { BiomeId, BlockId } from "@/types/core";
 import { fbm2, poissonDisk, terrace } from "./noise";
@@ -278,7 +277,8 @@ export function generateDiorama(
   const lift = new Float64Array(n).fill(Number.POSITIVE_INFINITY);
   for (let i = 0; i < n; i++) if (fixed(i)) lift[i] = -height[i]!;
   minPlus(lift, sx, sz, pond);
-  for (let i = 0; i < n; i++) if (!pond(i) && !fixed(i)) height[i] = Math.max(height[i]!, -lift[i]!);
+  for (let i = 0; i < n; i++)
+    if (!pond(i) && !fixed(i)) height[i] = Math.max(height[i]!, -lift[i]!);
   minPlus(height, sx, sz, pond);
 
   // 5a. Path: from just behind the target, wandering back toward the pond.
@@ -423,4 +423,3 @@ function pathNear(kind: Uint8Array, sx: number, sz: number, x: number, z: number
   }
   return false;
 }
-

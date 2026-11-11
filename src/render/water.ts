@@ -29,6 +29,29 @@ export interface WaterMaterial {
   amplitude(): number;
 }
 
+/**
+ * Adds the wobble to a Lambert vertex shader: two uniforms, and a vertical offset on vertices
+ * whose normal points up (top faces only).
+ */
+export function patchWaterShader(vertexShader: string): string {
+  return vertexShader
+    .replace(
+      "#include <common>",
+      `#include <common>
+uniform float uWaterTime;
+uniform float uWaterAmp;`,
+    )
+    .replace(
+      "#include <begin_vertex>",
+      `#include <begin_vertex>
+if (normal.y > 0.5) {
+  vec4 wp = modelMatrix * vec4(transformed, 1.0);
+  float phase = uWaterTime * ${WATER_SPEED.toFixed(4)} + wp.x * 0.9 + wp.z * 0.7;
+  transformed.y += -${WATER_SINK.toFixed(2)} + uWaterAmp * sin(phase) * cos(phase * 0.6 + wp.z * 0.4);
+}`,
+    );
+}
+
 export function createWaterMaterial(motion: () => boolean): WaterMaterial {
   const uniforms = {
     uWaterTime: { value: 0 },
@@ -43,22 +66,7 @@ export function createWaterMaterial(motion: () => boolean): WaterMaterial {
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uWaterTime = uniforms.uWaterTime;
     shader.uniforms.uWaterAmp = uniforms.uWaterAmp;
-    shader.vertexShader = shader.vertexShader
-      .replace(
-        "#include <common>",
-        `#include <common>
-uniform float uWaterTime;
-uniform float uWaterAmp;`,
-      )
-      .replace(
-        "#include <begin_vertex>",
-        `#include <begin_vertex>
-if (normal.y > 0.5) {
-  vec4 wp = modelMatrix * vec4(transformed, 1.0);
-  float phase = uWaterTime * ${WATER_SPEED.toFixed(4)} + wp.x * 0.9 + wp.z * 0.7;
-  transformed.y += -${WATER_SINK.toFixed(2)} + uWaterAmp * sin(phase) * cos(phase * 0.6 + wp.z * 0.4);
-}`,
-      );
+    shader.vertexShader = patchWaterShader(shader.vertexShader);
   };
   material.customProgramCacheKey = () => "voxel-water";
 

@@ -218,7 +218,7 @@ export function splitByBucket(
   if (quads === 0) return {};
   const owner = new Uint8Array(quads);
   const nb = BUCKETS.length;
-  const counts = new Array<number>(nb).fill(0);
+  const counts: number[] = Array.from({ length: nb }, () => 0);
   const cache = new Map<number, number>();
   const { positions: p, normals: n } = mesh;
   for (let q = 0; q < quads; q++) {

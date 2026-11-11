@@ -10,15 +10,21 @@
  */
 import type { Rng } from "@/engine/rng";
 
-/** A uint32 hash of an integer lattice point and a seed. */
+/** A 32-bit avalanche mix (murmur3's finalizer). */
+function mix(v: number): number {
+  let h = Math.imul(v ^ (v >>> 16), 0x85ebca6b);
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+  return (h ^ (h >>> 16)) | 0;
+}
+
+/**
+ * A uint32 hash of an integer lattice point and a seed. The seed is mixed fully before each
+ * coordinate goes in, so (seed, x) pairs can't trade places the way a plain `seed ^ x` would.
+ */
 export function hash2(ix: number, iz: number, seed: number): number {
-  let h = (seed ^ 0x9e3779b9) | 0;
-  h = Math.imul(h ^ ix, 0x85ebca6b);
-  h = (h ^ (h >>> 13)) | 0;
-  h = Math.imul(h ^ iz, 0xc2b2ae35);
-  h = (h ^ (h >>> 16)) | 0;
-  h = Math.imul(h, 0x27d4eb2f);
-  h ^= h >>> 15;
+  let h = mix(seed ^ 0x9e3779b9);
+  h = mix((h + Math.imul(ix, 0x27d4eb2d)) | 0);
+  h = mix((h + Math.imul(iz, 0x165667b1)) | 0);
   return h >>> 0;
 }
 

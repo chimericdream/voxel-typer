@@ -16,11 +16,7 @@ export interface FenceBlocks {
 export const FENCE_SPAN = 3;
 
 /** A straight fence of `length` cells from the anchor along +x (`axis: "x"`) or +z. */
-export function fence(
-  length: number,
-  axis: "x" | "z",
-  blocks: FenceBlocks,
-): Template {
+export function fence(length: number, axis: "x" | "z", blocks: FenceBlocks): Template {
   const out: TemplateVoxel[] = [];
   for (let i = 0; i < length; i++) {
     const dx = axis === "x" ? i : 0;
