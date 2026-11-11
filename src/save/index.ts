@@ -4,8 +4,10 @@
  * This barrel is NOT pure (the store uses IndexedDB). Pure code imports `@/save/schema` or
  * `@/save/migrations` directly.
  */
+export * from "./compact";
 export * from "./id";
 export * from "./migrations";
+export * from "./problems";
 export * from "./schema";
 export * from "./settings";
 export * from "./store";
