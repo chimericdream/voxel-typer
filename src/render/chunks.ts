@@ -8,6 +8,9 @@
  *   sorts transparent objects back to front per chunk mesh.
  * - `glow`: faces of `light`-tagged blocks, drawn unlit (`MeshBasicMaterial`, AO kept) so lamps
  *   read as lit at every quality level, including `low` where no point light is cast.
+ * - `water` (M2-03): faces of `liquid`-tagged blocks, in their own mesh so the scene can give them
+ *   a wobble shader, and so glass and water never share a mesh (three.js sorts transparent
+ *   objects, not triangles, so mixing them in one mesh can blend in the wrong order).
  *
  * `meshChunk` returns one mesh holding every face; each quad is split into its bucket by the block
  * that emitted it (the cell half a unit behind the quad's center along its normal).
@@ -23,8 +26,11 @@ import { meshChunk } from "./mesher/voxel-grid";
 export const CHUNK_SIZE = 16;
 
 /** Which material a block's faces use. */
-export type Bucket = "opaque" | "transparent" | "glow";
-export const BUCKETS: readonly Bucket[] = ["opaque", "transparent", "glow"];
+export type Bucket = "opaque" | "transparent" | "glow" | "water";
+export const BUCKETS: readonly Bucket[] = ["opaque", "transparent", "glow", "water"];
+
+/** Buckets whose meshes never cast shadows (see-through faces). */
+const castsShadow = (bucket: Bucket): boolean => bucket !== "transparent" && bucket !== "water";
 
 /** `meshChunk`'s signature, so tests can count calls. */
 export type Mesher = typeof meshChunk;
@@ -143,7 +149,7 @@ export function createChunkStore(opts: ChunkStoreOptions): ChunkStore {
       if (!part) continue;
       const m = new THREE.Mesh(toGeometry(part), materials[bucket]);
       m.name = `chunk ${cx},${cy},${cz} ${bucket}`;
-      m.castShadow = shadows && bucket !== "transparent";
+      m.castShadow = shadows && castsShadow(bucket);
       m.receiveShadow = shadows;
       m.matrixAutoUpdate = false;
       m.updateMatrix();
@@ -188,7 +194,7 @@ export function createChunkStore(opts: ChunkStoreOptions): ChunkStore {
         for (const bucket of BUCKETS) {
           const m = chunk.meshes[bucket];
           if (!m) continue;
-          m.castShadow = on && bucket !== "transparent";
+          m.castShadow = on && castsShadow(bucket);
           m.receiveShadow = on;
         }
       }
@@ -211,7 +217,8 @@ export function splitByBucket(
   const quads = mesh.positions.length / 12;
   if (quads === 0) return {};
   const owner = new Uint8Array(quads);
-  const counts = [0, 0, 0];
+  const nb = BUCKETS.length;
+  const counts = new Array<number>(nb).fill(0);
   const cache = new Map<number, number>();
   const { positions: p, normals: n } = mesh;
   for (let q = 0; q < quads; q++) {
@@ -229,11 +236,11 @@ export function splitByBucket(
     counts[b]!++;
   }
   // One bucket: return the mesh as is.
-  for (let b = 0; b < 3; b++) {
+  for (let b = 0; b < nb; b++) {
     if (counts[b] === quads) return { [BUCKETS[b]!]: mesh };
   }
   const out: Partial<Record<Bucket, ChunkMesh>> = {};
-  for (let b = 0; b < 3; b++) {
+  for (let b = 0; b < nb; b++) {
     const count = counts[b]!;
     if (count === 0) continue;
     const part: ChunkMesh = {
