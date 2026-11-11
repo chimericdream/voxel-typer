@@ -40,7 +40,7 @@ Field legend: see the top of `tasks-m0-m1.md`.
 - **Depends on:** M4-01, M4-02
 - **PLAN refs:** §7.3, `README.md` §8.2
 - **Owns:** `src/content/mobs/bosses/*.{model.json,ts}`, `src/i18n/en/bosses.ts`
-- **Spec:** Cobble Colossus (meadow), Frost Wyrm (frosty), Mushroom Monarch (marsh), Sparkstone Sentinel (sparkstone), Sky Hydra (citadel), plus 4 original designs for birch, shore, mines, caverns (propose names in the handoff note, e.g. "Bramble Stag", "Tidecrab King", "Lantern Mole", "Prism Moth"; owner may rename). Large (20–40 parts), readable silhouettes, weak-point attachment points named in the model, `idle`/`windup`/`hit`/`phase`/`defeat`/`friendly` animations. Friendly, not scary (Sprout players fight them too).
+- **Spec:** Cobble Colossus (meadow), Frost Wyrm (frosty), Mushroom Monarch (marsh), Sparkstone Sentinel (sparkstone), Sky Hydra (citadel), plus 4 original designs with owner-approved names: Bramble Stag (birch), Tidecrab King (shore), Lantern Mole (mines), Prism Moth (caverns). The owner may rename them later, so display names live only in i18n. Large (20–40 parts), readable silhouettes, weak-point attachment points named in the model, `idle`/`windup`/`hit`/`phase`/`defeat`/`friendly` animations. Friendly, not scary (Sprout players fight them too).
 - **Acceptance:**
   - [ ] Model Lab screenshots of all 9; visual + IP review passes; reviewer confirms none are frightening.
 
@@ -54,7 +54,7 @@ Field legend: see the top of `tasks-m0-m1.md`.
 
 ### M5-05 Content for biomes 5–9 (lists, phrases, sentences)
 - **Size/Tier:** L / A · **Review:** required (child safety, reading level, originality)
-- **Depends on:** M1-10, M3-02
+- **Depends on:** M1-10, M3-02 (may start before M2-GATE; `task-graph.md` rule 4)
 - **PLAN refs:** §7.1, `README.md` §8.4–8.5
 - **Owns:** `src/content/wordlists/{mines,marsh,caverns,sparkstone,citadel}-*.txt`, `src/content/sentences/*.txt`, `src/content/wordlists/pools.ts` (append), `SOURCES.md` (append), `docs/review/content-m5.txt`
 - **Spec:**

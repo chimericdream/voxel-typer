@@ -98,12 +98,10 @@ Field legend: see the top of `tasks-m0-m1.md`.
 - **Acceptance:**
   - [ ] Budgets met per `contracts.md` §14 and `README.md` §8.6–8.7.
 
-### M6-11 Stretch (only if the owner asks)
-- **Size/Tier:** varies / B
-- Dvorak, Colemak, AZERTY, QWERTZ layout JSON (+ lessons remap: home row per layout — the curriculum is defined by **finger positions**, so `allowedKeysFor` must map through the layout; this is a real design task, write a short proposal first).
-- Tablet on-screen keyboard input (experimental flag).
-- Async "ghost" runs via exported files.
-- Teacher classroom CSV export across all local profiles.
+### M6-11 Deferred: classroom report
+- **Status:** deferred by the owner (`README.md` §8.14). Not part of v1. Do not start it unless the owner asks.
+- Cut entirely: extra keyboard layouts, tablet/touch input, async ghost runs.
+- If revived: a teacher-facing summary across all local profiles. If it becomes part of a product for schools, start with a design proposal (accounts, sync, school privacy requirements), because those change `PLAN.md` §6.7 and §11.
 
 ### M6-GATE (release)
 `PLAN.md` Phase 6 acceptance (with the Lighthouse PWA correction in `README.md` §8.6), owner sign-off on content (M6-08) and a final 👤 play session across bands. Tag `v1.0.0`.

@@ -17,7 +17,7 @@ Field legend: see the top of `tasks-m0-m1.md`.
 
 ### M3-02 Word lists for biomes 1–4
 - **Size/Tier:** L / A · **Review:** required (child safety + reading level)
-- **Depends on:** M1-10
+- **Depends on:** M1-10 (may start before M2-GATE; `task-graph.md` rule 4)
 - **PLAN refs:** §2, §7.1, `README.md` §8.4
 - **Owns:** `src/content/wordlists/{meadow,birch,shore,frosty}-*.txt`, `src/content/wordlists/theme-*.txt` (blocks, animals, colors, food, tools, nature), `src/content/wordlists/pools.ts` (append), `src/content/wordlists/SOURCES.md` (append)
 - **Spec:**

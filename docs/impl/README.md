@@ -57,9 +57,18 @@ Every task card has a **Size** (S ≈ under 300 changed lines, M ≈ 300–1000,
 | **B** | Well-specified feature work against frozen contracts | Either model |
 | **C** | Mechanical: data entry, glue, config, docs generation | Either model; cheapest acceptable |
 
-Tier A tasks are marked **Review: required**. If a Tier B task fails review twice, re-run it at Tier A.
+Tier A tasks are marked **Review: required**.
 
-Recommended concurrency is **3–4 workers at once**. More than that raises merge pressure on the few shared files and the gain flattens out.
+**DECISION (owner, 2026-11-10): model assignment.** The owner wants to try Fable 5.2 on the hardest work without spending it on routine tasks:
+
+| Model | Gets |
+|---|---|
+| **Fable 5.2** (marked ✦ in `task-graph.md`) | The 10 most complex cards: **M1-01** contracts (everything builds on them), **M1-03** typing session, the four big modes **M2-13** Mine, **M4-04** Night Defense, **M4-07** Builder, **M5-01** Minecart, the **M3-04** world map, and the three art-direction cards **M4-03** mobs, **M5-03** bosses, **M5-07** biomes 5–9 art |
+| **Opus 5.5** | Everything else: all other worker cards (including the large content-writing cards M3-02 and M5-05), the orchestrator, and all reviewers (a reviewer should be a different agent from the author anyway) |
+
+Escalation: if an Opus card fails review twice, re-run it on Fable and note it in `docs/decisions.md`. Don't move cards to Fable for any other reason without asking the owner.
+
+**DECISION (owner): at most 3 workers at once.** More would raise merge pressure on the few shared files.
 
 ---
 
@@ -240,7 +249,7 @@ Each milestone ends with a **gate task** (`M<N>-GATE`) owned by the orchestrator
 These were found while planning the execution. They are **DECISIONS** unless marked **ASK OWNER**. M0-02 copies them into `docs/decisions.md`.
 
 1. **Phase sequencing.** `PLAN.md` §8 says not to start a phase until the previous one is green. For multi-agent work, that rule now applies to **milestone gates and integration tasks**. Leaf tasks whose dependencies are merged may start early (for example, the word-list pipeline runs in parallel with the engine). The graph in `task-graph.md` encodes this.
-2. **Bosses.** §3.1 says each of the 9 biomes has a boss, but §7.3 names only 5. There are **9 boss slots**. The 5 named bosses go to Meadow (Cobble Colossus), Frosty Peaks (Frost Wyrm), Mushroom Marsh (Mushroom Monarch), Sparkstone Factory (Sparkstone Sentinel) and Sky Citadel (Sky Hydra). M5-03 designs 4 more original bosses for Birch Forest, Sandy Shore, Deep Mines and Crystal Caverns.
+2. **Bosses.** §3.1 says each of the 9 biomes has a boss, but §7.3 names only 5. There are **9 boss slots**. The 5 named bosses go to Meadow (Cobble Colossus), Frosty Peaks (Frost Wyrm), Mushroom Marsh (Mushroom Monarch), Sparkstone Factory (Sparkstone Sentinel) and Sky Citadel (Sky Hydra). The other 4 use names the owner approved for now: **Bramble Stag** (Birch Forest), **Tidecrab King** (Sandy Shore), **Lantern Mole** (Deep Mines) and **Prism Moth** (Crystal Caverns). M5-03 designs them.
 3. **Bosses before M5.** Biomes 1–4 ship in M3 but the boss framework is M5. Until then, each biome's final lesson is a **mastery check** in Mine mode, and the boss lesson exists in data with `mode: 'boss'` and falls back to Mine (see the mode fallback rule, `contracts.md` §7.3).
 4. **Home row.** Meadow introduces `a s d f j k l ;` and then `g h` (index-finger stretch) in its last lessons. Without `g` and `h`, there are too few real words for a whole biome. Bottom-row punctuation (`, . /`) stays in Crystal Caverns, as `PLAN.md` says.
 5. **Sparkstone Factory is a side branch.** It unlocks from Crystal Caverns for any band, is suggested only to Builder band, and is **not** required to unlock Sky Citadel.
@@ -250,13 +259,14 @@ These were found while planning the execution. They are **DECISIONS** unless mar
 9. **Fonts.** Default choices, each SIL OFL and self-hosted: **Pixelify Sans** (pixel headings/HUD), **Atkinson Hyperlegible** (body text, long words and sentences), **OpenDyslexic** (dyslexia toggle). M2-08 verifies each license from the font's own repository, commits the license files to `public/fonts/LICENSES/`, and records the source in `docs/decisions.md`. If any license is not OFL or similar, swap it for one that is and record why. No font is bought (buying is an **ASK OWNER** item).
 10. **Running TypeScript tools.** `tools/*.ts` run through `tsx` (dev dependency), not Node's built-in type stripping, so source files can use normal extension-less imports.
 11. **Determinism hooks.** Tests need fixed seeds, a frozen clock and a way to read game state. These are specified once in `contracts.md` §13 (URL debug params and `window.__vt`), stripped from production builds.
-12. **Owner answers (2026-11-10):** agents open a PR per task (§3); GitHub Actions should test as much as possible (M0-03); the game is self-hosted on the owner's Proxmox server for their kids (§8.13).
+12. **Owner answers (2026-11-10):** agents open a PR per task (§3); GitHub Actions should test as much as possible (M0-03); the game is self-hosted on the owner's Proxmox server for their kids (§8.13). The repo is **public**, so Actions minutes aren't a constraint: keep the full CI matrix (sharded e2e on every PR, nightly 3× flake runs). Model assignment and the 3-worker cap are in §2. The owner will make the GHCR package public when deployment starts (M0-05), so Watchtower needs no token.
 13. **Hosting (DECISION).** The same pipeline as the owner's home dashboard: GitHub Actions builds a container image and pushes it to GHCR; the Proxmox host runs it with Docker Compose (Debian LXC or small VM) and **Watchtower** pulls new images. It's pull-based, so the server needs no inbound access from GitHub. Specifics:
     - Image `ghcr.io/chimericdream/voxel-typer`: a static `dist/` served by an unprivileged web server (nginx or Caddy, alpine), with the security headers from M6-06 and correct caching (hashed assets immutable; `index.html`, `sw.js` and the manifest `no-cache`).
     - Tags: `:edge` + `:sha-<sha>` on every merge to `main`; `:stable` + `:m<N>` (later `:v1.x.y`) on milestone/release tags. **The kids' instance follows `:stable`**, so they only get builds that passed a milestone gate. An optional second container on `:edge` is for the owner to preview.
     - Packaging lands early (M0-05), so the owner can host the M2 slice for the go/no-go playtest.
     - **HTTPS is required, not optional.** Service workers (offline play, install), and `crypto.randomUUID()` only work in a secure context. Plain `http://192.168.x.x` would silently lose offline support. **Owner chose (a), Tailscale, on 2026-11-10.** The options were: (a) a Tailscale sidecar with `tailscale serve` HTTPS on a `*.ts.net` name, like the home dashboard (the kids' devices need Tailscale); (b) an existing reverse proxy on the LAN with a real domain and a DNS-01 Let's Encrypt certificate (no client setup; recommended if the owner has a domain); (c) Caddy's internal CA (each kid device must trust the root cert). Separately, the app must still work, minus offline/install, if it's ever opened over plain HTTP: every secure-context API is feature-detected, with a fallback (`contracts.md` §15 note).
     - Kids' devices on the LAN only. No ports exposed to the internet. This fits `PLAN.md` §6.7.
+14. **Scope cuts (owner, 2026-11-10).** Not in v1, and not to be built unless the owner asks again: Dvorak/Colemak/AZERTY/QWERTZ layouts, tablet/touch on-screen keyboard input, and async "ghost" runs. Layouts stay data-driven (`PLAN.md` §4.5) and en-US + en-GB still ship (M1-11), since that costs almost nothing. Touch devices get the friendly "keyboard required" message from `PLAN.md` §6.5 and nothing more. The **classroom report** (many profiles → CSV) is **deferred**: the owner may later turn this into a product for schools, which would bring its own design questions (accounts, sync, school privacy rules) that conflict with v1's local-only design. Don't build it, but don't make choices that block it: keep the per-profile CSV export (M3-11) and the export-all JSON (M1-09) clean and documented.
 
 ---
 
