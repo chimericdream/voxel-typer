@@ -1,0 +1,145 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "import", "jsx-a11y", "react", "oxc", "unicorn"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error"
+  },
+  "options": {
+    "typeAware": true
+  },
+  "env": {
+    "browser": true,
+    "es2024": true
+  },
+  "settings": {
+    "react": {
+      "version": "19.0"
+    }
+  },
+  "ignorePatterns": [
+    "dist/**",
+    "dist-test/**",
+    "coverage/**",
+    "test-results/**",
+    "playwright-report/**",
+    "tests/fixtures/purity/**"
+  ],
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "react/jsx-filename-extension": "off",
+    "react/no-unknown-property": "off",
+    "react/no-danger": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/consistent-type-imports": "error",
+    "no-console": [
+      "error",
+      {
+        "allow": ["warn", "error"]
+      }
+    ],
+    "import/no-unassigned-import": [
+      "error",
+      {
+        "allow": ["**/*.css"]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["tools/**", "tests/**", "*.config.ts"],
+      "env": {
+        "node": true
+      },
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      "files": [
+        "src/engine/**",
+        "src/content/**",
+        "src/render/mesher/**",
+        "src/render/atlas/recipes.ts",
+        "src/save/schema.ts",
+        "src/save/migrations.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["three", "three/*"],
+                "message": "Pure zone: no three.js here (docs/impl/contracts.md §0, PLAN.md §6.3)."
+              },
+              {
+                "group": ["preact", "preact/*", "@preact/*"],
+                "message": "Pure zone: no Preact here (docs/impl/contracts.md §0, PLAN.md §6.3)."
+              },
+              {
+                "group": ["idb", "idb/*"],
+                "message": "Pure zone: no IndexedDB wrappers here; persistence lives in src/save/store.ts."
+              },
+              {
+                "group": ["@/ui", "@/ui/*", "@/audio", "@/audio/*", "@/app", "@/app/*"],
+                "message": "Pure zone: may not import UI, audio or app-shell modules."
+              },
+              {
+                "group": [
+                  "@/render",
+                  "@/render/*",
+                  "!@/render/mesher",
+                  "!@/render/mesher/*",
+                  "!@/render/atlas/recipes"
+                ],
+                "message": "Pure zone: only @/render/mesher/* and @/render/atlas/recipes are pure; other render modules are off limits."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Pure zone: no DOM globals. Pass what you need in as a parameter."
+          },
+          {
+            "name": "document",
+            "message": "Pure zone: no DOM globals. Pass what you need in as a parameter."
+          },
+          {
+            "name": "navigator",
+            "message": "Pure zone: no DOM globals. Pass what you need in as a parameter."
+          },
+          {
+            "name": "localStorage",
+            "message": "Pure zone: no storage globals; persistence lives in src/save/store.ts."
+          },
+          {
+            "name": "indexedDB",
+            "message": "Pure zone: no storage globals; persistence lives in src/save/store.ts."
+          }
+        ],
+        "no-restricted-properties": [
+          "error",
+          {
+            "object": "Date",
+            "property": "now",
+            "message": "Pure zone: take time as a parameter (Clock / t: Ms)."
+          },
+          {
+            "object": "Math",
+            "property": "random",
+            "message": "Pure zone: take randomness as a parameter (Rng)."
+          },
+          {
+            "object": "performance",
+            "property": "now",
+            "message": "Pure zone: take time as a parameter (Clock / t: Ms)."
+          }
+        ]
+      }
+    }
+  ]
+}
