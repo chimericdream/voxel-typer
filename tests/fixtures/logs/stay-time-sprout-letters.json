@@ -1,0 +1,67 @@
+{
+  "name": "stay, time limit, case-insensitive letters: a pause and a repeated wrong key",
+  "why": [
+    "Targets: single letters f j d k (no trailing spaces). caseSensitive is false, so 'F' is accepted for 'f'.",
+    "Keys: F j, pause at 4000, resume at 9000, x x (both wrong for d, same position), d. The key k at 22000 arrives at the deadline and is not typed.",
+    "startedAtT = 2000. Active time at 22000 = (4000 - 2000) + (22000 - 9000) = 15000 = the limit, so the session ends there. activeMs = 15000, minutes = 0.25.",
+    "keystrokes = F j x x d = 5. correct = 3. errors = 2. accuracy = 3 / 5 = 0.6.",
+    "grossWpm = (3 / 5) / 0.25 = 2.4 = netWpm.",
+    "Latencies: every letter is the first char of its target; only d has an earlier key in its target (the second x at 11000), so 12000 - 11000 = 1000. One sample, so consistency = 0.",
+    "Streak: F j = 2, broken by x; d = 1. longestStreak = 2.",
+    "perKey d: the first x is an attempt and an error; the second x is a repeat at the same stay position and is not counted per key; d is a right attempt. So 2 attempts, 1 error.",
+    "No bigrams: every target is one char. targetsCompleted = 3 (f, j, d)."
+  ],
+  "snapshot": {
+    "version": 1,
+    "config": {
+      "policy": "stay",
+      "targeting": "sequential",
+      "caseSensitive": false,
+      "end": { "kind": "time", "ms": 15000 },
+      "lessonId": "meadow-01",
+      "mode": "daily",
+      "seed": 55
+    },
+    "initialTargets": [
+      { "id": "l1", "text": "f" },
+      { "id": "l2", "text": "j" },
+      { "id": "l3", "text": "d" },
+      { "id": "l4", "text": "k" }
+    ],
+    "log": [
+      { "k": "key", "input": { "key": "F", "t": 2000, "shift": true } },
+      { "k": "key", "input": { "key": "j", "t": 3000, "shift": false } },
+      { "k": "pause", "t": 4000 },
+      { "k": "resume", "t": 9000 },
+      { "k": "key", "input": { "key": "x", "t": 10000, "shift": false } },
+      { "k": "key", "input": { "key": "x", "t": 11000, "shift": false } },
+      { "k": "key", "input": { "key": "d", "t": 12000, "shift": false } },
+      { "k": "key", "input": { "key": "k", "t": 22000, "shift": false } }
+    ]
+  },
+  "expected": {
+    "summary": {
+      "lessonId": "meadow-01",
+      "mode": "daily",
+      "seed": 55,
+      "startedAtT": 2000,
+      "activeMs": 15000,
+      "keystrokes": 5,
+      "correct": 3,
+      "errors": 2,
+      "uncorrected": 0,
+      "grossWpm": 2.4,
+      "netWpm": 2.4,
+      "accuracy": 0.6,
+      "consistency": 0,
+      "perKey": {
+        "f": { "attempts": 1, "errors": 0, "latencies": [] },
+        "j": { "attempts": 1, "errors": 0, "latencies": [] },
+        "d": { "attempts": 2, "errors": 1, "latencies": [1000] }
+      },
+      "bigrams": {},
+      "longestStreak": 2,
+      "targetsCompleted": 3
+    }
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "name": "stay, sequential: three targets with two wrong keys",
+  "why": [
+    "Targets: w1 'as', w2 'sad', w3 'f'. w1 and w2 are words followed by another target, so each needs a trailing space; w3 is last.",
+    "Keys: x(wrong for a) a s space | s a f(wrong for d) d space | f. The last target completes and ends the session (end: targets).",
+    "startedAtT = 1000 (first key). The session ends on the key at 8500, so activeMs = 8500 - 1000 = 7500 and minutes = 7500 / 60000 = 0.125.",
+    "keystrokes = 10, correct = 8, errors = 2. accuracy = 8 / 10 = 0.8.",
+    "grossWpm = (8 / 5) / 0.125 = 12.8. uncorrected = 0 under stay, so netWpm = 12.8.",
+    "Latencies (time since the previous key in the same target; none for a target's first key): w1 a 500, s 500, space 500; w2 a 500, d 1000, space 1000. Six samples, under 10, so consistency = 0.",
+    "Streak: a s space s a = 5, broken by f, then d space f = 3. longestStreak = 5.",
+    "perKey counts one attempt per keystroke aimed at the char: a = wrong x + right a (w1) + right a (w2) = 3 attempts, 1 error. d = wrong f + right d = 2 attempts, 1 error.",
+    "bigrams are previous-expected-char + expected char inside one target: as, 's ', sa, ad (2 attempts, 1 error), 'd '."
+  ],
+  "snapshot": {
+    "version": 1,
+    "config": {
+      "policy": "stay",
+      "targeting": "sequential",
+      "caseSensitive": true,
+      "end": { "kind": "targets" },
+      "lessonId": "meadow-02",
+      "mode": "mine",
+      "seed": 11
+    },
+    "initialTargets": [
+      { "id": "w1", "text": "as" },
+      { "id": "w2", "text": "sad" },
+      { "id": "w3", "text": "f" }
+    ],
+    "log": [
+      { "k": "key", "input": { "key": "x", "t": 1000, "shift": false } },
+      { "k": "key", "input": { "key": "a", "t": 1500, "shift": false } },
+      { "k": "key", "input": { "key": "s", "t": 2000, "shift": false } },
+      { "k": "key", "input": { "key": " ", "t": 2500, "shift": false } },
+      { "k": "key", "input": { "key": "s", "t": 3000, "shift": false } },
+      { "k": "key", "input": { "key": "a", "t": 3500, "shift": false } },
+      { "k": "key", "input": { "key": "f", "t": 4500, "shift": false } },
+      { "k": "key", "input": { "key": "d", "t": 5500, "shift": false } },
+      { "k": "key", "input": { "key": " ", "t": 6500, "shift": false } },
+      { "k": "key", "input": { "key": "f", "t": 8500, "shift": false } }
+    ]
+  },
+  "expected": {
+    "summary": {
+      "lessonId": "meadow-02",
+      "mode": "mine",
+      "seed": 11,
+      "startedAtT": 1000,
+      "activeMs": 7500,
+      "keystrokes": 10,
+      "correct": 8,
+      "errors": 2,
+      "uncorrected": 0,
+      "grossWpm": 12.8,
+      "netWpm": 12.8,
+      "accuracy": 0.8,
+      "consistency": 0,
+      "perKey": {
+        "a": { "attempts": 3, "errors": 1, "latencies": [500, 500] },
+        "s": { "attempts": 2, "errors": 0, "latencies": [500] },
+        " ": { "attempts": 2, "errors": 0, "latencies": [500, 1000] },
+        "d": { "attempts": 2, "errors": 1, "latencies": [1000] },
+        "f": { "attempts": 1, "errors": 0, "latencies": [] }
+      },
+      "bigrams": {
+        "as": { "attempts": 1, "errors": 0, "latencies": [500] },
+        "s ": { "attempts": 1, "errors": 0, "latencies": [500] },
+        "sa": { "attempts": 1, "errors": 0, "latencies": [500] },
+        "ad": { "attempts": 2, "errors": 1, "latencies": [1000] },
+        "d ": { "attempts": 1, "errors": 0, "latencies": [1000] }
+      },
+      "longestStreak": 5,
+      "targetsCompleted": 3
+    }
+  }
+}
