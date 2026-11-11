@@ -1,0 +1,122 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+  box-sizing: border-box;
+  width: min(100%, calc(40rem * var(--text-scale)));
+  max-width: 100%;
+  padding: var(--sp-5);
+  border: var(--bevel-w) solid var(--c-panel-outline);
+  border-image: var(--bevel-panel, none) var(--bevel-slice) fill / var(--bevel-w) repeat;
+  background-color: var(--c-panel);
+  background-clip: padding-box;
+  color: var(--c-text);
+  text-align: center;
+  image-rendering: pixelated;
+}
+
+.message {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--c-text);
+  overflow-wrap: anywhere;
+}
+
+.aim {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  line-height: 1.3;
+  color: var(--c-text);
+}
+
+/* The badge: a toast-cheer plate with a notched pixel edge. */
+.best {
+  margin: 0;
+  padding: var(--sp-1) var(--sp-4);
+  border: 3px solid var(--c-toast-cheer-outline);
+  background-color: var(--c-toast-cheer);
+  color: var(--c-toast-cheer-text);
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  clip-path: polygon(
+    3px 0,
+    calc(100% - 3px) 0,
+    100% 3px,
+    100% calc(100% - 3px),
+    calc(100% - 3px) 100%,
+    3px 100%,
+    0 calc(100% - 3px),
+    0 3px
+  );
+  animation: best-pop calc(var(--t-slow) * var(--motion-ok)) steps(3, jump-end) both;
+  animation-delay: calc(1050ms * var(--motion-ok));
+}
+
+.loot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.lootHeading {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  color: var(--c-text);
+}
+
+.slots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.slot {
+  display: block;
+}
+
+.slots[data-animate] .slot {
+  animation: slot-fill calc(var(--t-med) * var(--motion-ok)) steps(3, jump-end) both;
+  animation-delay: calc((var(--i) * 350ms + 150ms) * var(--motion-ok));
+}
+
+.slot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+@keyframes slot-fill {
+  from {
+    opacity: 0;
+    scale: 0.4;
+  }
+
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes best-pop {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}

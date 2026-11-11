@@ -1,11 +1,5 @@
-/** App shell strings (task M2-10): coming soon, pause, stretch break, save notices. */
+/** App shell strings (task M2-10): loading, pause, stretch break, save notices. */
 export default {
-  comingSoon: {
-    title: "Coming soon!",
-    body: "We are still building this part of the world. Come back soon!",
-    back: "Go back",
-    start: "Back to the start",
-  },
   play: {
     loading: "Getting your world ready…",
   },

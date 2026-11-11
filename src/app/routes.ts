@@ -54,4 +54,10 @@ export type ScreenLoader = () => Promise<{ default: ComponentType<ScreenProps> }
  */
 export const screens: Partial<Record<RouteId, ScreenLoader>> = {
   // M2-11 and later screens: `splash: () => import("@/ui/screens/Splash"),`
+  splash: () => import("@/ui/screens/Splash"),
+  profiles: () => import("@/ui/screens/Profiles"),
+  profileCreate: () => import("@/ui/screens/ProfileCreate"),
+  lessonIntro: () => import("@/ui/screens/LessonIntro"),
+  results: () => import("@/ui/screens/Results"),
+  privacy: () => import("@/ui/screens/Privacy"),
 };

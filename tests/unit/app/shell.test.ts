@@ -199,4 +199,19 @@ describe("app shell", () => {
     s.shell.router.handle({ kind: "control", action: "confirm", t: 0 });
     expect(a).toHaveBeenCalledTimes(1);
   });
+
+  it("readOnlyProfiles: a NewerSaveError or a newerVersion load problem makes a profile read-only (M2-11)", async () => {
+    const s = setup();
+    const p = fixture("fresh-sprout");
+    expect(s.shell.api.readOnlyProfiles().size).toBe(0);
+    s.shell.onSaveProblem({ profileId: "other", kind: "newerVersion", message: "m" });
+    s.shell.onSaveProblem({ profileId: null, kind: "newerVersion", message: "m" });
+    s.shell.onSaveProblem({ profileId: "third", kind: "unreadable", message: "m" });
+    expect([...s.shell.api.readOnlyProfiles()]).toEqual(["other"]);
+    const save = vi.spyOn(s.store, "save").mockRejectedValueOnce(new NewerSaveError(p.id, 2));
+    expect(await s.shell.api.saveProfile(p)).toBe(false);
+    expect(s.shell.api.readOnlyProfiles().has(p.id)).toBe(true);
+    expect(await s.shell.api.saveProfile(p)).toBe(false);
+    expect(save).toHaveBeenCalledTimes(1);
+  });
 });

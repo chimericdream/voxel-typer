@@ -33,6 +33,11 @@ export interface AppApi {
    * Resolves false when nothing was written (for example a newer build owns this save).
    */
   saveProfile(p: Profile): Promise<boolean>;
+  /**
+   * Ids of profiles a newer build of the game wrote (`NewerSaveError`, or a `newerVersion` load
+   * problem). They are read-only for this session: shown, never saved over.
+   */
+  readOnlyProfiles(): ReadonlySet<string>;
   /** Every shipped lesson. */
   readonly lessons: readonly Lesson[];
   lesson(id: string): Lesson | null;
