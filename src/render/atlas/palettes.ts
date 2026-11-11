@@ -36,7 +36,8 @@ export const BASE_PALETTE: Palette = {
   water: ["#1d3f7a", "#24529a", "#2f67b5", "#4282cc", "#62a1de"],
   cloud: ["#a9b6c8", "#c3cddb", "#dae2ec", "#edf1f7", "#ffffff"],
   "ore-copper": ["#6b3a1f", "#95532b", "#bf713a", "#d9925a", "#efb98a"],
-  "ore-gem": ["#0f4d4a", "#17716b", "#20968c", "#3dbdb0", "#86e3d6"],
+  // Rose, not teal: grey stone with teal specks is too close to an iconic ore in another game.
+  "ore-gem": ["#5c1a3d", "#86285a", "#b03c7a", "#d6619c", "#f29ac4"],
   "ore-amber": ["#6b3f05", "#9a5e0a", "#c88412", "#e9a92a", "#fbd46a"],
   "ore-moon": ["#3b4766", "#56658c", "#7a8bb2", "#a5b5d6", "#d6e0f5"],
   crystal: ["#3b1f5e", "#55307f", "#7244a3", "#9466c4", "#bf98e2"],

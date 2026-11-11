@@ -78,8 +78,10 @@ extremism. We use no names from other games (`docs/impl/README.md` §4.5).
 
 - Under `# section: <category>`, a term blocks the **whole word and its common forms**: `-s`,
   `-es`, `-ed`, `-ing`, `-er`, `-ers`, `-y`, `-man`/`-men`, a doubled last consonant (`stab` →
-  "stabbing"), a dropped `e` (`bake` → "baking") and `y` → `ies`/`ied` (`army` → "armies"). List
-  only the base word. `ass` blocks "ass" and "asses" but not "glass".
+  "stabbing"), a dropped `e` (`bake` → "baking"), `-y` with the `e` kept (`gore` → "gorey") and
+  `y` → `ies`/`ied` (`army` → "armies"). List only the base word. `ass` blocks "ass" and "asses"
+  but not "glass". Forms the rules can't make (irregular past tenses like "fought", clipped
+  forms, compounds like "gunshot") need their own line.
 - Under `# section: <category> strict`, a term also blocks any word **containing** it. `shit` blocks
   "shitty". Use strict only for terms that never hide inside a harmless word. `stab` is not strict,
   because of "stable".
@@ -87,11 +89,17 @@ extremism. We use no names from other games (`docs/impl/README.md` §4.5).
 - Disguises don't get through. Before matching, the validator also reads each word with look-alike
   chars mapped back to letters (`1` as `i` or `l`, `3` `e`, `4` `a`, `0` `o`, `5` `s`, `7` `t`,
   `@` `a`, `$` `s`, `!` `i`, `|` `l`) and punctuation inside the word removed. So "k1ll", "k.i.l.l"
-  and "sh-it" are caught. Splitting a word with a space ("sh it") is not caught; reviewers watch for
-  that.
+  and "sh-it" are caught. Only tokens that mix letters with digits or symbols are rewritten. A
+  token with no letter and no `@ $ |` (`455`, `4:55`, `10!`) is a number, never a word. A common
+  contraction ("he'll", "we're", "can't") is split at the apostrophe, not joined. An apostrophe
+  inside any other word is still removed ("ki'll" is caught). Splitting a word with a space
+  ("sh it") is not caught; reviewers watch for that.
 - Under `# section: allow` (the last section) are ordinary words that a form of a term happens to
   spell, such as "butter" from `butt` + `er` and "brass" from `bras` + `s`. An allowed word cancels
-  only those derived hits. Add one only for a harmless word a child would read in a book.
+  only that derived hit (also when it is written with look-alikes). It never cancels a term
+  itself or a strict hit: the validator rejects an allow entry that is a term, contains a strict
+  term, or is not a form of any term. Add one only for a harmless word a child would read in a
+  book.
 
 If the validator blocks a word you think is fine, pick another word. Don't edit the blocklist to let
 it through. To add a term, put it in the right section. When unsure, add it.
