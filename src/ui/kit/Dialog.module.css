@@ -1,0 +1,79 @@
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  box-sizing: border-box;
+  width: min(36rem, calc(100% - var(--sp-5) * 2));
+  max-height: calc(100% - var(--sp-5) * 2);
+  margin: auto;
+  overflow: auto;
+  padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  border: var(--bevel-w) solid var(--c-panel-outline);
+  border-image: var(--bevel-panel, none) var(--bevel-slice) fill / var(--bevel-w) repeat;
+  background-color: var(--c-panel);
+  background-clip: padding-box;
+  color: var(--c-text);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  line-height: var(--lh);
+  image-rendering: pixelated;
+  animation: drop-in calc(var(--t-med) * var(--motion-ok)) steps(3) both;
+}
+
+.dialog::backdrop {
+  background: rgb(10 10 14 / 0.7);
+}
+
+.dialog:focus-visible {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+  line-height: 1.1;
+}
+
+.close {
+  flex: none;
+  padding: var(--sp-1) var(--sp-3);
+  border: var(--bevel-w) solid var(--c-button-outline);
+  border-image: var(--bevel-button, none) var(--bevel-slice) fill / var(--bevel-w) repeat;
+  background-color: var(--c-button);
+  background-clip: padding-box;
+  color: var(--c-button-text);
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  font-weight: 700;
+  image-rendering: pixelated;
+  cursor: pointer;
+}
+.close:active {
+  border-image-source: var(--bevel-button-pressed, none);
+}
+.close:focus-visible {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+  box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+@keyframes drop-in {
+  from {
+    transform: translateY(calc(var(--sp-4) * -1));
+  }
+}

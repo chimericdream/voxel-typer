@@ -1,0 +1,90 @@
+.slider {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 14rem;
+}
+
+.row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.label {
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  font-weight: 700;
+}
+
+.value {
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  font-weight: 700;
+}
+
+.input {
+  --h: calc(2.25rem * var(--text-scale));
+  --thumb: calc(var(--h) - var(--bevel-unit) * 2);
+
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--h);
+  margin: 0;
+  padding: 0 var(--bevel-unit);
+  border: var(--bevel-w) solid var(--c-track-outline);
+  /* No "fill": the face is the background, so the filled part shows. */
+  border-image: var(--bevel-track, none) var(--bevel-slice) / var(--bevel-w) repeat;
+  background-color: var(--c-track);
+  background-clip: padding-box;
+  /* The filled part of the track, in blocks. */
+  background-image: linear-gradient(var(--c-accent), var(--c-accent));
+  background-size: var(--pct, 0%) 50%;
+  background-position: left center;
+  background-repeat: no-repeat;
+  background-origin: content-box;
+  appearance: none;
+  image-rendering: pixelated;
+  cursor: pointer;
+}
+
+.input::-webkit-slider-runnable-track {
+  height: 100%;
+  background: transparent;
+}
+.input::-moz-range-track {
+  height: 100%;
+  background: transparent;
+}
+
+.input::-webkit-slider-thumb {
+  width: var(--thumb);
+  height: var(--thumb);
+  margin-top: calc((var(--h) - var(--bevel-w) * 2 - var(--thumb)) / 2);
+  border: var(--bevel-unit) solid var(--c-button-outline);
+  border-radius: 0;
+  background: var(--c-button);
+  box-shadow:
+    inset var(--bevel-unit) var(--bevel-unit) 0 var(--c-panel),
+    inset calc(var(--bevel-unit) * -1) calc(var(--bevel-unit) * -1) 0 var(--c-button-outline);
+  appearance: none;
+}
+.input::-moz-range-thumb {
+  width: var(--thumb);
+  height: var(--thumb);
+  border: var(--bevel-unit) solid var(--c-button-outline);
+  border-radius: 0;
+  background: var(--c-button);
+}
+
+.input:focus-visible {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+  box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
+}
+
+.input:disabled {
+  cursor: not-allowed;
+  filter: saturate(0.3);
+}
