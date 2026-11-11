@@ -1,0 +1,122 @@
+# Publishes the container image to GHCR (docs/impl/README.md §8.13, deploy/README.md).
+#
+# - After the CI workflow succeeds on a push to main: :edge and :sha-<short>.
+# - On a tag m<digit>* or v<digit>* (milestone gate or release): :stable and :<tag>. CI doesn't run on tags, so
+#   this job first checks that the tagged commit has a successful CI run from a push to main.
+#   Tag a commit only after its CI on main is green; if you tagged too early, re-run this job.
+#
+# The kids' server follows :stable through Watchtower, so only gated builds reach them.
+name: Publish image
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  push:
+    tags: ["m[0-9]*", "v[0-9]*"] # milestone (m0, m1, …) and release (v1.0.0) tags only
+
+permissions: {}
+
+concurrency:
+  # One publish per tag, and :edge publishes in order.
+  group: publish-${{ github.event_name == 'push' && github.ref || 'edge' }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  publish:
+    name: publish
+    # workflow_run: only a successful CI run from a push to main in this repo (never a PR or fork).
+    if: >-
+      github.event_name == 'push' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read # checkout
+      actions: read # look up CI runs for a tagged commit
+      packages: write # push to GHCR
+    steps:
+      - name: Work out the commit and tags
+        id: meta
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          TAG_SHA: ${{ github.sha }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = push ]; then
+            sha="$TAG_SHA"
+            passed="$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$sha&event=push&branch=main&status=success&per_page=1" --jq '.total_count')"
+            if [ "$passed" = 0 ]; then
+              echo "::error::Tag $TAG points at $sha, which has no successful CI run from a push to main. Tag a commit on main after its CI is green, or re-run this job once it is."
+              exit 1
+            fi
+            tags="$IMAGE:stable,$IMAGE:$TAG"
+            version="$TAG"
+          else
+            sha="$RUN_SHA"
+            short="${sha::7}"
+            tags="$IMAGE:sha-$short"
+            # CI runs can finish out of order. Only main's current head moves :edge, so an older
+            # commit's late run can't roll the preview back (it still gets its :sha- tag).
+            head="$(gh api "repos/$REPO/commits/main" --jq '.sha')"
+            if [ "$head" = "$sha" ]; then
+              tags="$tags,$IMAGE:edge"
+            else
+              echo "::notice::main has moved on to $head; publishing only :sha-$short, not :edge."
+            fi
+            version="sha-$short"
+          fi
+          {
+            echo "sha=$sha"
+            echo "tags=$tags"
+            echo "version=$version"
+            echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_OUTPUT"
+          echo "Publishing $sha as: $tags" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.meta.outputs.sha }}
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      # No QEMU: the Dockerfile builds dist/ on the runner's own platform and the final stage has
+      # no RUN, so the arm64 image is just the arm64 nginx base plus the same files.
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          pull: true
+          push: true
+          provenance: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.meta.outputs.sha }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            org.opencontainers.image.created=${{ steps.meta.outputs.created }}
+          annotations: |
+            index:org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            index:org.opencontainers.image.revision=${{ steps.meta.outputs.sha }}
+            index:org.opencontainers.image.version=${{ steps.meta.outputs.version }}
+            index:org.opencontainers.image.description=A voxel-world typing game for kids. Local-only, offline, no accounts.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

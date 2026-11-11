@@ -1,0 +1,13 @@
+# Allowlist: the build context holds only what `npm ci && npm run build` needs, plus the server
+# config. Nothing else (.git, node_modules, any .env file, tests, docs) reaches the image build.
+# If a new build input appears (for example a Vite plugin under tools/), add it here; the CI
+# `docker` job fails loudly until you do.
+*
+!package.json
+!package-lock.json
+!index.html
+!vite.config.ts
+!tsconfig*.json
+!src/
+!public/
+!deploy/nginx.conf
