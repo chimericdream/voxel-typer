@@ -52,6 +52,11 @@ export interface ParsedPoolFile {
   /** 1-based line of each tag, for messages. */
   tagLines: ReadonlyMap<string, number>;
   items: readonly ParsedItem[];
+  /**
+   * Comment lines (not tag lines), with the leading `#` removed. They ship in the bundle with the
+   * list, so the validator checks them against the blocklist too.
+   */
+  comments: readonly ParsedItem[];
   issues: readonly ParseIssue[];
 }
 
@@ -62,6 +67,7 @@ const isTagName = (s: string): s is TagName => (TAG_NAMES as readonly string[]).
  * Splits a list file into tags, items and structural issues. Never throws.
  *
  * - `\r\n` and `\r` count as line breaks, so a file saved with Windows line endings still works.
+ * - A leading byte-order mark (U+FEFF, which some Windows editors add) is ignored.
  * - Blank lines (or lines of only spaces) are skipped.
  * - `# tags: a=b c=d` lines set tags; they must come before the first item.
  * - Any other line starting with `#` is a comment.
@@ -71,13 +77,17 @@ export function parsePoolText(text: string): ParsedPoolFile {
   const tags = new Map<string, string>();
   const tagLines = new Map<string, number>();
   const items: ParsedItem[] = [];
+  const comments: ParsedItem[] = [];
   const issues: ParseIssue[] = [];
-  const lines = text.split(/\r\n|\r|\n/);
+  const lines = text.replace(/^﻿/, "").split(/\r\n|\r|\n/);
   for (const [i, raw] of lines.entries()) {
     const line = i + 1;
     if (raw.trim() === "") continue;
     if (raw.startsWith("#")) {
-      if (!TAGS_PREFIX.test(raw)) continue;
+      if (!TAGS_PREFIX.test(raw)) {
+        comments.push({ text: raw.slice(1), line });
+        continue;
+      }
       if (items.length > 0) {
         issues.push({ line, message: "tag lines must come before the first item" });
       }
@@ -104,7 +114,7 @@ export function parsePoolText(text: string): ParsedPoolFile {
     }
     items.push({ text: raw, line });
   }
-  return { tags, tagLines, items, issues };
+  return { tags, tagLines, items, comments, issues };
 }
 
 const isBand = (s: string | undefined): s is AgeBand | "all" =>

@@ -14,10 +14,16 @@
  *   - each item: no non-ASCII char; only the chars its kind, case and `keys` tag allow; no stray
  *     spaces; lowercase unless `case=mixed`; length within the band's bounds
  *   - duplicates within a pool, and across pools with the same `band`
- *   - blocklist hits: whole words for every term, substrings for the "strict" sections; the "ip"
- *     and "brands" sections are reported as trademark/IP terms
+ *   - blocklist hits ({@link blocklistHits}): every term and its common inflections as whole
+ *     words, substrings for the "strict" sections, and both again after look-alike digits and
+ *     punctuation are undone; the "ip" and "brands" sections are reported as trademark/IP terms
+ *   - comment lines: no blocklist hit and no non-ASCII char, because comments ship in the bundle
+ *     with the list (the raw import can't strip them without a build plugin)
  *   - registry: when the folder has `pools.ts`, its `POOL_IDS` and the `.txt` files match
  *   - the blocklist itself: valid sections, lowercase terms, no term listed twice
+ *
+ * The non-ASCII and blocklist checks run even when a file's tags are broken, so an author sees
+ * every safety problem at once.
  *
  * The validator and the blocklist are tools only. `src/content/wordlists/pools.ts` loads the lists
  * for the app and leaves `blocklist.txt` out, so neither reaches the browser bundle.
@@ -97,21 +103,33 @@ export interface BlockTerm {
 
 export interface Blocklist {
   terms: readonly BlockTerm[];
+  /**
+   * The `# section: allow` words: real, harmless words that an inflected or normalized form of a
+   * term happens to spell ("butter" from "butt" + "er"). They cancel those derived hits only. An
+   * item word that is exactly a term is always a hit.
+   */
+  allow: ReadonlySet<string>;
   /** Problems in the blocklist file itself. */
   problems: readonly Problem[];
 }
 
 const SECTION = /^#\s*section\s*:\s*(.*)$/i;
 const TERM = /^[a-z]+( [a-z]+)*$/;
+/** The section whose lines are allowed words, not terms. */
+export const ALLOW_SECTION = "allow";
 
 /** Parses blocklist text (format in the header of `src/content/wordlists/blocklist.txt`). */
 export function parseBlocklist(text: string, file = BLOCKLIST_NAME): Blocklist {
   const terms: BlockTerm[] = [];
+  const allow = new Set<string>();
   const problems: Problem[] = [];
   const seen = new Map<string, number>();
   let category: string | null = null;
   let strict = false;
-  for (const [i, raw] of text.split(/\r\n|\r|\n/).entries()) {
+  for (const [i, raw] of text
+    .replace(/^﻿/, "")
+    .split(/\r\n|\r|\n/)
+    .entries()) {
     const line = i + 1;
     const trimmed = raw.trim();
     if (trimmed === "") continue;
@@ -123,12 +141,13 @@ export function parseBlocklist(text: string, file = BLOCKLIST_NAME): Blocklist {
       if (
         !/^[a-z][a-z-]*$/.test(name) ||
         words.length > 2 ||
-        (flag !== undefined && flag !== "strict")
+        (flag !== undefined && flag !== "strict") ||
+        (name === ALLOW_SECTION && flag !== undefined)
       ) {
         problems.push({
           file,
           line,
-          message: `bad section line; use "# section: <category> [strict]"`,
+          message: `bad section line; use "# section: <category> [strict]" or "# section: allow"`,
         });
         category = null;
         continue;
@@ -156,13 +175,112 @@ export function parseBlocklist(text: string, file = BLOCKLIST_NAME): Blocklist {
       continue;
     }
     seen.set(raw, line);
-    terms.push({ term: raw, category, strict, line });
+    if (category === ALLOW_SECTION) allow.add(raw);
+    else terms.push({ term: raw, category, strict, line });
   }
-  return { terms, problems };
+  return { terms, allow, problems };
 }
 
 export function loadBlocklist(path = DEFAULT_BLOCKLIST): Blocklist {
   return parseBlocklist(readFileSync(path, "utf8"), displayPath(path));
+}
+
+const VOWELS = "aeiou";
+const isConsonant = (c: string): boolean => c >= "a" && c <= "z" && !VOWELS.includes(c);
+const PLAIN_SUFFIXES = ["ed", "ing", "er", "ers", "y"] as const;
+
+/**
+ * Common inflections and derivations of a term (not the term itself). A term with spaces is
+ * inflected on its last word ("self harm" → "self harming").
+ *
+ * - every term: `-s`, `-man`, `-men` (gun → guns, gunman, gunmen)
+ * - after s, x, z, ch, sh or o: `-es` (punch → punches)
+ * - ending in `ee`: `-d`, `-ing` (agree → agreed, agreeing)
+ * - ending in `ie`: `-d`, `-r`, `ie` → `ying` (die → died, dying)
+ * - ending in `e`: `-d`, `-r`, `-rs`, and the `e` dropped before `-ing` and `-y` (bake → baked,
+ *   baker, baking; gore → gory)
+ * - ending in consonant + `y`: `y` → `ies ied ier iers iest`, plus `-ing`, `-er` (bully → bullies)
+ * - anything else: `-ed -ing -er -ers -y`, and again with the last consonant doubled when the word
+ *   ends consonant-vowel-consonant (stab → stabbed, stabbing; slap → slapped)
+ */
+export function inflections(term: string): string[] {
+  const cut = term.lastIndexOf(" ") + 1;
+  const head = term.slice(0, cut);
+  const w = term.slice(cut);
+  const last = w.at(-1) ?? "";
+  const prev = w.at(-2) ?? "";
+  const prev2 = w.at(-3) ?? "";
+  const out = new Set<string>([`${w}s`, `${w}man`, `${w}men`]);
+  if (/(s|x|z|ch|sh|o)$/.test(w)) out.add(`${w}es`);
+  if (w.endsWith("ee")) {
+    out.add(`${w}d`);
+    out.add(`${w}ing`);
+  } else if (w.endsWith("ie")) {
+    out.add(`${w}d`);
+    out.add(`${w}r`);
+    out.add(`${w.slice(0, -2)}ying`);
+  } else if (w.endsWith("e")) {
+    const stem = w.slice(0, -1);
+    for (const s of ["d", "r", "rs"]) out.add(w + s);
+    for (const s of ["ing", "y"]) out.add(stem + s);
+  } else if (last === "y" && isConsonant(prev)) {
+    const stem = w.slice(0, -1);
+    for (const s of ["ies", "ied", "ier", "iers", "iest"]) out.add(stem + s);
+    out.add(`${w}ing`);
+    out.add(`${w}er`);
+  } else {
+    for (const s of PLAIN_SUFFIXES) out.add(w + s);
+    const cvc =
+      isConsonant(last) &&
+      !"wxy".includes(last) &&
+      prev !== "" &&
+      VOWELS.includes(prev) &&
+      (prev2 === "" || isConsonant(prev2));
+    if (cvc) for (const s of PLAIN_SUFFIXES) out.add(w + last + s);
+  }
+  out.delete(w);
+  return [...out].map((f) => head + f);
+}
+
+interface Matcher {
+  /** Single-word terms. */
+  exact: Map<string, BlockTerm>;
+  /** Inflections of single-word terms (the first term in the file wins). */
+  derived: Map<string, BlockTerm>;
+  /** Terms with spaces, and their inflections. */
+  phrases: { form: string; term: BlockTerm; derived: boolean }[];
+  strict: BlockTerm[];
+  allow: ReadonlySet<string>;
+}
+
+const matchers = new WeakMap<Blocklist, Matcher>();
+
+function matcherFor(blocklist: Blocklist): Matcher {
+  const cached = matchers.get(blocklist);
+  if (cached) return cached;
+  const m: Matcher = {
+    exact: new Map(),
+    derived: new Map(),
+    phrases: [],
+    strict: blocklist.terms.filter((t) => t.strict),
+    allow: blocklist.allow,
+  };
+  for (const t of blocklist.terms) {
+    if (t.term.includes(" ")) {
+      m.phrases.push({ form: t.term, term: t, derived: false });
+      for (const form of inflections(t.term)) m.phrases.push({ form, term: t, derived: true });
+    } else if (!m.exact.has(t.term)) {
+      m.exact.set(t.term, t);
+    }
+  }
+  for (const t of blocklist.terms) {
+    if (t.term.includes(" ")) continue;
+    for (const form of inflections(t.term)) {
+      if (!m.exact.has(form) && !m.derived.has(form)) m.derived.set(form, t);
+    }
+  }
+  matchers.set(blocklist, m);
+  return m;
 }
 
 /** Lowercase a-z words of `item`; every other char separates words ("it's" → it, s). */
@@ -172,17 +290,71 @@ export const wordsOf = (item: string): string[] =>
     .split(/[^a-z]+/)
     .filter((w) => w !== "");
 
+/** Look-alike chars mapped to letters inside a word. `1` is tried as both `i` and `l`. */
+const LOOKALIKES: Readonly<Record<string, string>> = {
+  "0": "o",
+  "3": "e",
+  "4": "a",
+  "5": "s",
+  "7": "t",
+  "@": "a",
+  $: "s",
+  "!": "i",
+  "|": "l",
+};
+
 /**
- * The blocklist terms `item` hits. Every term matches as whole words (a term with spaces matches
- * those words in a row). Strict terms also match inside any single word, never across a space,
- * so "has hit" does not hit "shit".
+ * The words of `item` with disguises undone: split on spaces only, punctuation trimmed from the
+ * ends of each word, look-alikes inside it mapped to letters (`sh1t`, `k1ll`, `a$$`), and any
+ * other punctuation inside it removed (`k.i.l.l`, `sh-it`). Two variants: `1` read as `i`, and
+ * as `l`.
+ */
+export function normalizedWords(item: string): string[][] {
+  const tokens = item
+    .toLowerCase()
+    .split(/\s+/)
+    .map((t) => t.replace(/^[^a-z0-9@$]+|[^a-z0-9@$]+$/g, ""));
+  return (["i", "l"] as const).map((one) =>
+    tokens
+      .map((t) => t.replace(/[^a-z]/g, (c) => (c === "1" ? one : (LOOKALIKES[c] ?? ""))))
+      .filter((w) => w !== ""),
+  );
+}
+
+function collectHits(words: readonly string[], m: Matcher, found: Set<BlockTerm>): void {
+  for (const w of words) {
+    const exact = m.exact.get(w);
+    if (exact) found.add(exact);
+    if (m.allow.has(w)) continue;
+    const derived = m.derived.get(w);
+    if (derived) found.add(derived);
+    for (const t of m.strict) if (w.includes(t.term)) found.add(t);
+  }
+  if (m.phrases.length === 0) return;
+  const spaced = ` ${words.join(" ")} `;
+  for (const p of m.phrases) {
+    if (!spaced.includes(` ${p.form} `)) continue;
+    if (p.derived && m.allow.has(p.form)) continue;
+    found.add(p.term);
+  }
+}
+
+/**
+ * The blocklist terms `item` hits, in blocklist order.
+ *
+ * - Every term matches as a whole word, and so do its {@link inflections} ("shoot" blocks
+ *   "shooting"). A term with spaces matches those words in a row.
+ * - Strict terms also match inside any single word, but never across a space.
+ * - The checks run on the plain words and again on the {@link normalizedWords}, with look-alike
+ *   digits and punctuation undone.
+ * - A word in the `allow` section is never a derived or strict hit, only an exact one.
  */
 export function blocklistHits(item: string, blocklist: Blocklist): BlockTerm[] {
-  const words = wordsOf(item);
-  const spaced = ` ${words.join(" ")} `;
-  return blocklist.terms.filter(
-    (t) => spaced.includes(` ${t.term} `) || (t.strict && words.some((w) => w.includes(t.term))),
-  );
+  const m = matcherFor(blocklist);
+  const found = new Set<BlockTerm>();
+  collectHits(wordsOf(item), m, found);
+  for (const words of normalizedWords(item)) collectHits(words, m, found);
+  return blocklist.terms.filter((t) => found.has(t));
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -309,7 +481,20 @@ function checkTags(
   return { band, kind, mixed: caseTag === "mixed", keys };
 }
 
-/** Checks one item's chars, spacing, case and length. */
+/** The non-ASCII and control chars of `text`, as `U+XXXX`, each once. */
+function nonAsciiOf(text: string): string[] {
+  // Whole code points (the `u` flag), so an emoji is reported as one char.
+  return [...new Set(text.match(/[^ -~]/gu) ?? [])].map(hex);
+}
+
+/** How a problem message names a blocklist hit. */
+function describeHit(hit: BlockTerm): string {
+  return IP_CATEGORIES.has(hit.category)
+    ? `is a trademark/IP term ("${hit.term}", ${hit.category})`
+    : `is on the blocklist ("${hit.term}", ${hit.category}${hit.strict ? ", strict" : ""})`;
+}
+
+/** Checks one ASCII item's chars, spacing, case and length. */
 function checkItem(
   text: string,
   line: number,
@@ -320,15 +505,6 @@ function checkItem(
   const push = (message: string): void => {
     problems.push({ file, line, message });
   };
-  // Whole code points (the `u` flag), so an emoji is reported as one char.
-  const nonAscii = text.match(/[^ -~]/gu) ?? [];
-  if (nonAscii.length > 0) {
-    push(
-      `"${text}" has non-ASCII or control chars (${[...new Set(nonAscii)].map(hex).join(", ")}); ` +
-        "type them as plain a-z",
-    );
-    return;
-  }
   if (text !== text.trim()) push(`"${text}" starts or ends with a space`);
   if (text.includes("  ")) push(`"${text}" has two spaces in a row`);
 
@@ -403,21 +579,46 @@ export function validateWordlists(opts: ValidateOptions = {}): ValidateResult {
     const parsed = parsePoolText(readFileSync(abs, "utf8"));
     for (const issue of parsed.issues) problems.push({ file, ...issue });
     const settings = checkTags(parsed, file, problems);
-    if (parsed.items.length === 0)
+    if (parsed.items.length === 0) {
       problems.push({ file, line: 0, message: "the list has no items" });
-    if (settings === null) continue;
+    }
 
-    const seen = seenByBand.get(settings.band) ?? new Map<string, { file: string; line: number }>();
-    seenByBand.set(settings.band, seen);
+    // Comments ship in the bundle with the list (the raw import keeps them), so check them too.
+    for (const { text, line } of parsed.comments) {
+      const bad = nonAsciiOf(text);
+      if (bad.length > 0) {
+        problems.push({ file, line, message: `comment has non-ASCII chars (${bad.join(", ")})` });
+      }
+      for (const hit of blocklistHits(text, blocklist)) {
+        problems.push({
+          file,
+          line,
+          message: `comment ${describeHit(hit)}; comments ship with the list, so reword it`,
+        });
+      }
+    }
+
+    const seen = settings
+      ? (seenByBand.get(settings.band) ?? new Map<string, { file: string; line: number }>())
+      : null;
+    if (settings && seen) seenByBand.set(settings.band, seen);
     for (const { text, line } of parsed.items) {
       items++;
-      checkItem(text, line, file, settings, problems);
-      for (const hit of blocklistHits(text, blocklist)) {
-        const what = IP_CATEGORIES.has(hit.category)
-          ? `is a trademark/IP term ("${hit.term}", ${hit.category})`
-          : `is on the blocklist ("${hit.term}", ${hit.category}${hit.strict ? ", strict" : ""})`;
-        problems.push({ file, line, message: `"${text}" ${what}` });
+      // The safety checks run even when the tags are broken, so an author sees every hit at once.
+      const bad = nonAsciiOf(text);
+      if (bad.length > 0) {
+        problems.push({
+          file,
+          line,
+          message: `"${text}" has non-ASCII or control chars (${bad.join(", ")}); type them as plain a-z`,
+        });
+      } else if (settings) {
+        checkItem(text, line, file, settings, problems);
       }
+      for (const hit of blocklistHits(text, blocklist)) {
+        problems.push({ file, line, message: `"${text}" ${describeHit(hit)}` });
+      }
+      if (!settings || !seen) continue;
       const key = text.toLowerCase();
       const first = seen.get(key);
       if (first === undefined) {
