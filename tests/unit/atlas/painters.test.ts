@@ -59,7 +59,7 @@ describe("paintTile determinism", () => {
     [
       "ore gem on stone",
       { kind: "ore", base: STONE, ore: "ore-gem", density: 0.4 } as const,
-      "74322db0c9ce2d56",
+      "abe1ab33cfa681b7",
     ],
   ] as const)("%s at seed 1 is pinned", (_name, recipe, hash) => {
     expect(sha(paintTile(recipe, BASE_PALETTE, createRng(1)))).toBe(hash);

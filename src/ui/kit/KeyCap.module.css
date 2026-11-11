@@ -1,0 +1,48 @@
+.key {
+  --cap: calc(3.5rem * var(--text-scale));
+
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: var(--cap);
+  height: var(--cap);
+  padding: 0 var(--sp-2);
+  border: var(--bevel-w) solid var(--c-keycap-outline);
+  border-image: var(--bevel-keycap, none) var(--bevel-slice) fill / var(--bevel-w) repeat;
+  background-color: var(--c-keycap);
+  background-clip: padding-box;
+  color: var(--c-keycap-text);
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1;
+  image-rendering: pixelated;
+}
+
+.key[data-size="lg"] {
+  --cap: calc(5.5rem * var(--text-scale));
+
+  font-size: calc(var(--fs-key) * 1.5 * var(--text-scale));
+}
+
+.key[data-wide] {
+  min-width: calc(var(--cap) * 2.5);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+}
+
+.key[data-pressed] {
+  border-image-source: var(--bevel-keycap-pressed, none);
+}
+.key[data-pressed] .glyph {
+  transform: translateY(var(--bevel-unit));
+}
+
+.bump {
+  width: 35%;
+  height: var(--bevel-unit);
+  margin-top: var(--bevel-unit);
+  background: currentcolor;
+}
