@@ -1,0 +1,455 @@
+# Every check is its own job with a stable name. Branch protection requires only `ci-ok`.
+# Jobs whose inputs don't exist yet pass trivially and switch on when the files appear
+# (see docs/ci.md, "How the dormant jobs switch on").
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Used by update-snapshots.yml: commits pushed with GITHUB_TOKEN don't start workflows,
+  # so it dispatches this workflow on the PR branch to put fresh checks on the new head.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  FORCE_COLOR: "1"
+  # Coverage thresholds stay off until M1-GATE: `gh variable set COVERAGE_THRESHOLDS --body 1`
+  # (or flip `enforceThresholds` in vitest.config.ts).
+  COVERAGE_THRESHOLDS: ${{ vars.COVERAGE_THRESHOLDS }}
+
+jobs:
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      # Oxlint (incl. purity zones), oxfmt --check, tools/check-*.ts guard scripts.
+      - run: npm run lint
+
+  unit:
+    name: unit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run test:cov
+      - name: Coverage summary
+        if: ${{ !cancelled() && hashFiles('coverage/coverage-summary.json') != '' }}
+        run: |
+          node --input-type=module <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import { readFileSync } from "node:fs";
+          const summary = JSON.parse(readFileSync("coverage/coverage-summary.json", "utf8"));
+          const keys = ["lines", "statements", "functions", "branches"];
+          const pct = (c, t) => (t === 0 ? "n/a" : `${((100 * c) / t).toFixed(1)}%`);
+          const areas = new Map();
+          for (const [file, m] of Object.entries(summary)) {
+            if (file === "total") continue;
+            const rel = file.replaceAll("\\", "/").replace(/^.*?\/(src\/)/, "$1");
+            const area = rel.split("/").slice(0, 2).join("/");
+            const a = areas.get(area) ?? Object.fromEntries(keys.map((k) => [k, { covered: 0, total: 0 }]));
+            for (const k of keys) {
+              a[k].covered += m[k].covered;
+              a[k].total += m[k].total;
+            }
+            areas.set(area, a);
+          }
+          const row = (name, m) => `| ${name} | ${keys.map((k) => pct(m[k].covered, m[k].total)).join(" | ")} |`;
+          console.log("### Unit test coverage\n");
+          console.log(`| Area | ${keys.join(" | ")} |`);
+          console.log(`|---|${keys.map(() => "--:").join("|")}|`);
+          console.log(row("**total**", summary.total));
+          for (const [area, m] of [...areas].sort(([a], [b]) => a.localeCompare(b))) console.log(row(area, m));
+          console.log(`\nThresholds enforced: ${process.env.COVERAGE_THRESHOLDS === "1" ? "yes" : "no (until M1-GATE)"}`);
+          EOF
+      - name: Upload coverage report
+        if: ${{ !cancelled() && hashFiles('coverage/**') != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage
+          path: coverage/
+          retention-days: 14
+
+  content:
+    name: content
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Content checks
+        run: |
+          set -uo pipefail
+          status=0
+          {
+            echo "### Content checks"
+            echo
+            echo "| Check | Result |"
+            echo "|---|---|"
+          } >> "$GITHUB_STEP_SUMMARY"
+          report() { echo "| $1 | $2 |" >> "$GITHUB_STEP_SUMMARY"; }
+          run_tool() { # run_tool <label> <tool name>
+            echo "::group::$1 (tools/$2.ts)"
+            if npm run --silent tool -- "$2"; then report "$1" "pass"; else report "$1" "**FAIL**"; status=1; fi
+            echo "::endgroup::"
+          }
+
+          # 1. Every JSON file under src/ must parse (block/mob/model data, layouts, ...).
+          mapfile -t json < <(git ls-files 'src/**/*.json' 'src/*.json')
+          if [ "${#json[@]}" -eq 0 ]; then
+            report "JSON syntax (src/**/*.json)" "skipped: no JSON files yet"
+          elif node --input-type=module - "${json[@]}" <<'EOF'
+          import { readFileSync } from "node:fs";
+          let bad = 0;
+          for (const f of process.argv.slice(2)) {
+            try { JSON.parse(readFileSync(f, "utf8")); } catch (e) { bad++; console.log(`::error file=${f}::${e.message}`); }
+          }
+          process.exit(bad ? 1 : 0);
+          EOF
+          then
+            report "JSON syntax (${#json[@]} files)" "pass"
+          else
+            report "JSON syntax" "**FAIL**"; status=1
+          fi
+
+          # 2. Every tools/validate-*.ts (word lists, curriculum, block/mob/model schemas, ...).
+          shopt -s nullglob
+          validators=(tools/validate-*.ts)
+          if [ "${#validators[@]}" -eq 0 ]; then report "validators (tools/validate-*.ts)" "skipped: none yet"; fi
+          for f in "${validators[@]}"; do n="$(basename "$f" .ts)"; run_tool "$n" "$n"; done
+
+          # 3. i18n missing/unused keys.
+          if [ -f tools/i18n-keys.ts ]; then run_tool "i18n keys" i18n-keys; else report "i18n keys" "skipped: tools/i18n-keys.ts not present yet"; fi
+
+          # 4. docs/curriculum.md is generated and must be up to date.
+          if [ -f tools/gen-curriculum-doc.ts ]; then
+            run_tool "curriculum doc generator" gen-curriculum-doc
+            if [ -n "$(git status --porcelain -- docs/curriculum.md)" ]; then
+              git --no-pager diff --stat -- docs/curriculum.md
+              echo "::error file=docs/curriculum.md::docs/curriculum.md is stale. Run 'npm run tool -- gen-curriculum-doc' and commit it."
+              report "docs/curriculum.md up to date" "**FAIL** (stale)"; status=1
+            else
+              report "docs/curriculum.md up to date" "pass"
+            fi
+          else
+            report "docs/curriculum.md up to date" "skipped: tools/gen-curriculum-doc.ts not present yet"
+          fi
+          exit "$status"
+
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write # the sticky bundle-size comment
+    outputs:
+      playwright: ${{ steps.pw.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Playwright version (picks the e2e container image)
+        id: pw
+        run: echo "version=$(node -p 'require("./node_modules/@playwright/test/package.json").version')" >> "$GITHUB_OUTPUT"
+      - run: npm run build
+      - name: Bundle size
+        id: size
+        # Writes the table to the job summary itself. The exit code is kept so the comment is
+        # posted even when a budget is breached; the last step fails the job.
+        run: |
+          set +e
+          npm run size -- --markdown size.md
+          echo "status=$?" >> "$GITHUB_OUTPUT"
+      - name: Sticky bundle-size PR comment
+        if: ${{ !cancelled() && hashFiles('size.md') != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          BRANCH: ${{ github.ref_name }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          SIZE_STATUS: ${{ steps.size.outputs.status }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = pull_request ]; then
+            if [ "$HEAD_REPO" != "$REPO" ]; then echo "Fork PR: the token can't comment. Skipping."; exit 0; fi
+            pr="$PR_NUMBER"
+          elif [ "$EVENT" = workflow_dispatch ]; then
+            pr="$(gh api "repos/$REPO/pulls?state=open&head=${REPO%%/*}:$BRANCH" --jq '.[0].number // empty')"
+          else
+            pr=""
+          fi
+          if [ -z "$pr" ]; then echo "No open PR for this run. Skipping the comment."; exit 0; fi
+          marker='<!-- voxel-typer:bundle-size -->'
+          verdict="within budget"; [ "$SIZE_STATUS" = 0 ] || verdict="**OVER BUDGET**"
+          {
+            echo "$marker"
+            cat size.md
+            echo
+            echo "**Result: $verdict.**"
+            echo
+            echo "<sub>Commit ${SHA:0:7}. Budgets: docs/impl/contracts.md §14. Updated in place on every run.</sub>"
+          } > comment.md
+          id="$(gh api --paginate "repos/$REPO/issues/$pr/comments" \
+            --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$marker\"))) | .id" | head -n1)"
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$id" -F body=@comment.md > /dev/null
+            echo "Updated comment $id on #$pr"
+          else
+            gh api -X POST "repos/$REPO/issues/$pr/comments" -F body=@comment.md > /dev/null
+            echo "Created the comment on #$pr"
+          fi
+      - name: Upload dist
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/
+          include-hidden-files: true # dist/.vite/manifest.json
+          retention-days: 7
+      - name: Build for e2e (dist-test/)
+        run: npm run build:test
+      - name: Upload dist-test
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-test
+          path: dist-test/
+          include-hidden-files: true
+          retention-days: 7
+      - name: Fail on a budget breach
+        if: ${{ steps.size.outputs.status != '0' }}
+        run: |
+          echo "::error::Bundle size budget breached (see the table in the job summary)."
+          exit 1
+
+  e2e:
+    name: e2e (${{ matrix.shard }}/3)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    container:
+      # Same image as `npm run e2e:docker`; the tag follows the installed @playwright/test.
+      image: mcr.microsoft.com/playwright:v${{ needs.build.outputs.playwright }}-noble
+      options: --ipc=host --init
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    env:
+      CI: "1"
+      E2E_SKIP_BUILD: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          cache: npm # uses the image's Node; only sets up the npm cache
+      - run: npm ci --no-audit --no-fund
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist-test
+          path: dist-test
+      # Includes axe checks and screenshot comparisons (CI=1 turns them on).
+      - run: npx playwright test --shard=${{ matrix.shard }}/3 --pass-with-no-tests
+      - name: Upload HTML report and traces
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report-${{ matrix.shard }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+      - name: Upload blob report
+        if: ${{ !cancelled() && hashFiles('blob-report/**') != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: blob-report-${{ matrix.shard }}
+          path: blob-report/
+          retention-days: 7
+
+  docker:
+    name: docker
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: No Dockerfile yet
+        if: ${{ hashFiles('Dockerfile') == '' }}
+        run: |
+          echo "::notice::No Dockerfile yet (M0-05). Skipping the image checks."
+          echo "docker: skipped, no Dockerfile yet (M0-05)." >> "$GITHUB_STEP_SUMMARY"
+      - name: Download dist (tells us whether a service worker is expected)
+        if: ${{ hashFiles('Dockerfile') != '' }}
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: ci-dist
+      - name: Build image (not pushed)
+        if: ${{ hashFiles('Dockerfile') != '' }}
+        run: docker build --pull -t voxel-typer:ci .
+      - name: Run image and check responses
+        if: ${{ hashFiles('Dockerfile') != '' }}
+        run: |
+          set -euo pipefail
+          fail=0
+          err() { echo "::error::$1"; fail=1; }
+          user="$(docker image inspect -f '{{.Config.User}}' voxel-typer:ci)"
+          case "$user" in ""|root|0|0:*) err "Image runs as root (USER is '${user:-unset}')";; esac
+          [ "$(docker image inspect -f '{{if .Config.Healthcheck}}yes{{end}}' voxel-typer:ci)" = yes ] || err "Image has no HEALTHCHECK"
+
+          docker run -d --name vt -p 8080:8080 voxel-typer:ci > /dev/null
+          for _ in $(seq 1 30); do curl -fsS -o /dev/null http://127.0.0.1:8080/ && break; sleep 1; done
+
+          get() { curl -sS -o /dev/null -D - -w '%{http_code}' "http://127.0.0.1:8080$1" | tr -d '\r'; }
+          header() { grep -i "^$1:" <<<"$2" | head -n1 | cut -d: -f2- | sed 's/^ *//'; }
+          status() { tail -n1 <<<"$1"; }
+
+          root="$(get /)"
+          echo "::group::GET /"; echo "$root"; echo "::endgroup::"
+          [ "$(status "$root")" = 200 ] || err "/ returned $(status "$root")"
+          grep -qi 'no-cache' <<<"$(header Cache-Control "$root")" || err "/ (index.html) lacks Cache-Control: no-cache"
+          [ "$(header X-Content-Type-Options "$root")" = nosniff ] || err "missing X-Content-Type-Options: nosniff"
+          [ "$(header Referrer-Policy "$root")" = no-referrer ] || err "missing Referrer-Policy: no-referrer"
+          [ "$(header Cross-Origin-Opener-Policy "$root")" = same-origin ] || err "missing Cross-Origin-Opener-Policy: same-origin"
+          csp="$(header Content-Security-Policy "$root")"
+          [ -n "$csp" ] || err "missing Content-Security-Policy header"
+          grep -q "frame-ancestors 'none'" <<<"$csp" || err "CSP header lacks frame-ancestors 'none'"
+          pp="$(header Permissions-Policy "$root")"
+          for f in camera microphone geolocation; do grep -q "$f=()" <<<"$pp" || err "Permissions-Policy doesn't deny $f"; done
+
+          spa="$(get /no/such/route)"
+          [ "$(status "$spa")" = 200 ] || err "SPA fallback: /no/such/route returned $(status "$spa")"
+
+          asset="$(curl -fsS http://127.0.0.1:8080/ | grep -oE '/assets/[^"]+\.js' | head -n1 || true)"
+          if [ -n "$asset" ]; then
+            a="$(get "$asset")"
+            [ "$(status "$a")" = 200 ] || err "$asset returned $(status "$a")"
+            grep -qi immutable <<<"$(header Cache-Control "$a")" || err "$asset lacks Cache-Control: immutable"
+          else
+            err "index.html references no /assets/*.js"
+          fi
+
+          if [ -f ci-dist/sw.js ]; then
+            sw="$(get /sw.js)"
+            [ "$(status "$sw")" = 200 ] || err "/sw.js returned $(status "$sw")"
+            grep -qi javascript <<<"$(header Content-Type "$sw")" || err "/sw.js is not served as JavaScript"
+            grep -qi 'no-cache' <<<"$(header Cache-Control "$sw")" || err "/sw.js lacks Cache-Control: no-cache"
+          else
+            echo "::notice::dist/ has no sw.js yet. Skipping the service worker check."
+          fi
+
+          if [ "$fail" = 0 ]; then echo "docker: image built and served with the expected headers." >> "$GITHUB_STEP_SUMMARY"; fi
+          exit "$fail"
+      - name: Container logs
+        if: ${{ failure() && hashFiles('Dockerfile') != '' }}
+        run: docker logs vt || true
+
+  deps:
+    name: deps
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write # dependency-review-action comments on failure
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      # Only runtime deps ship to the kids' browsers; build tools are devDependencies.
+      - run: npm audit --omit=dev --audit-level=high
+      # dependency-review-action needs the repo's dependency graph. Until the owner turns it on
+      # (docs/ci.md), the step is skipped with a warning; it starts running once the graph is on.
+      - name: Is the dependency graph on?
+        id: graph
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          if gh api "repos/$REPO/dependency-graph/sbom" --silent 2> /dev/null; then
+            echo "on=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "on=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::The dependency graph is off, so dependency review is skipped. Turn it on under Settings → Advanced Security (see docs/ci.md)."
+            echo "Dependency review skipped: the repo's dependency graph is off." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Dependency review
+        if: ${{ github.event_name == 'pull_request' && steps.graph.outputs.on == 'true' }}
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
+
+  codeql:
+    name: codeql
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          languages: javascript-typescript
+          build-mode: none
+      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
+        with:
+          category: /language:javascript-typescript
+
+  ci-ok:
+    name: ci-ok
+    if: ${{ always() }}
+    needs: [typecheck, lint, unit, content, build, e2e, docker, deps, codeql]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All jobs passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          bad="$(echo "$NEEDS" | jq -r '[to_entries[] | select(.value.result != "success") | .key] | join(", ")')"
+          if [ -n "$bad" ]; then echo "::error::Not green: $bad"; exit 1; fi

@@ -1,0 +1,225 @@
+# Nightly: flake hunt (full e2e 3x in a row), simulator studies, Lighthouse and perf budgets.
+# The sim and perf jobs pass trivially until their files exist (see docs/ci.md).
+name: Nightly
+
+on:
+  schedule:
+    - cron: "23 7 * * *" # 07:23 UTC daily
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+env:
+  FORCE_COLOR: "1"
+
+jobs:
+  pw-version:
+    name: playwright version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.pw.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          sparse-checkout: package-lock.json
+          sparse-checkout-cone-mode: false
+      - id: pw
+        run: echo "version=$(jq -r '.packages["node_modules/@playwright/test"].version' package-lock.json)" >> "$GITHUB_OUTPUT"
+
+  e2e-flakes:
+    name: e2e x3 (flake hunt)
+    needs: pw-version
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.pw-version.outputs.version }}-noble
+      options: --ipc=host --init
+    outputs:
+      flaky: ${{ steps.analyze.outputs.flaky }}
+    env:
+      CI: "1"
+      E2E_SKIP_BUILD: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build:test
+      - name: Run the full suite 3 times, no retries
+        run: |
+          mkdir -p nightly
+          for i in 1 2 3; do
+            echo "::group::run $i"
+            PLAYWRIGHT_JSON_OUTPUT_FILE="nightly/run-$i.json" \
+              npx playwright test --retries=0 --pass-with-no-tests --reporter=list,json \
+              --output="nightly/test-results-$i" || true
+            echo "::endgroup::"
+          done
+      - name: Find flaky and broken tests
+        id: analyze
+        run: |
+          node --input-type=module <<'EOF'
+          import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+          const outcomes = new Map(); // test id -> statuses across the 3 runs
+          let missing = 0;
+          for (const i of [1, 2, 3]) {
+            const file = `nightly/run-${i}.json`;
+            if (!existsSync(file)) { missing++; continue; }
+            const report = JSON.parse(readFileSync(file, "utf8"));
+            const walk = (suite, path) => {
+              for (const spec of suite.specs ?? []) {
+                for (const test of spec.tests ?? []) {
+                  const id = `${spec.file} › ${[...path, spec.title].filter(Boolean).join(" › ")}`;
+                  const last = test.results?.at(-1)?.status ?? "skipped";
+                  const ok = last === "passed" || last === "skipped";
+                  outcomes.set(id, [...(outcomes.get(id) ?? []), ok]);
+                }
+              }
+              for (const child of suite.suites ?? []) walk(child, [...path, child.title]);
+            };
+            for (const s of report.suites ?? []) walk(s, []);
+          }
+          const flaky = [...outcomes].filter(([, r]) => r.includes(true) && r.includes(false));
+          const broken = [...outcomes].filter(([, r]) => !r.includes(true));
+          const line = ([id, r]) => `- \`${id}\` (${r.filter((x) => !x).length}/${r.length} runs failed)`;
+          let md = `### Nightly e2e x3\n\n${outcomes.size} tests, ${flaky.length} flaky, ${broken.length} failing every run.\n`;
+          if (missing) md += `\n**${missing} run(s) produced no report** (the runner crashed?).\n`;
+          if (flaky.length) md += `\n#### Flaky\n${flaky.map(line).join("\n")}\n`;
+          if (broken.length) md += `\n#### Failing every run\n${broken.map(line).join("\n")}\n`;
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
+          writeFileSync("nightly/flaky.md", flaky.map(line).join("\n") + "\n");
+          appendFileSync(process.env.GITHUB_OUTPUT, `flaky=${flaky.length}\n`);
+          if (broken.length || missing) process.exit(1);
+          EOF
+      - name: Upload results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nightly-e2e
+          path: |
+            nightly/
+            playwright-report/
+          retention-days: 14
+
+  flaky-issue:
+    name: flaky tests issue
+    needs: e2e-flakes
+    if: ${{ !cancelled() && needs.e2e-flakes.outputs.flaky != '' && needs.e2e-flakes.outputs.flaky != '0' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      issues: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: nightly-e2e
+          path: nightly-e2e
+      - name: Open or update the "Flaky tests" issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          { echo "Nightly run $(date -u +%Y-%m-%d) ([log]($RUN)) found flaky tests:"; echo; cat nightly-e2e/nightly/flaky.md; } > body.md
+          n="$(gh api "repos/$REPO/issues?state=open&per_page=100" --jq '[.[] | select(.title == "Flaky tests" and (.pull_request | not))][0].number // empty')"
+          if [ -n "$n" ]; then
+            gh api -X POST "repos/$REPO/issues/$n/comments" -F body=@body.md > /dev/null
+            echo "Commented on #$n"
+          else
+            gh api -X POST "repos/$REPO/issues" -f title="Flaky tests" -F body=@body.md --jq .html_url
+          fi
+
+  sims:
+    name: simulator studies
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Find simulators
+        id: find
+        run: |
+          shopt -s nullglob
+          sims=(tools/sim*.ts)
+          echo "list=${sims[*]}" >> "$GITHUB_OUTPUT"
+          if [ "${#sims[@]}" -eq 0 ]; then
+            echo "::notice::No tools/sim*.ts yet. Nothing to run."
+            echo "simulator studies: skipped, no tools/sim*.ts yet." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: ${{ steps.find.outputs.list != '' }}
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - if: ${{ steps.find.outputs.list != '' }}
+        run: npm ci --no-audit --no-fund
+      - name: Run each simulator
+        if: ${{ steps.find.outputs.list != '' }}
+        env:
+          SIMS: ${{ steps.find.outputs.list }}
+        run: |
+          set -uo pipefail
+          mkdir -p sim-results
+          status=0
+          echo "### Simulator studies" >> "$GITHUB_STEP_SUMMARY"
+          for f in $SIMS; do
+            n="$(basename "$f" .ts)"
+            echo "::group::$n"
+            if npm run --silent tool -- "$n" 2>&1 | tee "sim-results/$n.txt"; then r=pass; else r="**FAIL**"; status=1; fi
+            echo "::endgroup::"
+            echo "- \`$n\`: $r" >> "$GITHUB_STEP_SUMMARY"
+          done
+          exit "$status"
+      - name: Upload results
+        if: ${{ !cancelled() && steps.find.outputs.list != '' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sim-results
+          path: sim-results/
+          retention-days: 30
+
+  perf:
+    name: lighthouse and perf budgets
+    needs: pw-version
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    container:
+      image: mcr.microsoft.com/playwright:v${{ needs.pw-version.outputs.version }}-noble
+      options: --ipc=host --init
+    env:
+      CI: "1"
+      E2E_SKIP_BUILD: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # M6-10 fills this in. Until then neither input exists and the job passes.
+      - name: Find perf inputs
+        id: find
+        run: |
+          perf=""; lh=""
+          if ls tests/e2e/perf/*.spec.ts > /dev/null 2>&1; then perf=yes; fi
+          if [ -f tools/lighthouse.ts ]; then lh=yes; fi
+          echo "perf=$perf" >> "$GITHUB_OUTPUT"; echo "lighthouse=$lh" >> "$GITHUB_OUTPUT"
+          if [ -z "$perf$lh" ]; then
+            echo "::notice::No tests/e2e/perf/*.spec.ts or tools/lighthouse.ts yet (M6-10). Nothing to run."
+            echo "perf and Lighthouse: skipped, not written yet (M6-10)." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: ${{ steps.find.outputs.perf != '' || steps.find.outputs.lighthouse != '' }}
+        with:
+          cache: npm
+      - if: ${{ steps.find.outputs.perf != '' || steps.find.outputs.lighthouse != '' }}
+        run: npm ci --no-audit --no-fund && npm run build:test
+      - name: Perf budgets
+        if: ${{ steps.find.outputs.perf != '' }}
+        run: npx playwright test tests/e2e/perf
+      - name: Lighthouse
+        if: ${{ !cancelled() && steps.find.outputs.lighthouse != '' }}
+        run: npm run tool -- lighthouse
