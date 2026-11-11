@@ -1,0 +1,62 @@
+.stars {
+  display: inline-flex;
+  gap: var(--sp-2);
+  align-items: flex-end;
+}
+
+.star {
+  width: calc(44px * var(--text-scale));
+  height: calc(44px * var(--text-scale));
+  overflow: visible;
+}
+
+.stars[data-size="lg"] .star {
+  width: calc(72px * var(--text-scale));
+  height: calc(72px * var(--text-scale));
+}
+
+/* The middle star of three sits a little higher, like a podium. */
+.stars > .star:nth-child(2):nth-last-child(2) {
+  transform: translateY(calc(var(--bevel-unit) * -3));
+}
+
+.edge {
+  fill: var(--c-accent-edge);
+}
+.empty {
+  fill: var(--c-track);
+}
+.hollow {
+  fill: var(--c-track-outline);
+  opacity: 0.55;
+}
+.fill {
+  fill: var(--c-accent);
+  opacity: 0;
+}
+
+.star[data-earned] .hollow {
+  opacity: 0;
+}
+
+.star[data-earned] .fill {
+  opacity: 1;
+  transform-origin: 50% 55%;
+}
+
+/* Fill in one after another; steps() keeps it chunky. Duration 0 with reduced motion. */
+.star[data-earned][data-animate] .fill {
+  animation: star-fill calc(var(--t-slow) * var(--motion-ok)) steps(4, jump-end) both;
+  animation-delay: calc(var(--i) * 350ms * var(--motion-ok));
+}
+
+@keyframes star-fill {
+  from {
+    opacity: 1;
+    transform: scale(0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

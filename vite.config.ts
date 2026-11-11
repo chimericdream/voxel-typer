@@ -20,12 +20,13 @@ export default defineConfig(({ mode }) => ({
     manifest: true,
     target: "es2023",
     sourcemap: mode === "test",
-    // atlas.html is a developer page (M1-14): in the e2e build, never in dist/.
+    // atlas.html (M1-14) and ui-kit.html (M2-07) are developer pages: in the e2e build, never in dist/.
     rolldownOptions: {
       input: {
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
         ...(mode === "test" && {
           atlas: fileURLToPath(new URL("./atlas.html", import.meta.url)),
+          uiKit: fileURLToPath(new URL("./ui-kit.html", import.meta.url)),
         }),
       },
     },

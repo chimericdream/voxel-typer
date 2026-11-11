@@ -1,0 +1,36 @@
+.toast {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: 32rem;
+  padding: var(--sp-2) var(--sp-4);
+  border: var(--bevel-w) solid var(--c-toast-info-outline);
+  border-image: var(--bevel-toast-info, none) var(--bevel-slice) fill / var(--bevel-w) repeat;
+  background-color: var(--c-toast-info);
+  background-clip: padding-box;
+  color: var(--c-toast-info-text);
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  font-weight: 700;
+  image-rendering: pixelated;
+  animation: pop-in calc(var(--t-med) * var(--motion-ok)) steps(3) both;
+}
+
+.toast[data-tone="cheer"] {
+  border-color: var(--c-toast-cheer-outline);
+  border-image-source: var(--bevel-toast-cheer, none);
+  background-color: var(--c-toast-cheer);
+  color: var(--c-toast-cheer-text);
+}
+
+.mark {
+  font-size: 1.2em;
+  line-height: 1;
+}
+
+@keyframes pop-in {
+  from {
+    transform: translateY(var(--sp-3));
+    opacity: 0;
+  }
+}

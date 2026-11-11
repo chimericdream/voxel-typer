@@ -1,0 +1,12 @@
+.hotbar {
+  display: inline-flex;
+  gap: 0;
+  padding: var(--bevel-unit);
+  background: var(--c-slot-outline);
+  box-shadow: 0 var(--bevel-unit) 0 rgb(0 0 0 / 0.35);
+}
+
+/* Neighboring slots share their outline, like one long strip. */
+.hotbar > * + * {
+  margin-left: calc(var(--bevel-unit) * -1);
+}
