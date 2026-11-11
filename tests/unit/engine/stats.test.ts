@@ -383,6 +383,16 @@ describe("foldSummaryIntoKeyStats", () => {
       intervalSessions: 1,
       dueSession: 8,
     });
+    // Exactly 0.85 keeps the interval (17/20).
+    expect(foldSrs(3, { intervalSessions: 4, dueSession: 7 })).toEqual({
+      intervalSessions: 4,
+      dueSession: 11,
+    });
+    // Doubling past 32 is capped.
+    expect(foldSrs(0, { intervalSessions: 20, dueSession: 7 })).toEqual({
+      intervalSessions: 32,
+      dueSession: 39,
+    });
   });
 
   it("the EMA step equals α = 0.1 applied once per attempt with the session's error rate", () => {
@@ -419,6 +429,15 @@ describe("foldSummaryIntoKeyStats", () => {
         srs: { intervalSessions: 1, dueSession: 10 },
       },
     });
+  });
+
+  it("a new key at ≥ 0.95 accuracy starts at interval 2", () => {
+    const next = foldSummaryIntoKeyStats(
+      {},
+      summaryWith({ k: { attempts: 20, errors: 1, latencies: [] } }),
+      9,
+    );
+    expect(next["k"]?.srs).toEqual({ intervalSessions: 2, dueSession: 11 });
   });
 
   it("a new key with no latencies has a null median", () => {
