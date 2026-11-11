@@ -84,3 +84,51 @@ owner decides at M6-08 whether to loosen any of them; until then, pick another w
   - `g` and `h`: Meadow teaches them after lesson 6, so no phrase uses them.
   - `sad` and `falls`: lesson 6 should feel happy, and falling is a hurt.
   - Pairs that don't make sense to a child ("ads ask", "fad salsa"), and words most 6-year-olds don't know (`fad`).
+
+## M3-02 lists: Birch, Shore, Frosty, Meadow g/h pairs and themes
+
+Every list below was **authored for Voxel Typer (M3-02)**: ordinary English dictionary words and
+short phrases, chosen and written by hand. Nothing was copied from a published or commercial list.
+The `.txt` files are sorted alphabetically (word lists) or written in order (phrase lists).
+
+- **`birch-sprout.txt`, `birch-miner.txt`, `birch-builder.txt`:** words typeable with the Meadow and
+  Birch keys only (`a s d f g h j k l ; e i r u t y o w q p`), so no `c n v m b x z`. Flavor:
+  trees, birds, forest walks, picnic food. Extra words that use only the first new keys (`e`, `i`,
+  `r`, `u`) so the early Birch lessons have enough to pick from.
+- **`shore-sprout.txt`, `shore-miner.txt`, `shore-builder.txt`:** almost every word has at least one
+  Shore key (`c n v m b x z`); a few theme words (`shell`, `tide`, `sail`) don't. Flavor: sand,
+  waves, crabs, boats, beach food, and keyboard words for Builders (`comma`, `spacebar`).
+- **`frosty-sprout.txt`, `frosty-miner.txt`, `frosty-builder.txt`:** any letter a-z. Flavor: snow,
+  ice, foxes, cold, mountains, the night sky.
+- **`*-phrases-miner.txt`, `*-phrases-builder.txt`:** 2-4 words each, written for these lists.
+  No apostrophes, because the `'` key comes in Crystal Caverns. Birch phrases use Birch keys only.
+- **`meadow-gh-phrases.txt`:** pairs of `home-row.txt` words that use `g` or `h`, for the Meadow
+  lessons after `g h` are taught. It is a separate file because `meadow-phrases.txt` (M2-12) is
+  tagged `keys=asdfjkl;` and its lesson 06 tests cite it, so it can't take `g` or `h`.
+- **`theme-*.txt`** (blocks, animals, colors, food, tools, nature): `band=all` words of 1-5 letters,
+  with no `biome` tag, so they only appear when a lesson asks for them.
+
+How the bands relate: a Miner pool repeats its biome's Sprout words and adds more; a Builder pool
+keeps the Miner words of 4+ letters and adds longer ones. The validator rejects the same word in
+two pools of the same band, so the three biomes' pools of one band don't share any word.
+
+**Left out on purpose** (beyond the blocklist):
+
+- Slang or adult senses: buns, tart, chick, fruity, frigid, snuggle, snuggly; and `pot`, `rat`,
+  `fat` were never added.
+- Product or IP names: jeep, tweet, superhero, explorer, potter, asteroids (the plural is a game
+  title; `asteroid` stays).
+- Hurt, fear or danger: spirit, pirate, avalanche, foxglove (a poisonous plant), wolf, shark,
+  spider, wasp, storm in Sprout lists, fire words (fireside, campfire, firefly).
+- Explosion words (the owner decides at M6-08): none were written, and `explore` / `explorer` were
+  dropped too, to keep the `expl...` family out entirely.
+- Hard for a 6-year-old to read, removed from Sprout lists only: reed, sap, quail, yew, lark,
+  pita, scuba, cove, wren, mink, lynx, brisk, vast.
+- Sight words already in `sight-dolch.txt` (a Sprout pool) don't repeat in the Sprout lists.
+
+**Meadow shortfall:** the Meadow keys (`a s d f g h j k l ;`) spell only about 45 safe, readable
+English words, all already in `home-row.txt` (43 words, `band=all`). Only 8 Dolch words are
+typeable with them. The targets (Sprout 60, Miner 120, Builder 200) can't be met with real words
+and aren't. Meadow gets more items from phrases instead: `meadow-phrases.txt` (29) and
+`meadow-gh-phrases.txt` (35). Longer home-row words (`salads`, `flasks`, `alfalfa`) are too few
+to be worth a Builder list.

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Developer page (M2-06): served by `npm run dev` only, never in dist/. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'"
+    />
+    <title>Audio lab · Voxel Typer</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font:
+          13px/1.4 system-ui,
+          sans-serif;
+        background: #1b1d22;
+        color: #e8e6e1;
+      }
+      body {
+        margin: 0;
+        padding: 16px 24px 32px;
+        max-width: 1100px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 20px;
+      }
+      h2 {
+        margin: 20px 0 8px;
+        font-size: 15px;
+        color: #c9c4b8;
+      }
+      p {
+        margin: 4px 0;
+        color: #a9a49a;
+      }
+      button {
+        font: inherit;
+        padding: 5px 10px;
+        margin: 2px;
+        border: 2px solid #4a4e57;
+        border-radius: 3px;
+        background: #2a2c31;
+        color: inherit;
+        cursor: pointer;
+      }
+      button:hover,
+      button:focus-visible {
+        border-color: #9fc46a;
+        outline: none;
+      }
+      button.primary {
+        background: #3d5a2a;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 8px;
+      }
+      table {
+        border-collapse: collapse;
+      }
+      td,
+      th {
+        padding: 2px 8px;
+        text-align: left;
+        border-bottom: 1px solid #2f3238;
+      }
+      th {
+        color: #a9a49a;
+        font-weight: normal;
+      }
+      label {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-right: 14px;
+      }
+      #inspect {
+        display: grid;
+        grid-template-columns: 1fr 360px;
+        gap: 12px;
+        align-items: start;
+      }
+      #wave {
+        width: 100%;
+        height: 140px;
+        background: #121317;
+        border: 2px solid #2f3238;
+      }
+      pre {
+        margin: 0;
+        max-height: 340px;
+        overflow: auto;
+        background: #121317;
+        padding: 8px;
+        border: 2px solid #2f3238;
+        font-size: 11px;
+      }
+      code {
+        color: #d8c98a;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="lab"></main>
+    <script type="module" src="/src/dev/audio-lab.ts"></script>
+  </body>
+</html>

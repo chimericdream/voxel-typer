@@ -22,3 +22,24 @@ export interface VtTestHooks {
   /** Resolves when the current screen has finished loading its assets. */
   ready(): Promise<void>;
 }
+
+/**
+ * What the app installs: the contract's hooks plus extras for e2e. `drawCalls` is the draw-call
+ * count of the last rendered frame (contracts §14 budget), null before the scene exists.
+ */
+export interface VtDevHooks extends VtTestHooks {
+  drawCalls(): number | null;
+}
+
+/** The global the hooks live on. Never present in a production build. */
+export const TEST_HOOKS_GLOBAL = "__vt";
+
+/** Puts the hooks on `win`. Called from `main.ts` only when `MODE !== 'production'`. */
+export function installTestHooks(win: Window, hooks: VtDevHooks): void {
+  Object.defineProperty(win, TEST_HOOKS_GLOBAL, {
+    value: Object.freeze({ ...hooks }),
+    configurable: true,
+    enumerable: false,
+    writable: false,
+  });
+}

@@ -10,6 +10,8 @@
 //   ?t01=<0..1>               progress through the time of day (default 0.3; pinned under freeze)
 //   ?sky=flat                 the render core's flat background instead of the sky (M2-02)
 //   ?reducedMotion=1          force reduced motion (otherwise the OS setting)
+//   ?fx=1                     effects demo (M2-05): letter keys chip the target block, Enter or
+//                             Space breaks it (hit-stop, burst, shake, "+1"); Shift adds streak
 //
 // Developer page: the text here is not kid-facing and doesn't go through t().
 import { fixedStepClock, realClock } from "@/app/clock";
@@ -17,6 +19,8 @@ import type { BlockDef } from "@/content/blocks/types";
 import { createRng } from "@/engine/rng";
 import type { Rng } from "@/engine/rng";
 import type { PaletteRampId, TextureRecipe } from "@/render/atlas/recipes";
+import { breakShake, createFx } from "@/render/fx";
+import type { FxCore } from "@/render/fx";
 import { VoxelGrid } from "@/render/mesher/voxel-grid";
 import { cellCenter, createSceneHandle } from "@/render/scene";
 import type { RenderStats, SceneCore } from "@/render/scene";
@@ -266,6 +270,7 @@ function readParams(search: string): {
   t01: number | null;
   flatSky: boolean;
   reducedMotion: boolean | null;
+  fx: boolean;
 } {
   const p = new URLSearchParams(search);
   const n = Number.parseInt(p.get("seed") ?? "", 10);
@@ -280,6 +285,7 @@ function readParams(search: string): {
     t01: Number.isFinite(t01) ? t01 : null,
     flatSky: p.get("sky") === "flat",
     reducedMotion: rm === null ? null : rm === "1",
+    fx: p.get("fx") === "1",
   };
 }
 
@@ -304,6 +310,12 @@ export interface ScenePreviewHooks {
   cycle(count: number): Promise<{ idle: number; contextLost: number }>;
   /** Block nums of the preview blocks, for edit tests. */
   blocks: Readonly<Record<keyof typeof B, number>>;
+  /** The effects module (M2-05). */
+  fx: FxCore;
+  /** A correct letter: a tiny chip puff and the letter floating up (as Mine mode will do it). */
+  chip(letter: string): void;
+  /** A finished word at `streak`: hit-stop, burst, shake and "+1" (as Mine mode will do it). */
+  breakBlock(streak: number, count?: number): void;
   dispose(): void;
 }
 
@@ -327,6 +339,7 @@ async function start(root: HTMLElement): Promise<void> {
   const media = window.matchMedia("(prefers-reduced-motion: reduce)");
   let sky: SkyController | null = null;
   const skyFactory = createSkyEnvironment({ frozen: params.freeze });
+  const made: { fx: FxCore | null } = { fx: null };
   const handle = createSceneHandle(canvas, {
     blocks: BLOCKS,
     seed: params.seed,
@@ -341,7 +354,13 @@ async function start(root: HTMLElement): Promise<void> {
         return sky;
       },
     }),
+    createFx: (ctx) => {
+      made.fx = createFx(ctx, { rng: createRng(params.seed).fork("fx") });
+      return made.fx;
+    },
   });
+  const { fx } = made;
+  if (!fx) throw new Error("createFx was not called");
   const baseline = handle.renderStats();
   const { grid, target } = testGrid(params.seed);
 
@@ -395,8 +414,36 @@ async function start(root: HTMLElement): Promise<void> {
       return { idle, contextLost };
     },
     blocks: B,
+    fx,
+    chip(letter) {
+      handle.fx.burst(target, { blockId: "gem-ore", count: 3, speed: 0.5 });
+      handle.fx.floatText({ x: target.x, y: target.y + 0.6, z: target.z }, letter);
+    },
+    breakBlock(streak, count = 24) {
+      handle.fx.hitStop(40);
+      handle.fx.burst(target, { blockId: "gem-ore", count });
+      const shake = breakShake(streak);
+      handle.camera.shake(shake.intensity01, shake.durationMs);
+      handle.fx.floatText({ x: target.x, y: target.y + 0.8, z: target.z }, "+1");
+    },
     dispose: () => handle.dispose(),
   };
+
+  if (params.fx) {
+    let streak = 0;
+    window.addEventListener("keydown", (e) => {
+      const hooks = window.vtScene;
+      if (!hooks || e.repeat) return;
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        hooks.breakBlock(streak);
+        streak = e.shiftKey ? streak + 5 : 0;
+      } else if (/^[a-z]$/i.test(e.key)) {
+        hooks.chip(e.key);
+        streak++;
+      }
+    });
+  }
 
   // Two frames: the requested render, then one more so the canvas is composited.
   await nextFrame();

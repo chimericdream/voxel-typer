@@ -1,0 +1,40 @@
+# Theme words (blocks) for every band, authored for Voxel Typer. Provenance: SOURCES.md.
+# Short words of 1-5 letters, so Sprouts can read them too.
+# tags: band=all reading=cvc kind=words theme=blocks
+block
+brick
+chest
+clay
+coal
+crate
+dirt
+door
+gate
+gem
+gems
+glow
+gold
+grass
+hay
+ice
+iron
+lamp
+leaf
+log
+moss
+mud
+ore
+path
+plank
+rock
+roof
+sand
+slab
+snow
+stair
+stone
+tile
+vine
+wall
+wood
+wool
