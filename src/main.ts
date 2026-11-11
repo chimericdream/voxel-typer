@@ -1,8 +1,178 @@
-// Entry point. For now it shows "hello voxel" (M0-04); M2-10 replaces it with the real app shell.
-import "./ui/theme/fonts.css";
-import { startHelloVoxel } from "./dev/hello-voxel";
+/**
+ * Entry point (task M2-10): boots the app shell.
+ *
+ * Order: debug params → save store (fixture profile under `?profile`) → shell → keyboard, Caps
+ * Lock watcher and audio unlock → render. Test hooks (`contracts.md` §13) load only when
+ * `import.meta.env.MODE !== "production"`; Vite replaces that with a constant, so the production
+ * bundle drops the hooks entirely (checked by `tools/check-dist-hooks.ts` after every build).
+ */
+import "@/ui/theme/tokens.css";
+import "@/ui/theme/fonts.css";
+import { h, render } from "preact";
+import { App } from "@/app/App";
+import { realClock, fixedStepClock } from "@/app/clock";
+import { parseDebugParams } from "@/app/debug";
+import { createHudStore } from "@/app/hud";
+import type { Route } from "@/app/routes";
+import { createSceneHost, renderCoreFactory } from "@/app/scene-host";
+import { createShell } from "@/app/shell";
+import { createAudio } from "@/audio/engine";
+import { lessons } from "@/content/lessons";
+import { attachKeyboard, capsLockOn } from "@/input/keyboard";
+import { resolveMode } from "@/modes/registry";
+import { isProfile } from "@/save/schema";
+import type { Profile } from "@/save/schema";
+import type { Settings } from "@/save/settings";
+import { createIdbStore, createMemoryStore } from "@/save/store";
+import type { SaveStore } from "@/save/store";
+import type { SaveProblem } from "@/save/problems";
+import { applyMotion, applyTextScale, applyTheme, themeFor } from "@/ui/theme/themes";
+
+const PRODUCTION = import.meta.env.MODE === "production";
+const INTERACTIVE = "button, a[href], input, select, textarea, [role='button'], [tabindex]";
+
+function reducedMotionOf(s: Readonly<Settings>): boolean {
+  if (s.reducedMotion !== "system") return s.reducedMotion;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function applyPageSettings(root: HTMLElement, s: Readonly<Settings>): void {
+  applyTheme(root, themeFor(s.highContrast, "day"));
+  applyTextScale(root, s.textScale);
+  applyMotion(root, s.reducedMotion);
+  if (s.font === "dyslexic") {
+    root.style.setProperty("--font-body", '"OpenDyslexic", sans-serif');
+    root.style.setProperty("--font-pixel", '"OpenDyslexic", sans-serif');
+  } else {
+    root.style.removeProperty("--font-body");
+    root.style.removeProperty("--font-pixel");
+  }
+}
+
+/** `?profile=<fixture>`: a test fixture in a throwaway store. Not in production builds. */
+async function fixtureProfile(name: string): Promise<unknown> {
+  if (PRODUCTION) return null;
+  const files = import.meta.glob<{ default: unknown }>("/tests/fixtures/profiles/*.json");
+  const load = files[`/tests/fixtures/profiles/${name}.json`];
+  return load ? (await load()).default : null;
+}
+
+async function boot(host: HTMLElement): Promise<void> {
+  const debug = parseDebugParams(window.location.search, PRODUCTION);
+  const root = document.documentElement;
+
+  let onProblem: ((p: SaveProblem) => void) | null = null;
+  const storeOptions = { onProblem: (p: SaveProblem) => onProblem?.(p) };
+  const store: SaveStore =
+    debug.nosave || debug.profile !== null
+      ? createMemoryStore(storeOptions)
+      : createIdbStore(undefined, storeOptions);
+
+  let firstProfile: Profile | null = null;
+  if (debug.profile !== null) {
+    const raw = await fixtureProfile(debug.profile);
+    if (isProfile(raw)) {
+      await store.save(raw);
+      firstProfile = await store.load(raw.id);
+    } else {
+      console.warn(`[app] no fixture profile "${debug.profile}"`);
+    }
+  }
+
+  // One canvas for the whole app, outside Preact so screen changes never remount it.
+  const canvas = document.createElement("canvas");
+  canvas.className = "vt-stage";
+  canvas.hidden = true;
+  canvas.setAttribute("aria-hidden", "true");
+  Object.assign(canvas.style, { position: "fixed", inset: "0", width: "100%", height: "100%" });
+  const ui = document.createElement("div");
+  ui.className = "vt-ui";
+  host.replaceChildren(canvas, ui);
+
+  const hud = createHudStore();
+  const audio = createAudio();
+  let reducedMotion = false;
+
+  const scenes = createSceneHost(canvas, renderCoreFactory, {
+    seed: debug.seed ?? 1,
+    quality: debug.quality ?? "medium",
+    reducedMotion: () => reducedMotion,
+    // Under ?freeze only the frame loop reads this clock; input keeps the real one.
+    clock: debug.freeze ? fixedStepClock(0, 16) : realClock,
+  });
+
+  const initial: Route = { id: debug.screen ?? "splash" };
+  if (debug.lesson !== null) initial.lesson = debug.lesson;
+
+  const shell = createShell({
+    store,
+    lessons,
+    resolveMode,
+    acquireScene: () => scenes.acquire(),
+    hud,
+    audio,
+    clock: realClock,
+    nextSeed: () => debug.seed ?? Math.floor(Math.random() * 2 ** 32),
+    frozen: debug.freeze,
+    record: debug.record,
+    applySettings(s) {
+      reducedMotion = reducedMotionOf(s);
+      applyPageSettings(root, s);
+    },
+    focusOnControl: () => document.activeElement?.matches(INTERACTIVE) === true,
+    showCanvas(on) {
+      canvas.hidden = !on;
+    },
+    initial,
+    initialProfile: firstProfile,
+  });
+  onProblem = (p) => shell.onSaveProblem(p);
+
+  // Input: always the real clock, also under ?freeze (contracts §13).
+  const detachKeys = attachKeyboard(
+    window,
+    realClock,
+    (i) => shell.router.handle(i),
+    () => shell.router.ctx(),
+  );
+  const onGesture = (e: Event): void => {
+    // Audio unlocks only from a real gesture; calling it on every gesture is safe.
+    void audio.unlock();
+    if (e instanceof KeyboardEvent) {
+      const caps = capsLockOn(e);
+      if (hud.get().capsLock !== caps) hud.set({ capsLock: caps });
+    }
+  };
+  window.addEventListener("keydown", onGesture, { capture: true });
+  window.addEventListener("pointerdown", onGesture, { capture: true });
+  window.addEventListener("pagehide", (e) => {
+    if (e.persisted) return;
+    detachKeys();
+    window.removeEventListener("keydown", onGesture, { capture: true });
+    window.removeEventListener("pointerdown", onGesture, { capture: true });
+    scenes.dispose();
+  });
+
+  render(h(App, { shell }), ui);
+
+  if (!PRODUCTION) {
+    const hooks = await import("@/app/test-hooks");
+    hooks.installTestHooks(window, {
+      screen: () => shell.route.value.id,
+      session: () => shell.play.session(),
+      lastResult: () => shell.play.lastResult(),
+      profile: () => shell.profile.value,
+      fps: () => shell.play.fps(),
+      ready: () => shell.ready(),
+      drawCalls: () => scenes.current()?.renderStats().calls ?? null,
+    });
+  }
+  host.dataset["ready"] = "1";
+}
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (app) {
-  startHelloVoxel(app, window.location.search);
+  boot(app).catch((err: unknown) => {
+    console.error("[app] boot failed", err);
+  });
 }

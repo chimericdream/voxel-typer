@@ -28,6 +28,7 @@ export default defineConfig(({ mode }) => ({
         ...(mode === "test" && {
           atlas: fileURLToPath(new URL("./atlas.html", import.meta.url)),
           scene: fileURLToPath(new URL("./scene.html", import.meta.url)),
+          hello: fileURLToPath(new URL("./hello.html", import.meta.url)),
           uiKit: fileURLToPath(new URL("./ui-kit.html", import.meta.url)),
         }),
       },

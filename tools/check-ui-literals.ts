@@ -1,9 +1,9 @@
 /**
- * Copy lint: kid-facing text in `src/ui/**` must go through `t()` (docs/impl/contracts.md §11,
+ * Copy lint: kid-facing text in `src/ui/**` and `src/app/**` must go through `t()` (docs/impl/contracts.md §11,
  * docs/impl/README.md §4.2). Oxlint's JS plugins are still alpha in 1.93, so this is a small
  * oxc-parser script, like tools/check-boundaries.ts.
  *
- * It reports, in `src/ui/**` `.tsx`/`.jsx` files:
+ * It reports, in `src/ui/**` and `src/app/**` `.tsx`/`.jsx` files (the app shell draws kid-facing UI too):
  *   1. JSX text with a letter in it: `<p>Hello</p>`.
  *   2. String literals used as JSX children: `<p>{"Hello"}</p>`, `<p>{`Hi ${name}`}</p>`,
  *      `<p>{ok ? "Yes" : "No"}</p>`.
@@ -41,7 +41,7 @@ export interface Violation {
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** Files the check covers, relative to the root. */
-export const UI_GLOB = "src/ui/**/*.{tsx,jsx}";
+export const UI_GLOB: readonly string[] = ["src/ui/**/*.{tsx,jsx}", "src/app/**/*.{tsx,jsx}"];
 
 /** Props whose value is read or shown to the player. */
 export const TEXT_PROPS: ReadonlySet<string> = new Set([
@@ -206,7 +206,9 @@ export function checkSource(relPath: string, source: string): Violation[] {
 
 /** Scans every UI file under `root`. */
 export function checkUiLiterals(root: string = REPO_ROOT): Violation[] {
-  const files = globSync(UI_GLOB, { cwd: root }).map(toPosix).toSorted();
+  const files = globSync([...UI_GLOB], { cwd: root })
+    .map(toPosix)
+    .toSorted();
   return files.flatMap((f) => checkSource(f, readFileSync(join(root, f), "utf8")));
 }
 
@@ -223,10 +225,14 @@ function main(): void {
     console.error(`${v.file}:${v.line}:${v.column}: error ui-literals(${v.rule}): ${v.message}`);
   }
   if (violations.length > 0) {
-    console.error(`\ncheck-ui-literals: ${violations.length} literal(s) in src/ui need t().`);
+    console.error(
+      `\ncheck-ui-literals: ${violations.length} literal(s) in src/ui and src/app need t().`,
+    );
     exit(1);
   }
-  console.log(`check-ui-literals: src/ui clean (${relative(process.cwd(), root) || "."}).`);
+  console.log(
+    `check-ui-literals: src/ui and src/app clean (${relative(process.cwd(), root) || "."}).`,
+  );
 }
 
 if (resolve(argv[1] ?? "") === fileURLToPath(import.meta.url)) main();

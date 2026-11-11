@@ -11,3 +11,4 @@
 !src/
 !public/
 !deploy/nginx.conf
+!tools/check-dist-hooks.ts

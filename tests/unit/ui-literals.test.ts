@@ -2,7 +2,7 @@
  * Proves the copy lint (tools/check-ui-literals.ts) catches kid-facing literals in src/ui.
  *
  * Each fixture in tests/fixtures/ui-literals/cases/ is a small component. The test copies every
- * fixture into a throwaway tree laid out like the repo, inside `src/ui/` and outside it (`src/app/`),
+ * fixture into a throwaway tree laid out like the repo, inside `src/ui/` and outside the scanned folders (`src/render/`),
  * runs the real tool as `npm run tool -- check-ui-literals` would, and checks what it reports.
  */
 import { spawnSync } from "node:child_process";
@@ -34,7 +34,7 @@ const CASES: Record<string, Violation["rule"][]> = {
 };
 
 const IN_UI = "src/ui/screens/{name}.tsx";
-const OUTSIDE_UI = "src/app/{name}.tsx";
+const OUTSIDE_UI = "src/render/{name}.tsx";
 
 interface Run {
   status: number | null;
@@ -97,6 +97,13 @@ describe("check-ui-literals", () => {
     const run = runTool(makeTree(["jsx-text"], [IN_UI]));
     expect(run.status, run.output).toBe(1);
     expect(run.rules.get("src/ui/screens/jsx-text.tsx")).toEqual(["jsx-text"]);
+  }, 30_000);
+
+  it("fails on <p>Hello</p> in src/app too (the app shell draws kid-facing UI)", () => {
+    const run = runTool(makeTree(["jsx-text", "translated"], ["src/app/{name}.tsx"]));
+    expect(run.status, run.output).toBe(1);
+    expect(run.rules.get("src/app/jsx-text.tsx")).toEqual(["jsx-text"]);
+    expect(run.rules.get("src/app/translated.tsx") ?? []).toEqual([]);
   }, 30_000);
 
   it("passes on <p>{t('x.y')}</p> in src/ui (acceptance)", () => {
