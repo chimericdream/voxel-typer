@@ -4,6 +4,7 @@
  * Environment part (task M2-02): warm, hazy days and a cool blue night that stays well clear of
  * black, so the HUD's text plates read over it. The day light values are the ones M2-01 tuned.
  */
+import type { DioramaRecipe } from "@/content/worldgen/diorama";
 import type { BiomeEnv } from "./env";
 
 export const MEADOW_ENV: BiomeEnv = {
@@ -47,4 +48,44 @@ export const MEADOW_ENV: BiomeEnv = {
     },
   },
   particle: { kind: "pollen", color: "#fff2a6", density: 3 },
+};
+
+// ---------------------------------------------------------------------------------------------
+// Worldgen part (task M2-03). The environment part above (MEADOW_ENV) belongs to M2-02.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * Gentle rolling grass with a hill rising behind, a shallow pond, oak trees, flower patches,
+ * mossy rocks, a short fence and a dirt path leading from the stage into the meadow.
+ */
+export const MEADOW_WORLDGEN: DioramaRecipe = {
+  biome: "meadow",
+  blocks: {
+    top: "grass",
+    sub: "dirt",
+    deep: "stone",
+    shore: "sand",
+    bed: "sand",
+    water: "water",
+    path: "coarse-dirt",
+    log: "oak-log",
+    leaves: "oak-leaves",
+    post: "oak-log",
+    rail: "oak-planks",
+    rock: "cobble",
+    mossyRock: "mossy-cobble",
+    flowers: ["red-blooms", "sunny-flowers", "bluebells", "purple-puffs"],
+  },
+  terrain: {
+    base: 7,
+    amplitude: 3,
+    scale: 18,
+    octaves: 2,
+    terraceStep: 2,
+    backRise: 4,
+    subDepth: 3,
+  },
+  pond: { rx: [5, 7], rz: [4, 5] },
+  scatter: { spacing: 4.5, maxTrees: 11, maxRocks: 7, maxFlowers: 22 },
+  fence: { length: [7, 10] },
 };

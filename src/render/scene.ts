@@ -33,6 +33,7 @@ import type { RenderLoop, SystemFn } from "./loop";
 import type { VoxelGrid } from "./mesher/voxel-grid";
 import { QUALITY_PRESETS, pixelRatioFor } from "./quality";
 import type { FxApi, SceneHandle, Vec3 } from "./types";
+import { createWaterMaterial } from "./water";
 
 /** What an environment controller can reach (M2-02). */
 export interface EnvironmentContext {
@@ -81,6 +82,11 @@ export interface SceneOptions {
    * (`camera.setDrift(true)` or this option). Reduced motion always stops it.
    */
   ambientMotion?: boolean;
+  /**
+   * Water surface wobble (M2-03). Default true. Pass false under `?freeze`. Reduced motion always
+   * stops it. The wobble never asks for frames: water moves only while the loop is already running.
+   */
+  waterMotion?: boolean;
   /** Keep the drawing buffer so tests can read pixels back. Default false. */
   preserveDrawingBuffer?: boolean;
   devicePixelRatio?: number;
@@ -170,6 +176,7 @@ export function createSceneHandle(canvas: HTMLCanvasElement, opts: SceneOptions)
   const camera = new THREE.PerspectiveCamera(35, 16 / 9, 0.1, 500);
 
   // Materials are shared by every chunk; the atlas map arrives with the first diorama.
+  const water = createWaterMaterial(() => (opts.waterMotion ?? true) && !reducedMotion());
   const materials: Record<Bucket, THREE.MeshLambertMaterial | THREE.MeshBasicMaterial> = {
     opaque: new THREE.MeshLambertMaterial({ vertexColors: true, alphaTest: 0.5 }),
     transparent: new THREE.MeshLambertMaterial({
@@ -178,6 +185,7 @@ export function createSceneHandle(canvas: HTMLCanvasElement, opts: SceneOptions)
       depthWrite: false,
     }),
     glow: new THREE.MeshBasicMaterial({ vertexColors: true, alphaTest: 0.5 }),
+    water: water.material,
   };
   materials.opaque.name = "voxel-opaque";
   materials.transparent.name = "voxel-transparent";
@@ -188,6 +196,7 @@ export function createSceneHandle(canvas: HTMLCanvasElement, opts: SceneOptions)
   const bucketOf = (num: number): Bucket => {
     const tags = byNum.get(num)?.tags;
     if (tags?.includes("light")) return "glow";
+    if (tags?.includes("liquid")) return "water";
     if (tags?.includes("transparent")) return "transparent";
     return "opaque";
   };
@@ -217,6 +226,7 @@ export function createSceneHandle(canvas: HTMLCanvasElement, opts: SceneOptions)
     wake: () => loop.wake(),
   });
   loop.addSystem(cameraRig.system);
+  loop.addSystem(water.system);
 
   const lights = createLightRig(scene, preset);
   const env = (opts.createEnvironment ?? flatEnvironment)({
