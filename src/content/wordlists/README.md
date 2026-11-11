@@ -34,7 +34,9 @@ hen
 
 - **One item per line**, exactly as the player types it. No spaces at the start or end of a line,
   and never two spaces in a row.
-- Lines starting with `#` are comments. Blank lines are skipped.
+- Lines starting with `#` are comments. Blank lines are skipped. **Comments ship to players with
+  the list**, so the validator checks them against the blocklist too. Never name a left-out word in
+  a comment; list it in `SOURCES.md` instead.
 - `# tags:` lines hold `name=value` pairs separated by spaces. They go before the first item.
 - Items are **lowercase** unless the list has `case=mixed`.
 - Plain ASCII only: no accents (`café`), curly quotes (`’`), dashes (`—`) or emoji. Type `'` and `"`
@@ -57,31 +59,46 @@ Any other tag name is an error, which catches typos like `bnad=sprout`.
 
 ## What the validator checks
 
-| Check      | Rule                                                                                                                                 |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Characters | `words`: letters only. `phrases`: letters, space, `'`. `sentences`: letters, digits, space and `. , ! ? ' " : ; -`. Never non-ASCII. |
-| Length     | Words: `sprout` and `all` 1–5 letters, `miner` 1–8, `builder` 1–14. Phrases: at most 30 chars. Sentences: at most 90 chars.          |
-| Duplicates | No item twice in one list, or in two lists with the same `band` (compared ignoring case).                                            |
-| Blocklist  | No item may contain a word from `blocklist.txt` (see below). Trademark and IP terms are reported as such.                            |
-| Tags       | `band` and `reading` present, every tag known and valid.                                                                             |
-| Registry   | Every `.txt` here (except `blocklist.txt`) is in `POOL_IDS`, and every id in `POOL_IDS` has a file.                                  |
+| Check      | Rule                                                                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Characters | `words`: letters only. `phrases`: letters, space, `'`. `sentences`: letters, digits, space and `. , ! ? ' " : ; -`. Never non-ASCII.     |
+| Length     | Words: `sprout` and `all` 1–5 letters, `miner` 1–8, `builder` 1–14. Phrases: at most 30 chars. Sentences: at most 90 chars.              |
+| Duplicates | No item twice in one list, or in two lists with the same `band` (compared ignoring case).                                                |
+| Blocklist  | No item or comment may contain a word from `blocklist.txt`, in any common form (see below). Trademark and IP terms are reported as such. |
+| Tags       | `band` and `reading` present, every tag known and valid. The character and blocklist checks run even when the tags are broken.           |
+| Registry   | Every `.txt` here (except `blocklist.txt`) is in `POOL_IDS`, and every id in `POOL_IDS` has a file.                                      |
 
 ## The blocklist
 
 `blocklist.txt` is a **safety filter**. It never ships to players: `pools.ts` leaves it out, and
 only the validator reads it. It lists profanity, slurs, sexual words, violence and weapons beyond
 cartoon level, scary or sensitive topics, drugs and alcohol, unkind words, slang, brand names, and
-IP terms. We use no names from other games (`docs/impl/README.md` §4.5).
+IP terms, and the most serious categories for children: abuse and predation, self-harm, and
+extremism. We use no names from other games (`docs/impl/README.md` §4.5).
 
-- Under `# section: <category>`, a term blocks only the **whole word**. `ass` blocks "ass" but not
-  "glass".
+- Under `# section: <category>`, a term blocks the **whole word and its common forms**: `-s`,
+  `-es`, `-ed`, `-ing`, `-er`, `-ers`, `-y`, `-man`/`-men`, a doubled last consonant (`stab` →
+  "stabbing"), a dropped `e` (`bake` → "baking") and `y` → `ies`/`ied` (`army` → "armies"). List
+  only the base word. `ass` blocks "ass" and "asses" but not "glass".
 - Under `# section: <category> strict`, a term also blocks any word **containing** it. `shit` blocks
   "shitty". Use strict only for terms that never hide inside a harmless word. `stab` is not strict,
   because of "stable".
-- A term with spaces blocks those words in a row.
+- A term with spaces blocks those words in a row, and the last word's forms ("self harming").
+- Disguises don't get through. Before matching, the validator also reads each word with look-alike
+  chars mapped back to letters (`1` as `i` or `l`, `3` `e`, `4` `a`, `0` `o`, `5` `s`, `7` `t`,
+  `@` `a`, `$` `s`, `!` `i`, `|` `l`) and punctuation inside the word removed. So "k1ll", "k.i.l.l"
+  and "sh-it" are caught. Splitting a word with a space ("sh it") is not caught; reviewers watch for
+  that.
+- Under `# section: allow` (the last section) are ordinary words that a form of a term happens to
+  spell, such as "butter" from `butt` + `er` and "brass" from `bras` + `s`. An allowed word cancels
+  only those derived hits. Add one only for a harmless word a child would read in a book.
 
 If the validator blocks a word you think is fine, pick another word. Don't edit the blocklist to let
 it through. To add a term, put it in the right section. When unsure, add it.
+
+The list is strict on purpose. Some everyday words are blocked for now (`kiss`, `hit`, `beat`,
+`ghost`, `monster`, `sword`, `god`, `vote`, `hospital`, …). The owner decides at the M6-08 content
+read-through whether to loosen any of them. Until then, don't move them out.
 
 ## Using the pools in code
 

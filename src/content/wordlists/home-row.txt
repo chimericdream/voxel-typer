@@ -1,6 +1,6 @@
 # Home-row words, authored for Voxel Typer. Provenance: SOURCES.md.
 # Every item uses only the home-row keys: a s d f g h j k l ;
-# Left out on purpose (slang, unkind, violent, confusing or too hard to read): see SOURCES.md.
+# Some home-row words are left out on purpose; SOURCES.md lists them, with the reasons.
 # tags: band=all reading=grade2 kind=words keys=asdfghjkl; biome=meadow
 a
 ad

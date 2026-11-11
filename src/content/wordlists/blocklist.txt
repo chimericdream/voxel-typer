@@ -15,7 +15,14 @@
 #   # section: <category> strict   the terms below also match inside other words: "shit" blocks
 #                                  "shitty". Only for terms that are never part of a harmless
 #                                  word (check that "stab" is not hiding in "stable" first)
+#   # section: allow               the words below are NOT blocked: see the last section
 #   one term per line, lowercase a-z; a term with spaces matches those words in a row
+#
+# Every term also blocks its common forms, so list only the base word: "shoot" blocks "shoots",
+# "shooting", "shooter"; "stab" blocks "stabbed", "stabbing"; "gun" blocks "gunman". The
+# validator also undoes look-alike spellings ("k1ll", "sh-it") before matching. A category may
+# have several sections, and the strict default stays: everyday words such as "kiss", "hit" or
+# "ghost" are blocked on purpose until the owner's content read-through (M6-08).
 #
 # The validator reports the "ip" and "brands" categories as "trademark/IP term".
 
@@ -106,8 +113,6 @@ damn
 piss
 wank
 bollock
-bugger
-twat
 dildo
 jizz
 
@@ -206,12 +211,12 @@ escort
 
 # section: violence strict
 murder
-suicide
+suicid
 massacre
 genocide
 behead
 torture
-terroris
+terror
 firearm
 handgun
 shotgun
@@ -471,3 +476,208 @@ babe
 dude
 bro
 yo
+
+# ---------------------------------------------------------------------------------------------
+# Added after the M1-10 child-safety review. A category may have more than one section.
+
+# Child sexual abuse, predation and abduction. Highest severity. "groom" is left out on
+# purpose: its everyday senses (grooming a pony, a bridegroom) can't be told apart from the
+# predatory one by a word filter, so human review covers it.
+# section: predation strict
+molest
+pedophil
+paedophil
+incest
+kidnap
+abduct
+# section: predation
+pedo
+pedos
+paedo
+paedos
+predator
+sext
+sexting
+
+# Sexual words and body parts kept out of drills. Short terms that hide inside harmless words
+# ("cucumber", "canal", "basement") are whole-word only.
+# section: sexual strict
+pussy
+masturbat
+nipple
+fetish
+genital
+testicle
+scrotum
+clitor
+blowjob
+handjob
+hentai
+onlyfans
+# section: sexual
+cum
+anus
+semen
+boner
+erection
+milf
+xxx
+
+# Self-harm and suicide, including the acronyms kids use online.
+# section: self-harm strict
+overdose
+selfharm
+unalive
+anorexi
+bulimi
+# section: self-harm
+self harm
+kys
+kms
+suicidal
+
+# Extremism, hate groups and atrocities.
+# section: extremism strict
+holocaust
+lynch
+jihad
+taliban
+swastika
+fascis
+supremacis
+extremis
+slaughter
+# section: extremism
+isis
+al qaeda
+white power
+ethnic cleansing
+
+# More violence and weapons.
+# section: violence strict
+assault
+poison
+hostage
+lethal
+ammunition
+missile
+mutilat
+decapitat
+carnage
+brutal
+violen
+sniper
+assassin
+bloodbath
+# section: violence
+execute
+execution
+deadly
+bleed
+gore
+gory
+ammo
+maim
+arson
+robbery
+warfare
+
+# More profanity: compounds of a whole-word term, and terms moved here from the strict section
+# because they hide inside harmless words ("saltwater", "debugger").
+# section: profanity
+jackass
+dumbass
+badass
+smartass
+twat
+bugger
+
+# More IP terms from the same game (docs/impl/README.md section 4.5).
+# section: ip strict
+ravager
+evoker
+vindicator
+hoglin
+mooshroom
+overworld
+# section: ip
+jeb
+alexa
+
+# Characters, shows, brands and apps kids type.
+# section: brands strict
+spiderman
+batman
+superman
+pikachu
+spongebob
+shrek
+netflix
+chatgpt
+whatsapp
+adidas
+# section: brands
+luigi
+elsa
+peppa
+bluey
+elmo
+yoda
+nike
+siri
+
+# Current online slang.
+# section: slang
+sus
+sussy
+rizz
+simp
+skibidi
+sigma
+gyat
+gyatt
+thicc
+
+# More drugs, and gambling.
+# section: drugs strict
+nicotine
+fentanyl
+opioid
+ecstasy
+liquor
+# section: drugs
+cigar
+bong
+crack
+# section: gambling strict
+gambl
+casino
+lottery
+# section: gambling
+betting
+poker
+slot machine
+
+# Allowed words: ordinary words that an inflection or a look-alike reading of a term above
+# happens to spell (see README.md, "The blocklist"). They cancel only those derived hits. Add
+# a word here only when it is a harmless word a child would read in a book.
+# section: allow
+baby
+brass
+butter
+butters
+assess
+assessed
+assessing
+striped
+blazer
+blazers
+hanger
+hangers
+spicy
+spiced
+wary
+jagged
+shaggy
+bray
+luster

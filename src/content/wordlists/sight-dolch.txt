@@ -1,8 +1,7 @@
 # Dolch sight words (public domain, 1936/1948). Provenance: SOURCES.md.
 # Only words of 1-5 letters are here, because Sprout words are 1-5 letters long.
-# Left out on purpose: "I" (a capital letter in a lowercase list), "don't" (apostrophe),
-# "christmas" and "santa claus" (holidays and names), "hurt" (we keep pain out of word drills),
-# and every word longer than 5 letters. SOURCES.md lists them all.
+# A few Dolch words are left out on purpose, and so is every word longer than 5 letters.
+# SOURCES.md lists them all, with the reasons.
 # tags: band=sprout reading=dolch kind=words
 #
 # Pre-primer

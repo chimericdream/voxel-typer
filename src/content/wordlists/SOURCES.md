@@ -38,3 +38,9 @@ from and what was left out.
 ## `blocklist.txt`
 
 Not a word list: the safety filter the validator checks every list against. Written for Voxel Typer.
+The child-safety review of M1-10 added the abuse and predation, self-harm, extremism and gambling
+categories, more sexual, violence, drug, slang, brand and IP terms, and the `allow` section.
+
+It errs on excluding. Some everyday words are blocked for now (`kiss`, `hit`, `beat`, `ghost`,
+`monster`, `sword`, `god`, `vote`, `hospital`, …), which the orchestrator accepted. The owner can
+loosen them at the M6-08 content read-through.
