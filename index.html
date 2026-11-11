@@ -8,6 +8,14 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'; media-src 'self' blob:; worker-src 'self' blob:"
     />
+    <!-- Only the pixel font is preloaded (M2-08, docs/fonts.md). -->
+    <link
+      rel="preload"
+      href="/fonts/PixelifySans-wght.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <title>Voxel Typer</title>
   </head>
   <body>
