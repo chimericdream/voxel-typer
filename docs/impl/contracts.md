@@ -474,13 +474,16 @@ Stored as `<id>.model.json`, validated by a JSON schema test.
 ```ts
 export type ControlInput = { kind: 'control'; action: 'pause' | 'confirm' | 'back' | 'next' | 'prev' | 'up' | 'down' | 'left' | 'right' | 'hearAgain'; t: Ms };
 export type TypedInput = { kind: 'typed'; input: KeyInput };
-export function normalizeKeyEvent(e: KeyboardEvent, t: Ms, ctx: { inPlay: boolean }): TypedInput | ControlInput | null;
-export function attachKeyboard(target: Window, clock: Clock, handler: (i: TypedInput | ControlInput) => void, getCtx: () => { inPlay: boolean }): () => void;
+// Every field but `inPlay` is optional and off by default (approved in M1-08).
+// band: 'sprout' enables Backquote → hearAgain; undo: Ctrl+Z / Cmd+Z → typed 'Undo'; wantsEnter: Enter in play → typed 'Enter'.
+export type InputCtx = { inPlay: boolean; band?: AgeBand; undo?: boolean; wantsEnter?: boolean };
+export function normalizeKeyEvent(e: KeyboardEvent, t: Ms, ctx: InputCtx): TypedInput | ControlInput | null;
+export function attachKeyboard(target: Window, clock: Clock, handler: (i: TypedInput | ControlInput) => void, getCtx: () => InputCtx): () => void;
 export function capsLockOn(e: KeyboardEvent): boolean;
 ```
 Rules (from `PLAN.md` §6.5, made exact):
-- Ignore `e.repeat`, `e.isComposing`, `key === 'Dead'`, `key === 'Process'`, and any event with `ctrlKey | metaKey | altKey` **except** `Ctrl+Z` in Builder (delivered as `typed` with key `'Undo'`) and `AltGr` combos where `getModifierState('AltGraph')` is true (those are real chars on some layouts).
-- `Escape` → `pause` (in play) / `back` (menus). `Enter` → `confirm` in menus; in play, `Enter` is delivered as `typed` only if the mode declared it wants it (none in v1, so it's ignored). `Tab` → `next` / `Shift+Tab` → `prev` in menus; ignored in play. Arrows → directions. `F1` or `` ` `` (Backquote, in Sprout band) → `hearAgain`.
+- Ignore `e.repeat`, `e.isComposing`, `key === 'Dead'`, `key === 'Process'`, and any event with `ctrlKey | metaKey | altKey` **except** `Ctrl+Z`, or `Cmd+Z` (Meta+Z with no Ctrl/Alt/Shift), when `ctx.undo` is on (Builder; delivered as `typed` with key `'Undo'`; the Shift variants are not redo and stay ignored) and `AltGr` combos where `getModifierState('AltGraph')` is true (those are real chars on some layouts).
+- `Escape` → `pause` (in play) / `back` (menus). `Enter` → `confirm` in menus; in play, `Enter` is delivered as `typed` (key `'Enter'`) only if the mode declared it wants it via `ctx.wantsEnter` (none in v1, so it's ignored). `Tab` → `next` / `Shift+Tab` → `prev` in menus; ignored in play. Arrows → directions. `F1` or `` ` `` (by `key`, when `ctx.band === 'sprout'`) → `hearAgain`.
 - In play, `preventDefault` for every key that becomes `typed`, plus Space, `'`, `/`, Backspace, Tab.
 - Single printable chars pass through as-is; `' '` for Space. Typographic apostrophes/quotes from some keyboards (`’ ‘ “ ”`) normalize to `'` and `"`.
 - Window `blur` and `visibilitychange → hidden` produce `pause` immediately.
@@ -647,9 +650,18 @@ export interface SaveStore {
   exportAll(): Promise<Blob>;                          // JSON { app: 'voxel-typer', version, profiles: Profile[] }
   importAll(file: Blob): Promise<{ imported: number; skipped: number; errors: string[] }>;  // validates; max 5 MB
 }
-export function createIdbStore(dbName?: string): SaveStore;
-export function createMemoryStore(): SaveStore;      // tests, ?nosave
+export function createIdbStore(dbName?: string, options?: SaveStoreOptions): SaveStore;
+export function createMemoryStore(options?: SaveStoreOptions): SaveStore;      // tests, ?nosave
 ```
+Save problems (`src/save/problems.ts`, M1-09):
+```ts
+export type SaveProblemKind = 'restoredPrev' | 'unreadable' | 'newerVersion' | 'storageError';
+export interface SaveProblem { profileId: string | null; kind: SaveProblemKind; message: string }
+export interface SaveStoreOptions { onProblem?: (p: SaveProblem) => void }
+```
+The store calls `onProblem` (and logs with `console.warn`) so the UI can tell a family, warmly, what happened: `restoredPrev` (`load` returned the snapshot before a damaged current: "We brought back your last save"), `unreadable` (both records damaged; the profile still holds one of the 8 slots, and `listProfiles` reports it so a grown-up can remove it), `newerVersion` (a newer build wrote it), `storageError` (the browser's storage failed). `profileId` is null when the problem is not about one profile. Nothing is sent off the device.
+
+**Newer saves are never overwritten.** If a profile's current or `<id>:prev` record has a `schemaVersion` above this build's, `save` rejects with `NewerSaveError` and writes nothing, and `load` returns null (reporting `newerVersion`) instead of falling back to an older snapshot. `load` and `listProfiles` never reject: a storage failure is reported as `storageError` and gives `null` / `[]`. `save` rejects on an invalid profile, a 9th profile, a newer record or a storage failure, so autosave callers must catch it.
 **Secure-context note:** the app may be served over plain HTTP on a LAN by mistake (`README.md` §8.13). `crypto.randomUUID` is only available in secure contexts, so ids come from `src/save/id.ts` → `newId()`, which uses `crypto.randomUUID` when present and otherwise builds a v4 UUID from `crypto.getRandomValues` (available everywhere). The same rule applies to the service worker (registered only when `window.isSecureContext`); show a small parent-facing note in Settings → Grown-ups when it's not.
 
 Max 8 profiles. Migrations: `migrations: Record<number, (old: unknown) => unknown>`, one per version bump, each with a fixture test in `tests/fixtures/saves/v<N>.json`.

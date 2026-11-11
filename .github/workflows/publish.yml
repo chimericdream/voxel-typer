@@ -138,6 +138,11 @@ jobs:
       # no RUN, so the arm64 image is just the arm64 nginx base plus the same files.
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         if: steps.meta.outputs.promote != 'true'
+        env:
+          # The post step uploads a build-record artifact for the job summary. Nothing uses it, and
+          # when the artifact service errors (it returned HTML, not JSON) the post step retries and
+          # fails the job after the image was already pushed. Keep the summary, skip the upload.
+          DOCKER_BUILD_RECORD_UPLOAD: "false"
         with:
           context: .
           platforms: linux/amd64,linux/arm64
