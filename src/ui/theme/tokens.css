@@ -71,3 +71,14 @@
   font-size: calc(var(--fs-md) * var(--text-scale));
   line-height: var(--lh);
 }
+
+/* The app themes <html> (M2-10). There, keep <html> at the browser's default size so `rem` stays
+   unscaled; otherwise every `Nrem * var(--text-scale)` size in the kit scales twice (at scale 2,
+   --fs-sm came out at 80px). The scaled base size moves to <body> instead. */
+:root[data-theme] {
+  font-size: 100%;
+}
+
+:root[data-theme] > body {
+  font-size: calc(var(--fs-md) * var(--text-scale));
+}
