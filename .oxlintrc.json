@@ -70,30 +70,30 @@
           {
             "patterns": [
               {
-                "group": ["three", "three/*"],
+                "group": ["three", "three/**"],
                 "message": "Pure zone: no three.js here (docs/impl/contracts.md §0, PLAN.md §6.3)."
               },
               {
-                "group": ["preact", "preact/*", "@preact/*"],
+                "group": ["preact", "preact/**", "@preact/**"],
                 "message": "Pure zone: no Preact here (docs/impl/contracts.md §0, PLAN.md §6.3)."
               },
               {
-                "group": ["idb", "idb/*"],
+                "group": ["idb", "idb/**"],
                 "message": "Pure zone: no IndexedDB wrappers here; persistence lives in src/save/store.ts."
               },
               {
-                "group": ["@/ui", "@/ui/*", "@/audio", "@/audio/*", "@/app", "@/app/*"],
+                "group": ["@/ui", "@/ui/**", "@/audio", "@/audio/**", "@/app", "@/app/**"],
                 "message": "Pure zone: may not import UI, audio or app-shell modules."
               },
               {
                 "group": [
                   "@/render",
-                  "@/render/*",
+                  "@/render/**",
                   "!@/render/mesher",
-                  "!@/render/mesher/*",
+                  "!@/render/mesher/**",
                   "!@/render/atlas/recipes"
                 ],
-                "message": "Pure zone: only @/render/mesher/* and @/render/atlas/recipes are pure; other render modules are off limits."
+                "message": "Pure zone: only @/render/mesher/** and @/render/atlas/recipes are pure; other render modules are off limits."
               }
             ]
           }

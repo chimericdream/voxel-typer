@@ -41,7 +41,13 @@ const CASES: Record<string, Expect> = {
   "import-alias-audio": RESTRICTED_IMPORTS,
   "import-alias-app": RESTRICTED_IMPORTS,
   "import-alias-render": RESTRICTED_IMPORTS,
+  "import-alias-ui-deep": RESTRICTED_IMPORTS,
+  "import-alias-render-deep": RESTRICTED_IMPORTS,
+  "import-three-addons": RESTRICTED_IMPORTS,
+  "import-preact-deep": RESTRICTED_IMPORTS,
+  "import-preact-signals-deep": RESTRICTED_IMPORTS,
   "import-relative-ui": { tool: "boundaries", rule: "relative-import" },
+  "import-alias-dotdot": { tool: "boundaries", rule: "relative-import" },
   "global-window": RESTRICTED_GLOBALS,
   "global-document": RESTRICTED_GLOBALS,
   "global-navigator": RESTRICTED_GLOBALS,
@@ -185,6 +191,10 @@ describe("check-boundaries relative-import resolution", () => {
     ["src/render/mesher/mesh.ts", "../atlas/build", true],
     ["src/render/mesher/mesh.ts", "..", true],
     ["src/render/atlas/recipes.ts", "./painters", true],
+    ["src/engine/session.ts", "@/engine/../ui/x", true],
+    ["src/engine/session.ts", "@/render/mesher/../scene/x", true],
+    ["src/engine/session.ts", "@/render/mesher/../mesher/x", false],
+    ["src/engine/session.ts", "@/ui/x", false], // plain alias: Oxlint's job, not this script's
   ] as const)("%s importing %s → forbidden=%s", (file, spec, forbidden) => {
     const found = checkSource(file, `import { x } from "${spec}";\nexport const y = x;\n`);
     expect(found.map((v) => v.rule)).toEqual(forbidden ? ["relative-import"] : []);

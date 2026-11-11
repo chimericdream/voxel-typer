@@ -20,7 +20,7 @@
  *   npm run tool -- check-boundaries --root DIR # scans another tree laid out like the repo (tests)
  */
 import { existsSync, globSync, readFileSync } from "node:fs";
-import { dirname, join, matchesGlob, relative, resolve } from "node:path";
+import { dirname, join, matchesGlob, posix, relative, resolve } from "node:path";
 import { argv, exit } from "node:process";
 import { fileURLToPath } from "node:url";
 import { parseSync, Visitor, type Expression, type MemberExpression, type Span } from "oxc-parser";
@@ -125,8 +125,15 @@ export function checkSource(relPath: string, source: string): Violation[] {
   const checkSpecifier = (node: Expression | null): void => {
     if (node?.type !== "Literal" || typeof node.value !== "string") return;
     const spec = node.value;
-    if (!spec.startsWith(".")) return;
-    const target = toPosix(join(dirname(file), spec));
+    let target: string;
+    if (spec.startsWith(".")) {
+      target = toPosix(join(dirname(file), spec));
+    } else if (spec.startsWith("@/") && spec.split("/").includes("..")) {
+      // Oxlint matches the raw string, so "@/engine/../ui/x" slips past its patterns.
+      target = posix.normalize(`src/${spec.slice(2)}`);
+    } else {
+      return;
+    }
     if (isForbiddenTarget(target)) {
       report(
         node,
