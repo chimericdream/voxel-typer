@@ -1,0 +1,89 @@
+.button {
+  --face: var(--c-button);
+  --ink: var(--c-button-text);
+  --bevel: var(--bevel-button, none);
+  --bevel-down: var(--bevel-button-pressed, none);
+  --edge: var(--c-button-outline);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(7rem * var(--text-scale));
+  min-height: calc(3rem * var(--text-scale));
+  margin: 0;
+  padding: var(--sp-1) var(--sp-4);
+  border: var(--bevel-w) solid var(--edge);
+  border-image: var(--bevel) var(--bevel-slice) fill / var(--bevel-w) repeat;
+  background-color: var(--face);
+  background-clip: padding-box;
+  color: var(--ink);
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  position: relative;
+  image-rendering: pixelated;
+  cursor: pointer;
+  user-select: none;
+}
+
+.button[data-variant="primary"] {
+  --face: var(--c-primary);
+  --ink: var(--c-primary-text);
+  --bevel: var(--bevel-primary, none);
+  --bevel-down: var(--bevel-primary-pressed, none);
+  --edge: var(--c-primary-outline);
+}
+
+.button[data-size="lg"] {
+  min-width: calc(10rem * var(--text-scale));
+  min-height: calc(4rem * var(--text-scale));
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+}
+
+.content {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  transform: translateY(calc(var(--bevel-unit) * -0.5));
+}
+
+.button:active:not(:disabled),
+.button[data-pressed] {
+  border-image-source: var(--bevel-down);
+}
+
+.button:active:not(:disabled) .content,
+.button[data-pressed] .content {
+  transform: translateY(var(--bevel-unit));
+}
+
+.button:focus-visible {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+  box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
+}
+
+/* Disabled: hatched and greyed, so it reads as unavailable by pattern, not color alone. */
+.button:disabled {
+  cursor: not-allowed;
+  filter: saturate(0.3);
+}
+.button:disabled::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgb(0 0 0 / 0.18) 0 var(--bevel-unit),
+    transparent var(--bevel-unit) calc(var(--bevel-unit) * 3)
+  );
+  pointer-events: none;
+}
+
+@media (hover: hover) {
+  .button:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
+}
