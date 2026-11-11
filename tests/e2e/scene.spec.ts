@@ -9,11 +9,19 @@ type Hooks = ScenePreviewHooks | undefined;
 // grid through the render core. Its screenshot is the visual baseline for chunk meshing, AO and
 // lighting.
 
+/**
+ * Opens the page; the returned list collects page errors, console errors and any WebGL context
+ * message (Chrome's "too many active WebGL contexts" warning, three.js's "Context Lost" log).
+ * Driver performance notes such as "GPU stall due to ReadPixels" are not errors and are ignored.
+ */
 async function open(page: Page, query: string): Promise<string[]> {
   const errors: string[] = [];
   page.on("pageerror", (err) => errors.push(err.message));
   page.on("console", (msg) => {
-    if (msg.type() === "error") errors.push(msg.text());
+    const text = msg.text();
+    if (msg.type() === "error" || /context lost|webgl contexts/i.test(text)) {
+      errors.push(`${msg.type()}: ${text}`);
+    }
   });
   await page.goto(`/scene.html?${query}`);
   await expect(page.locator("#scene")).toHaveAttribute("data-ready", "1");
@@ -75,8 +83,23 @@ test("dispose() frees geometries, textures and programs", async ({ page }) => {
     const loaded = s.stats();
     await s.reload(3);
     const reloaded = s.stats();
+    // A biome change rebuilds the atlas with the new palette; the old texture must be freed.
+    const before = s.handle.atlas();
+    s.handle.setEnvironment({ biome: "frosty", timeOfDay: "day" });
+    for (let i = 0; i < 300 && s.handle.atlas() === before; i++) await s.frame();
+    const swapped = s.handle.atlas() !== before;
+    await s.frame();
+    const rebiomed = s.stats();
     s.dispose();
-    return { baseline: s.baseline, loaded, reloaded, disposed: s.stats() };
+    return {
+      baseline: s.baseline,
+      loaded,
+      reloaded,
+      swapped,
+      rebiomed,
+      disposed: s.stats(),
+      contextLost: s.handle.three.renderer.getContext().isContextLost(),
+    };
   });
   expect(errors).toEqual([]);
   expect(result).not.toBeNull();
@@ -87,10 +110,99 @@ test("dispose() frees geometries, textures and programs", async ({ page }) => {
   // Reloading the diorama doesn't leak.
   expect(reloaded.geometries).toBe(loaded.geometries);
   expect(reloaded.textures).toBe(loaded.textures);
+  // Swapping the atlas for another biome doesn't leak either.
+  expect(result.swapped).toBe(true);
+  expect(result.rebiomed.textures).toBe(loaded.textures);
+  expect(result.rebiomed.geometries).toBe(loaded.geometries);
   // Back to the counts before anything was loaded.
   expect(disposed.geometries).toBe(baseline.geometries);
   expect(disposed.textures).toBe(baseline.textures);
   expect(disposed.programs).toBe(baseline.programs);
+  // dispose() also gives the WebGL context back.
+  expect(result.contextLost).toBe(true);
+});
+
+test("20 scenes made and disposed in a row: idle by default, contexts released", async ({
+  page,
+}) => {
+  const errors = await open(page, "seed=1&freeze=1");
+  const result = await page.evaluate(async () => {
+    const s: Hooks = window.vtScene;
+    return s ? s.cycle(20) : null;
+  });
+  // With default options (no drift, no subscribers) every loaded scene stops requesting frames.
+  expect(result).toEqual({ idle: 20, contextLost: 20 });
+  // No "too many active WebGL contexts" warning, no lost-context log, no errors.
+  expect(errors).toEqual([]);
+  // The page's own scene still draws after all that.
+  const calls = await page.evaluate(async () => {
+    const s: Hooks = window.vtScene;
+    if (!s) return 0;
+    await s.frame();
+    return s.stats().calls;
+  });
+  expect(calls).toBeGreaterThan(0);
+});
+
+test("dropping quality from high frees the shadow map", async ({ page }) => {
+  const errors = await open(page, "seed=1&freeze=1&quality=high");
+  const result = await page.evaluate(async () => {
+    const s: Hooks = window.vtScene;
+    if (!s) return null;
+    const sun = s.handle.lights.sun;
+    const high = { textures: s.stats().textures, map: sun.shadow.map !== null };
+    s.handle.setQuality("medium");
+    await s.frame();
+    const medium = { textures: s.stats().textures, map: sun.shadow.map !== null };
+    s.handle.setQuality("high");
+    await s.frame();
+    const again = { textures: s.stats().textures, map: sun.shadow.map !== null };
+    return { high, medium, again };
+  });
+  expect(errors).toEqual([]);
+  expect(result?.high.map).toBe(true);
+  expect(result?.medium.map).toBe(false);
+  expect(result?.medium.textures).toBeLessThan(result?.high.textures ?? 0);
+  // Back on high, the shadow map comes back.
+  expect(result?.again).toEqual(result?.high);
+});
+
+test("placing or removing a lamp block updates the point lights", async ({ page }) => {
+  const errors = await open(page, "seed=1&freeze=1");
+  const result = await page.evaluate(() => {
+    const s: Hooks = window.vtScene;
+    const g = s?.handle.grid();
+    if (!s || !g) return null;
+    const lamps = (): string[] =>
+      s.handle.lights.lamps
+        .map((l) => `${l.position.x},${l.position.y},${l.position.z}`)
+        .toSorted();
+    // An air cell right above the Mine target block.
+    const t = s.handle.camera.pose().target;
+    const x = Math.floor(t.x);
+    const z = Math.floor(t.z);
+    let y = Math.floor(t.y);
+    while (g.get(x, y, z) !== 0) y++;
+    const before = lamps();
+    s.handle.setVoxel(x, y, z, s.blocks.lamp);
+    const placed = lamps();
+    s.handle.setVoxel(x, y, z, 0);
+    const removed = lamps();
+    // Direct grid edits followed by markDirty are picked up too.
+    g.set(x, y, z, s.blocks.lamp);
+    s.handle.markDirty(x, y, z);
+    const marked = lamps();
+    return { before, placed, removed, marked, cell: `${x + 0.5},${y + 0.5},${z + 0.5}` };
+  });
+  expect(errors).toEqual([]);
+  expect(result).not.toBeNull();
+  if (!result) return;
+  // Medium allows 4 point lights; the test grid has 2 lamps.
+  expect(result.before).toHaveLength(2);
+  expect(result.placed).toHaveLength(3);
+  expect(result.placed).toContain(result.cell);
+  expect(result.removed).toEqual(result.before);
+  expect(result.marked).toEqual(result.placed);
 });
 
 test("mine preset and high quality render without errors", async ({ page }) => {

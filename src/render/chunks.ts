@@ -170,6 +170,7 @@ export function createChunkStore(opts: ChunkStoreOptions): ChunkStore {
     },
     markAllDirty,
     flush() {
+      if (queue.size === 0) return 0;
       const keys = [...queue];
       queue.clear();
       for (const k of keys) build(k);

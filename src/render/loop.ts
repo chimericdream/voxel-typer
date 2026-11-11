@@ -60,6 +60,9 @@ export function createLoop(deps: LoopDeps): RenderLoop {
   let lastT: Ms | null = null;
   let hitStopLeft: Ms = 0;
   let frames = 0;
+  // Reused per-frame snapshots (a callback may (un)subscribe during the frame).
+  const systemSnap: SystemFn[] = [];
+  const subscriberSnap: FrameFn[] = [];
   let disposed = false;
 
   const schedule = (): void => {
@@ -85,15 +88,18 @@ export function createLoop(deps: LoopDeps): RenderLoop {
     const subDt = frozen ? 0 : dt;
 
     let busy = false;
-    // Snapshot: a callback may (un)subscribe during the frame.
-    for (const system of Array.from(systems)) {
+    systemSnap.length = 0;
+    for (const system of systems) systemSnap.push(system);
+    for (const system of systemSnap) {
       try {
         if (system(dt, t)) busy = true;
       } catch (err) {
         report(err);
       }
     }
-    for (const fn of Array.from(subscribers)) {
+    subscriberSnap.length = 0;
+    for (const fn of subscribers) subscriberSnap.push(fn);
+    for (const fn of subscriberSnap) {
       try {
         fn(subDt, t);
       } catch (err) {

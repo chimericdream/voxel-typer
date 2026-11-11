@@ -75,7 +75,11 @@ export interface SceneOptions {
   reducedMotion?: () => boolean;
   /** Read once per frame by the loop. `fixedStepClock` under `?freeze`. */
   clock?: Clock;
-  /** Ambient camera drift. Default true; `?freeze` passes false. Reduced motion always stops it. */
+  /**
+   * Ambient camera drift. Default **false**, so an idle scene draws nothing until asked. Drift
+   * keeps the loop drawing every frame, so a mode or screen turns it on only when it wants that
+   * (`camera.setDrift(true)` or this option). Reduced motion always stops it.
+   */
   ambientMotion?: boolean;
   /** Keep the drawing buffer so tests can read pixels back. Default false. */
   preserveDrawingBuffer?: boolean;
@@ -209,7 +213,7 @@ export function createSceneHandle(canvas: HTMLCanvasElement, opts: SceneOptions)
 
   const cameraRig = createCameraRig(camera, {
     reducedMotion,
-    drift: opts.ambientMotion ?? true,
+    drift: opts.ambientMotion ?? false,
     wake: () => loop.wake(),
   });
   loop.addSystem(cameraRig.system);
@@ -303,28 +307,52 @@ export function createSceneHandle(canvas: HTMLCanvasElement, opts: SceneOptions)
         });
   observer?.observe(canvas);
 
-  const lampSources = (g: VoxelGrid): LampSource[] => {
-    const lamps = new Map<number, { color: string; intensity: number }>();
-    for (const b of opts.blocks) {
-      if (b.tags.includes("light")) {
-        lamps.set(b.num, {
-          color: b.light?.color ?? DEFAULT_LAMP_COLOR,
-          intensity: (b.light?.intensity ?? 1) * LAMP_INTENSITY_SCALE,
-        });
-      }
+  // Light-emitting block nums, and the lamp cells of the current diorama (by cell index).
+  const lampDefs = new Map<number, { color: string; intensity: number }>();
+  for (const b of opts.blocks) {
+    if (b.tags.includes("light")) {
+      lampDefs.set(b.num, {
+        color: b.light?.color ?? DEFAULT_LAMP_COLOR,
+        intensity: (b.light?.intensity ?? 1) * LAMP_INTENSITY_SCALE,
+      });
     }
-    const out: LampSource[] = [];
-    if (lamps.size === 0) return out;
+  }
+  const lampCells = new Map<number, LampSource>();
+
+  const placeLamps = (): void => {
+    const { x, y, z } = cameraRig.pose().target;
+    lights.setLamps([...lampCells.values()], { x, y, z });
+  };
+
+  const scanLamps = (g: VoxelGrid): void => {
+    lampCells.clear();
+    if (lampDefs.size === 0) return;
     const { sx, sz, data } = g;
     for (let i = 0; i < data.length; i++) {
-      const lamp = lamps.get(data[i] ?? 0);
+      const lamp = lampDefs.get(data[i] ?? 0);
       if (!lamp) continue;
       const x = i % sx;
       const z = Math.floor(i / sx) % sz;
       const y = Math.floor(i / (sx * sz));
-      out.push({ at: { x, y, z }, ...lamp });
+      lampCells.set(i, { at: { x, y, z }, ...lamp });
     }
-    return out;
+  };
+
+  /** Re-reads one cell after an edit; re-places the point lights if a lamp came or went. */
+  const syncLamp = (g: VoxelGrid, x: number, y: number, z: number): void => {
+    if (x < 0 || y < 0 || z < 0 || x >= g.sx || y >= g.sy || z >= g.sz) return;
+    const i = x + g.sx * (z + g.sz * y);
+    const lamp = lampDefs.get(g.get(x, y, z));
+    const had = lampCells.get(i);
+    if (lamp) {
+      if (had?.color === lamp.color && had.intensity === lamp.intensity) return;
+      lampCells.set(i, { at: { x, y, z }, ...lamp });
+    } else if (had) {
+      lampCells.delete(i);
+    } else {
+      return;
+    }
+    placeLamps();
   };
 
   const clearDiorama = (): void => {
@@ -334,6 +362,7 @@ export function createSceneHandle(canvas: HTMLCanvasElement, opts: SceneOptions)
     }
     chunks = null;
     grid = null;
+    lampCells.clear();
     lights.setLamps([], { x: 0, y: 0, z: 0 });
     loop.requestRender();
   };
@@ -372,8 +401,8 @@ export function createSceneHandle(canvas: HTMLCanvasElement, opts: SceneOptions)
       const box = new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(g.sx, g.sy, g.sz));
       lights.fitTo(box);
       cameraRig.setBounds(box);
-      const focus = cameraRig.pose().target;
-      lights.setLamps(lampSources(g), focus);
+      scanLamps(g);
+      placeLamps();
       loop.requestRender();
     },
     clearDiorama,
@@ -398,9 +427,12 @@ export function createSceneHandle(canvas: HTMLCanvasElement, opts: SceneOptions)
       if (!grid || !chunks) return;
       grid.set(x, y, z, blockNum);
       chunks.markDirty(x, y, z);
+      syncLamp(grid, x, y, z);
     },
     markDirty(x, y, z) {
-      chunks?.markDirty(x, y, z);
+      if (!grid || !chunks) return;
+      chunks.markDirty(x, y, z);
+      syncLamp(grid, x, y, z);
     },
     resize,
     renderStats() {
@@ -426,6 +458,9 @@ export function createSceneHandle(canvas: HTMLCanvasElement, opts: SceneOptions)
       atlas?.texture.dispose();
       atlas = null;
       renderer.dispose();
+      // Release the WebGL context itself, so screens can make and drop scenes without reaching
+      // the browser's live-context cap (~16 in Chrome).
+      renderer.forceContextLoss();
     },
   };
   return handle;

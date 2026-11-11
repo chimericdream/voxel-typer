@@ -94,10 +94,33 @@ export function applyPose(camera: THREE.PerspectiveCamera, pose: CameraPose): vo
   }
 }
 
+const blankPose = (): CameraPose => ({
+  target: { x: 0, y: 0, z: 0 },
+  yaw: 0,
+  pitch: 0,
+  distance: 1,
+  fov: 35,
+});
+
+/** Copies `src` into `dst` (no allocation). Returns `dst`. */
+function copyPose(dst: CameraPose, src: Readonly<CameraPose>): CameraPose {
+  dst.target.x = src.target.x;
+  dst.target.y = src.target.y;
+  dst.target.z = src.target.z;
+  dst.yaw = src.yaw;
+  dst.pitch = src.pitch;
+  dst.distance = src.distance;
+  dst.fov = src.fov;
+  return dst;
+}
+
 export interface CameraRigOptions {
   /** Read on every use, so a settings change applies at once. */
   reducedMotion: () => boolean;
-  /** Ambient parallax drift (off under `?freeze`). Reduced motion turns it off regardless. */
+  /**
+   * Ambient parallax drift. Default **off**: drift keeps the loop drawing every frame, so a
+   * screen turns it on only when it wants that. Reduced motion turns it off regardless.
+   */
   drift?: boolean;
   /** Called when the rig starts moving, so the loop schedules frames. */
   wake: () => void;
@@ -107,8 +130,11 @@ export interface CameraRigOptions {
 export interface CameraRigCore extends CameraRig {
   /** The diorama bounds the presets frame. Re-applies the current preset. */
   setBounds(box: THREE.Box3): void;
-  /** The mine target block's center. Re-applies the current preset. */
-  setTarget(at: Vec3): void;
+  /**
+   * The mine target block's center. Re-applies the current preset: a snap by default, or a glide
+   * over `durationMs` (still a snap under reduced motion).
+   */
+  setTarget(at: Vec3, opts?: { durationMs?: Ms }): void;
   setDrift(on: boolean): void;
   readonly current: PresetName;
   /** The base pose (without drift and shake). */
@@ -131,21 +157,23 @@ export function createCameraRig(
   let box = new THREE.Box3();
   let target: Vec3 = { x: 0, y: 0, z: 0 };
   let current: PresetName = "overview";
-  let pose = presetPose(current, box, target);
+  // `pose` and `shown` are mutated in place, so a frame allocates nothing.
+  const pose = presetPose(current, box, target);
+  const shown: CameraPose = { ...pose, target: { ...pose.target } };
   let tween: Tween | null = null;
-  let drift = opts.drift ?? true;
+  let drift = opts.drift ?? false;
   let trauma = 0;
   let shakeLeft: Ms = 0;
 
   const driftOn = (): boolean => drift && !opts.reducedMotion();
 
   const write = (t: Ms): void => {
-    const p = { ...pose };
+    copyPose(shown, pose);
     if (driftOn()) {
-      p.yaw += DRIFT_YAW * Math.sin((t / DRIFT_PERIOD_YAW) * Math.PI * 2);
-      p.pitch += DRIFT_PITCH * Math.sin((t / DRIFT_PERIOD_PITCH) * Math.PI * 2);
+      shown.yaw += DRIFT_YAW * Math.sin((t / DRIFT_PERIOD_YAW) * Math.PI * 2);
+      shown.pitch += DRIFT_PITCH * Math.sin((t / DRIFT_PERIOD_PITCH) * Math.PI * 2);
     }
-    applyPose(camera, p);
+    applyPose(camera, shown);
     if (trauma > 0 && !opts.reducedMotion()) {
       // offset = trauma² × noise; sums of incommensurate sines give smooth, deterministic noise.
       const k = trauma * trauma;
@@ -165,10 +193,10 @@ export function createCameraRig(
     const to = presetPose(name, box, target);
     if (durationMs <= 0 || opts.reducedMotion()) {
       tween = null;
-      pose = to;
+      copyPose(pose, to);
     } else {
       tween = {
-        from: { ...pose, target: { ...pose.target } },
+        from: copyPose(blankPose(), pose),
         to,
         elapsed: 0,
         duration: durationMs,
@@ -182,19 +210,15 @@ export function createCameraRig(
       tween.elapsed += dt;
       const k = easeInOutCubic(Math.min(1, tween.elapsed / tween.duration));
       const { from, to } = tween;
-      pose = {
-        target: {
-          x: lerp(from.target.x, to.target.x, k),
-          y: lerp(from.target.y, to.target.y, k),
-          z: lerp(from.target.z, to.target.z, k),
-        },
-        yaw: from.yaw + angleDelta(from.yaw, to.yaw) * k,
-        pitch: lerp(from.pitch, to.pitch, k),
-        distance: lerp(from.distance, to.distance, k),
-        fov: lerp(from.fov, to.fov, k),
-      };
+      pose.target.x = lerp(from.target.x, to.target.x, k);
+      pose.target.y = lerp(from.target.y, to.target.y, k);
+      pose.target.z = lerp(from.target.z, to.target.z, k);
+      pose.yaw = from.yaw + angleDelta(from.yaw, to.yaw) * k;
+      pose.pitch = lerp(from.pitch, to.pitch, k);
+      pose.distance = lerp(from.distance, to.distance, k);
+      pose.fov = lerp(from.fov, to.fov, k);
       if (tween.elapsed >= tween.duration) {
-        pose = to;
+        copyPose(pose, to);
         tween = null;
       }
     }
@@ -215,13 +239,10 @@ export function createCameraRig(
     },
     orbit(dYaw, dPitch, dZoom) {
       tween = null;
-      pose = {
-        ...pose,
-        yaw: pose.yaw + dYaw,
-        pitch: THREE.MathUtils.clamp(pose.pitch + dPitch, PITCH_MIN, PITCH_MAX),
-        // Positive dZoom moves closer.
-        distance: Math.max(1, pose.distance * Math.exp(-dZoom)),
-      };
+      pose.yaw += dYaw;
+      pose.pitch = THREE.MathUtils.clamp(pose.pitch + dPitch, PITCH_MIN, PITCH_MAX);
+      // Positive dZoom moves closer.
+      pose.distance = Math.max(1, pose.distance * Math.exp(-dZoom));
       opts.wake();
     },
     shake(intensity01, durationMs) {
@@ -234,9 +255,9 @@ export function createCameraRig(
       box = next.clone();
       goTo(current, 0);
     },
-    setTarget(at) {
+    setTarget(at, targetOpts) {
       target = { ...at };
-      goTo(current, 0);
+      goTo(current, targetOpts?.durationMs ?? 0);
     },
     setDrift(on) {
       drift = on;

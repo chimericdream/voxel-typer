@@ -282,6 +282,17 @@ export interface ScenePreviewHooks {
   stats(): RenderStats;
   /** Clears and reloads the diorama `times` times (leak check), then renders. */
   reload(times: number): Promise<void>;
+  /** Draws a frame and waits until it's on screen. */
+  frame(): Promise<void>;
+  /**
+   * Makes, loads, draws and disposes `count` extra scenes in a row, each with default options
+   * (only blocks and seed). Reports how many went idle after loading (no frame pending within 10
+   * frames) and how
+   * many had lost their WebGL context after `dispose()`.
+   */
+  cycle(count: number): Promise<{ idle: number; contextLost: number }>;
+  /** Block nums of the preview blocks, for edit tests. */
+  blocks: Readonly<Record<keyof typeof B, number>>;
   dispose(): void;
 }
 
@@ -334,6 +345,32 @@ async function start(root: HTMLElement): Promise<void> {
       await nextFrame();
       await nextFrame();
     },
+    async frame() {
+      handle.requestRender();
+      await nextFrame();
+      await nextFrame();
+    },
+    async cycle(count) {
+      let idle = 0;
+      let contextLost = 0;
+      for (let i = 0; i < count; i++) {
+        const c = document.createElement("canvas");
+        c.width = 320;
+        c.height = 180;
+        root.append(c);
+        const h = createSceneHandle(c, { blocks: BLOCKS, seed: params.seed });
+        await h.loadDiorama(`cycle-${i}`, testGrid(params.seed).grid);
+        // Idle = stops requesting frames once loaded (a resize may ask for one more first).
+        for (let f = 0; f < 10 && (f < 2 || h.loop.scheduled); f++) await nextFrame();
+        if (!h.loop.scheduled) idle++;
+        const gl = h.three.renderer.getContext();
+        h.dispose();
+        if (gl.isContextLost()) contextLost++;
+        c.remove();
+      }
+      return { idle, contextLost };
+    },
+    blocks: B,
     dispose: () => handle.dispose(),
   };
 

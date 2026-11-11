@@ -95,6 +95,42 @@ describe("camera rig", () => {
     expect(max).toBeLessThanOrEqual(DRIFT_YAW + 1e-9);
   });
 
+  it("drift is off by default, so a resting rig never keeps the loop busy", () => {
+    const camera = new THREE.PerspectiveCamera(35, 16 / 9, 0.1, 500);
+    const r = createCameraRig(camera, { reducedMotion: () => false, wake: () => {} });
+    r.setBounds(BOX);
+    const at = (t: number) => {
+      expect(r.system(16, t)).toBe(false);
+      return camera.position.clone();
+    };
+    expect(at(1000).equals(at(9000))).toBe(true);
+    r.setDrift(true);
+    expect(r.system(16, 10_000)).toBe(true);
+  });
+
+  it("setTarget snaps by default and glides when given a duration", () => {
+    const { rig: r } = rig();
+    r.preset("mine", { durationMs: 0 });
+    const next = { x: 10.5, y: 6.5, z: 30.5 };
+    r.setTarget(next, { durationMs: 160 });
+    // Mid-glide: between the old and the new target.
+    run(r.system, 5);
+    expect(r.pose().target.x).toBeGreaterThan(10.5);
+    expect(r.pose().target.x).toBeLessThan(24.5);
+    expect(run(r.system, 6).at(-1)).toBe(false);
+    expect(r.pose()).toEqual(presetPose("mine", BOX, next));
+    // No duration: an immediate snap.
+    r.setTarget({ x: 24.5, y: 6.5, z: 42.5 });
+    expect(r.pose()).toEqual(presetPose("mine", BOX, { x: 24.5, y: 6.5, z: 42.5 }));
+  });
+
+  it("reduced motion makes a setTarget glide a snap", () => {
+    const { rig: r } = rig(true);
+    r.preset("mine", { durationMs: 0 });
+    r.setTarget({ x: 10.5, y: 6.5, z: 30.5 }, { durationMs: 800 });
+    expect(r.pose()).toEqual(presetPose("mine", BOX, { x: 10.5, y: 6.5, z: 30.5 }));
+  });
+
   it("reduced motion turns drift off", () => {
     const { rig: r, camera } = rig(true, true);
     r.preset("overview", { durationMs: 0 });
