@@ -20,7 +20,7 @@ not the JS budgets.
 Each file was downloaded from the font's own GitHub repository, pinned to a commit, and is
 committed **byte for byte as published** (only the Pixelify Sans file name changed, from
 `PixelifySans[wght].woff2`, to avoid brackets in URLs). The license text was copied from the same
-commit. All three licenses are the unmodified SIL OFL 1.1 text (checked by diffing the three
+commit (the repo normalizes text to LF, so the Pixelify Sans license, CRLF upstream, is stored with LF; the text is identical). All three licenses are the unmodified SIL OFL 1.1 text (checked by diffing the three
 license bodies) with each project's own copyright line.
 
 | Font                        | Repository and commit                                                                                                                                                     | Files used                                                                                            | License file                                         | Reserved Font Name |
@@ -40,7 +40,7 @@ SHA-256 of the committed files:
 da8fce41a04f8498fbf79076f92d304b12e70c76f71b143c5dcfb6536c93c075  AtkinsonHyperlegible-Bold.woff2
 0441bc21071e42db57c217f93fbc48d3b55a2987c02814c94dc93621c42e8695  OpenDyslexic-Regular.woff2
 b534a0b84ef3cca941ebdb506ce3f4e0010aa4ef881271bac8b6959dbf694fbf  OpenDyslexic-Bold.woff2
-b66ba46f511a851ab09998b5a5a9fdbb102545a3864cb993095e1745996873a7  LICENSES/PixelifySans-OFL.txt
+921ba087e40693958a9b2519d489b8872a894a6f5b1a9bfae37639146c1effe9  LICENSES/PixelifySans-OFL.txt (LF; upstream is CRLF, b66ba46f…)
 f32d22b3908fcad2c86a74000614ec22e6a7f66ea7e867e616026a27aebdc143  LICENSES/AtkinsonHyperlegible-OFL.txt
 caafcccfb70fc72458fcbda812ec8f0a06cb300cbabb87eabbb30b946124394b  LICENSES/OpenDyslexic-OFL.txt
 ```
