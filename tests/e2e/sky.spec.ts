@@ -104,16 +104,23 @@ test("setEnvironment cross-fades over about 2 s, then idles", async ({ page }) =
     if (!s?.sky) return null;
     const sky = s.sky;
     const startZenith = sky.mix.zenith.getHex();
+    const start = performance.now();
     s.handle.setEnvironment({ biome: "meadow", timeOfDay: "night" });
     await s.frame();
-    await new Promise((r) => setTimeout(r, 700));
+    await new Promise((r) => setTimeout(r, 300));
     const mid = { fading: sky.fading, scheduled: s.handle.loop.scheduled };
     const midZenith = sky.mix.zenith.getHex();
-    await new Promise((r) => setTimeout(r, 2000));
+    // The fade counts frame time, clamped to 50 ms a frame, so a slow software renderer (CI's
+    // SwiftShader) takes longer than 2 s of wall time. Poll for its end.
+    while (sky.fading && performance.now() - start < 30_000) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    const elapsed = performance.now() - start;
     await s.frame();
     return {
       mid,
       midChanged: midZenith !== startZenith,
+      elapsed,
       end: { fading: sky.fading, scheduled: s.handle.loop.scheduled },
       sunIntensity: s.handle.lights.sun.intensity,
       lightState: s.handle.lights.state.sunIntensity,
@@ -122,6 +129,8 @@ test("setEnvironment cross-fades over about 2 s, then idles", async ({ page }) =
   expect(result?.mid).toEqual({ fading: true, scheduled: true });
   expect(result?.midChanged).toBe(true);
   expect(result?.end).toEqual({ fading: false, scheduled: false });
+  // At least about 2 s (frame time can only run slower than the wall clock, never faster).
+  expect(result?.elapsed).toBeGreaterThanOrEqual(1900);
   // The light rig ends on the night values exactly.
   expect(result?.sunIntensity).toBeCloseTo(result?.lightState ?? -1, 5);
   expect(errors).toEqual([]);
