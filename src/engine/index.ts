@@ -8,5 +8,6 @@ export * from "./loot";
 export * from "./matcher";
 export * from "./rng";
 export * from "./session";
+export * from "./stars";
 export * from "./stats";
 export * from "./types";
