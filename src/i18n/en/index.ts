@@ -6,9 +6,11 @@
  * edit other tasks' lines.
  */
 import common from "./common";
+import blocks from "./blocks";
 
 const en = {
   common,
+  blocks,
 } as const;
 
 export default en;
