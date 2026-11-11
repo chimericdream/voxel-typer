@@ -1,0 +1,369 @@
+{
+  "id": "00000000-0000-4000-8000-000000000004",
+  "name": "Wren",
+  "ageBand": "miner",
+  "avatar": {
+    "skin": "moss"
+  },
+  "createdAt": 1788274800000,
+  "settings": {
+    "textScale": 1.25,
+    "showKeyboard": true,
+    "showHands": false,
+    "calmMode": false,
+    "tts": false,
+    "reducedMotion": "system",
+    "font": "pixel",
+    "highContrast": false,
+    "volume": {
+      "master": 0.8,
+      "music": 0.5,
+      "sfx": 0.8,
+      "voice": 1
+    },
+    "quality": "auto",
+    "breakReminderMin": 15,
+    "layout": "en-US"
+  },
+  "progress": {
+    "lessons": {
+      "meadow-01": {
+        "bestStars": 1,
+        "bestNetWpm": 9,
+        "bestAccuracy": 0.8,
+        "plays": 5,
+        "lastPlayed": 1788274800000
+      }
+    },
+    "unlockedBiomes": ["meadow"]
+  },
+  "sessionCounter": 10,
+  "keyStats": {
+    "a": {
+      "attempts": 200,
+      "errors": 90,
+      "recentErrRate": 0.45,
+      "latencyMedian": 230,
+      "recentLatencies": [210, 230, 250, 240, 220],
+      "lastSeenSession": 10,
+      "srs": {
+        "intervalSessions": 1,
+        "dueSession": 11
+      }
+    },
+    "s": {
+      "attempts": 200,
+      "errors": 10,
+      "recentErrRate": 0.05,
+      "latencyMedian": 230,
+      "recentLatencies": [210, 230, 250, 240, 220],
+      "lastSeenSession": 10,
+      "srs": {
+        "intervalSessions": 4,
+        "dueSession": 14
+      }
+    },
+    "d": {
+      "attempts": 200,
+      "errors": 10,
+      "recentErrRate": 0.05,
+      "latencyMedian": 230,
+      "recentLatencies": [210, 230, 250, 240, 220],
+      "lastSeenSession": 10,
+      "srs": {
+        "intervalSessions": 4,
+        "dueSession": 14
+      }
+    },
+    "f": {
+      "attempts": 200,
+      "errors": 10,
+      "recentErrRate": 0.05,
+      "latencyMedian": 230,
+      "recentLatencies": [210, 230, 250, 240, 220],
+      "lastSeenSession": 10,
+      "srs": {
+        "intervalSessions": 4,
+        "dueSession": 14
+      }
+    },
+    "j": {
+      "attempts": 200,
+      "errors": 10,
+      "recentErrRate": 0.05,
+      "latencyMedian": 230,
+      "recentLatencies": [210, 230, 250, 240, 220],
+      "lastSeenSession": 10,
+      "srs": {
+        "intervalSessions": 4,
+        "dueSession": 14
+      }
+    },
+    "k": {
+      "attempts": 200,
+      "errors": 10,
+      "recentErrRate": 0.05,
+      "latencyMedian": 230,
+      "recentLatencies": [210, 230, 250, 240, 220],
+      "lastSeenSession": 10,
+      "srs": {
+        "intervalSessions": 4,
+        "dueSession": 14
+      }
+    },
+    "l": {
+      "attempts": 200,
+      "errors": 10,
+      "recentErrRate": 0.05,
+      "latencyMedian": 230,
+      "recentLatencies": [210, 230, 250, 240, 220],
+      "lastSeenSession": 10,
+      "srs": {
+        "intervalSessions": 4,
+        "dueSession": 14
+      }
+    },
+    ";": {
+      "attempts": 200,
+      "errors": 90,
+      "recentErrRate": 0.45,
+      "latencyMedian": 230,
+      "recentLatencies": [210, 230, 250, 240, 220],
+      "lastSeenSession": 10,
+      "srs": {
+        "intervalSessions": 1,
+        "dueSession": 11
+      }
+    },
+    "g": {
+      "attempts": 200,
+      "errors": 10,
+      "recentErrRate": 0.05,
+      "latencyMedian": 230,
+      "recentLatencies": [210, 230, 250, 240, 220],
+      "lastSeenSession": 10,
+      "srs": {
+        "intervalSessions": 4,
+        "dueSession": 14
+      }
+    },
+    "h": {
+      "attempts": 200,
+      "errors": 10,
+      "recentErrRate": 0.05,
+      "latencyMedian": 230,
+      "recentLatencies": [210, 230, 250, 240, 220],
+      "lastSeenSession": 10,
+      "srs": {
+        "intervalSessions": 4,
+        "dueSession": 14
+      }
+    },
+    " ": {
+      "attempts": 200,
+      "errors": 10,
+      "recentErrRate": 0.05,
+      "latencyMedian": 230,
+      "recentLatencies": [210, 230, 250, 240, 220],
+      "lastSeenSession": 10,
+      "srs": {
+        "intervalSessions": 4,
+        "dueSession": 14
+      }
+    }
+  },
+  "bigramStats": {},
+  "inventory": {},
+  "island": null,
+  "cosmetics": {
+    "unlocked": []
+  },
+  "achievements": {},
+  "daily": {
+    "streakDates": []
+  },
+  "history": [
+    {
+      "lessonId": "meadow-01",
+      "mode": "mine",
+      "seed": 1000,
+      "startedAtT": 0,
+      "activeMs": 180000,
+      "keystrokes": 300,
+      "correct": 240,
+      "errors": 60,
+      "uncorrected": 0,
+      "grossWpm": 19.599999999999998,
+      "netWpm": 19.599999999999998,
+      "accuracy": 0.8,
+      "consistency": 0.7,
+      "longestStreak": 40,
+      "targetsCompleted": 20,
+      "at": 1788274800000
+    },
+    {
+      "lessonId": "meadow-01",
+      "mode": "mine",
+      "seed": 1001,
+      "startedAtT": 0,
+      "activeMs": 210000,
+      "keystrokes": 320,
+      "correct": 256,
+      "errors": 64,
+      "uncorrected": 0,
+      "grossWpm": 17.885714285714286,
+      "netWpm": 17.885714285714286,
+      "accuracy": 0.8,
+      "consistency": 0.7,
+      "longestStreak": 41,
+      "targetsCompleted": 21,
+      "at": 1788278400000
+    },
+    {
+      "lessonId": "meadow-01",
+      "mode": "mine",
+      "seed": 1002,
+      "startedAtT": 0,
+      "activeMs": 240000,
+      "keystrokes": 340,
+      "correct": 272,
+      "errors": 68,
+      "uncorrected": 0,
+      "grossWpm": 16.6,
+      "netWpm": 16.6,
+      "accuracy": 0.8,
+      "consistency": 0.7,
+      "longestStreak": 42,
+      "targetsCompleted": 22,
+      "at": 1788282000000
+    },
+    {
+      "lessonId": "meadow-01",
+      "mode": "mine",
+      "seed": 1003,
+      "startedAtT": 0,
+      "activeMs": 270000,
+      "keystrokes": 360,
+      "correct": 288,
+      "errors": 72,
+      "uncorrected": 0,
+      "grossWpm": 15.600000000000001,
+      "netWpm": 15.600000000000001,
+      "accuracy": 0.8,
+      "consistency": 0.7,
+      "longestStreak": 43,
+      "targetsCompleted": 23,
+      "at": 1788285600000
+    },
+    {
+      "lessonId": "meadow-01",
+      "mode": "mine",
+      "seed": 1004,
+      "startedAtT": 0,
+      "activeMs": 300000,
+      "keystrokes": 380,
+      "correct": 304,
+      "errors": 76,
+      "uncorrected": 0,
+      "grossWpm": 14.959999999999999,
+      "netWpm": 14.959999999999999,
+      "accuracy": 0.8,
+      "consistency": 0.7,
+      "longestStreak": 44,
+      "targetsCompleted": 24,
+      "at": 1788289200000
+    },
+    {
+      "lessonId": "meadow-01",
+      "mode": "mine",
+      "seed": 1005,
+      "startedAtT": 0,
+      "activeMs": 180000,
+      "keystrokes": 400,
+      "correct": 320,
+      "errors": 80,
+      "uncorrected": 0,
+      "grossWpm": 26.2,
+      "netWpm": 26.2,
+      "accuracy": 0.8,
+      "consistency": 0.7,
+      "longestStreak": 45,
+      "targetsCompleted": 25,
+      "at": 1788292800000
+    },
+    {
+      "lessonId": "meadow-01",
+      "mode": "mine",
+      "seed": 1006,
+      "startedAtT": 0,
+      "activeMs": 210000,
+      "keystrokes": 420,
+      "correct": 336,
+      "errors": 84,
+      "uncorrected": 0,
+      "grossWpm": 23.542857142857144,
+      "netWpm": 23.542857142857144,
+      "accuracy": 0.8,
+      "consistency": 0.7,
+      "longestStreak": 46,
+      "targetsCompleted": 20,
+      "at": 1788296400000
+    },
+    {
+      "lessonId": "meadow-01",
+      "mode": "mine",
+      "seed": 1007,
+      "startedAtT": 0,
+      "activeMs": 240000,
+      "keystrokes": 300,
+      "correct": 240,
+      "errors": 60,
+      "uncorrected": 0,
+      "grossWpm": 14.55,
+      "netWpm": 14.55,
+      "accuracy": 0.8,
+      "consistency": 0.7,
+      "longestStreak": 47,
+      "targetsCompleted": 21,
+      "at": 1788300000000
+    },
+    {
+      "lessonId": "meadow-01",
+      "mode": "mine",
+      "seed": 1008,
+      "startedAtT": 0,
+      "activeMs": 270000,
+      "keystrokes": 320,
+      "correct": 256,
+      "errors": 64,
+      "uncorrected": 0,
+      "grossWpm": 13.955555555555556,
+      "netWpm": 13.955555555555556,
+      "accuracy": 0.8,
+      "consistency": 0.7,
+      "longestStreak": 48,
+      "targetsCompleted": 22,
+      "at": 1788303600000
+    },
+    {
+      "lessonId": "meadow-01",
+      "mode": "mine",
+      "seed": 1009,
+      "startedAtT": 0,
+      "activeMs": 300000,
+      "keystrokes": 340,
+      "correct": 272,
+      "errors": 68,
+      "uncorrected": 0,
+      "grossWpm": 13.319999999999999,
+      "netWpm": 13.319999999999999,
+      "accuracy": 0.8,
+      "consistency": 0.7,
+      "longestStreak": 49,
+      "targetsCompleted": 23,
+      "at": 1788307200000
+    }
+  ],
+  "weekly": [],
+  "schemaVersion": 1
+}
