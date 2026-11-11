@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Developer page (M2-09): served by `npm run dev` and the e2e build, never in dist/. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'"
+    />
+    <title>Keyboard preview · Voxel Typer</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+      /* A stand-in for the 3D scene: sky over blocky ground, so the plate is seen over busy color. */
+      #keyboard {
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        box-sizing: border-box;
+        min-height: 100vh;
+        padding: 16px;
+        background:
+          repeating-linear-gradient(90deg, #3f7a2a 0 24px, #55962f 24px 48px) bottom / 100% 24px
+            no-repeat,
+          repeating-linear-gradient(90deg, #7c5336 0 24px, #63402a 24px 48px) bottom / 100% 48px
+            no-repeat,
+          linear-gradient(#87c5ee, #f2e3b6);
+      }
+      .title {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+      }
+      .target {
+        align-self: center;
+        margin: 0 0 16px;
+        padding: 8px 16px;
+        background: var(--c-plate);
+        color: var(--c-plate-text);
+        font-family: var(--font-body);
+        font-size: calc(var(--fs-xl) * var(--text-scale));
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="keyboard"></main>
+    <script type="module" src="/src/dev/keyboard-preview.tsx"></script>
+  </body>
+</html>

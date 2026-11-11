@@ -1,0 +1,190 @@
+/*
+ * On-screen keyboard (task M2-09). Colors come from the theme (src/ui/theme/themes.ts); every
+ * finger zone has a color, a pattern and a label, so color is never the only cue (PLAN.md §4.6).
+ */
+.root {
+  container-type: inline-size;
+  width: 100%;
+}
+
+/*
+ * --u is one key unit. It grows with --text-scale but never past the container's width, so the
+ * board can't overflow at text scale 2. A screen can cap it further with --keyboard-max-unit.
+ * The base is in px, not rem: `[data-theme]` on <html> scales the root font size by --text-scale
+ * already, and rem would apply the scale twice.
+ */
+.frame {
+  --u: min(
+    calc(40px * var(--text-scale)),
+    var(--keyboard-max-unit, 100vw),
+    calc((100cqi - 2 * var(--sp-3)) / 15)
+  );
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  box-sizing: border-box;
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+  padding: var(--sp-3);
+  background: var(--c-plate);
+}
+
+.board {
+  position: relative;
+  width: calc(var(--u) * 15);
+  height: calc(var(--u) * var(--rows));
+}
+
+.slot {
+  position: absolute;
+  top: calc(var(--u) * var(--r));
+  left: calc(var(--u) * var(--x));
+  box-sizing: border-box;
+  width: calc(var(--u) * var(--w));
+  height: var(--u);
+  padding: 1px;
+}
+
+/* The kit's KeyCap, sized to the slot. No border-image `fill`, so the zone shows in the middle. */
+.slot > kbd {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border-image: var(--bevel-keycap, none) var(--bevel-slice) / var(--bevel-w) repeat;
+  background-color: var(--zone);
+  background-image: var(--pattern, none);
+  background-size: var(--pattern-size, auto);
+  font-family: var(--font-body);
+  font-size: calc(var(--u) * 0.42);
+}
+
+.slot > kbd > span:first-child {
+  white-space: pre;
+  text-align: center;
+}
+
+.slot[data-face="dual"] > kbd {
+  font-size: calc(var(--u) * 0.27);
+  line-height: 1.05;
+}
+
+.slot[data-face="named"] > kbd {
+  font-size: calc(var(--u) * 0.24);
+}
+
+/* Finger zones: one color per finger type, and one pattern each, drawn in 3-px pixel steps. */
+.slot[data-zone="pinky"] {
+  --zone: var(--c-zone-pinky);
+  --pattern: repeating-conic-gradient(var(--c-zone-pattern) 0 25%, transparent 0 50%);
+  --pattern-size: 6px 6px;
+}
+.slot[data-zone="ring"] {
+  --zone: var(--c-zone-ring);
+  --pattern: conic-gradient(at 3px 3px, transparent 75%, var(--c-zone-pattern) 0);
+  --pattern-size: 6px 6px;
+}
+.slot[data-zone="middle"] {
+  --zone: var(--c-zone-middle);
+  --pattern: repeating-linear-gradient(180deg, var(--c-zone-pattern) 0 3px, transparent 3px 6px);
+}
+/* Pointer fingers: diagonal stripes, mirrored between the hands, so T|Y, G|H and B|N split. */
+.slot[data-zone="index"][data-hand="left"] {
+  --zone: var(--c-zone-index);
+  --pattern: repeating-linear-gradient(-45deg, var(--c-zone-pattern) 0 3px, transparent 3px 7px);
+}
+.slot[data-zone="index"][data-hand="right"] {
+  --zone: var(--c-zone-index);
+  --pattern: repeating-linear-gradient(45deg, var(--c-zone-pattern) 0 3px, transparent 3px 7px);
+}
+.slot[data-zone="thumb"] {
+  --zone: var(--c-zone-thumb);
+}
+
+/* The tiny finger label sits over the bottom edge, on a plain patch of the zone color. */
+.label {
+  position: absolute;
+  right: 0;
+  bottom: 2px;
+  left: 0;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  visibility: hidden;
+  font-family: var(--font-body);
+  font-size: max(10px, calc(var(--u) * 0.2));
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.label > span {
+  padding: 0 2px;
+  background: var(--zone);
+  color: var(--c-keycap-text);
+}
+
+.root[data-labels] .label,
+.slot:hover .label,
+.slot[data-next] .label {
+  visibility: visible;
+}
+
+/* Labels on: lift the glyph clear of the label. */
+.root[data-labels] .slot > kbd,
+.slot[data-next] > kbd {
+  padding-bottom: calc(var(--u) * 0.16);
+}
+
+/* The next key (and its Shift): a thick ring in the selection color, lifted, bobbing gently. */
+.slot[data-next] {
+  z-index: 2;
+}
+.slot[data-next] > kbd {
+  outline: var(--bevel-unit) solid var(--c-selected);
+  outline-offset: 1px;
+  animation: bob calc(1.2s * var(--motion-ok)) ease-in-out infinite alternate;
+  transform: translateY(calc(var(--bevel-unit) * -1));
+}
+
+/*
+ * A wrong key: a short dashed outline, plus a small wobble when motion is on. Never red, never
+ * more than one flash per WOBBLE_GAP_MS (src/ui/keyboard/model.ts).
+ */
+.slot[data-wobble] {
+  z-index: 3;
+}
+.slot[data-wobble] > kbd {
+  outline: var(--bevel-unit) dashed var(--c-plate-text);
+  outline-offset: 1px;
+  animation: wobble calc(420ms * var(--motion-ok)) ease-in-out 1;
+}
+
+@keyframes bob {
+  from {
+    transform: translateY(calc(var(--bevel-unit) * -1));
+  }
+  to {
+    transform: translateY(calc(var(--bevel-unit) * -2));
+  }
+}
+
+@keyframes wobble {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(4deg);
+  }
+  75% {
+    transform: rotate(-2deg);
+  }
+}
