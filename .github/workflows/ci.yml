@@ -14,8 +14,16 @@ on:
 permissions:
   contents: read
 
+# A PR's new push cancels its older run. Runs on `main` (push or dispatch) get a group of
+# their own (the run ID), so none is ever cancelled or dropped: a group keeps only one
+# pending run, so a shared `main` group would silently drop a middle commit's run when
+# several merges land at once, leaving that commit without checks and invisible to
+# `workflow_run` consumers such as publish.yml. Dispatches on other branches (from
+# update-snapshots.yml) share a per-branch group; only the newest pending one matters.
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: >-
+    ci-${{ github.ref == 'refs/heads/main' && format('main-{0}', github.run_id)
+    || github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
@@ -25,6 +33,21 @@ env:
   COVERAGE_THRESHOLDS: ${{ vars.COVERAGE_THRESHOLDS }}
 
 jobs:
+  # Lints every workflow file, with shellcheck on `run:` scripts. Unfiltered (about 10 s) so it
+  # can gate `ci-ok`: a path-filtered workflow can't be a required check.
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # The image bundles shellcheck. Same version as the local check in docs/ci.md.
+      - uses: docker://rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 # 1.7.12
+        with:
+          args: -color
+
   typecheck:
     name: typecheck
     runs-on: ubuntu-latest
@@ -200,6 +223,9 @@ jobs:
           echo "status=$?" >> "$GITHUB_OUTPUT"
       - name: Sticky bundle-size PR comment
         if: ${{ !cancelled() && hashFiles('size.md') != '' }}
+        # Reporting, not a gate: an API hiccup here must not turn `build` (and `ci-ok`) red.
+        # The budget itself is enforced by "Fail on a budget breach" below.
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -406,14 +432,23 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+        # Only HTTP 404 means "graph off". Any other error (5xx, rate limit, a permissions
+        # change) fails the job rather than silently skipping the review.
         run: |
-          if gh api "repos/$REPO/dependency-graph/sbom" --silent 2> /dev/null; then
-            echo "on=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "on=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::The dependency graph is off, so dependency review is skipped. Turn it on under Settings → Advanced Security (see docs/ci.md)."
-            echo "Dependency review skipped: the repo's dependency graph is off." >> "$GITHUB_STEP_SUMMARY"
-          fi
+          set -uo pipefail
+          code="$(curl -sS -o sbom-probe.txt -w '%{http_code}' --retry 2             -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json"             "$GITHUB_API_URL/repos/$REPO/dependency-graph/sbom")" || code="curl-error"
+          case "$code" in
+            200)
+              echo "on=true" >> "$GITHUB_OUTPUT" ;;
+            404)
+              echo "on=false" >> "$GITHUB_OUTPUT"
+              echo "::warning::The dependency graph is off, so dependency review is skipped. Turn it on under Settings → Advanced Security (see docs/ci.md)."
+              echo "Dependency review skipped: the repo's dependency graph is off." >> "$GITHUB_STEP_SUMMARY" ;;
+            *)
+              head -c 2000 sbom-probe.txt || true; echo
+              echo "::error::Dependency graph probe failed (HTTP $code). Re-run the job; only a 404 skips the review."
+              exit 1 ;;
+          esac
       - name: Dependency review
         if: ${{ github.event_name == 'pull_request' && steps.graph.outputs.on == 'true' }}
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
@@ -442,7 +477,7 @@ jobs:
   ci-ok:
     name: ci-ok
     if: ${{ always() }}
-    needs: [typecheck, lint, unit, content, build, e2e, docker, deps, codeql]
+    needs: [actionlint, typecheck, lint, unit, content, build, e2e, docker, deps, codeql]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
