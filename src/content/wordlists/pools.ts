@@ -20,6 +20,7 @@ import { poolsFromTexts } from "./loader";
 export const POOL_IDS = [
   "sight-dolch",
   "home-row",
+  "meadow-phrases",
 ] as const;
 
 export type PoolId = (typeof POOL_IDS)[number];
