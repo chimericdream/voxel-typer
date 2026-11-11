@@ -33,9 +33,10 @@ export interface KeyInput {
  *   it: a target cannot complete while it holds wrong chars. Fixed positions count as corrected
  *   errors.
  *
- * Backspace itself: under `stay` it is ignored (no event). Under `skip` it is ignored at index 0;
- * past that it moves back and un-marks the position. Under `backspace` it always works inside the
- * active target.
+ * Backspace itself: under `stay` it is ignored (no event), except while a `lockOn` target is
+ * locked, where it unlocks and resets that target (see {@link TargetingMode}). Under `skip` it is
+ * ignored at index 0; past that it moves back and un-marks the position. Under `backspace` it always
+ * works inside the active target.
  */
 export type WrongKeyPolicy = "stay" | "skip" | "backspace";
 
@@ -46,7 +47,7 @@ export type WrongKeyPolicy = "stay" | "skip" | "backspace";
  * - `lockOn`: no target is active until the learner types a char that starts some unlocked target.
  *   Ties go to the lowest `priority` value, then to the target added first. While locked, input
  *   goes to that target only, and a wrong key follows the policy. Backspace with 0 typed chars
- *   unlocks (Defense, Boss).
+ *   unlocks. Under `stay`, Backspace while locked unlocks and resets the target (Defense, Boss).
  */
 export type TargetingMode = "sequential" | "lockOn";
 
@@ -102,6 +103,8 @@ export interface SessionConfig {
  *   keystrokes across targets; any `wrong` resets it.
  * - `streakBroken`: `length` is the streak before the break; only emitted if it was ≥ 1.
  * - `sessionEnd`: ends the session. Feeding it afterwards throws.
+ *
+ * In `sequential`, a key fed when no target remains is ignored: no event, and it is not a keystroke.
  */
 export type EngineEvent =
   | {
@@ -169,7 +172,10 @@ export interface TargetView {
   text: string;
   /** The cursor position. */
   typed: number;
-  /** One mark per char: not typed yet, typed right, typed wrong then fixed, or still wrong. */
+  /**
+   * One mark per char: not typed yet, typed right, typed wrong then fixed, or still wrong. While a
+   * trailing space is required there are `text.length + 1` entries; the last one is the space.
+   */
   marks: ("pending" | "ok" | "fixed" | "wrong")[];
   locked: boolean;
   complete: boolean;

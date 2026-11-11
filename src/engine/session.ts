@@ -4,7 +4,7 @@
  * This file is orchestration: which target a key goes to (sequential order or lock-on), the streak,
  * the session clock, pausing, ending, and the input log. What a key does to a target is in
  * `./matcher`. The summary counters sit behind {@link SummaryAccumulator}, at the bottom of the
- * file, until `stats.ts` (M1-04) supplies the real one.
+ * file; `./stats` supplies it.
  */
 import type { Ms } from "@/types/core";
 import {
@@ -21,7 +21,8 @@ import {
   withTrailingSpace,
 } from "./matcher";
 import type { TargetEvent, TargetState } from "./matcher";
-import type { KeyAgg, SessionSummary } from "./stats";
+import { createAccumulator } from "./stats";
+import type { SessionSummary } from "./stats";
 import type {
   EngineEvent,
   KeyInput,
@@ -415,9 +416,8 @@ export function restoreSession(snap: SessionSnapshot): TypingSession {
 
 // ── Summary accumulator ────────────────────────────────────────────────────────────────────────
 //
-// The plug-in point for `stats.ts` (M1-04). The session reports facts through this interface and
-// never does stats math itself. To plug the real accumulator in, point `newAccumulator` at it and
-// delete `createLocalAccumulator`; nothing else in this file changes.
+// The plug-in point for `./stats`. The session reports facts through this interface and never does
+// stats math itself.
 
 /** One counted keystroke: a non-Backspace key fed while the session was running. */
 export interface KeystrokeFact {
@@ -454,85 +454,5 @@ export interface SummaryAccumulator {
   summarize(context: SummaryContext): SessionSummary;
 }
 
-const MAX_KEY_LATENCIES = 200;
-const MIN_CONSISTENCY_SAMPLES = 10;
-
-function bump(table: Record<string, KeyAgg>, key: string, fact: KeystrokeFact): void {
-  const agg = (table[key] ??= { attempts: 0, errors: 0, latencies: [] });
-  agg.attempts += 1;
-  if (!fact.correct) agg.errors += 1;
-  if (fact.latencyMs !== null && agg.latencies.length < MAX_KEY_LATENCIES) {
-    agg.latencies.push(fact.latencyMs);
-  }
-}
-
-/** `1 − min(1, stddev / mean)`, with the population standard deviation; 0 under 10 samples. */
-function consistencyOf(latencies: readonly Ms[]): number {
-  if (latencies.length < MIN_CONSISTENCY_SAMPLES) return 0;
-  const mean = latencies.reduce((sum, value) => sum + value, 0) / latencies.length;
-  if (mean === 0) return 1;
-  const variance =
-    latencies.reduce((sum, value) => sum + (value - mean) ** 2, 0) / latencies.length;
-  return 1 - Math.min(1, Math.sqrt(variance) / mean);
-}
-
-/**
- * The interim accumulator, with the formulas of contracts §3.5.
- *
- * Per-key and bigram counting: every keystroke aimed at an expected char is one attempt, and a wrong
- * one is one error, except a `repeat` (which only counts in the session totals). So mashing wrong
- * keys at one `stay` position is one error for that key, not ten.
- */
-function createLocalAccumulator(): SummaryAccumulator {
-  let keystrokes = 0;
-  let correct = 0;
-  let errors = 0;
-  let longestStreak = 0;
-  let targetsCompleted = 0;
-  const perKey: Record<string, KeyAgg> = {};
-  const bigrams: Record<string, KeyAgg> = {};
-  const latencies: Ms[] = [];
-
-  return {
-    keystroke(fact) {
-      keystrokes += 1;
-      if (fact.correct) correct += 1;
-      else errors += 1;
-      longestStreak = Math.max(longestStreak, fact.streak);
-      if (fact.latencyMs !== null) latencies.push(fact.latencyMs);
-      if (fact.expected === null || fact.repeat) return;
-      bump(perKey, fact.expected, fact);
-      if (fact.previous !== null) bump(bigrams, fact.previous + fact.expected, fact);
-    },
-    targetCompleted() {
-      targetsCompleted += 1;
-    },
-    summarize({ config, startedAtT, activeMs, uncorrected }) {
-      const minutes = activeMs / 60_000;
-      const rated = activeMs >= 1000;
-      const grossWpm = rated ? correct / 5 / minutes : 0;
-      return {
-        ...(config.lessonId === undefined ? {} : { lessonId: config.lessonId }),
-        mode: config.mode,
-        seed: config.seed,
-        startedAtT,
-        activeMs,
-        keystrokes,
-        correct,
-        errors,
-        uncorrected,
-        grossWpm,
-        netWpm: rated ? Math.max(0, grossWpm - uncorrected / minutes) : 0,
-        accuracy: keystrokes === 0 ? 1 : correct / keystrokes,
-        consistency: consistencyOf(latencies),
-        perKey: structuredClone(perKey),
-        bigrams: structuredClone(bigrams),
-        longestStreak,
-        targetsCompleted,
-      };
-    },
-  };
-}
-
-/** The accumulator every session uses. M1-04 points this at `createAccumulator` from `./stats`. */
-const newAccumulator: () => SummaryAccumulator = createLocalAccumulator;
+/** The accumulator every session uses. */
+const newAccumulator: () => SummaryAccumulator = createAccumulator;
