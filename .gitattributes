@@ -1,0 +1,7 @@
+# Normalize all text to LF in the repo and in working trees (Windows dev, Linux CI).
+* text=auto eol=lf
+
+# Binary assets: never touch line endings, never diff as text.
+*.png binary
+*.woff2 binary
+*.ico binary
