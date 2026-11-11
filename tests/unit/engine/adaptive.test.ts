@@ -45,12 +45,12 @@ describe("adaptive weights", () => {
         d: stat({ attempts: 5 }),
       }),
     );
-    expect(weights.a).toBeCloseTo(2.65);
+    expect(weights.a).toBeCloseTo(3);
     expect(weights.s).toBe(2);
-    expect(weights.d).toBeCloseTo(1.15);
+    expect(weights.d).toBeCloseTo(1.25);
     expect(weights[" "]).toBe(2);
     expect(keyWeights(params({ a: stat({ attempts: 500, latencyMedian: 5000 }) })).a).toBeCloseTo(
-      1 + (6 * 0.25) / 55 + 3,
+      1 + (10 * 0.25) / 55 + 2,
     );
     expect(keyWeights(params({}, { focus: ["a", "x"] })).a).toBe(3);
     expect(weights).not.toHaveProperty("x");
