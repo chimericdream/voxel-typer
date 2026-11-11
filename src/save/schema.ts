@@ -6,7 +6,15 @@
  */
 import type { SessionSummary, KeyStat } from "@/engine/stats";
 import type { VoxelGrid } from "@/render/mesher/voxel-grid";
-import type { AchievementId, AgeBand, BiomeId, BlockId, EpochMs, LessonId } from "@/types/core";
+import type {
+  AchievementId,
+  AgeBand,
+  BiomeId,
+  BlockId,
+  EpochMs,
+  GameModeId,
+  LessonId,
+} from "@/types/core";
 import { BIOME_ORDER } from "@/types/core";
 import type { Settings } from "./settings";
 
@@ -82,20 +90,24 @@ type Check = (v: unknown, path: string) => string | null;
 
 const AGE_BANDS: readonly string[] = ["sprout", "miner", "builder"];
 const BIOMES: readonly string[] = BIOME_ORDER;
-const MODES: readonly string[] = [
-  "mine",
-  "defense",
-  "minecart",
-  "builder",
-  "boss",
-  "daily",
-  "practice",
-  "placement",
-];
+// A record over the union, so adding or removing a mode in `GameModeId` fails typecheck here.
+const MODE_SET: Record<GameModeId, true> = {
+  mine: true,
+  defense: true,
+  minecart: true,
+  builder: true,
+  boss: true,
+  daily: true,
+  practice: true,
+  placement: true,
+};
+const MODES: readonly string[] = Object.keys(MODE_SET);
 const FONTS: readonly string[] = ["pixel", "clean", "dyslexic"];
 const QUALITIES: readonly string[] = ["low", "medium", "high", "auto"];
 const BUSES: readonly string[] = ["master", "music", "sfx", "voice"];
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+/** Keys a record may never have: JSON.parse makes them own keys, and copying one sets a prototype. */
+const FORBIDDEN_KEYS: readonly string[] = ["__proto__", "constructor", "prototype"];
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -143,8 +155,27 @@ const oneOf =
       ? null
       : `${path}: expected one of ${allowed.join(", ")}`;
 
+/** A real calendar date: `2026-02-29` and `2026-13-45` fail. No `Date` (pure zone). */
+function isCalendarDate(s: string): boolean {
+  const m = DATE_RE.exec(s);
+  if (m === null) return false;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  if (mo < 1 || mo > 12 || d < 1) return false;
+  const leap = (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0;
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mo - 1] ?? 0;
+  return d <= days;
+}
+
 const date: Check = (v, path) =>
-  typeof v === "string" && DATE_RE.test(v) ? null : `${path}: expected a YYYY-MM-DD date`;
+  typeof v === "string" && isCalendarDate(v) ? null : `${path}: expected a real YYYY-MM-DD date`;
+
+/** Text with at least one non-space character. */
+const notBlank =
+  (inner: Check): Check =>
+  (v, path) =>
+    inner(v, path) ?? (typeof v === "string" && v.trim() !== "" ? null : `${path}: is blank`);
 
 const nullable =
   (inner: Check): Check =>
@@ -157,22 +188,32 @@ const either =
     a(v, path) === null ? null : b(v, path);
 
 const arrayOf =
-  (item: Check): Check =>
+  (item: Check, unique = false): Check =>
   (v, path) => {
     if (!Array.isArray(v)) return `${path}: expected a list`;
     for (const [i, x] of v.entries()) {
       const p = item(x, `${path}[${i}]`);
       if (p !== null) return p;
+      if (unique && v.indexOf(x) !== i) return `${path}[${i}]: listed twice`;
     }
     return null;
   };
 
+/**
+ * An object used as a map. Its keys are user data, so `__proto__` and friends are refused, and
+ * `keyLength` (in code points), when given, pins every key's length.
+ */
 const recordOf =
-  (value: Check): Check =>
+  (value: Check, keyLength?: number): Check =>
   (v, path) => {
     if (!isRecord(v)) return `${path}: expected an object`;
-    for (const [k, x] of Object.entries(v)) {
-      const p = value(x, `${path}[${JSON.stringify(k)}]`);
+    for (const k of Object.keys(v)) {
+      const at = `${path}[${JSON.stringify(k)}]`;
+      if (FORBIDDEN_KEYS.includes(k)) return `${at}: key not allowed`;
+      if (keyLength !== undefined && Array.from(k).length !== keyLength) {
+        return `${at}: key must be ${keyLength} character${keyLength === 1 ? "" : "s"}`;
+      }
+      const p = value(v[k], at);
       if (p !== null) return p;
     }
     return null;
@@ -252,7 +293,7 @@ const weeklyCheck: Check = shape({
 
 const profileCheck: Check = shape({
   id: str(1, 64),
-  name: str(1, NAME_MAX),
+  name: notBlank(str(1, NAME_MAX)),
   ageBand: oneOf(AGE_BANDS),
   avatar: shape({ skin: str(1, 64) }, { hat: str(), pickaxe: str(), cape: str(), pet: str() }),
   createdAt: num(0),
@@ -268,13 +309,14 @@ const profileCheck: Check = shape({
           lastPlayed: num(0),
         }),
       ),
-      unlockedBiomes: arrayOf(oneOf(BIOMES)),
+      unlockedBiomes: arrayOf(oneOf(BIOMES), true),
     },
     { placement: shape({ doneAt: num(0), startBiome: oneOf(BIOMES) }) },
   ),
   sessionCounter: int(),
-  keyStats: recordOf(keyStatCheck),
-  bigramStats: recordOf(keyStatCheck),
+  // Keyed by one expected char, and by a 2-char string.
+  keyStats: recordOf(keyStatCheck, 1),
+  bigramStats: recordOf(keyStatCheck, 2),
   inventory: recordOf(int()),
   island: nullable(
     shape({

@@ -217,6 +217,84 @@ describe("profileProblem rejects damaged profiles", () => {
   });
 });
 
+describe("profileProblem: user-keyed records, dates, blank names, duplicate biomes", () => {
+  const good = fixture("veteran-builder");
+  const stat = fixture("pinky-weak").keyStats["a"];
+
+  /** Builds JSON text by hand, so `__proto__` arrives as an own key the way JSON.parse makes it. */
+  const withRecord = (field: string, key: string, value: unknown): unknown =>
+    JSON.parse(
+      JSON.stringify({ ...json(good), [field]: {} }).replace(
+        `"${field}":{}`,
+        `"${field}":{${JSON.stringify(key)}:${JSON.stringify(value)}}`,
+      ),
+    );
+
+  it.each([
+    ["keyStats", stat],
+    ["bigramStats", stat],
+    ["inventory", 1],
+    ["achievements", 1],
+  ])("rejects a __proto__ key in %s", (field, value) => {
+    const bad = withRecord(field, "__proto__", value);
+    expect(Object.hasOwn(Object(Reflect.get(Object(bad), field)), "__proto__")).toBe(true);
+    expect(profileProblem(bad)).toBe(`profile.${field}["__proto__"]: key not allowed`);
+  });
+
+  it("rejects constructor and prototype keys too", () => {
+    expect(profileProblem(withRecord("inventory", "constructor", 1))).toContain("key not allowed");
+    expect(profileProblem(withRecord("inventory", "prototype", 1))).toContain("key not allowed");
+  });
+
+  it("rejects a __proto__ lesson id", () => {
+    const p = JSON.parse(
+      JSON.stringify(good).replace('"lessons":{', '"lessons":{"__proto__":{"bestStars":1},'),
+    );
+    expect(profileProblem(p)).toContain("key not allowed");
+  });
+
+  it("keyStats keys are one char; bigramStats keys are two", () => {
+    expect(profileProblem(withRecord("keyStats", "a", stat))).toBeNull();
+    expect(profileProblem(withRecord("keyStats", "🦊", stat))).toBeNull();
+    expect(profileProblem(withRecord("keyStats", "ab", stat))).toContain("key must be 1 character");
+    expect(profileProblem(withRecord("keyStats", "", stat))).toContain("key must be 1 character");
+    expect(profileProblem(withRecord("bigramStats", "th", stat))).toBeNull();
+    expect(profileProblem(withRecord("bigramStats", "t", stat))).toContain("key must be 2");
+  });
+
+  it.each(["2026-13-45", "2026-00-10", "2026-04-31", "2026-02-29", "2100-02-29", "2026-1-05"])(
+    "rejects the impossible date %s",
+    (d) => {
+      expect(profileProblem({ ...json(good), daily: { streakDates: [d] } })).toContain(
+        "real YYYY-MM-DD date",
+      );
+      expect(profileProblem({ ...json(good), daily: { lastDone: d, streakDates: [] } })).toContain(
+        "profile.daily.lastDone",
+      );
+    },
+  );
+
+  it.each(["2024-02-29", "2000-02-29", "2026-12-31", "2026-01-01"])("accepts %s", (d) => {
+    expect(profileProblem({ ...json(good), daily: { streakDates: [d] } })).toBeNull();
+  });
+
+  it.each([" ", "   ", "\t", " "])("rejects a blank nickname %j", (name) => {
+    expect(profileProblem({ ...json(good), name })).toBe("profile.name: is blank");
+  });
+
+  it("accepts a nickname with spaces inside", () => {
+    expect(profileProblem({ ...json(good), name: " Sam B " })).toBeNull();
+  });
+
+  it("rejects a biome listed twice", () => {
+    const p = {
+      ...json(good),
+      progress: { lessons: {}, unlockedBiomes: ["meadow", "birch", "meadow"] },
+    };
+    expect(profileProblem(p)).toBe("profile.progress.unlockedBiomes[2]: listed twice");
+  });
+});
+
 function asObj(v: unknown): Record<string, unknown> {
   if (typeof v !== "object" || v === null || Array.isArray(v)) throw new Error("not an object");
   return { ...v };

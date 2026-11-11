@@ -13,13 +13,15 @@ import { isProfile, profileProblem } from "../../../src/save/schema";
 import type { Profile, StoredSummary } from "../../../src/save/schema";
 import {
   MAX_PROFILES,
+  NewerSaveError,
   PROFILES_STORE,
   ProfileLimitError,
   createIdbStore,
   createMemoryBackend,
   createStoreOn,
 } from "../../../src/save/store";
-import type { SaveStore } from "../../../src/save/store";
+import type { SaveProblem } from "../../../src/save/problems";
+import type { Backend, SaveStore } from "../../../src/save/store";
 
 // indexedDB, IDBKeyRange, IDBRequest … as globals, the way a browser has them.
 Object.assign(globalThis, fakeIdb);
@@ -48,9 +50,24 @@ function make(n: number, base = "fresh-sprout"): Profile {
   };
 }
 
+/** A record as a newer build (schema 2) might write it. */
+const newer = (p: Profile): string =>
+  JSON.stringify({ ...p, schemaVersion: 2, sessionCounter: 999, newField: { x: 1 } });
+
+const storageOff = (): Promise<never> => Promise.reject(new Error("storage is off"));
+/** A backend whose every call fails, like IndexedDB with storage disabled. */
+const broken = (): Backend => ({
+  keys: storageOff,
+  get: storageOff,
+  write: storageOff,
+  removeBoth: storageOff,
+});
+
 /** A store plus raw access to its records. */
 interface Harness {
   store: SaveStore;
+  /** What the store reported through `onProblem`. */
+  problems: SaveProblem[];
   /** A second store on the same data, as after a page reload. */
   reopen(): SaveStore;
   rawGet(key: string): Promise<unknown>;
@@ -65,11 +82,13 @@ const harnesses: [string, () => Promise<Harness>][] = [
     "IndexedDB store",
     async () => {
       const name = `vt-test-${++dbCounter}`;
-      const store = createIdbStore(name);
+      const problems: SaveProblem[] = [];
+      const store = createIdbStore(name, { onProblem: (x) => problems.push(x) });
       await store.listProfiles(); // creates the database
       const db = await openDB(name, 1);
       return {
         store,
+        problems,
         reopen: () => createIdbStore(name),
         rawGet: async (k) => {
           const v: unknown = await db.get(PROFILES_STORE, k);
@@ -88,8 +107,10 @@ const harnesses: [string, () => Promise<Harness>][] = [
     () => {
       const map = new Map<string, unknown>();
       const backend = createMemoryBackend(map);
+      const problems: SaveProblem[] = [];
       return Promise.resolve({
-        store: createStoreOn(backend),
+        store: createStoreOn(backend, { onProblem: (x) => problems.push(x) }),
+        problems,
         reopen: () => createStoreOn(createMemoryBackend(map)),
         rawGet: (k) => Promise.resolve(map.get(k)),
         rawPut: (k, v) => {
@@ -201,6 +222,14 @@ describe.each(harnesses)("%s", (_name, open) => {
       expect([await h.rawGet(p.id), await h.rawGet(`${p.id}:prev`)]).toEqual(before);
     });
 
+    it("validates before compacting, so a malformed history fails with the validator's reason", async () => {
+      const bad: unknown = { ...fixture("fresh-sprout"), history: null };
+      await expect(h.store.save(Object(bad))).rejects.toThrow(
+        "not saved: profile.history: expected a list",
+      );
+      expect(await h.rawKeys()).toEqual([]);
+    });
+
     it("rejects an id with ':'", async () => {
       await expect(h.store.save({ ...fixture("fresh-sprout"), id: "a:prev" })).rejects.toThrow();
       expect(await h.rawKeys()).toEqual([]);
@@ -242,7 +271,6 @@ describe.each(harnesses)("%s", (_name, open) => {
       ["JSON of the wrong shape", () => JSON.stringify({ hello: "world" })],
       ["a field of the wrong type", (p) => JSON.stringify({ ...p, sessionCounter: "lots" })],
       ["another profile's id", (p) => JSON.stringify({ ...p, id: "someone-else" })],
-      ["a newer schema version", (p) => JSON.stringify({ ...p, schemaVersion: 999 })],
       ["a number instead of text", () => 42],
       ["null", () => null],
       ["an object instead of text", (p) => ({ ...p })],
@@ -256,6 +284,9 @@ describe.each(harnesses)("%s", (_name, open) => {
       await h.rawPut(p.id, damage(v2));
       expect(await h.store.load(p.id)).toEqual(p);
       expect(warn).toHaveBeenCalled();
+      expect(h.problems).toEqual([
+        { profileId: p.id, kind: "restoredPrev", message: expect.any(String) },
+      ]);
       // The fallback shows in the profile list too.
       expect(await h.store.listProfiles()).toEqual([
         { id: p.id, name: p.name, ageBand: p.ageBand, avatar: p.avatar },
@@ -277,8 +308,12 @@ describe.each(harnesses)("%s", (_name, open) => {
       await h.rawPut(p.id, "garbage");
       await h.rawPut(`${p.id}:prev`, 7);
       expect(await h.store.load(p.id)).toBeNull();
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining("previous snapshot unusable"));
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("previous snapshot:"));
+      expect(h.problems.map((x) => [x.profileId, x.kind])).toEqual([[p.id, "unreadable"]]);
+      // listProfiles hides it but reports it, so a grown-up can be offered to remove it.
+      h.problems.length = 0;
       expect(await h.store.listProfiles()).toEqual([]);
+      expect(h.problems.map((x) => [x.profileId, x.kind])).toEqual([[p.id, "unreadable"]]);
     });
 
     it("damaged current with no prev ⇒ null", async () => {
@@ -295,6 +330,94 @@ describe.each(harnesses)("%s", (_name, open) => {
       await h.rawPut(`${p.id}:prev`, "garbage");
       expect(await h.store.load(p.id)).toEqual({ ...p, sessionCounter: 1 });
       expect(warn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("a record written by a newer build is never overwritten or rolled back", () => {
+    it("newer current + older prev: save rejects and writes nothing; load returns null", async () => {
+      const p = fixture("meadow-done-miner");
+      await h.store.save(p);
+      await h.store.save({ ...p, sessionCounter: 30 }); // prev = p
+      const v2 = newer(p);
+      await h.rawPut(p.id, v2);
+      const prevBefore = await h.rawGet(`${p.id}:prev`);
+      h.problems.length = 0;
+
+      await expect(h.store.save({ ...p, sessionCounter: 31 })).rejects.toBeInstanceOf(
+        NewerSaveError,
+      );
+      // Byte for byte.
+      expect(await h.rawGet(p.id)).toBe(v2);
+      expect(await h.rawGet(`${p.id}:prev`)).toBe(prevBefore);
+
+      // No fallback to the older prev: the old build must not show rolled-back progress.
+      expect(await h.store.load(p.id)).toBeNull();
+      expect(await h.store.listProfiles()).toEqual([]);
+      expect(h.problems.length).toBe(3);
+      expect(h.problems.every((x) => x.kind === "newerVersion" && x.profileId === p.id)).toBe(true);
+      expect(await h.rawGet(p.id)).toBe(v2);
+    });
+
+    it("only schemaVersion is looked at: a newer record of any shape is kept", async () => {
+      const p = fixture("fresh-sprout");
+      const v2 = JSON.stringify({ schemaVersion: 7, everything: "different" });
+      await h.rawPut(p.id, v2);
+      await expect(h.store.save(p)).rejects.toBeInstanceOf(NewerSaveError);
+      expect(await h.rawGet(p.id)).toBe(v2);
+      expect(await h.rawKeys()).toEqual([p.id]);
+      expect(await h.store.load(p.id)).toBeNull();
+    });
+
+    it("newer prev: save rejects and writes nothing; load still returns a good current", async () => {
+      const p = fixture("pinky-weak");
+      await h.store.save(p);
+      const v2 = newer(p);
+      await h.rawPut(`${p.id}:prev`, v2);
+      await expect(h.store.save({ ...p, sessionCounter: 11 })).rejects.toBeInstanceOf(
+        NewerSaveError,
+      );
+      expect(parse(await h.rawGet(p.id))).toEqual(p);
+      expect(await h.rawGet(`${p.id}:prev`)).toBe(v2);
+      expect(await h.store.load(p.id)).toEqual(p);
+    });
+
+    it("damaged current + newer prev: load returns null", async () => {
+      const p = fixture("pinky-weak");
+      await h.rawPut(p.id, "garbage");
+      await h.rawPut(`${p.id}:prev`, newer(p));
+      expect(await h.store.load(p.id)).toBeNull();
+      expect(h.problems.map((x) => x.kind)).toEqual(["newerVersion"]);
+    });
+
+    it("an import with the same id as a newer record gets a fresh id and leaves it alone", async () => {
+      const p = fixture("fresh-builder");
+      const v2 = newer(p);
+      await h.rawPut(p.id, v2);
+      const file = new Blob([JSON.stringify({ app: "voxel-typer", version: 1, profiles: [p] })]);
+      expect(await h.store.importAll(file)).toEqual({ imported: 1, skipped: 0, errors: [] });
+      expect(await h.rawGet(p.id)).toBe(v2);
+      const list = await h.store.listProfiles();
+      expect(list.length).toBe(1);
+      expect(list[0]?.id).not.toBe(p.id);
+    });
+  });
+
+  describe("onProblem", () => {
+    it("a callback that throws does not break loading", async () => {
+      const p = fixture("fresh-sprout");
+      const map = new Map<string, unknown>([[p.id, "garbage"]]);
+      const store = createStoreOn(createMemoryBackend(map), {
+        onProblem: () => {
+          throw new Error("ui bug");
+        },
+      });
+      expect(await store.load(p.id)).toBeNull();
+    });
+
+    it("a missing profile is not a problem", async () => {
+      expect(await h.store.load("nobody")).toBeNull();
+      expect(await h.store.listProfiles()).toEqual([]);
+      expect(h.problems).toEqual([]);
     });
   });
 
@@ -376,5 +499,47 @@ describe.each(harnesses)("%s", (_name, open) => {
       expect(await other.importAll(file)).toEqual({ imported: 5, skipped: 0, errors: [] });
       for (const name of ALL) expect(await other.load(fixture(name).id)).toEqual(fixture(name));
     });
+  });
+});
+
+describe("storage failures: load and listProfiles never reject", () => {
+  it("a failing backend: load → null, listProfiles → [], both reported as storageError", async () => {
+    const problems: SaveProblem[] = [];
+    const store = createStoreOn(broken(), { onProblem: (x) => problems.push(x) });
+    expect(await store.load("someone")).toBeNull();
+    expect(await store.listProfiles()).toEqual([]);
+    expect(problems).toEqual([
+      {
+        profileId: "someone",
+        kind: "storageError",
+        message: expect.stringContaining("storage is off"),
+      },
+      { profileId: null, kind: "storageError", message: expect.stringContaining("storage is off") },
+    ]);
+  });
+
+  it("a failing backend: save rejects (callers must catch) and reports storageError", async () => {
+    const problems: SaveProblem[] = [];
+    const store = createStoreOn(broken(), { onProblem: (x) => problems.push(x) });
+    await expect(store.save(fixture("fresh-sprout"))).rejects.toThrow("storage is off");
+    expect(problems.map((x) => x.kind)).toEqual(["storageError"]);
+    expect((await store.importAll(new Blob(["{}"]))).imported).toBe(0);
+  });
+
+  it("IndexedDB that cannot open (storage disabled): load → null, listProfiles → []", async () => {
+    const problems: SaveProblem[] = [];
+    vi.stubGlobal("indexedDB", {
+      open: () => {
+        throw new DOMException("The user denied permission", "SecurityError");
+      },
+    });
+    try {
+      const store = createIdbStore("vt-disabled", { onProblem: (x) => problems.push(x) });
+      expect(await store.load("someone")).toBeNull();
+      expect(await store.listProfiles()).toEqual([]);
+      expect(problems.map((x) => x.kind)).toEqual(["storageError", "storageError"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
