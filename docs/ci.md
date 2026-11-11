@@ -124,3 +124,12 @@ docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
 ```
 
 The Docker image includes shellcheck; the bare binary only uses it if shellcheck is on `PATH`.
+
+## Shell and container hardening
+
+- Every workflow sets `defaults.run.shell: bash`. Jobs that run inside a container (the Playwright
+  image) otherwise run `run:` steps with `sh`, which rejects `set -o pipefail`. The first real
+  `/update-snapshots` run (PR #94) failed on exactly that.
+- The `docker` job starts the image the way `deploy/docker-compose.yml` runs it: `--read-only`,
+  `--tmpfs /tmp`, `--cap-drop ALL` and `no-new-privileges`. A config change that needs a writable
+  path outside `/tmp` fails here instead of on the kids' server.

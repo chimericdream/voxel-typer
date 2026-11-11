@@ -36,6 +36,12 @@ concurrency:
     && format('branch-{0}', inputs.branch) || format('comment-{0}', github.run_id) }}
   cancel-in-progress: false
 
+defaults:
+  run:
+    # Jobs that run inside a container default to `sh`; every script here assumes bash
+    # (`set -o pipefail`, `[[ ]]`). Found on the first real /update-snapshots run (PR #94).
+    shell: bash
+
 jobs:
   request:
     name: request from comment

@@ -32,6 +32,12 @@ env:
   # (or flip `enforceThresholds` in vitest.config.ts).
   COVERAGE_THRESHOLDS: ${{ vars.COVERAGE_THRESHOLDS }}
 
+defaults:
+  run:
+    # Jobs that run inside a container default to `sh`; every script here assumes bash
+    # (`set -o pipefail`, `[[ ]]`). Found on the first real /update-snapshots run (PR #94).
+    shell: bash
+
 jobs:
   # Lints every workflow file, with shellcheck on `run:` scripts. Unfiltered (about 10 s) so it
   # can gate `ci-ok`: a path-filtered workflow can't be a required check.
@@ -363,7 +369,7 @@ jobs:
           case "$user" in ""|root|0|0:*) err "Image runs as root (USER is '${user:-unset}')";; esac
           [ "$(docker image inspect -f '{{if .Config.Healthcheck}}yes{{end}}' voxel-typer:ci)" = yes ] || err "Image has no HEALTHCHECK"
 
-          docker run -d --name vt -p 8080:8080 voxel-typer:ci > /dev/null
+          docker run -d --name vt --read-only --tmpfs /tmp --cap-drop ALL --security-opt no-new-privileges -p 8080:8080 voxel-typer:ci > /dev/null
           for _ in $(seq 1 30); do curl -fsS -o /dev/null http://127.0.0.1:8080/ && break; sleep 1; done
 
           get() { curl -sS -o /dev/null -D - -w '%{http_code}' "http://127.0.0.1:8080$1" | tr -d '\r'; }
