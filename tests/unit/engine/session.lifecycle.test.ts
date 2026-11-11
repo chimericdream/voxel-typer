@@ -143,7 +143,47 @@ describe("ending", () => {
     const session = createSession(config(), letters("f"));
     session.feed(key("f", 0));
     expect(session.view().ended).toBe(false);
-    expect(session.feed(key("x", 100_000)).map((e) => e.type)).toEqual(["wrong", "streakBroken"]);
+    // Nothing is left to type, so the key is ignored.
+    expect(session.feed(key("x", 100_000))).toEqual([]);
+    expect(session.view().ended).toBe(false);
+  });
+
+  it("sequential: keys fed when no target remains are not keystrokes and keep the streak", () => {
+    const session = createSession(config(), letters("fj"));
+    session.feed(key("f", 0));
+    session.feed(key("j", 500));
+    expect(session.feed(key("x", 1000))).toEqual([]);
+    expect(session.feed(key(" ", 1500))).toEqual([]);
+    expect(session.view().streak).toBe(2);
+    session.addTargets([{ id: "more", text: "k" }]);
+    expect(session.feed(key("k", 2000)).map((e) => e.type)).toEqual([
+      "correct",
+      "streak",
+      "targetComplete",
+    ]);
+    expect(summaryOf(session.end(3000))).toMatchObject({
+      keystrokes: 3,
+      correct: 3,
+      errors: 0,
+      accuracy: 1,
+      longestStreak: 3,
+      activeMs: 3000,
+    });
+  });
+
+  it("sequential: an ignored key does not start the clock, but does end a `time` session", () => {
+    const empty = createSession(config(), []);
+    expect(empty.feed(key("x", 500))).toEqual([]);
+    empty.addTargets([{ id: "a", text: "f" }]);
+    empty.feed(key("f", 2000));
+    expect(summaryOf(empty.end(3000))).toMatchObject({ startedAtT: 2000, activeMs: 1000 });
+
+    const timed = createSession(config({ end: { kind: "time", ms: 1000 } }), letters("f"));
+    timed.feed(key("f", 0));
+    expect(timed.feed(key("x", 400))).toEqual([]);
+    const events = timed.feed(key("x", 1000));
+    expect(events.map((e) => e.type)).toEqual(["sessionEnd"]);
+    expect(summaryOf(events)).toMatchObject({ keystrokes: 1, correct: 1, activeMs: 1000 });
   });
 
   it("a `targets` session does not end when its last open target is removed", () => {
@@ -352,6 +392,95 @@ describe("clock, pause and the live read model", () => {
     expect(session.feed(key("x", 300))).toEqual([]);
     session.resume(400);
     expect(summaryOf(session.end(500))).toMatchObject({ keystrokes: 1, activeMs: 200 });
+  });
+
+  it.each([0, 1, 10_000, 3_600_000])(
+    "a target completed by a removal during a pause of %d ms has the same duration",
+    (pauseMs) => {
+      const session = createSession(config({ end: { kind: "targets" } }), [
+        { id: "a", text: "ab" },
+        { id: "b", text: "cd" },
+      ]);
+      session.feed(key("a", 0));
+      session.feed(key("b", 100));
+      session.pause(200);
+      // Removing "b" drops the space "a" was waiting for, so "a" completes while paused.
+      const events = session.removeTarget("b", 200 + pauseMs);
+      expect(events.slice(0, 1)).toEqual([
+        {
+          type: "targetComplete",
+          t: 200 + pauseMs,
+          targetId: "a",
+          accuracy: 1,
+          durationMs: 200,
+          errors: 0,
+        },
+      ]);
+      expect(summaryOf(events)).toMatchObject({
+        activeMs: 200,
+        keystrokes: 2,
+        targetsCompleted: 1,
+      });
+      // The session has ended; a late resume changes nothing, and the replay agrees.
+      expect(session.resume(300 + pauseMs)).toEqual([]);
+      expect(replaySession(session.snapshot()).events.slice(-2)).toEqual(events);
+      expect(restoreSession(session.snapshot()).view()).toEqual(session.view());
+    },
+  );
+
+  it("a pause still in progress is counted once: at the removal, not again at resume", () => {
+    const session = createSession(config(), [
+      { id: "a", text: "ab" },
+      { id: "b", text: "cd" },
+      { id: "c", text: "ef" },
+    ]);
+    session.feed(key("a", 0));
+    session.pause(100);
+    // "a" is not typed out, so nothing completes, and it still needs its space ("c" follows).
+    expect(session.removeTarget("b", 5100)).toEqual([]);
+    session.resume(10_100);
+    session.feed(key("b", 10_200));
+    const done = session.feed(key(" ", 10_300)).find((e) => e.type === "targetComplete");
+    // 10300 ms of wall time minus the 10000 ms pause.
+    expect(done).toMatchObject({ targetId: "a", durationMs: 300 });
+  });
+
+  it("two pauses, the second still open when the target settles", () => {
+    const session = createSession(config(), [
+      { id: "a", text: "ab" },
+      { id: "b", text: "cd" },
+    ]);
+    session.feed(key("a", 0));
+    session.pause(100);
+    session.resume(1100);
+    session.feed(key("b", 1200));
+    session.pause(1300);
+    const events = session.removeTarget("b", 9300);
+    // 9300 − 1000 (first pause) − 8000 (open pause) = 300
+    expect(events).toEqual([
+      { type: "targetComplete", t: 9300, targetId: "a", accuracy: 1, durationMs: 300, errors: 0 },
+    ]);
+    expect(replaySession(session.snapshot()).events.at(-1)).toEqual(events[0]);
+  });
+
+  it("ending during a pause does not count the paused time", () => {
+    const session = createSession(config(), letters("asdf"));
+    session.feed(key("a", 0));
+    session.feed(key("s", 1500));
+    session.pause(2000);
+    expect(session.view().elapsedMs).toBe(2000);
+    const summary = summaryOf(session.end(602_000));
+    expect(summary.activeMs).toBe(2000);
+    // (2 / 5) / (2000 / 60000) = 12
+    expect(summary.grossWpm).toBeCloseTo(12, 12);
+    expect(session.view()).toMatchObject({ elapsedMs: 2000, ended: true });
+  });
+
+  it("a `time` session ended during a pause reports only its active time", () => {
+    const session = createSession(config({ end: { kind: "time", ms: 5000 } }), letters("as"));
+    session.feed(key("a", 0));
+    session.pause(1000);
+    expect(summaryOf(session.end(90_000)).activeMs).toBe(1000);
   });
 
   it("a pause before the first key delays the start", () => {

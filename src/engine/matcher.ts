@@ -135,8 +135,16 @@ export function withTrailingSpace(state: TargetState, on: boolean): TargetState 
  * - `accuracy`: correct keystrokes / all keystrokes on this target (0–1).
  * - `durationMs`: from the target's first key to `t`, minus paused time.
  * - `errors`: positions that took at least one wrong key (each counted once).
+ *
+ * `pendingPauseMs` is the part of a pause still in progress at `t`. `resumeTarget` has not
+ * credited it yet, so it is left out of `durationMs` here.
  */
-export function settleTarget(state: TargetState, t: Ms, policy: WrongKeyPolicy): MatchResult {
+export function settleTarget(
+  state: TargetState,
+  t: Ms,
+  policy: WrongKeyPolicy,
+  pendingPauseMs: Ms = 0,
+): MatchResult {
   const typedOut = state.cursor === state.chars.length;
   const blocked = policy === "backspace" && state.marks.includes("wrong");
   if (state.complete || !typedOut || blocked) return { state, events: [] };
@@ -149,7 +157,7 @@ export function settleTarget(state: TargetState, t: Ms, policy: WrongKeyPolicy):
         t,
         targetId: state.id,
         accuracy: keystrokes === 0 ? 1 : state.correct / keystrokes,
-        durationMs: Math.max(0, t - (state.startedT ?? t) - state.pausedMs),
+        durationMs: Math.max(0, t - (state.startedT ?? t) - state.pausedMs - pendingPauseMs),
         errors: state.erred.filter(Boolean).length,
       },
     ],
@@ -257,6 +265,14 @@ export function resumeTarget(state: TargetState, pausedMs: Ms): TargetState {
 /** The target lost its lock: its timing starts over when it is locked again. */
 export function releaseTarget(state: TargetState): TargetState {
   return { ...state, startedT: null, lastT: null, pausedMs: 0 };
+}
+
+/**
+ * `lockOn` under `stay`: the learner let go of the target. Its typed progress goes back to 0 and
+ * its timing starts over. The keystroke counters and the positions that took a wrong key are kept.
+ */
+export function resetTarget(state: TargetState): TargetState {
+  return { ...releaseTarget(state), cursor: 0, marks: state.marks.map(() => "pending") };
 }
 
 /** The read model of one target. */

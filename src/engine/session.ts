@@ -13,6 +13,7 @@ import {
   createTargetState,
   keyMatches,
   releaseTarget,
+  resetTarget,
   resumeTarget,
   settleTarget,
   targetView,
@@ -210,7 +211,7 @@ export function createSession(config: SessionConfig, initialTargets: Target[]): 
     }
   }
 
-  /** A key that no target took: a `lockOn` miss, or a key typed when nothing is left to type. */
+  /** A `lockOn` key that starts no target. */
   function miss(input: KeyInput, out: EngineEvent[]): void {
     out.push({
       type: "wrong",
@@ -246,6 +247,10 @@ export function createSession(config: SessionConfig, initialTargets: Target[]): 
     if (ended) throw new Error("feed after the session ended");
     log.push({ k: "key", input: { ...input } });
     if (paused || !isTypingKey(input.key)) return [];
+    // `sequential` with nothing left to type: the key is ignored. It can't start the clock, but a
+    // running `time` session still ends on it.
+    const idle = sequential && activeSlot() === undefined;
+    if (idle && startedAtT === null) return [];
 
     if (startedAtT === null) {
       startedAtT = input.t;
@@ -253,12 +258,17 @@ export function createSession(config: SessionConfig, initialTargets: Target[]): 
     }
     tick(input.t);
     if (cfg.end.kind === "time" && activeMs >= cfg.end.ms) return finish(input.t);
+    if (idle) return [];
 
     const out: EngineEvent[] = [];
     const active = activeSlot();
     if (active !== undefined) {
-      if (!sequential && input.key === BACKSPACE && active.state.cursor === 0) {
-        active.state = releaseTarget(active.state);
+      // Only a locked target gets here under lockOn. Backspace lets go of it once nothing is typed;
+      // `stay` has no other use for Backspace, so there it lets go at once and resets the target.
+      const letGo = input.key === BACKSPACE && (active.state.cursor === 0 || cfg.policy === "stay");
+      if (!sequential && letGo) {
+        active.state =
+          cfg.policy === "stay" ? resetTarget(active.state) : releaseTarget(active.state);
         lockedId = null;
         out.push({ type: "targetUnlocked", t: input.t, targetId: active.state.id });
       } else {
@@ -268,7 +278,7 @@ export function createSession(config: SessionConfig, initialTargets: Target[]): 
     }
     if (input.key === BACKSPACE) return out;
 
-    const lockable = sequential ? undefined : findLockable(input.key);
+    const lockable = findLockable(input.key);
     if (lockable === undefined) {
       miss(input, out);
       return out;
@@ -304,7 +314,9 @@ export function createSession(config: SessionConfig, initialTargets: Target[]): 
     const current = sequential ? activeSlot() : undefined;
     if (current !== undefined) {
       const before = current.state;
-      const settled = settleTarget(before, t, cfg.policy);
+      // A pause still in progress is not in the target's `pausedMs` yet (`resume` adds it).
+      const pendingPauseMs = paused && startedAtT !== null ? lastT - pausedAt : 0;
+      const settled = settleTarget(before, t, cfg.policy, pendingPauseMs);
       current.state = settled.state;
       absorb(settled.events, before, out);
     }

@@ -9,6 +9,7 @@ import {
   createTargetState,
   keyMatches,
   releaseTarget,
+  resetTarget,
   resumeTarget,
   settleTarget,
   targetView,
@@ -232,6 +233,29 @@ describe("resumeTarget and releaseTarget", () => {
       correct: 1,
       cursor: 0,
     });
+  });
+});
+
+describe("resetTarget", () => {
+  it("clears the progress and the timing, and keeps the counters and error positions", () => {
+    const typed = type(fresh("abc"), ["a", "x"], "stay");
+    expect(typed).toMatchObject({ cursor: 1, marks: ["ok", "wrong", "pending"] });
+    expect(resetTarget(typed)).toEqual({
+      ...fresh("abc"),
+      erred: [false, true, false],
+      correct: 1,
+      wrong: 1,
+    });
+  });
+});
+
+describe("settleTarget with a pause in progress", () => {
+  it("leaves the pending pause out of the duration, on top of the credited ones", () => {
+    const spaced = type(withTrailingSpace(fresh("ab"), true), ["a", "b"], "stay");
+    const waiting = withTrailingSpace(resumeTarget(spaced, 50), false);
+    expect(settleTarget(waiting, 5000, "stay").events[0]).toMatchObject({ durationMs: 4950 });
+    expect(settleTarget(waiting, 5000, "stay", 4000).events[0]).toMatchObject({ durationMs: 950 });
+    expect(settleTarget(waiting, 5000, "stay", 9999).events[0]).toMatchObject({ durationMs: 0 });
   });
 });
 
