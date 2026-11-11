@@ -5,19 +5,16 @@
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { checkI18nKeys, compareKeys, definedKeys, scanSource } from "../../../tools/i18n-keys";
+import {
+  checkI18nKeys,
+  compareKeys,
+  definedKeys,
+  PENDING_KEYS,
+  scanSource,
+} from "../../../tools/i18n-keys";
 
 const REPO = resolve(import.meta.dirname, "../../..");
 const FIXTURE = resolve(import.meta.dirname, "fixture");
-
-/**
- * Keys defined before the screens that show them exist, with the work that will use them. Delete an
- * entry when that work lands (the last test below fails until you do).
- */
-const PENDING_KEYS: Record<string, string> = {
-  "common.appName": "title screen and menus (M2)",
-  "common.notAffiliated": "the required footer, PLAN.md §1 (M2)",
-};
 
 describe("fixture tree", () => {
   it("finds missing keys with their location", async () => {
@@ -82,8 +79,22 @@ describe("scanner details", () => {
     expect(compareKeys({ a: { b: "B", c: "C" } }, [scan])).toEqual({
       missing: [],
       unused: [],
+      pending: [],
+      stalePending: [],
       defined: ["a.b", "a.c"],
     });
+  });
+
+  it("lets pending keys stay unused, and flags pending keys that are used or gone", () => {
+    const scan = scanSource("a.ts", 't("a.b");');
+    const report = compareKeys({ a: { b: "B", c: "C", d: "D" } }, [scan], {
+      "a.b": "now used",
+      "a.c": "still waiting",
+      "a.gone": "deleted",
+    });
+    expect(report.unused).toEqual(["a.d"]);
+    expect(report.pending).toEqual(["a.c"]);
+    expect(report.stalePending).toEqual(["a.b", "a.gone"]);
   });
 
   it("throws on a file it can't parse", () => {
@@ -97,14 +108,27 @@ describe("the repo", () => {
     expect(report.missing).toEqual([]);
   });
 
-  it("uses every English key (or lists it as pending)", async () => {
+  it("uses every English key except the pending ones", async () => {
     const report = await checkI18nKeys(REPO);
-    expect(report.unused.filter((k) => !(k in PENDING_KEYS))).toEqual([]);
+    expect(report.unused).toEqual([]);
   });
 
   it("has no stale pending keys", async () => {
     const report = await checkI18nKeys(REPO);
-    const stale = Object.keys(PENDING_KEYS).filter((k) => !report.unused.includes(k));
-    expect(stale, "these keys are used now; delete them from PENDING_KEYS").toEqual([]);
+    expect(report.stalePending, "used or deleted now; remove them from PENDING_KEYS").toEqual([]);
+    expect(report.pending).toEqual(Object.keys(PENDING_KEYS).toSorted());
+  });
+
+  it("passes the tool as CI runs it", () => {
+    const run = spawnSync(
+      process.execPath,
+      ["--import", "tsx", resolve(REPO, "tools/i18n-keys.ts")],
+      {
+        cwd: REPO,
+        encoding: "utf8",
+      },
+    );
+    expect(run.stderr).toBe("");
+    expect(run.status).toBe(0);
   });
 });

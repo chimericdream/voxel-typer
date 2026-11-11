@@ -31,6 +31,16 @@ export const EXCLUDE_GLOB = "src/i18n/**";
 /** The English tables' aggregator, relative to the root. */
 export const EN_INDEX = "src/i18n/en/index.ts";
 
+/**
+ * Keys written before the screen that shows them exists, with the work that will use them. They
+ * may be unused without failing the check. A pending key that becomes used (or is deleted) fails the
+ * check until its entry here is removed, so this list only shrinks.
+ */
+export const PENDING_KEYS: Readonly<Record<string, string>> = {
+  "common.appName": "title screen and menus (M2)",
+  "common.notAffiliated": "the required footer, PLAN.md §1 (M2)",
+};
+
 /** Where a key is asked for. */
 export interface KeyUse {
   key: string; // the key, or the static prefix for a dynamic `t()` call
@@ -51,8 +61,12 @@ export interface SourceScan {
 export interface KeyReport {
   /** `t()` calls whose key has no English text. */
   missing: KeyUse[];
-  /** English keys nothing uses, sorted. */
+  /** English keys nothing uses, sorted, not counting pending keys. */
   unused: string[];
+  /** Pending keys that are still unused, as allowed. */
+  pending: string[];
+  /** Pending keys that are used now or no longer defined: remove them from the pending list. */
+  stalePending: string[];
   /** Every defined key, sorted. */
   defined: string[];
 }
@@ -124,8 +138,15 @@ export function definedKeys(tables: unknown, prefix = ""): string[] {
   return out.toSorted();
 }
 
-/** Compares the uses in `scans` against the keys defined in `tables`. */
-export function compareKeys(tables: unknown, scans: readonly SourceScan[]): KeyReport {
+/**
+ * Compares the uses in `scans` against the keys defined in `tables`. Keys in `pending` may be
+ * unused.
+ */
+export function compareKeys(
+  tables: unknown,
+  scans: readonly SourceScan[],
+  pending: Readonly<Record<string, string>> = {},
+): KeyReport {
   const defined = definedKeys(tables);
   const known = new Set(defined);
   const used = new Set<string>();
@@ -139,8 +160,18 @@ export function compareKeys(tables: unknown, scans: readonly SourceScan[]): KeyR
     for (const lit of scan.literals) used.add(lit);
     for (const p of scan.prefixes) prefixes.push(p.key);
   }
-  const unused = defined.filter((k) => !used.has(k) && !prefixes.some((p) => k.startsWith(p)));
-  return { missing, unused, defined };
+  const isPending = (k: string): boolean => Object.hasOwn(pending, k);
+  const allUnused = defined.filter((k) => !used.has(k) && !prefixes.some((p) => k.startsWith(p)));
+  const stillUnused = new Set(allUnused);
+  return {
+    missing,
+    unused: allUnused.filter((k) => !isPending(k)),
+    pending: allUnused.filter(isPending),
+    stalePending: Object.keys(pending)
+      .filter((k) => !stillUnused.has(k))
+      .toSorted(),
+    defined,
+  };
 }
 
 /** Scans the source files under `root`. */
@@ -160,9 +191,15 @@ export async function loadTables(root: string): Promise<unknown> {
   return mod.default;
 }
 
-/** Checks the tree under `root` against its own English tables. */
-export async function checkI18nKeys(root: string = REPO_ROOT): Promise<KeyReport> {
-  return compareKeys(await loadTables(root), scanTree(root));
+/**
+ * Checks the tree under `root` against its own English tables. {@link PENDING_KEYS} applies to the
+ * repo only; another root (a test fixture) gets no pending keys unless they're passed in.
+ */
+export async function checkI18nKeys(
+  root: string = REPO_ROOT,
+  pending: Readonly<Record<string, string>> = resolve(root) === REPO_ROOT ? PENDING_KEYS : {},
+): Promise<KeyReport> {
+  return compareKeys(await loadTables(root), scanTree(root), pending);
 }
 
 async function main(): Promise<void> {
@@ -182,14 +219,23 @@ async function main(): Promise<void> {
   for (const k of report.unused) {
     console.error(`${EN_INDEX}: error i18n-keys(unused): nothing uses "${k}".`);
   }
-  const where = toPosix(relative(process.cwd(), root)) || ".";
-  if (report.missing.length > 0 || report.unused.length > 0) {
+  for (const k of report.stalePending) {
     console.error(
-      `\ni18n-keys: ${report.missing.length} missing, ${report.unused.length} unused (${where}).`,
+      `tools/i18n-keys.ts: error i18n-keys(stale-pending): "${k}" is used or gone now; delete it from PENDING_KEYS.`,
+    );
+  }
+  const where = toPosix(relative(process.cwd(), root)) || ".";
+  const { missing, unused, stalePending, pending } = report;
+  if (missing.length + unused.length + stalePending.length > 0) {
+    console.error(
+      `\ni18n-keys: ${missing.length} missing, ${unused.length} unused, ${stalePending.length} stale pending (${where}).`,
     );
     exit(1);
   }
-  console.log(`i18n-keys: ${report.defined.length} keys, all used and defined (${where}).`);
+  const pendingNote = pending.length > 0 ? ` (${pending.length} pending)` : "";
+  console.log(
+    `i18n-keys: ${report.defined.length} keys, none missing, none unused${pendingNote} in ${where}`,
+  );
 }
 
 if (resolve(argv[1] ?? "") === fileURLToPath(import.meta.url)) await main();
