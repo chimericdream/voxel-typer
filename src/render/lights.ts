@@ -25,10 +25,10 @@ export const DEFAULT_LIGHTING: Readonly<Record<TimeOfDay, LightingState>> = {
   day: {
     background: "#87ceeb",
     sunColor: "#fff4e0",
-    sunIntensity: 1.6,
+    sunIntensity: 2.6,
     skyColor: "#dcefff",
-    groundColor: "#a89878",
-    hemiIntensity: 1.5,
+    groundColor: "#b8a888",
+    hemiIntensity: 1.0,
   },
   dawn: {
     background: "#f2b28c",
@@ -63,8 +63,11 @@ export interface LampSource {
   intensity: number;
 }
 
-/** Direction from the scene toward the sun: up, a bit left and toward the viewer. */
-const SUN_DIR = new THREE.Vector3(-0.55, 1, 0.4).normalize();
+/**
+ * Direction from the scene toward the sun: about 42° up, from the left and toward the viewer. A
+ * raking sun gives tops, lit sides and shaded sides three clear tones, and visible shadows.
+ */
+export const SUN_DIR = new THREE.Vector3(-0.85, 0.95, 0.35).normalize();
 
 /** Point light range in blocks. */
 const LAMP_RANGE = 8;
@@ -138,7 +141,9 @@ export function createLightRig(scene: THREE.Scene, preset: QualityPreset): Light
     const lampsChanged = next.pointLights !== quality.pointLights;
     quality = next;
     sun.castShadow = next.shadows;
-    if (sun.shadow.mapSize.x !== next.shadowMapSize) {
+    // Free the shadow render target when shadows turn off or change size. three.js makes a new
+    // one on the next shadow pass when it needs it.
+    if (!next.shadows || sun.shadow.mapSize.x !== next.shadowMapSize) {
       sun.shadow.mapSize.set(next.shadowMapSize, next.shadowMapSize);
       sun.shadow.map?.dispose();
       sun.shadow.map = null;
