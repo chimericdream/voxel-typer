@@ -7,6 +7,8 @@
 //   ?quality=low|medium|high  default medium
 //   ?preset=overview|mine     default overview
 //   ?tod=day|dawn|dusk|night  default day
+//   ?t01=<0..1>               progress through the time of day (default 0.3; pinned under freeze)
+//   ?sky=flat                 the render core's flat background instead of the sky (M2-02)
 //   ?reducedMotion=1          force reduced motion (otherwise the OS setting)
 //   ?fx=1                     effects demo (M2-05): letter keys chip the target block, Enter or
 //                             Space breaks it (hit-stop, burst, shake, "+1"); Shift adds streak
@@ -22,6 +24,8 @@ import type { FxCore } from "@/render/fx";
 import { VoxelGrid } from "@/render/mesher/voxel-grid";
 import { cellCenter, createSceneHandle } from "@/render/scene";
 import type { RenderStats, SceneCore } from "@/render/scene";
+import { createSkyEnvironment } from "@/render/sky";
+import type { SkyController } from "@/render/sky";
 import type { QualityLevel, TimeOfDay } from "@/types/core";
 
 const noise = (ramp: PaletteRampId, scale = 4, contrast = 1): TextureRecipe => ({
@@ -263,18 +267,23 @@ function readParams(search: string): {
   quality: QualityLevel;
   preset: "overview" | "mine";
   tod: TimeOfDay;
+  t01: number | null;
+  flatSky: boolean;
   reducedMotion: boolean | null;
   fx: boolean;
 } {
   const p = new URLSearchParams(search);
   const n = Number.parseInt(p.get("seed") ?? "", 10);
   const rm = p.get("reducedMotion");
+  const t01 = Number.parseFloat(p.get("t01") ?? "");
   return {
     seed: Number.isFinite(n) ? n : 1,
     freeze: p.get("freeze") === "1",
     quality: QUALITIES.find((q) => q === p.get("quality")) ?? "medium",
     preset: p.get("preset") === "mine" ? "mine" : "overview",
     tod: TIMES.find((t) => t === p.get("tod")) ?? "day",
+    t01: Number.isFinite(t01) ? t01 : null,
+    flatSky: p.get("sky") === "flat",
     reducedMotion: rm === null ? null : rm === "1",
     fx: p.get("fx") === "1",
   };
@@ -283,6 +292,8 @@ function readParams(search: string): {
 /** e2e hooks for this page. */
 export interface ScenePreviewHooks {
   handle: SceneCore;
+  /** The sky controller (M2-02), or null with `?sky=flat`. */
+  sky: SkyController | null;
   /** Renderer counters right after the handle was made, before any diorama. */
   baseline: RenderStats;
   stats(): RenderStats;
@@ -326,6 +337,8 @@ async function start(root: HTMLElement): Promise<void> {
   root.append(canvas);
 
   const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let sky: SkyController | null = null;
+  const skyFactory = createSkyEnvironment({ frozen: params.freeze });
   const made: { fx: FxCore | null } = { fx: null };
   const handle = createSceneHandle(canvas, {
     blocks: BLOCKS,
@@ -335,6 +348,12 @@ async function start(root: HTMLElement): Promise<void> {
     ambientMotion: !params.freeze,
     reducedMotion: () => params.reducedMotion ?? media.matches,
     preserveDrawingBuffer: true,
+    ...(!params.flatSky && {
+      createEnvironment: (ctx) => {
+        sky = skyFactory(ctx);
+        return sky;
+      },
+    }),
     createFx: (ctx) => {
       made.fx = createFx(ctx, { rng: createRng(params.seed).fork("fx") });
       return made.fx;
@@ -345,7 +364,11 @@ async function start(root: HTMLElement): Promise<void> {
   const baseline = handle.renderStats();
   const { grid, target } = testGrid(params.seed);
 
-  handle.setEnvironment({ biome: "meadow", timeOfDay: params.tod });
+  handle.setEnvironment({
+    biome: "meadow",
+    timeOfDay: params.tod,
+    ...(params.t01 !== null && { t01: params.t01 }),
+  });
   await handle.loadDiorama(`test-${params.seed}`, grid);
   handle.camera.setTarget(target);
   handle.camera.preset(params.preset, { durationMs: 0 });
@@ -353,6 +376,7 @@ async function start(root: HTMLElement): Promise<void> {
 
   window.vtScene = {
     handle,
+    sky,
     baseline,
     stats: () => handle.renderStats(),
     async reload(times) {
