@@ -3,8 +3,8 @@
  *
  * Rules:
  * - Ignore `e.repeat`, `e.isComposing`, `key === 'Dead'`, `key === 'Process'`, and any event with
- *   `ctrlKey | metaKey | altKey`. Two exceptions: `Ctrl+Z` in Builder is delivered as `typed` with
- *   key `'Undo'`, and `AltGr` combos (`getModifierState('AltGraph')` is true) pass, because they
+ *   `ctrlKey | metaKey | altKey`. Two exceptions: `Ctrl+Z` or `Cmd+Z` in Builder is delivered as
+ *   `typed` with key `'Undo'`, and `AltGr` combos (`getModifierState('AltGraph')` is true) pass, because they
  *   are real chars on some layouts.
  * - `Escape` → `pause` in play, `back` in menus.
  * - `Enter` → `confirm` in menus. In play it is delivered as `typed` only if the mode declared it
@@ -18,9 +18,9 @@
  *   from some keyboards (`’ ‘ “ ”`) normalize to `'` and `"`.
  * - Window `blur` and `visibilitychange → hidden` produce `pause` immediately.
  *
- * The band- and mode-specific exceptions (Ctrl+Z, Backquote, Enter in play) need more than
- * `inPlay`, so {@link InputCtx} adds optional fields for them. Each one defaults to off, so a
- * caller that passes only `{ inPlay }` gets the plain rules (see the M1-08 handoff note).
+ * The band- and mode-specific exceptions (undo, Backquote, Enter in play) read the optional
+ * {@link InputCtx} fields. Each one defaults to off, so a caller that passes only `{ inPlay }`
+ * gets the plain rules.
  */
 import type { Clock } from "@/app/clock";
 import type { KeyInput } from "@/engine/types";
@@ -52,7 +52,7 @@ export type InputCtx = {
   inPlay: boolean;
   /** The profile's age band. `'sprout'` turns `` ` `` (Backquote) into `hearAgain`. */
   band?: AgeBand;
-  /** The current mode offers undo (Builder): `Ctrl+Z` becomes a `typed` key `'Undo'`. */
+  /** The current mode offers undo (Builder): `Ctrl+Z` / `Cmd+Z` become a `typed` key `'Undo'`. */
   undo?: boolean;
   /** The current mode wants `Enter` in play, as a `typed` key `'Enter'`. None does in v1. */
   wantsEnter?: boolean;
@@ -98,8 +98,10 @@ function altGraph(e: KeyboardEvent): boolean {
   return e.getModifierState("AltGraph");
 }
 
-function isCtrlZ(e: KeyboardEvent): boolean {
-  return e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey && (e.key === "z" || e.key === "Z");
+/** Plain Ctrl+Z, or plain Cmd+Z (Meta) for Mac families. The Shift variants are not redo. */
+function isUndoChord(e: KeyboardEvent): boolean {
+  if (e.altKey || e.shiftKey || e.ctrlKey === e.metaKey) return false;
+  return e.key === "z" || e.key === "Z";
 }
 
 /** The normalization itself, with no side effects. */
@@ -107,7 +109,7 @@ function classify(e: KeyboardEvent, t: Ms, ctx: InputCtx): TypedInput | ControlI
   if (e.repeat || e.isComposing || e.key === "Dead" || e.key === "Process") return null;
 
   if (e.ctrlKey || e.metaKey || e.altKey) {
-    if (ctx.undo === true && isCtrlZ(e)) return typed(e, "Undo", t);
+    if (ctx.undo === true && isUndoChord(e)) return typed(e, "Undo", t);
     // AltGr arrives as Ctrl+Alt on Windows; only a real char it produces passes.
     if (!altGraph(e)) return null;
     const ch = printable(e.key);

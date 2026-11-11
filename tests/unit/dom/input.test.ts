@@ -80,7 +80,7 @@ describe("normalizeKeyEvent: AltGr and Ctrl+Z", () => {
     expect(normalizeKeyEvent(key("AltGraph", { altGraph: true }), 0, PLAY)).toBeNull();
   });
 
-  it("maps Ctrl+Z to Undo only when the ctx asks for it", () => {
+  it("maps Ctrl+Z to Undo only when the ctx asks for it, and not Ctrl+Shift+Z", () => {
     const undo: InputCtx = { inPlay: true, undo: true };
     expect(typedKey(normalizeKeyEvent(key("z", { ctrlKey: true }), 0, undo))).toBe("Undo");
     expect(typedKey(normalizeKeyEvent(key("Z", { ctrlKey: true }), 0, undo))).toBe("Undo");
@@ -90,11 +90,30 @@ describe("normalizeKeyEvent: AltGr and Ctrl+Z", () => {
     );
     // Not other chords.
     expect(normalizeKeyEvent(key("Z", { ctrlKey: true, shiftKey: true }), 0, undo)).toBeNull();
-    expect(normalizeKeyEvent(key("z", { metaKey: true }), 0, undo)).toBeNull();
     expect(normalizeKeyEvent(key("z", { ctrlKey: true, altKey: true }), 0, undo)).toBeNull();
     expect(normalizeKeyEvent(key("y", { ctrlKey: true }), 0, undo)).toBeNull();
+    expect(normalizeKeyEvent(key("z", { ctrlKey: true, metaKey: true }), 0, undo)).toBeNull();
     // A repeat of Ctrl+Z is still a repeat.
     expect(normalizeKeyEvent(key("z", { ctrlKey: true, repeat: true }), 0, undo)).toBeNull();
+  });
+
+  it("maps Cmd+Z (Meta+Z) to Undo too, only when the ctx asks for it", () => {
+    const undo: InputCtx = { inPlay: true, undo: true };
+    expect(normalizeKeyEvent(key("z", { metaKey: true, code: "KeyZ" }), 4, undo)).toEqual({
+      kind: "typed",
+      input: { key: "Undo", t: 4, shift: false, code: "KeyZ" },
+    });
+    expect(typedKey(normalizeKeyEvent(key("Z", { metaKey: true }), 0, undo))).toBe("Undo");
+    expect(
+      typedKey(normalizeKeyEvent(key("z", { metaKey: true }), 0, { inPlay: false, undo: true })),
+    ).toBe("Undo");
+    expect(normalizeKeyEvent(key("z", { metaKey: true }), 0, PLAY)).toBeNull();
+    // Cmd+Shift+Z is not redo, and Cmd+Alt+Z is not undo.
+    expect(normalizeKeyEvent(key("Z", { metaKey: true, shiftKey: true }), 0, undo)).toBeNull();
+    expect(normalizeKeyEvent(key("z", { metaKey: true, altKey: true }), 0, undo)).toBeNull();
+    expect(normalizeKeyEvent(key("z", { metaKey: true, repeat: true }), 0, undo)).toBeNull();
+    expect(prevented("z", undo, { metaKey: true })).toBe(true);
+    expect(prevented("z", PLAY, { metaKey: true })).toBe(false);
   });
 });
 
