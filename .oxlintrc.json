@@ -62,6 +62,7 @@
         "src/content/**",
         "src/render/mesher/**",
         "src/render/atlas/recipes.ts",
+        "src/render/atlas/painters.ts",
         "src/save/schema.ts",
         "src/save/migrations.ts"
       ],
