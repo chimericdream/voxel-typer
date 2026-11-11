@@ -1,4 +1,4 @@
-# A blocklisted word, a strict substring hit, an IP term, and harmless look-alikes.
+# A blocklisted word, a strict substring match, an IP term, and harmless look-alikes.
 # tags: band=builder reading=grade4
 stable
 glass

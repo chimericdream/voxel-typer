@@ -19,6 +19,7 @@ import {
   blocklistHits,
   formatProblem,
   loadBlocklist,
+  inflections,
   parseBlocklist,
   registryIds,
   validateWordlists,
@@ -92,6 +93,13 @@ describe("validator on seeded bad fixtures", () => {
       `${bad("blocked.txt")}:5: "shot" is on the blocklist ("shot", violence)`,
       `${bad("blocked.txt")}:6: "shitty" is on the blocklist ("shit", profanity, strict)`,
       `${bad("blocked.txt")}:7: "creeper" is a trademark/IP term ("creeper", ip)`,
+      // comments ship with the list, so they are checked too
+      `${bad("comment.txt")}:1: comment is on the blocklist ("shot", violence); comments ship with the list, so reword it`,
+      // digits and punctuation used to disguise letters; the digit-only sentences pass
+      `${bad("disguised.txt")}:3: "Oh sh1t, the cave is dark." is on the blocklist ("shit", profanity, strict)`,
+      `${bad("disguised.txt")}:4: "What the fu-ck is that?" is on the blocklist ("fuck", profanity, strict)`,
+      `${bad("disguised.txt")}:5: "Do not k.i.l.l the bee." is on the blocklist ("kill", violence)`,
+      `${bad("disguised.txt")}:6: "The Ki11er Bee is here." is on the blocklist ("killer", violence)`,
       // duplicates within a file and across files of the same band
       `${bad("duplicate.txt")}:5: "rock" is a duplicate (first at line 3; band=builder)`,
       `${bad("duplicate.txt")}:6: "glass" is a duplicate (first at ${bad("blocked.txt")}:4; band=builder)`,
@@ -101,6 +109,20 @@ describe("validator on seeded bad fixtures", () => {
       `${bad("format.txt")}:6: "flag " starts or ends with a space`,
       `${bad("format.txt")}:7: "glad cat" uses "c", "t", not in the keys tag`,
       `${bad("format.txt")}:8: tag lines must come before the first item`,
+      // inflected and derived forms of whole-word terms (child-safety review B1); "butter",
+      // "brass", "striped", "warm" and "stables" pass
+      `${bad("inflected.txt")}:3: "shooting" is on the blocklist ("shoot", violence)`,
+      `${bad("inflected.txt")}:4: "hurts" is on the blocklist ("hurt", violence)`,
+      `${bad("inflected.txt")}:5: "stabbing" is on the blocklist ("stab", violence)`,
+      `${bad("inflected.txt")}:6: "bombing" is on the blocklist ("bomb", violence)`,
+      `${bad("inflected.txt")}:7: "drowned" is on the blocklist ("drown", violence)`,
+      `${bad("inflected.txt")}:8: "gunman" is on the blocklist ("gun", violence)`,
+      `${bad("inflected.txt")}:9: "jackass" is on the blocklist ("jackass", profanity)`,
+      `${bad("inflected.txt")}:10: "slapped" is on the blocklist ("slap", violence)`,
+      `${bad("inflected.txt")}:11: "bleeding" is on the blocklist ("bleed", violence)`,
+      `${bad("inflected.txt")}:12: "gored" is on the blocklist ("gore", violence)`,
+      `${bad("inflected.txt")}:13: "armies" is on the blocklist ("army", violence)`,
+      `${bad("inflected.txt")}:14: "punches" is on the blocklist ("punch", violence)`,
       // a missing reading tag
       `${bad("no-reading.txt")}:2: missing "reading" tag (dolch, cvc, grade2, grade4, grade6+)`,
       // a non-ASCII char
@@ -114,7 +136,7 @@ describe("validator on seeded bad fixtures", () => {
     const r = runTool("--dir", "tests/fixtures/wordlists/bad");
     expect(r.status).toBe(1);
     expect(r.stderr).toContain(`${bad("too-long.txt")}:4: "elephant"`);
-    expect(r.stderr).toContain("14 problem(s)");
+    expect(r.stderr).toContain("31 problem(s)");
   });
 
   it("checks pools.ts against the files", () => {
@@ -135,6 +157,8 @@ describe("validator on seeded bad fixtures", () => {
       'unknown biome "moon" (meadow, birch, shore, frosty, mines, marsh, caverns, sparkstone, citadel)',
       'unknown tag "colour" (known tags: band, reading, kind, case, keys, biome, theme)',
       'missing "band" tag (sprout, miner, builder, all)',
+      // the safety checks still run on a list whose tags are broken
+      '"shot" is on the blocklist ("shot", violence)',
       'unknown kind "poems" (words, phrases, sentences)',
       "the list has no items",
     ]);
@@ -147,6 +171,26 @@ describe("blocklist", () => {
 
   it("is well formed", () => {
     expect(blocklist.problems).toEqual([]);
+    // the high-severity categories from the child-safety review (B2) are all present
+    for (const category of [
+      "predation",
+      "sexual",
+      "self-harm",
+      "extremism",
+      "violence",
+      "gambling",
+    ]) {
+      expect(
+        blocklist.terms.filter((t) => t.category === category).length,
+        category,
+      ).toBeGreaterThan(3);
+    }
+    // an allowed word is never also a term
+    for (const word of blocklist.allow)
+      expect(
+        blocklist.terms.some((t) => t.term === word),
+        word,
+      ).toBe(false);
     expect(blocklist.terms.length).toBeGreaterThan(300);
     for (const term of ["creeper", "enderman", "redstone", "nether", "steve"]) {
       expect(blocklist.terms.find((t) => t.term === term)?.category, term).toBe("ip");
@@ -160,6 +204,61 @@ describe("blocklist", () => {
     expect(hit("A Creeper!")).toEqual(["creeper"]);
     // strict terms never match across a space
     expect(hit("he has hit it")).toEqual(["hit"]);
+  });
+
+  it("matches inflections and derivations of whole-word terms", () => {
+    // the child-safety review's examples (B1)
+    for (const [word, term] of [
+      ["shooting", "shoot"],
+      ["hurts", "hurt"],
+      ["stabbing", "stab"],
+      ["bombing", "bomb"],
+      ["drowned", "drown"],
+      ["gunman", "gun"],
+      ["gunmen", "gun"],
+      ["jackass", "jackass"],
+      // more: -es, -er/-ers, doubling, e-dropping, y → ies/ied, -y, phrases
+      ["punches", "punch"],
+      ["shooters", "shoot"],
+      ["slapped", "slap"],
+      ["whipping", "whip"],
+      ["choking", "choke"],
+      ["strangled", "strangle"],
+      ["armies", "army"],
+      ["bloodier", "bloody"],
+      ["gory", "gory"],
+      ["kidnapping", "kidnap"],
+      ["executing", "execute"],
+    ] as const) {
+      expect(hit(word), word).toEqual([term]);
+    }
+    expect(hit("she is self harming")).toEqual(["harm", "self harm"]);
+  });
+
+  it("undoes look-alike spellings before matching", () => {
+    expect(hit("sh1t")).toEqual(["shit"]);
+    expect(hit("a$$")).toEqual(["ass"]);
+    expect(hit("k1ll3r")).toEqual(["killer"]);
+    expect(hit("s.h.o.t")).toEqual(["shot"]);
+    expect(hit("sh!t")).toEqual(["shit"]);
+    expect(hit("Fu-ck!")).toEqual(["fuck"]);
+    // ordinary digits and end punctuation stay harmless
+    expect(hit("I have 3 cats, 10 dogs and 100 bees!")).toEqual([]);
+    expect(hit("Room 7 is a well-made, warm room.")).toEqual([]);
+  });
+
+  it("lists inflections by spelling rule", () => {
+    expect(inflections("stab")).toEqual(
+      expect.arrayContaining(["stabs", "stabbed", "stabbing", "stabber", "stabman"]),
+    );
+    expect(inflections("bake")).toEqual(
+      expect.arrayContaining(["baked", "baker", "baking", "baky"]),
+    );
+    expect(inflections("die")).toEqual(expect.arrayContaining(["died", "dying"]));
+    expect(inflections("bully")).toEqual(expect.arrayContaining(["bullies", "bullied"]));
+    expect(inflections("punch")).toContain("punches");
+    expect(inflections("pee")).not.toContain("peer");
+    expect(inflections("self harm")).toContain("self harming");
   });
 
   it("does not block harmless look-alikes", () => {
@@ -194,8 +293,37 @@ describe("blocklist", () => {
       "pickaxe",
       "bone",
       "smoke",
-      "crack",
       "pot",
+      // real words an inflection or look-alike reading of a term would spell (the allow section)
+      "brass",
+      "butter",
+      "assessed",
+      "striped",
+      "blazer",
+      "hanger",
+      "spicy",
+      "wary",
+      "jagged",
+      "shaggy",
+      "baby",
+      // strict terms moved to whole-word because they hide in these
+      "saltwater",
+      "debugger",
+      // common words with blocked-looking endings
+      "ginger",
+      "summer",
+      "hammer",
+      "button",
+      "bottle",
+      "kitten",
+      "winter",
+      "bigger",
+      "better",
+      "skilled",
+      "warmer",
+      "shelling",
+      "robin",
+      "parson",
     ];
     for (const word of harmless) expect(blocklistHits(word, blocklist), word).toEqual([]);
   });
@@ -209,7 +337,7 @@ describe("blocklist", () => {
       'b.txt:1: "early" comes before any "# section:" line',
       'b.txt:4: "ok" is already listed on line 3',
       'b.txt:5: "Bad" must be lowercase a-z words with single spaces',
-      'b.txt:6: bad section line; use "# section: <category> [strict]"',
+      'b.txt:6: bad section line; use "# section: <category> [strict]" or "# section: allow"',
     ]);
   });
 });
@@ -225,6 +353,16 @@ describe("loader", () => {
       { text: "ore", line: 6 },
     ]);
     expect(parsed.issues).toEqual([]);
+  });
+
+  it("ignores a byte-order mark and keeps comments for the validator", () => {
+    const parsed = parsePoolText(
+      String.fromCodePoint(0xfeff) + "# tags: band=all reading=cvc\n# a note\ncat\n",
+    );
+    expect(parsed.issues).toEqual([]);
+    expect(parsed.tags.get("band")).toBe("all");
+    expect(parsed.items).toEqual([{ text: "cat", line: 3 }]);
+    expect(parsed.comments).toEqual([{ text: " a note", line: 2 }]);
   });
 
   it("builds a WordPool with normalized tags", () => {

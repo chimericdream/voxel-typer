@@ -1,0 +1,19 @@
+# Inflected and derived forms of whole-word terms, then harmless words with the same endings.
+# tags: band=builder reading=grade4
+shooting
+hurts
+stabbing
+bombing
+drowned
+gunman
+jackass
+slapped
+bleeding
+gored
+armies
+punches
+butter
+brass
+striped
+warm
+stables
