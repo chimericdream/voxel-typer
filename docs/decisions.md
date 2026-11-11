@@ -134,3 +134,66 @@ Source: `docs/handoffs/M0-02.md`.
     `aria-description`, `aria-placeholder`, `aria-roledescription` and `aria-valuetext`. Text with no
     Unicode letter (numbers, punctuation, symbols, whitespace) is allowed. HTML entities are decoded
     first, so `&nbsp;` passes.
+
+## 2026-11-11: M0-03 CI
+
+Source: `docs/handoffs/M0-03.md`.
+
+29. **`ci-ok` is the only required check.** It passes only when every other `ci.yml` job passed.
+    Branch protection on `main`: strict (up to date), `ci-ok` from GitHub Actions, no force pushes or
+    deletions.
+30. **Snapshot commits get checks through a dispatch.** `update-snapshots.yml` ends with
+    `gh workflow run ci.yml --ref <branch>`, because `workflow_dispatch` is the one event a
+    `GITHUB_TOKEN` push may start. Baselines are made only on CI's Linux runner.
+31. **Dependency review is skipped while the repo's dependency graph is off.** `npm audit --omit=dev`
+    always runs. **ASK OWNER:** turn the dependency graph on; no CI change is needed.
+32. **Content checks discover tools by name** (`tools/validate-*.ts`, `tools/i18n-keys.ts`,
+    `tools/gen-curriculum-doc.ts` plus a dirty check on `docs/curriculum.md`), so later cards add a
+    tool and CI picks it up.
+33. **Coverage thresholds switch on at M1-GATE** through the repo variable `COVERAGE_THRESHOLDS`.
+34. **No third-party actions** besides `actions/*`, `github/codeql-action` and (M0-05) `docker/*`.
+    All are pinned to a full SHA with the version in a comment.
+35. **`/update-snapshots` works only from the repo owner's comments,** never on `main` or fork PRs.
+    Workers on Windows post it with `MSYS_NO_PATHCONV=1` or from PowerShell, because Git Bash
+    rewrites the leading `/`.
+
+## 2026-11-11: M0-04 hello voxel, M0-05 container image, M0-FIX-1 CI hardening
+
+Sources: `docs/handoffs/M0-04.md`, `docs/handoffs/M0-05.md`, `docs/handoffs/M0-FIX-1.md`, and the
+orchestrator's reviews of PRs #94, #96 and #97.
+
+36. **Hello voxel is a throwaway** (`src/dev/hello-voxel.ts`): a `DataTexture` cube with unlit tinted
+    faces, so the screenshot is exact. M2's atlas and render core replace it.
+37. **The image is nginx, not Caddy:** `nginxinc/nginx-unprivileged:alpine` on 8080, non-root, with a
+    read-only root filesystem. Security headers are set only at server level (per-path values through
+    `map`), and a unit test enforces it. Only `/assets/` is `immutable`; everything else is
+    `no-cache`. No Brotli (M6-06 may revisit it).
+38. **Image tags:** `:edge` and `:sha-<short>` on each green CI run of `main` (`:edge` moves only to
+    main's current head). `:stable` and `:<tag>` on an exact milestone tag (`m<N>`) or release tag
+    (`v<X.Y.Z>`). Other tag names are refused. A tag **promotes** the `:sha-` image CI already
+    published (`docker buildx imagetools create`), so `:stable` is the same image that ran as
+    `:edge`. It rebuilds only if that `:sha-` image is missing (M0-GATE change).
+39. **Deploy:** Docker Compose with a Tailscale sidecar (`network_mode: service:tailscale`,
+    `tailscale serve` HTTPS on a `*.ts.net` name). Watchtower is scoped to `voxel-typer`, so it can't
+    touch other projects' containers. Never turn on Tailscale Funnel. Roll back with
+    `VOXEL_TYPER_TAG=m<N>` in `deploy/.env`. `.env` files are git-ignored (M0-GATE), because
+    `deploy/.env` holds `TS_AUTHKEY`.
+40. **Every workflow runs steps with bash** (`defaults.run.shell: bash`). Steps in container jobs
+    otherwise run under `sh`, which broke the first `/update-snapshots` run on `set -o pipefail`.
+41. **CI starts the image the way the server runs it:** `--read-only --tmpfs /tmp --cap-drop ALL
+    --security-opt no-new-privileges`.
+42. **`/update-snapshots` comments become dispatches,** and the whole update-and-push sequence runs
+    under one per-branch concurrency group. The job that runs Playwright has a read-only token and no
+    npm cache. Only `*.png` files cross to the job that pushes, which refuses symlinks.
+43. **actionlint runs inside `ci.yml`,** so a broken workflow turns `ci-ok` red.
+
+## 2026-11-11: M0 gate
+
+44. **Purity enforcement becomes an allow-list (M0-FIX-2).** A pure-zone file may import only other
+    pure-zone files, plus type-only imports from anywhere. Pure zones don't get the browser globals.
+    The M0 review showed the old deny-list missed transitive imports (`src/engine` → `@/save/store` →
+    `idb`) and globals such as `crypto` and `fetch`.
+45. **Open for M1-01:** contracts §0 puts `import.meta.glob` aggregators in `src/content/*/index.ts`,
+    but `tools/*.ts` run under tsx, which doesn't support `import.meta.glob`. M1-01 decides how tools
+    such as `tools/sim.ts` and `tools/validate-*.ts` load content (for example, tools import the data
+    modules directly, and only the app imports the aggregators).
