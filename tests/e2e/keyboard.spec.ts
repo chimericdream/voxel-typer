@@ -63,18 +63,22 @@ for (const width of [1280, 1024]) {
     const fit = await page.evaluate(() => {
       const frame = document.querySelector("[data-layout]")?.parentElement;
       const box = frame?.getBoundingClientRect();
-      const keys = [...document.querySelectorAll<HTMLElement>("[data-code] > kbd")];
       const glyphs = [...document.querySelectorAll<HTMLElement>("[data-code] > kbd > span")];
-      const overflowing = keys
-        .filter((k) => k.scrollWidth > k.clientWidth + 1 || k.scrollHeight > k.clientHeight + 1)
-        .map((k) => k.parentElement?.dataset["code"]);
-      const wide = glyphs
-        .filter((g) => {
-          const kbd = g.parentElement?.getBoundingClientRect();
-          const r = g.getBoundingClientRect();
-          return kbd ? r.left < kbd.left - 1 || r.right > kbd.right + 1 : true;
-        })
-        .map((g) => g.parentElement?.parentElement?.dataset["code"]);
+      // Each glyph's box stays inside its key's box, both ways. (Not scrollWidth: the lit keys'
+      // ring is a pseudo-element over the bevel border, which counts as scroll overflow.)
+      const outside = (axis: "x" | "y") =>
+        glyphs
+          .filter((g) => {
+            const kbd = g.parentElement?.getBoundingClientRect();
+            const r = g.getBoundingClientRect();
+            if (!kbd) return true;
+            return axis === "x"
+              ? r.left < kbd.left - 1 || r.right > kbd.right + 1
+              : r.top < kbd.top - 1 || r.bottom > kbd.bottom + 1;
+          })
+          .map((g) => g.parentElement?.parentElement?.dataset["code"]);
+      const overflowing = outside("y");
+      const wide = outside("x");
       const caption = document.querySelector("p:last-of-type")?.getBoundingClientRect();
       return {
         pageWider: document.documentElement.scrollWidth > window.innerWidth,
