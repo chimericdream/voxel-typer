@@ -136,6 +136,12 @@ const CORNERS: readonly (readonly [0 | 1, 0 | 1])[] = [
   [0, 1],
 ];
 
+/** Copies `old` into the front of the larger `fresh` array and returns `fresh`. */
+function copy<T extends Float32Array | Uint32Array>(old: T, fresh: T): T {
+  fresh.set(old);
+  return fresh;
+}
+
 /** Growable typed-array output for one chunk. */
 class MeshBuilder {
   private cap = 0;
@@ -155,10 +161,6 @@ class MeshBuilder {
   }
 
   private grow(cap: number): void {
-    const copy = <T extends Float32Array | Uint32Array>(old: T, fresh: T): T => {
-      fresh.set(old);
-      return fresh;
-    };
     this.positions = copy(this.positions, new Float32Array(cap * 12));
     this.normals = copy(this.normals, new Float32Array(cap * 12));
     this.uvs = copy(this.uvs, new Float32Array(cap * 8));
@@ -270,7 +272,9 @@ export function meshChunk(
             const s1 = occludes(lx + ux, ly + uy, lz + uz);
             const s2 = occludes(lx + vx, ly + vy, lz + vz);
             ao[c] =
-              s1 === 1 && s2 === 1 ? 3 : s1 + s2 + occludes(lx + ux + vx, ly + uy + vy, lz + uz + vz);
+              s1 === 1 && s2 === 1
+                ? 3
+                : s1 + s2 + occludes(lx + ux + vx, ly + uy + vy, lz + uz + vz);
           }
 
           out.ensure();

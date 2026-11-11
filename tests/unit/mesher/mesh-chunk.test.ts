@@ -9,7 +9,7 @@
  * - The quad splits along the ao1–ao2 diagonal, flipped to the ao0–ao3 diagonal when
  *   `ao0 + ao3 > ao1 + ao2`.
  */
-import fc from "fast-check";
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   meshChunk,
@@ -88,9 +88,12 @@ const vertexAt = (m: ChunkMesh, i: number): Triplet => [
 const localIndices = (m: ChunkMesh, q: number): number[] =>
   Array.from({ length: 6 }, (_, i) => atU(m.indices, q * 6 + i) - q * 4);
 
-/** The 4 vertex brightnesses (r channel) in emit order. */
+/**
+ * The 4 vertex brightnesses (r channel) in emit order, rounded to 4 places so Float32 storage
+ * (0.8 is stored as 0.800000011920929) compares equal to the card's decimal values.
+ */
 const brightnessOf = (m: ChunkMesh, q: number): number[] =>
-  Array.from({ length: 4 }, (_, c) => atF(m.colors, q * 12 + c * 3));
+  Array.from({ length: 4 }, (_, c) => Math.round(atF(m.colors, q * 12 + c * 3) * 1e4) / 1e4);
 
 const quadsWithNormal = (m: ChunkMesh, n: Triplet): number[] => {
   const out: number[] = [];
@@ -128,7 +131,7 @@ function expectConsistentBuffers(m: ChunkMesh): void {
   expect(m.positions).toBeInstanceOf(Float32Array);
   expect(m.normals).toBeInstanceOf(Float32Array);
   expect(m.uvs).toBeInstanceOf(Float32Array);
-  expect(m.colors).toBeInstanceOf(ColorArrayCtor(), "colors");
+  expect(m.colors).toBeInstanceOf(Float32Array);
   expect(m.indices).toBeInstanceOf(Uint32Array);
   const q = quadCount(m);
   expect(m.positions).toHaveLength(q * 12);
@@ -142,11 +145,6 @@ function expectConsistentBuffers(m: ChunkMesh): void {
     expect(v, `index ${i} points into its own quad`).toBeGreaterThanOrEqual(own * 4);
     expect(v, `index ${i} points into its own quad`).toBeLessThan(own * 4 + 4);
   }
-}
-
-// toBeInstanceOf wants a constructor value, and naming Float32Array twice reads worse.
-function ColorArrayCtor(): Float32ArrayConstructor {
-  return Float32Array;
 }
 
 /** Every stored brightness is one of the four AO levels, as gray (r = g = b). */
@@ -196,6 +194,55 @@ function referenceQuads(g: VoxelGrid): number {
   return n;
 }
 
+/** Two blocks side by side along x, meshed without AO. */
+const pair = (a: number, b: number): ChunkMesh => {
+  const g = new VoxelGrid(4, 3, 3);
+  g.set(1, 1, 1, a);
+  g.set(2, 1, 1, b);
+  return mesh(g, { ao: false });
+};
+
+/** Top face of a stone floor block with `wallId` in the cell beside its emit0/emit1 corners. */
+const buildWall = (wallId: number): ChunkMesh => {
+  const g = new VoxelGrid(4, 3, 4);
+  g.set(1, 0, 1, STONE);
+  g.set(1, 1, 2, wallId); // the cell beside the top face's emit0/emit1 corners
+  return mesh(g, { origin: [1, 0, 1], size: 1 });
+};
+const topOf = (m: ChunkMesh): number => quadsWithNormal(m, [0, 1, 0])[0] ?? 0;
+
+/**
+ * All AO fixtures mesh the floor block A = (1,0,1) of a 4×3×4 grid as a 1×1×1 chunk, so its
+ * top face is the only quad with normal (0,1,0). Occluders go into the y=1 layer the face
+ * looks into; the nine cells of that layer, seen from above (x right, z down):
+ *
+ *           x=0      x=1      x=2
+ *   z=0   (0,1,0)  (1,1,0)  (2,1,0)
+ *   z=1   (0,1,1)  (1,1,1)* (2,1,1)      * the air cell above A, the face's neighbor
+ *   z=2   (0,1,2)  (1,1,2)  (2,1,2)
+ *
+ * The top face uses u = +x and v = −z, so its corners (world positions, y = 1) are
+ *   emit0 = (0,0) at (x1, z2), emit1 = (1,0) at (x2, z2),
+ *   emit2 = (1,1) at (x2, z1), emit3 = (0,1) at (x1, z1),
+ * and in the card's numbering ao0 = emit0, ao1 = emit1, ao2 = emit3, ao3 = emit2.
+ *
+ * Per the classic 3-neighbor rule, each vertex counts the opaque cells among the three
+ * layer cells that touch it (two sides and the corner; two sides ⇒ 3 regardless of the
+ * corner). For example emit1 (x2, z2) touches (2,1,1), (1,1,2) and corner (2,1,2).
+ */
+const buildTop = (occluders: readonly (readonly [number, Triplet])[]): ChunkMesh => {
+  const g = new VoxelGrid(4, 3, 4);
+  g.set(1, 0, 1, STONE);
+  for (const [id, [x, y, z]] of occluders) g.set(x, y, z, id);
+  return mesh(g, { origin: [1, 0, 1], size: 1 });
+};
+const topQuad = (m: ChunkMesh): number => {
+  const found = quadsWithNormal(m, [0, 1, 0]);
+  expect(found).toHaveLength(1);
+  return found[0] ?? 0;
+};
+const d = (x: number, z: number): readonly [number, Triplet] => [DIRT, [x, 1, z]];
+
 describe("face culling (card acceptance)", () => {
   it("a single block meshes 6 quads: 24 vertices, 36 indices", () => {
     const g = new VoxelGrid(3, 3, 3);
@@ -221,12 +268,13 @@ describe("face culling (card acceptance)", () => {
       expect(found, `one quad with normal ${n.join(",")}`).toHaveLength(1);
       const q = found[0] ?? 0;
       const corners = Array.from({ length: 4 }, (_, c) => cornerAt(m, q, c));
+      const inPlane = new Set<string>();
       for (const p of corners) {
         expect(p[axis], "face lies in its plane").toBe(plane);
-        const a = p[(axis + 1) % 3] ?? Number.NaN;
-        const b = p[(axis + 2) % 3] ?? Number.NaN;
-        expect([a, b].toSorted()).toEqual([1, 2]);
+        inPlane.add(`${p[(axis + 1) % 3]},${p[(axis + 2) % 3]}`);
       }
+      // The 4 corners are the 4 distinct corners of the unit square [1,2]² in that plane.
+      expect([...inPlane].toSorted()).toEqual(["1,1", "1,2", "2,1", "2,2"]);
       // Corners come out in emit order (0,0), (1,0), (1,1), (0,1): distinct, in-quad indices.
       expect(localIndices(m, q)).toEqual([...IDX_DEFAULT]);
     }
@@ -259,9 +307,11 @@ describe("face culling (card acceptance)", () => {
     g.set(2, 1, 1, DIRT);
     const m = mesh(g, { ao: false });
     expect(quadCount(m)).toBe(10);
-    // The shared plane x=2 carries exactly one quad: STONE's +x face (DIRT's -x is culled).
-    const plusX = quadsWithNormal(m, [1, 0, 0]).filter((q) => cornerAt(m, q, 0)[0] === 2);
-    expect(plusX).toHaveLength(1);
+    // Both blocks are opaque, so the shared plane x=2 carries no quad at all.
+    const onShared = [...quadsWithNormal(m, [1, 0, 0]), ...quadsWithNormal(m, [-1, 0, 0])].filter(
+      (q) => cornerAt(m, q, 0)[0] === 2,
+    );
+    expect(onShared).toHaveLength(0);
     expectConsistentBuffers(m);
     expectOutwardWinding(m);
   });
@@ -307,13 +357,6 @@ describe("chunk borders", () => {
 });
 
 describe("transparent blocks (glass, leaves, water)", () => {
-  const pair = (a: number, b: number): ChunkMesh => {
-    const g = new VoxelGrid(4, 3, 3);
-    g.set(1, 1, 1, a);
-    g.set(2, 1, 1, b);
-    return mesh(g, { ao: false });
-  };
-
   it("same transparent type merges: glass–glass and leaves–leaves mesh 10 quads", () => {
     expect(quadCount(pair(GLASS, GLASS))).toBe(10);
     expect(quadCount(pair(LEAVES, LEAVES))).toBe(10);
@@ -347,54 +390,15 @@ describe("transparent blocks (glass, leaves, water)", () => {
   });
 
   it("transparent blocks do not occlude AO", () => {
-    const build = (wallId: number): ChunkMesh => {
-      const g = new VoxelGrid(4, 3, 4);
-      g.set(1, 0, 1, STONE);
-      g.set(1, 1, 2, wallId); // the cell beside the top face's emit0/emit1 corners
-      return mesh(g, { origin: [1, 0, 1], size: 1 });
-    };
-    const top = (m: ChunkMesh): number => quadsWithNormal(m, [0, 1, 0])[0] ?? 0;
     // Opaque wall: emit0 and emit1 each count one side → ao 1 → 0.8.
-    expect(brightnessOf(build(DIRT), top(build(DIRT)))).toEqual([0.8, 0.8, 1.0, 1.0]);
+    expect(brightnessOf(buildWall(DIRT), topOf(buildWall(DIRT)))).toEqual([0.8, 0.8, 1.0, 1.0]);
     // Glass wall in the same cell: no occlusion at all.
-    const glass = build(GLASS);
-    expect(brightnessOf(glass, top(glass))).toEqual([1.0, 1.0, 1.0, 1.0]);
+    const glass = buildWall(GLASS);
+    expect(brightnessOf(glass, topOf(glass))).toEqual([1.0, 1.0, 1.0, 1.0]);
   });
 });
 
 describe("ambient occlusion", () => {
-  /**
-   * All AO fixtures mesh the floor block A = (1,0,1) of a 4×3×4 grid as a 1×1×1 chunk, so its
-   * top face is the only quad with normal (0,1,0). Occluders go into the y=1 layer the face
-   * looks into; the nine cells of that layer, seen from above (x right, z down):
-   *
-   *           x=0      x=1      x=2
-   *   z=0   (0,1,0)  (1,1,0)  (2,1,0)
-   *   z=1   (0,1,1)  (1,1,1)* (2,1,1)      * the air cell above A, the face's neighbor
-   *   z=2   (0,1,2)  (1,1,2)  (2,1,2)
-   *
-   * The top face uses u = +x and v = −z, so its corners (world positions, y = 1) are
-   *   emit0 = (0,0) at (x1, z2), emit1 = (1,0) at (x2, z2),
-   *   emit2 = (1,1) at (x2, z1), emit3 = (0,1) at (x1, z1),
-   * and in the card's numbering ao0 = emit0, ao1 = emit1, ao2 = emit3, ao3 = emit2.
-   *
-   * Per the classic 3-neighbor rule, each vertex counts the opaque cells among the three
-   * layer cells that touch it (two sides and the corner; two sides ⇒ 3 regardless of the
-   * corner). For example emit1 (x2, z2) touches (2,1,1), (1,1,2) and corner (2,1,2).
-   */
-  const buildTop = (occluders: readonly (readonly [number, Triplet])[]): ChunkMesh => {
-    const g = new VoxelGrid(4, 3, 4);
-    g.set(1, 0, 1, STONE);
-    for (const [id, [x, y, z]] of occluders) g.set(x, y, z, id);
-    return mesh(g, { origin: [1, 0, 1], size: 1 });
-  };
-  const topQuad = (m: ChunkMesh): number => {
-    const found = quadsWithNormal(m, [0, 1, 0]);
-    expect(found).toHaveLength(1);
-    return found[0] ?? 0;
-  };
-  const d = (x: number, z: number): readonly [number, Triplet] => [DIRT, [x, 1, z]];
-
   interface AoCase {
     name: string;
     occluders: readonly (readonly [number, Triplet])[];
@@ -515,9 +519,7 @@ describe("ambient occlusion", () => {
     );
     expect(wholeTop).toHaveLength(1);
     const chunked = buildTop([d(1, 2), d(2, 1), d(2, 2)]);
-    expect(brightnessOf(chunked, topQuad(chunked))).toEqual(
-      brightnessOf(whole, wholeTop[0] ?? 0),
-    );
+    expect(brightnessOf(chunked, topQuad(chunked))).toEqual(brightnessOf(whole, wholeTop[0] ?? 0));
   });
 });
 
@@ -550,7 +552,10 @@ describe("property: mesh matches an independent face counter", () => {
       })
       .chain(({ sx, sy, sz }) =>
         fc
-          .array(fc.integer({ min: 0, max: 7 }), { minLength: sx * sy * sz, maxLength: sx * sy * sz })
+          .array(fc.integer({ min: 0, max: 7 }), {
+            minLength: sx * sy * sz,
+            maxLength: sx * sy * sz,
+          })
           .map((cells) => new VoxelGrid(sx, sy, sz, Uint16Array.from(cells))),
       );
     fc.assert(

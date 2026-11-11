@@ -1,8 +1,25 @@
-import fc from "fast-check";
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { VoxelGrid } from "../../../src/render/mesher/voxel-grid";
 
 const SEED = 1313;
+
+type GridJson = ReturnType<VoxelGrid["toJSON"]>;
+
+/** A real JSON trip, as in a save, narrowed back to the toJSON shape. */
+function reparse(json: GridJson): GridJson {
+  const raw: unknown = JSON.parse(JSON.stringify(json));
+  if (typeof raw !== "object" || raw === null) throw new TypeError("not an object");
+  if (!("sx" in raw && "sy" in raw && "sz" in raw && "rle" in raw)) throw new TypeError("keys");
+  const { sx, sy, sz, rle } = raw;
+  if (typeof sx !== "number" || typeof sy !== "number" || typeof sz !== "number") {
+    throw new TypeError("bad sizes");
+  }
+  if (!Array.isArray(rle) || !rle.every((n): n is number => typeof n === "number")) {
+    throw new TypeError("bad rle");
+  }
+  return { sx, sy, sz, rle };
+}
 
 describe("VoxelGrid get/set (contracts §8.2)", () => {
   it("indexes x + sx * (z + sz * y), y up", () => {
@@ -57,11 +74,10 @@ describe("VoxelGrid RLE (toJSON/fromJSON)", () => {
         const json = g.toJSON();
         // Survives a real JSON trip, as in a save.
         const back = VoxelGrid.fromJSON(json);
-        const reparsed = VoxelGrid.fromJSON(json);
+        const reparsed = VoxelGrid.fromJSON(reparse(json));
         expect([back.sx, back.sy, back.sz]).toEqual([g.sx, g.sy, g.sz]);
         expect(back.data).toEqual(g.data);
         expect(reparsed.data).toEqual(g.data);
-        expect(JSON.parse(JSON.stringify(json))).toEqual(json);
         // Runs are maximal: no two neighbors share an id, and every count is positive.
         for (let k = 0; k < json.rle.length; k += 2) {
           expect(json.rle[k + 1]).toBeGreaterThan(0);
