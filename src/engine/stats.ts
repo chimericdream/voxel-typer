@@ -6,6 +6,7 @@
  * end. {@link foldSummaryIntoKeyStats} then folds that summary into the profile's lifetime stats.
  */
 import type { GameModeId, LessonId, Ms } from "@/types/core";
+import { scheduleSrs } from "./adaptive";
 import type { KeystrokeFact, SummaryAccumulator, SummaryContext } from "./session";
 
 /**
@@ -265,8 +266,8 @@ export function summarize(
  * - `recentLatencies` appends the session's latencies and keeps the last 30; `latencyMedian` is
  *   their median (`null` while empty).
  * - `lastSeenSession` becomes `sessionIndex`.
- * - `srs` is left alone; a new key starts at `{ intervalSessions: 1, dueSession: sessionIndex + 1 }`.
- *   Rescheduling is `scheduleSrs` (`./adaptive`).
+ * - `srs` is rescheduled by `scheduleSrs` (`./adaptive`) from the session's accuracy on the key,
+ *   `1 − r`. A new key starts from `{ intervalSessions: 1 }` before that step.
  *
  * Keys with no attempts this session are copied unchanged.
  */
@@ -283,7 +284,7 @@ export function foldKeyAggs(
     const recentLatencies = [...(old?.recentLatencies ?? []), ...agg.latencies].slice(
       -LATENCY_RING_SIZE,
     );
-    next[key] = {
+    const folded: KeyStat = {
       attempts: (old?.attempts ?? 0) + agg.attempts,
       errors: (old?.errors ?? 0) + agg.errors,
       recentErrRate:
@@ -295,6 +296,7 @@ export function foldKeyAggs(
       lastSeenSession: sessionIndex,
       srs: old?.srs ?? { intervalSessions: 1, dueSession: sessionIndex + 1 },
     };
+    next[key] = { ...folded, srs: scheduleSrs(folded, sessionIndex, 1 - rate) };
   }
   return next;
 }
