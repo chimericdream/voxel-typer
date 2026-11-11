@@ -1,0 +1,38 @@
+# Meadow word pairs with g and h, authored for Voxel Typer. Provenance: SOURCES.md.
+# Every phrase uses only the home-row keys a s d f g h j k l and space, and has a g or an h.
+# tags: band=all reading=grade2 kind=phrases keys=asdfghjkl; biome=meadow
+a glad lad
+a glad dad
+glad lads
+glad dads
+dad has a flag
+dad has a flask
+a lad has a flag
+flags flash
+a half salad
+dad has half
+a glass flask
+has a glass
+add a flag
+lads had a salad
+dad had a salad
+ha ha
+aha a flag
+dad has a sash
+a flag sash
+halls had flags
+all halls
+shall dad ask
+dad shall ask
+a lad shall ask
+lads had flags
+glad lads dash
+dads dash
+had a glass
+a flash
+flash a flag
+has a flask
+a glass hall
+dad has salsa
+half a flask
+half a glass

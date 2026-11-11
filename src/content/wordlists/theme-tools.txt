@@ -1,0 +1,35 @@
+# Theme words (tools) for every band, authored for Voxel Typer. Provenance: SOURCES.md.
+# Short words of 1-5 letters, so Sprouts can read them too.
+# tags: band=all reading=grade2 kind=words theme=tools
+bolt
+broom
+brush
+clip
+drill
+file
+glue
+hook
+key
+keys
+ladle
+level
+lock
+map
+mop
+nail
+nails
+net
+pail
+pen
+pens
+pick
+pin
+pins
+rake
+rope
+ruler
+saw
+spade
+tape
+tongs
+whisk

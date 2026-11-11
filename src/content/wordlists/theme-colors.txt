@@ -1,0 +1,26 @@
+# Theme words (colors) for every band, authored for Voxel Typer. Provenance: SOURCES.md.
+# Short words of 1-5 letters, so Sprouts can read them too.
+# tags: band=all reading=grade2 kind=words theme=colors
+amber
+aqua
+beige
+black
+blue
+brown
+coral
+cream
+gray
+green
+ivory
+jade
+lilac
+mint
+navy
+olive
+pink
+red
+rose
+ruby
+tan
+teal
+white
