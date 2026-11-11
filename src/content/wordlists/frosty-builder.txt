@@ -76,7 +76,6 @@ flurry
 foxes
 freeze
 freezing
-frigid
 frost
 frosted
 frosty
@@ -127,7 +126,6 @@ lanterns
 latitude
 lodge
 longitude
-lynx
 magnetic
 melt
 melts
@@ -135,7 +133,6 @@ meteor
 meteors
 migrate
 migrating
-mink
 mist
 misty
 mitt

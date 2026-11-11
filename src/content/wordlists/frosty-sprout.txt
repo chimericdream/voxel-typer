@@ -44,10 +44,8 @@ jogs
 lamp
 lamps
 lodge
-lynx
 melt
 melts
-mink
 mist
 misty
 mitt
