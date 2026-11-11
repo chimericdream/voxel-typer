@@ -290,7 +290,7 @@ describe("cross-module shapes", () => {
 
   it("speed is not an input of rollLoot (§18)", () => {
     expectTypeOf<keyof Parameters<typeof rollLoot>[0]>().toEqualTypeOf<
-      "biome" | "wordLen" | "streak" | "targetAccuracy" | "band"
+      "biome" | "wordLen" | "streak" | "targetAccuracy" | "band" | "oreVein"
     >();
   });
 
