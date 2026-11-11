@@ -6,6 +6,7 @@ export * from "./adaptive";
 export * from "./generator";
 export * from "./loot";
 export * from "./matcher";
+export * from "./replay";
 export * from "./rng";
 export * from "./session";
 export * from "./stars";
