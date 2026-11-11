@@ -116,7 +116,8 @@ export type TargetingMode = 'sequential' | 'lockOn';
 // sequential: targets are typed in array order (Mine, Minecart, practice).
 // lockOn:     no target is active until the learner types a char that starts some unlocked target; ties go to the
 //             target with the lowest `priority` value, then the earliest added. While locked, input goes to that target
-//             only. A wrong key while locked follows the policy. Backspace with 0 typed chars unlocks (Defense, Boss).
+//             only. A wrong key while locked follows the policy. Backspace with 0 typed chars unlocks; under `stay`,
+//             Backspace while locked unlocks and resets the target (Defense, Boss).
 
 export interface Target {
   id: string;
@@ -159,6 +160,7 @@ Rules:
 - Space between sequential targets is a real char: it produces `correct` with `char: ' '` attributed to the target it trails.
 - `Backspace` under `stay` or `skip` is ignored (no event) unless `index > 0` under `skip`, where it moves back and un-marks that position. Under `backspace` it always works within the active target.
 - `streak` counts consecutive correct keystrokes across targets; any `wrong` resets it.
+- In `sequential`, a key fed when no target remains is ignored (no event, not a keystroke).
 
 ### 3.4 Session
 
@@ -179,7 +181,7 @@ export function restoreSession(snap: SessionSnapshot): TypingSession;   // repla
 export interface TargetView {
   id: string; text: string;
   typed: number;                  // cursor position
-  marks: ('pending' | 'ok' | 'fixed' | 'wrong')[]; // per char
+  marks: ('pending' | 'ok' | 'fixed' | 'wrong')[]; // per char; text.length + 1 entries while a trailing space is required (the last is the space)
   locked: boolean; complete: boolean;
 }
 export interface SessionView {
@@ -204,7 +206,7 @@ export interface KeyAgg { attempts: number; errors: number; latencies: Ms[] }   
 export interface SessionSummary {
   lessonId?: LessonId; mode: GameModeId; seed: number;
   startedAtT: Ms; activeMs: Ms;
-  keystrokes: number;              // every non-Backspace key fed while unpaused, including lockOn misses
+  keystrokes: number;              // every non-Backspace key fed while unpaused, including lockOn misses; not keys ignored in `sequential` when no target remains
   correct: number;                 // correct keystrokes (chars incl. spaces)
   errors: number;                  // wrong keystrokes
   uncorrected: number;             // positions still wrong at end (skip policy) — always 0 for stay/backspace
@@ -220,7 +222,7 @@ export interface SessionSummary {
 - `grossWpm = (correct / 5) / minutes`
 - `netWpm = max(0, grossWpm − uncorrected / minutes)`
 - `accuracy = keystrokes === 0 ? 1 : correct / keystrokes` (range 0–1; shown as %)
-- `consistency = 1 − min(1, stddev(latencies) / mean(latencies))` over all non-null latencies in the session; 0 if fewer than 10 samples. Higher is steadier.
+- `consistency = 1 − min(1, population stddev(latencies) / mean(latencies))` over all non-null latencies in the session; 0 if fewer than 10 samples. Higher is steadier.
 - Round only for display, never in stored values.
 
 ### 3.6 Persistent per-key stats

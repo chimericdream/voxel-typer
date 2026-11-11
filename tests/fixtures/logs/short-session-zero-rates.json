@@ -1,0 +1,51 @@
+{
+  "name": "under one second of active time: all rates are 0",
+  "why": [
+    "Targets: letters a and s. Both typed right, 400 ms apart; the second ends the session (end: targets).",
+    "startedAtT = 0, activeMs = 400. activeMs < 1000, so grossWpm = netWpm = 0 by rule.",
+    "keystrokes = 2, correct = 2, errors = 0. accuracy = 2 / 2 = 1.",
+    "No latencies (each key is the first char of its target), so consistency = 0. longestStreak = 2. targetsCompleted = 2."
+  ],
+  "snapshot": {
+    "version": 1,
+    "config": {
+      "policy": "stay",
+      "targeting": "sequential",
+      "caseSensitive": true,
+      "end": { "kind": "targets" },
+      "mode": "placement",
+      "seed": 66
+    },
+    "initialTargets": [
+      { "id": "l1", "text": "a" },
+      { "id": "l2", "text": "s" }
+    ],
+    "log": [
+      { "k": "key", "input": { "key": "a", "t": 0, "shift": false } },
+      { "k": "key", "input": { "key": "s", "t": 400, "shift": false } }
+    ]
+  },
+  "expected": {
+    "summary": {
+      "mode": "placement",
+      "seed": 66,
+      "startedAtT": 0,
+      "activeMs": 400,
+      "keystrokes": 2,
+      "correct": 2,
+      "errors": 0,
+      "uncorrected": 0,
+      "grossWpm": 0,
+      "netWpm": 0,
+      "accuracy": 1,
+      "consistency": 0,
+      "perKey": {
+        "a": { "attempts": 1, "errors": 0, "latencies": [] },
+        "s": { "attempts": 1, "errors": 0, "latencies": [] }
+      },
+      "bigrams": {},
+      "longestStreak": 2,
+      "targetsCompleted": 2
+    }
+  }
+}

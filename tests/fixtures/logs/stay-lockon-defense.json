@@ -1,0 +1,77 @@
+{
+  "name": "stay, lockOn: tie-break, misses, a target added and removed mid-session",
+  "why": [
+    "Targets: m1 'sun' (priority 3), m2 'sky' (priority 1). 's' starts both; m2 has the lower priority, so it locks.",
+    "Keys: s k x(wrong for y) y -> m2 complete. q and z start no target: two misses (targetId null).",
+    "m3 'top' is added. t locks it. m3 is removed at 2700 (unlocked, no error). Then s u n locks and completes m1. End at 61000.",
+    "startedAtT = 1000. activeMs = 61000 - 1000 = 60000, minutes = 1.",
+    "keystrokes = s k x y q z t s u n = 10. correct = s k y t s u n = 7. errors = 3. accuracy = 7 / 10 = 0.7.",
+    "grossWpm = (7 / 5) / 1 = 1.4 = netWpm (uncorrected 0).",
+    "Latencies: k 300, y 300 (after x), u 300, n 300. Four samples, so consistency = 0.",
+    "Streak: s k = 2, broken by x; y = 1, broken by q; z breaks nothing; t s u n = 4. longestStreak = 4.",
+    "perKey: s is the first char of m2 and of m1 (2 attempts, no latency). y = wrong x + right y = 2 attempts, 1 error. Misses belong to no key.",
+    "targetsCompleted = 2 (m2, m1). The removed m3 is not complete."
+  ],
+  "snapshot": {
+    "version": 1,
+    "config": {
+      "policy": "stay",
+      "targeting": "lockOn",
+      "caseSensitive": true,
+      "end": { "kind": "manual" },
+      "mode": "defense",
+      "seed": 44
+    },
+    "initialTargets": [
+      { "id": "m1", "text": "sun", "priority": 3 },
+      { "id": "m2", "text": "sky", "priority": 1 }
+    ],
+    "log": [
+      { "k": "key", "input": { "key": "s", "t": 1000, "shift": false } },
+      { "k": "key", "input": { "key": "k", "t": 1300, "shift": false } },
+      { "k": "key", "input": { "key": "x", "t": 1600, "shift": false } },
+      { "k": "key", "input": { "key": "y", "t": 1900, "shift": false } },
+      { "k": "key", "input": { "key": "q", "t": 2200, "shift": false } },
+      { "k": "key", "input": { "key": "z", "t": 2300, "shift": false } },
+      { "k": "add", "targets": [{ "id": "m3", "text": "top" }] },
+      { "k": "key", "input": { "key": "t", "t": 2500, "shift": false } },
+      { "k": "remove", "id": "m3", "t": 2700 },
+      { "k": "key", "input": { "key": "s", "t": 3000, "shift": false } },
+      { "k": "key", "input": { "key": "u", "t": 3300, "shift": false } },
+      { "k": "key", "input": { "key": "n", "t": 3600, "shift": false } },
+      { "k": "end", "t": 61000 }
+    ]
+  },
+  "expected": {
+    "summary": {
+      "mode": "defense",
+      "seed": 44,
+      "startedAtT": 1000,
+      "activeMs": 60000,
+      "keystrokes": 10,
+      "correct": 7,
+      "errors": 3,
+      "uncorrected": 0,
+      "grossWpm": 1.4,
+      "netWpm": 1.4,
+      "accuracy": 0.7,
+      "consistency": 0,
+      "perKey": {
+        "s": { "attempts": 2, "errors": 0, "latencies": [] },
+        "k": { "attempts": 1, "errors": 0, "latencies": [300] },
+        "y": { "attempts": 2, "errors": 1, "latencies": [300] },
+        "t": { "attempts": 1, "errors": 0, "latencies": [] },
+        "u": { "attempts": 1, "errors": 0, "latencies": [300] },
+        "n": { "attempts": 1, "errors": 0, "latencies": [300] }
+      },
+      "bigrams": {
+        "sk": { "attempts": 1, "errors": 0, "latencies": [300] },
+        "ky": { "attempts": 2, "errors": 1, "latencies": [300] },
+        "su": { "attempts": 1, "errors": 0, "latencies": [300] },
+        "un": { "attempts": 1, "errors": 0, "latencies": [300] }
+      },
+      "longestStreak": 4,
+      "targetsCompleted": 2
+    }
+  }
+}
