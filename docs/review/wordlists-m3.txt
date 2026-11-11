@@ -2744,13 +2744,13 @@ meadow-gh-phrases	a glad dad
 meadow-gh-phrases	glad lads
 meadow-gh-phrases	glad dads
 meadow-gh-phrases	dad has a flag
-meadow-gh-phrases	dad has a flask
+meadow-gh-phrases	dad shall dash
 meadow-gh-phrases	a lad has a flag
 meadow-gh-phrases	flags flash
 meadow-gh-phrases	a half salad
 meadow-gh-phrases	dad has half
-meadow-gh-phrases	a glass flask
-meadow-gh-phrases	has a glass
+meadow-gh-phrases	a glad hall
+meadow-gh-phrases	glad lads ask
 meadow-gh-phrases	add a flag
 meadow-gh-phrases	lads had a salad
 meadow-gh-phrases	dad had a salad
@@ -2766,14 +2766,14 @@ meadow-gh-phrases	a lad shall ask
 meadow-gh-phrases	lads had flags
 meadow-gh-phrases	glad lads dash
 meadow-gh-phrases	dads dash
-meadow-gh-phrases	had a glass
+meadow-gh-phrases	all lads dash
 meadow-gh-phrases	a flash
 meadow-gh-phrases	flash a flag
-meadow-gh-phrases	has a flask
+meadow-gh-phrases	a flag hall
 meadow-gh-phrases	a glass hall
 meadow-gh-phrases	dad has salsa
-meadow-gh-phrases	half a flask
-meadow-gh-phrases	half a glass
+meadow-gh-phrases	half a salad
+meadow-gh-phrases	dads had flags
 theme-animals	ant
 theme-animals	bear
 theme-animals	bee
