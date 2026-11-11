@@ -1,0 +1,76 @@
+{
+  "name": "skip, sequential: two uncorrected positions wipe out net WPM",
+  "why": [
+    "Targets: w1 'cat' (needs a trailing space, w2 follows), w2 'dog' (last, no space).",
+    "Keys: c x(wrong for a, cursor advances) t space | d o Backspace o h(wrong for g; the target still completes). Then end at 15000.",
+    "The Backspace at 3000 moves back from index 2 to 1 and un-marks it; the second o retypes it. Backspace is not a keystroke.",
+    "startedAtT = 0, activeMs = 15000, minutes = 0.25.",
+    "keystrokes = c x t space d o o h = 8. correct = c t space d o o = 6. errors = 2. accuracy = 6 / 8 = 0.75.",
+    "grossWpm = (6 / 5) / 0.25 = 4.8.",
+    "uncorrected = positions still wrong = w1[1] and w2[2] = 2. netWpm = max(0, 4.8 - 2 / 0.25) = max(0, 4.8 - 8) = 0.",
+    "Latencies: t 500 (after x), space 500, o 500, o 500 (after the Backspace). Four samples, so consistency = 0.",
+    "Streak: c = 1, broken by x; t space d o o = 5, broken by h. longestStreak = 5.",
+    "perKey: o has 2 attempts (typed twice). a and g have 1 attempt, 1 error each."
+  ],
+  "snapshot": {
+    "version": 1,
+    "config": {
+      "policy": "skip",
+      "targeting": "sequential",
+      "caseSensitive": true,
+      "end": { "kind": "manual" },
+      "mode": "practice",
+      "seed": 22
+    },
+    "initialTargets": [
+      { "id": "w1", "text": "cat" },
+      { "id": "w2", "text": "dog" }
+    ],
+    "log": [
+      { "k": "key", "input": { "key": "c", "t": 0, "shift": false } },
+      { "k": "key", "input": { "key": "x", "t": 500, "shift": false } },
+      { "k": "key", "input": { "key": "t", "t": 1000, "shift": false } },
+      { "k": "key", "input": { "key": " ", "t": 1500, "shift": false } },
+      { "k": "key", "input": { "key": "d", "t": 2000, "shift": false } },
+      { "k": "key", "input": { "key": "o", "t": 2500, "shift": false } },
+      { "k": "key", "input": { "key": "Backspace", "t": 3000, "shift": false } },
+      { "k": "key", "input": { "key": "o", "t": 3500, "shift": false } },
+      { "k": "key", "input": { "key": "h", "t": 4000, "shift": false } },
+      { "k": "end", "t": 15000 }
+    ]
+  },
+  "expected": {
+    "summary": {
+      "mode": "practice",
+      "seed": 22,
+      "startedAtT": 0,
+      "activeMs": 15000,
+      "keystrokes": 8,
+      "correct": 6,
+      "errors": 2,
+      "uncorrected": 2,
+      "grossWpm": 4.8,
+      "netWpm": 0,
+      "accuracy": 0.75,
+      "consistency": 0,
+      "perKey": {
+        "c": { "attempts": 1, "errors": 0, "latencies": [] },
+        "a": { "attempts": 1, "errors": 1, "latencies": [] },
+        "t": { "attempts": 1, "errors": 0, "latencies": [500] },
+        " ": { "attempts": 1, "errors": 0, "latencies": [500] },
+        "d": { "attempts": 1, "errors": 0, "latencies": [] },
+        "o": { "attempts": 2, "errors": 0, "latencies": [500, 500] },
+        "g": { "attempts": 1, "errors": 1, "latencies": [] }
+      },
+      "bigrams": {
+        "ca": { "attempts": 1, "errors": 1, "latencies": [] },
+        "at": { "attempts": 1, "errors": 0, "latencies": [500] },
+        "t ": { "attempts": 1, "errors": 0, "latencies": [500] },
+        "do": { "attempts": 2, "errors": 0, "latencies": [500, 500] },
+        "og": { "attempts": 1, "errors": 1, "latencies": [] }
+      },
+      "longestStreak": 5,
+      "targetsCompleted": 2
+    }
+  }
+}
