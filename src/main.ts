@@ -1,5 +1,7 @@
-// Placeholder entry point (M0-01). M0-04 replaces it with "hello voxel"; M2-10 with the real app shell.
+// Entry point. For now it shows "hello voxel" (M0-04); M2-10 replaces it with the real app shell.
+import { startHelloVoxel } from "./dev/hello-voxel";
+
 const app = document.querySelector<HTMLDivElement>("#app");
 if (app) {
-  app.dataset["ready"] = "1";
+  startHelloVoxel(app, window.location.search);
 }
