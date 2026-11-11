@@ -71,3 +71,16 @@
   font-size: calc(var(--fs-md) * var(--text-scale));
   line-height: var(--lh);
 }
+
+/*
+ * When the root element is themed (the app does this in main.ts), `rem` must stay the browser's
+ * own size: components already multiply by --text-scale, so a scaled root font-size would scale
+ * everything twice (M2-11 found 4× text at scale 2). The scaled default text goes on body instead.
+ */
+:root[data-theme] {
+  font-size: 100%;
+}
+
+:root[data-theme] > body {
+  font-size: calc(var(--fs-md) * var(--text-scale));
+}
