@@ -1,0 +1,10 @@
+# THROWAWAY (M0-FIX-1): planted actionlint error, never merged.
+name: Throwaway broken
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  broken:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "${{ steps.does-not-exist.outputs.value }}"
