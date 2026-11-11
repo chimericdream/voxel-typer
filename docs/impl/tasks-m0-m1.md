@@ -293,5 +293,19 @@ M1-01 runs alone first. After it merges, everything else in M1 can run in parall
   - [ ] Atlas UVs land inside tiles (no gutter sampling) for every tile — unit test on `uv()`.
   - [ ] Screenshot of `atlas.html?seed=1` committed as baseline; visual reviewer says the set reads as original pixel-art blocks and doesn't imitate another game's textures.
 
+### M1-FIX-1 Blocklist precision follow-up
+- **Size/Tier:** S / B · **Review:** required (child safety)
+- **Depends on:** M1-10
+- **Owns:** `tools/validate-wordlists.ts`, `src/content/wordlists/blocklist.txt`, `src/content/wordlists/README.md`, `src/content/wordlists/SOURCES.md`, `tests/unit/content/wordlists.test.ts` and its fixtures
+- **Spec:** the M1-10 re-review (PR #112, review 5865245228) left gaps to close before sentence content (M3-02, M5-05) relies on the validator:
+  - Look-alike normalization wrongly blocks contractions (`He'll`) and digit-only tokens (`455`, `4:55`) in phrase and sentence pools. Normalize only tokens that mix letters with digits or symbols.
+  - The `allow` section cancels substring matches from strict sections, more than its docs say. Limit it to what the README describes, or document and test its real scope.
+  - Add the missing sexual, chat-acronym and extremism terms the review lists, and cover irregular past tenses and compounds built on whole-word terms where cheap. Words split by spaces stay out of scope (already documented).
+  - Keep the strict default; record any newly blocked everyday words in `SOURCES.md` for the M6-08 read-through.
+- **Acceptance:**
+  - [ ] Contractions and plain numbers pass in sentence pools; disguised terms still fail (tests).
+  - [ ] The allow section can't let a blocklisted word through except as documented (tests).
+  - [ ] The review's missing terms are rejected (tests cite them by blocklist line, not by spelling).
+
 ### M1-GATE
 Orchestrator. `PLAN.md` Phase 1 acceptance (coverage ≥ 95% on `src/engine/**`; generator safety property; WPM fixtures; deterministic replay). Turn on the engine coverage threshold in `vitest.config.ts`. Tag `m1`.
