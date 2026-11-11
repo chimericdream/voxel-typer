@@ -1,0 +1,87 @@
+/* Hand overlay (task M2-09). Colors come from the theme (src/ui/theme/themes.ts). */
+.hands {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.pair {
+  display: flex;
+  justify-content: center;
+  gap: calc(var(--u) * 1.5);
+}
+
+.hand {
+  display: block;
+  width: calc(var(--u) * 2.6);
+  height: auto;
+  overflow: visible;
+}
+
+.outline {
+  fill: var(--c-keycap-outline);
+}
+
+.glove {
+  fill: var(--c-keycap);
+}
+
+.knuckle {
+  fill: var(--c-zone-pattern);
+}
+
+.patternInk {
+  fill: var(--c-zone-pattern);
+}
+
+.tipPattern {
+  pointer-events: none;
+}
+
+.digit[data-zone="pinky"] .tip {
+  fill: var(--c-zone-pinky);
+}
+.digit[data-zone="ring"] .tip {
+  fill: var(--c-zone-ring);
+}
+.digit[data-zone="middle"] .tip {
+  fill: var(--c-zone-middle);
+}
+.digit[data-zone="index"] .tip {
+  fill: var(--c-zone-index);
+}
+.digit[data-zone="thumb"] .tip {
+  fill: var(--c-zone-thumb);
+}
+
+/* The finger to use is raised two art pixels and lit with the selection ring color. */
+.digit {
+  transition: transform calc(var(--t-fast) * var(--motion-ok)) ease-out;
+}
+.digit[data-lit] {
+  transform: translateY(-2px);
+}
+.glow {
+  fill: var(--c-selected);
+}
+.litEdge {
+  fill: var(--c-keycap-text);
+}
+
+.caption {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  column-gap: 0.35em;
+  margin: 0;
+  max-width: 100%;
+  color: var(--c-plate-text);
+  font-family: var(--font-body);
+  /* Sized from the key unit (which already follows --text-scale), not rem; see --u. */
+  font-size: max(14px, calc(var(--u) * 0.36));
+  font-weight: 700;
+  line-height: var(--lh);
+  text-align: center;
+  overflow-wrap: anywhere;
+}

@@ -9,12 +9,14 @@ import common from "./common";
 import blocks from "./blocks";
 import lessonsMeadow from "./lessons-meadow";
 import app from "./app";
+import keyboard from "./keyboard";
 
 const en = {
   common,
   blocks,
   lessonsMeadow,
   app,
+  keyboard,
 } as const;
 
 export default en;

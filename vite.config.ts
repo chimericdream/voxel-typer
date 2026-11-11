@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => ({
     manifest: true,
     target: "es2023",
     sourcemap: mode === "test",
-    // atlas.html (M1-14), scene.html (M2-01) and ui-kit.html (M2-07) are developer pages: in the e2e
-    // build, never in dist/.
+    // atlas.html (M1-14), scene.html (M2-01), ui-kit.html (M2-07) and keyboard.html (M2-09) are
+    // developer pages: in the e2e build, never in dist/.
     rolldownOptions: {
       input: {
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
@@ -30,6 +30,7 @@ export default defineConfig(({ mode }) => ({
           scene: fileURLToPath(new URL("./scene.html", import.meta.url)),
           hello: fileURLToPath(new URL("./hello.html", import.meta.url)),
           uiKit: fileURLToPath(new URL("./ui-kit.html", import.meta.url)),
+          keyboard: fileURLToPath(new URL("./keyboard.html", import.meta.url)),
         }),
       },
     },
