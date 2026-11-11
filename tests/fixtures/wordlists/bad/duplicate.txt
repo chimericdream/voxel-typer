@@ -1,0 +1,6 @@
+# A duplicate in this file, and one shared with blocked.txt (also band=builder).
+# tags: band=builder reading=grade4
+rock
+stone
+rock
+glass

@@ -1,0 +1,4 @@
+# A word too long for Sprout (1-5 letters).
+# tags: band=sprout reading=dolch
+cat
+elephant

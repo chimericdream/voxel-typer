@@ -1,0 +1,8 @@
+# A blocklisted word, a strict substring hit, an IP term, and harmless look-alikes.
+# tags: band=builder reading=grade4
+stable
+glass
+shot
+shitty
+creeper
+something
