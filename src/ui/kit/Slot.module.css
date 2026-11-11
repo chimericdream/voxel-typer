@@ -1,0 +1,99 @@
+.slot {
+  --size: calc(var(--slot-base) * var(--text-scale));
+
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--size);
+  height: var(--size);
+  margin: 0;
+  padding: 0;
+  border: var(--bevel-w) solid var(--c-slot-outline);
+  border-image: var(--bevel-slot, none) var(--bevel-slice) fill / var(--bevel-w) repeat;
+  background-color: var(--c-slot);
+  background-clip: padding-box;
+  color: var(--c-text);
+  font: inherit;
+  image-rendering: pixelated;
+}
+
+button.slot {
+  cursor: pointer;
+}
+
+/* Selected: a thick outline in the selection color, plus a corner notch so it isn't color only. */
+.slot[data-selected] {
+  outline: var(--bevel-unit) solid var(--c-selected);
+  outline-offset: 0;
+}
+.slot[data-selected]::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--bevel-w) * -1);
+  left: calc(var(--bevel-w) * -1);
+  width: calc(var(--bevel-unit) * 3);
+  height: calc(var(--bevel-unit) * 3);
+  background: var(--c-selected);
+}
+
+.slot:focus-visible {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+  box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.icon > :is(img, canvas, svg) {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+/* Lit (combo meter): a glowing ring and a small gem in the top-right corner, so the meter reads by
+   shape as well as color, and the item stays visible. */
+.slot[data-lit]:not([data-selected], :focus-visible) {
+  outline: var(--bevel-unit) solid var(--c-accent);
+  outline-offset: calc(var(--bevel-unit) * -3);
+}
+.gem {
+  position: absolute;
+  top: calc(var(--bevel-w) * -1 + var(--bevel-unit));
+  right: calc(var(--bevel-w) * -1 + var(--bevel-unit));
+  width: calc(var(--bevel-unit) * 4);
+  height: calc(var(--bevel-unit) * 4);
+  background: var(--c-accent);
+  box-shadow:
+    inset calc(var(--bevel-unit) * -1) calc(var(--bevel-unit) * -1) 0 var(--c-accent-edge),
+    0 0 0 var(--bevel-unit) var(--c-accent-edge);
+  animation: glow calc(var(--t-slow) * 4 * var(--motion-ok)) steps(2, jump-none) infinite alternate;
+}
+
+@keyframes glow {
+  to {
+    filter: brightness(1.15);
+  }
+}
+
+.badge {
+  position: absolute;
+  right: calc(var(--bevel-w) * -1 + 1px);
+  bottom: calc(var(--bevel-w) * -1 + 1px);
+  min-width: 1.4em;
+  padding: 0 var(--sp-1);
+  background: var(--c-badge);
+  color: var(--c-badge-text);
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+}
