@@ -72,16 +72,16 @@ describe("app shell", () => {
     s.shell.api.navigate({ id: "map" });
     s.shell.api.navigate({ id: "play", lesson: "meadow-01" });
     await s.shell.ready();
-    let release: () => void = () => undefined;
+    const gate: { release?: () => void } = {};
     const slow = new Promise<void>((r) => {
-      release = r;
+      gate.release = r;
     });
     vi.spyOn(s.store, "save").mockImplementationOnce(() => slow);
     s.mode.ctx().finish(result());
     s.shell.api.back();
     s.shell.api.navigate({ id: "play", lesson: "meadow-02" });
     await s.shell.ready();
-    release();
+    gate.release?.();
     await flush();
     expect(s.shell.route.value).toEqual({ id: "play", lesson: "meadow-02" });
     expect(s.shell.playStatus.value).toBe("running");
