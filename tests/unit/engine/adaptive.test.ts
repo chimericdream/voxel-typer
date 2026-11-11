@@ -93,6 +93,16 @@ describe("adaptive weights", () => {
     expect(weakKeys(p, -1)).toEqual([]);
     expect(keyWeights(params({}, { allowed: [] }))).toEqual({});
     expect(weakKeys(params({}, { allowed: [] }), 2)).toEqual([]);
+    // Ties keep `allowed` order even for integer-like keys (object key order would put "1" first).
+    expect(weakKeys(params({}, { allowed: ["a", "2", "1"] }), 3)).toEqual(["a", "2", "1"]);
+  });
+
+  it("treats a non-positive target latency as not slow instead of NaN", () => {
+    const notSlow = keyWeights(params({ s: stat({ latencyMedian: null }) }))["s"];
+    for (const targetLatencyMs of [0, -5]) {
+      const w = keyWeights(params({ s: stat({ latencyMedian: 0 }) }, { targetLatencyMs }))["s"];
+      expect(w).toBe(notSlow);
+    }
   });
 });
 

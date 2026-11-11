@@ -61,8 +61,11 @@ export function keyWeights(p: AdaptiveParams): Record<string, number> {
         const n = Math.min(stat.attempts, c.maxSmoothingAttempts);
         const err =
           (stat.recentErrRate * n + c.priorErrorRate * c.priorAttempts) / (n + c.priorAttempts);
+        // A non-positive target can't define "slow"; treat the key as not slow rather than NaN.
         const slow =
-          stat.latencyMedian === null ? 0 : Math.max(0, stat.latencyMedian / p.targetLatencyMs - 1);
+          stat.latencyMedian === null || !(p.targetLatencyMs > 0)
+            ? 0
+            : Math.max(0, stat.latencyMedian / p.targetLatencyMs - 1);
         weight =
           c.baseWeight + c.errorWeight * err + c.latencyWeight * Math.min(slow, c.maxSlowness);
       }
@@ -74,12 +77,13 @@ export function keyWeights(p: AdaptiveParams): Record<string, number> {
 /** The top `n` keys by weight, excluding the focus keys. */
 export function weakKeys(p: AdaptiveParams, n: number): string[] {
   const focus = new Set(p.focus);
-  // Stable sort preserves allowed order for ties, without locale-dependent collation.
-  return Object.entries(keyWeights(p))
-    .filter(([key]) => !focus.has(key))
-    .toSorted((a, b) => b[1] - a[1])
-    .slice(0, Math.max(0, Math.floor(n)))
-    .map(([key]) => key);
+  const weights = keyWeights(p);
+  // Sort the `allowed` array itself, not the record's entries: object key order puts integer-like
+  // keys ("1", "2") first, which would break the "ties keep `allowed` order" rule. Stable sort.
+  return [...new Set(p.allowed)]
+    .filter((key) => !focus.has(key))
+    .toSorted((a, b) => (weights[b] ?? 0) - (weights[a] ?? 0))
+    .slice(0, Math.max(0, Math.floor(n)));
 }
 
 /** The keys due for review: `srs.dueSession ≤ sessionIndex`. */
