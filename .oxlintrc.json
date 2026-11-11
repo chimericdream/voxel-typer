@@ -64,7 +64,8 @@
         "src/render/atlas/recipes.ts",
         "src/render/atlas/painters.ts",
         "src/save/schema.ts",
-        "src/save/migrations.ts"
+        "src/save/migrations.ts",
+        "src/types/**"
       ],
       "env": {
         "browser": false

@@ -17,7 +17,7 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 
 ## M1: Engine and foundation lanes
 
-- [ ] **M1-01** ✦ Contracts into code (M/A) — todo
+- [x] **M1-01** ✦ Contracts into code (M/A) — merged (PR #101); contracts frozen
 - [ ] **M1-02** Seeded RNG (S/B) — todo
 - [ ] **M1-03** ✦ Typing session and matcher (L/A) — todo
 - [ ] **M1-04** Stats, stars, key-stat folding (M/B) — todo

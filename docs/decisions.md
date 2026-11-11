@@ -197,3 +197,40 @@ orchestrator's reviews of PRs #94, #96 and #97.
     but `tools/*.ts` run under tsx, which doesn't support `import.meta.glob`. M1-01 decides how tools
     such as `tools/sim.ts` and `tools/validate-*.ts` load content (for example, tools import the data
     modules directly, and only the app imports the aggregators).
+
+## 2026-11-11: M1-01 contracts into code, and the contract freeze
+
+Sources: `docs/handoffs/M1-01.md` and the reviewer's report on PR #101 (no blocking issues; every
+type in §1–§18 matches `src/`).
+
+46. **Contracts are frozen** as of M1-01 (9564af6), with the corrections below folded in before the
+    freeze. From here, change a contract only through `README.md` §4.3.
+47. **Tools load content through pure loaders (closes #45).** Each content folder has a Vite-only
+    `index.ts` aggregator (`import.meta.glob`, for the app) and a pure `load.ts` that takes
+    already-loaded modules (`lessonsFromModules`, `blocksFromModules`). `tools/*.ts` feed the loaders
+    with direct imports or `node:fs`. A test checks both paths give the same list.
+    `src/content/collect.ts`, `src/content/*/load.ts` and `src/content/layouts/types.ts` are
+    orchestrator-owned (contracts §0).
+48. **`allowedKeysFor(lessons, lessonId, opts?)`** replaces `allowedKeysFor(lessonId)`. The old
+    signature could only read the glob aggregator, so tools couldn't call it, and it had no input for
+    "the profile unlocked sparkstone". The allowed set now explicitly includes the lesson's own
+    `newKeys` (matching the `Lesson` comment "allowed = all keys up to this lesson").
+49. **`src/types/` is a pure zone,** so pure code may import `BIOME_ORDER`. A test pins
+    `BIOME_ORDER` to exactly the `BiomeId` union, in order.
+50. **`Material` lives in `src/types/core.ts`** (contracts §1) and is re-exported from
+    `src/audio/types.ts` (§12).
+51. **Provisional types** `Palette`/`PaletteRampId` (owner M1-14), `LootTable` (M2-04) and `LiteCanvas`
+    (M6-04) have minimal M1-01 shapes. The owner card sets the final shape without a contract change
+    request (contracts §1 table).
+52. **`fixedStepClock` advances on every `now()` call.** Under `?freeze`, only the frame loop calls
+    `clock.now()`, once per frame, and passes the time down (contracts §13). M2-01 owns the loop.
+53. **Mode modules export a named `mode: ModeModule`** from `src/modes/<folder>/index.ts`; the
+    registry keys modes by `mode.id`. `resolveMode` falls back to `mine` and throws if `mine` is
+    missing (true until M2-13). Discovery is injectable: `createModeRegistry(discovered, opts)`.
+54. **M1-01 conventions for later workers:** stubs keep contract parameter names and mark them with
+    `void`; placeholder modules (`engine/matcher.ts`, `engine/stars.ts`, `render/atlas/painters.ts`,
+    `a11y/index.ts`) are `export {}` plus an Oxlint disable that the owner removes; tests import
+    `src/` by relative path (type-aware Oxlint doesn't resolve `@/` under `tests/`);
+    `types.test-d.ts` runs under `npm run typecheck`, not Vitest. M1-01 created some files that later
+    cards own (`src/i18n/en/common.ts` → M1-12, `layouts/index.ts` → M1-11, `input/*` → M1-08,
+    `save/*` → M1-09, and others in the handoff note); those cards replace the stubs.

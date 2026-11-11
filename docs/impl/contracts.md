@@ -1,5 +1,7 @@
 # Contracts
 
+> **FROZEN 2026-11-11** (M1-01 merged as 9564af6; pre-freeze corrections from its review are folded in, see `docs/decisions.md` #46–53). Change a contract only through `README.md` §4.3.
+
 These are the interfaces between modules. Workers build against them in parallel, so they are **frozen** once task M1-01 merges them into `src/` as real `.ts` files. To change one, follow `README.md` §4.3.
 
 The code blocks here are the source of truth for **shape and meaning**. M1-01 copies them into the listed files verbatim (adding only doc comments and obvious imports). If a block here and the file in `src/` disagree, the file in `src/` wins once merged, and this doc is updated to match.
@@ -23,6 +25,7 @@ Most conflicts in multi-agent work come from a few shared files. This project av
 | Settings fields | `src/save/settings.ts` | **Orchestrator-owned**: request new fields in the handoff note |
 | Save schema & migrations | `src/save/schema.ts`, `src/save/migrations.ts` | **Orchestrator-owned** after M1-09 |
 | Shared types | `src/engine/types.ts`, `src/types/*.ts` | **Orchestrator-owned** after M1-01 |
+| Content loaders | `src/content/collect.ts`, `src/content/*/load.ts`, `src/content/layouts/types.ts` | **Orchestrator-owned** after M1-01. Each content folder has a Vite-only `index.ts` aggregator (`import.meta.glob`, used by the app) and a pure `load.ts` that takes already-loaded modules, so `tools/*.ts` (tsx, no `import.meta.glob`) can feed it with direct imports or `node:fs` |
 | `package.json` deps | — | Any worker may add; note it in handoff; lockfile per `README.md` §3.4 |
 | `docs/decisions.md`, `docs/progress.md` | — | **Orchestrator-owned**; workers write decisions in their handoff note |
 
@@ -47,10 +50,21 @@ export type AchievementId = string;           // kebab-case slug
 export type QualityLevel = 'low' | 'medium' | 'high';
 export type TimeOfDay = 'day' | 'dusk' | 'night' | 'dawn';
 export type Finger = 'L5' | 'L4' | 'L3' | 'L2' | 'R2' | 'R3' | 'R4' | 'R5' | 'T';  // 5=pinky … 2=index, T=thumb
+export type Material = 'dirt' | 'stone' | 'wood' | 'glass' | 'wool' | 'sand' | 'snow' | 'crystal' | 'metal' | 'leaf';  // block material (sound + particles); re-exported from src/audio/types.ts
 ```
 
 Biome order (curriculum order) is exported as `BIOME_ORDER: readonly BiomeId[]` in the same file:
 `meadow, birch, shore, frosty, mines, marsh, caverns, sparkstone, citadel`.
+
+`src/types/` is a **pure zone** (it holds only types and `BIOME_ORDER`), so pure code may import its runtime values.
+
+**Provisional types.** The contracts below use four types they never define. M1-01 gave each a minimal shape marked `PROVISIONAL` in its doc comment; the named card owns the final shape and may change it without a contract change request, as long as it updates every user in the same PR:
+
+| Type | Lives in | Final shape owned by |
+|---|---|---|
+| `Palette`, `PaletteRampId` | `src/render/atlas/recipes.ts` | M1-14 (make `PaletteRampId` a union of ramp names before M2-04 writes block recipes) |
+| `LootTable` | `src/content/loot/types.ts` | M2-04 (also add whatever `rollLoot`'s `ctx` needs for "epic only on ore-vein bonus") |
+| `LiteCanvas` | `src/render/types.ts` | M6-04 |
 
 ---
 
@@ -301,7 +315,10 @@ export interface Lesson {
   tags?: ('mastery' | 'boss' | 'challenge-hide-keyboard' | 'intro')[];
   caseInsensitiveFor?: AgeBand[];                        // default ['sprout'] for lessons before 'mines'
 }
-export function allowedKeysFor(lessonId: LessonId): string[];  // cumulative newKeys of all earlier lessons in BIOME_ORDER (excluding sparkstone unless the lesson is in sparkstone or later and the profile unlocked it)
+export function allowedKeysFor(
+  lessons: readonly Lesson[], lessonId: LessonId,
+  opts?: { sparkstoneUnlocked?: boolean },
+): string[];  // cumulative newKeys of all earlier lessons in BIOME_ORDER, plus this lesson's (excluding sparkstone unless the lesson is in sparkstone or later and opts.sparkstoneUnlocked). Pure: callers pass the lesson list (app: the glob aggregator; tools: load.ts)
 ```
 
 **Stars** (`src/engine/stars.ts`, pure):
@@ -514,7 +531,7 @@ export interface AudioApi {
   speak(text: string): void;                        // Web Speech API; no-op if unavailable or disabled
   setVolume(bus: Bus, v01: number): void;
 }
-export type Material = 'dirt' | 'stone' | 'wood' | 'glass' | 'wool' | 'sand' | 'snow' | 'crystal' | 'metal' | 'leaf';
+export type { Material } from '@/types/core';  // defined in §1's src/types/core.ts so pure content code can use it; re-exported here
 ```
 `chime` with `pitchStep` walks a pentatonic ladder (C D E G A, wrapping up octaves, capped at 2 octaves).
 
@@ -528,6 +545,8 @@ export interface Clock { now(): Ms; epoch(): EpochMs; }
 export const realClock: Clock;
 export function fixedStepClock(startMs: Ms, stepMs: Ms): Clock;   // for tests and ?freeze
 ```
+
+`fixedStepClock` advances by `stepMs` on **every** `now()` call, and `epoch()` returns the current value (so `fixedStepClock(0, 16).epoch()` is 1970-01-01). Rule: under `?freeze`, only the frame loop calls `clock.now()`, once per frame, and passes that frame time down to everything it updates. Any other `now()` caller would shift every later frame and break screenshot baselines.
 
 **URL debug params** (parsed in `src/app/debug.ts`; ignored in production builds except `lite` and `quality`):
 

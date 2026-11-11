@@ -48,12 +48,19 @@ export interface Lesson {
 
 /**
  * The keys a learner may be asked to type in a lesson: the cumulative `newKeys` of all earlier
- * lessons in `BIOME_ORDER`. `sparkstone` keys are left out unless the lesson is in `sparkstone` or
- * later and the profile unlocked it.
+ * lessons in `BIOME_ORDER`, plus this lesson's own `newKeys`. `sparkstone` keys are left out unless the lesson is in `sparkstone` or
+ * later and `opts.sparkstoneUnlocked`. Pure: callers pass the lesson list (the app passes the glob
+ * aggregator's list, tools pass `lessonsFromModules` from `load.ts`).
  *
  * Stub; the curriculum task implements it.
  */
-export function allowedKeysFor(lessonId: LessonId): string[] {
+export function allowedKeysFor(
+  lessons: readonly Lesson[],
+  lessonId: LessonId,
+  opts?: { sparkstoneUnlocked?: boolean },
+): string[] {
+  void lessons;
   void lessonId;
+  void opts;
   throw new Error("not implemented: allowedKeysFor");
 }
