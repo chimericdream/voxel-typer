@@ -12,7 +12,7 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 - [x] **M0-04** Hello voxel (S/B) — merged (PR #94)
 - [x] **M0-05** Container image + Proxmox deploy (M/B) — merged (PR #97)
 - [x] **M0-FIX-1** CI hardening from the M0-03 review — merged (PR #96)
-- [x] **M0-FIX-2** Purity enforcement: allow-list and banned globals — merged (PR #FIX2)
+- [x] **M0-FIX-2** Purity enforcement: allow-list and banned globals — merged (PR #100)
 - [x] **M0-GATE** Gate — passed 2026-11-11, tag `m0`
 
 ## M1: Engine and foundation lanes
