@@ -205,7 +205,7 @@ type in §1–§18 matches `src/`).
 
 46. **Contracts are frozen** as of M1-01 (9564af6), with the corrections below folded in before the
     freeze. From here, change a contract only through `README.md` §4.3.
-47. **Tools load content through pure loaders (closes #45).** Each content folder has a Vite-only
+47. **Tools load content through pure loaders (resolves decision 45).** Each content folder has a Vite-only
     `index.ts` aggregator (`import.meta.glob`, for the app) and a pure `load.ts` that takes
     already-loaded modules (`lessonsFromModules`, `blocksFromModules`). `tools/*.ts` feed the loaders
     with direct imports or `node:fs`. A test checks both paths give the same list.
