@@ -30,12 +30,51 @@ export interface Settings {
   layout: string;
 }
 
+/** What changes between bands (PLAN.md §2: text size, keyboard overlay, timer pressure). */
+const BAND_DEFAULTS: Record<
+  AgeBand,
+  Pick<Settings, "textScale" | "showKeyboard" | "showHands" | "calmMode" | "tts">
+> = {
+  // Big letters, keyboard with finger colors, read-aloud, zero time pressure.
+  sprout: {
+    textScale: 1.5,
+    showKeyboard: true,
+    showHands: true,
+    calmMode: true,
+    tts: true,
+  },
+  // Light timers; the keyboard still helps.
+  miner: {
+    textScale: 1.25,
+    showKeyboard: true,
+    showHands: false,
+    calmMode: false,
+    tts: false,
+  },
+  // Can type and wants speed.
+  builder: {
+    textScale: 1,
+    showKeyboard: false,
+    showHands: false,
+    calmMode: false,
+    tts: false,
+  },
+};
+
 /**
- * The defaults for an age band (PLAN.md §2).
- *
- * Stub; M1-09 implements it.
+ * The defaults for an age band (PLAN.md §2). Returns a new object each call, so callers may
+ * change it.
  */
 export function defaultSettings(band: AgeBand): Settings {
-  void band;
-  throw new Error("not implemented: defaultSettings");
+  return {
+    ...BAND_DEFAULTS[band],
+    reducedMotion: "system",
+    // PLAN.md §4.6: pixel is the default font; clean and dyslexic are opt-in.
+    font: "pixel",
+    highContrast: false,
+    volume: { master: 0.8, music: 0.5, sfx: 0.8, voice: 1 },
+    quality: "auto",
+    breakReminderMin: 15,
+    layout: "en-US",
+  };
 }
