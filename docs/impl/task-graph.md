@@ -70,7 +70,7 @@ Waves are a schedule hint. The real rule is "dependencies merged" plus rules 2�
 
 ## Status board
 
-The orchestrator updates the **Status** column (`todo` · `ready` · `running (worker id)` · `review` · `merged` · `blocked: reason`). `docs/progress.md` mirrors this at milestone granularity.
+**Live status is in GitHub issues** (one per card, labels `status:*`; see `HANDOFF.md` §5). This table is a snapshot the orchestrator refreshes in each gate PR. It updates the **Status** column (`todo` · `ready` · `running (worker id)` · `review` · `merged` · `blocked: reason`). `docs/progress.md` mirrors this at milestone granularity.
 
 ✦ = assigned to Fable 5.2 (`README.md` §2). Every other card runs on Opus 5.5.
 

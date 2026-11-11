@@ -8,6 +8,7 @@ The plan is written for an **orchestrator** agent that splits the work into task
 
 | File | What's in it | Who reads it |
 |---|---|---|
+| [`HANDOFF.md`](HANDOFF.md) | Start-of-development handoff: kickoff prompt, current state, environment, status tracking in GitHub issues, how to spawn workers, autonomy rules | Orchestrator, first |
 | `README.md` (this file) | Roles, workflow, conventions, brief templates, definition of done, clarifications to `PLAN.md` | Everyone, first |
 | [`contracts.md`](contracts.md) | Frozen TypeScript interfaces between modules, formulas, file-ownership rules | Every worker, before writing code |
 | [`task-graph.md`](task-graph.md) | Dependency DAG, parallel waves, status board | Orchestrator |
@@ -25,7 +26,7 @@ Milestones M0–M6 map one-to-one onto `PLAN.md` §8 Phases 0–6.
 ## 1. Roles
 
 ### Orchestrator (one agent, long-lived)
-- Owns `main`, `docs/progress.md`, `docs/decisions.md`, `task-graph.md`'s status board, and the files marked **orchestrator-owned** in `contracts.md` §0.
+- Owns `main`, `docs/progress.md`, `docs/decisions.md`, `task-graph.md`'s status board, and the files marked **orchestrator-owned** in `contracts.md` §0. Live status is tracked in GitHub issues, one per card (`HANDOFF.md` §5). The files are snapshots refreshed at each gate.
 - Picks the next ready tasks from the graph (all dependencies merged), writes a brief for each (template in §5), and spawns workers.
 - Reviews each worker's pull request against the task card's acceptance list, waits for CI to pass, and merges it (§3).
 - Runs the **milestone gate** at the end of each milestone (§7) and records the result in `docs/progress.md`.
@@ -110,7 +111,8 @@ A single agent working alone still opens one PR per task. It can skip worktrees.
 | `npm run lint` | ESLint + Prettier check |
 | `npm test` | Vitest unit + property tests (Node environment by default) |
 | `npm run test:cov` | Vitest with v8 coverage |
-| `npm run e2e` | Playwright (headless Chromium, SwiftShader GL) |
+| `npm run e2e` | Playwright (headless Chromium, SwiftShader GL). Skips screenshot comparisons outside CI |
+| `npm run e2e:docker` | Same suite in the Linux Playwright container, with screenshot comparisons (matches CI) |
 | `npm run verify` | `typecheck && lint && test && build && size` (the merge gate) |
 | `npm run size` | `tools/check-bundle-size.ts` against budgets in `contracts.md` §14 |
 | `npm run tool -- <name> [...args]` | Runs `tools/<name>.ts` via `tsx` |

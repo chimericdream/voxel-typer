@@ -10,7 +10,7 @@ Card fields: **Size** S/M/L · **Tier** A/B/C (`README.md` §2) · **Review** re
 - **Size/Tier:** M / B · **Review:** optional · **E2E:** yes (smoke only)
 - **Depends on:** —
 - **PLAN refs:** §6.1, §6.2, §12
-- **Owns:** `package.json`, `package-lock.json`, `tsconfig*.json`, `vite.config.ts`, `vitest.config.ts`, `playwright.config.ts`, `eslint.config.js`, `.prettierrc`, `.prettierignore`, `.gitignore`, `.editorconfig`, `.nvmrc`, `index.html`, `src/main.ts`, `tools/check-bundle-size.ts`, `tools/run.ts`, `tests/unit/smoke.test.ts`, `tests/e2e/smoke.spec.ts`
+- **Owns:** `package.json`, `package-lock.json`, `tsconfig*.json`, `vite.config.ts`, `vitest.config.ts`, `playwright.config.ts`, `eslint.config.js`, `.prettierrc`, `.prettierignore`, `.gitignore`, `.gitattributes`, `.editorconfig`, `.nvmrc`, `index.html`, `src/main.ts`, `tools/check-bundle-size.ts`, `tools/run.ts`, `tests/unit/smoke.test.ts`, `tests/e2e/smoke.spec.ts`
 - **Spec:**
   - `npm init`, then install current stable versions of: `vite`, `typescript`, `preact`, `@preact/preset-vite`, `@preact/signals`, `three`, `@types/three`, `idb`; dev: `vitest`, `@vitest/coverage-v8`, `happy-dom`, `fast-check`, `fake-indexeddb`, `@playwright/test`, `@axe-core/playwright`, `eslint`, `typescript-eslint`, `eslint-plugin-jsx-a11y`, `eslint-config-prettier`, `prettier`, `tsx`. Record exact versions in the handoff note.
   - `tsconfig.json`: `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `verbatimModuleSyntax`, `moduleResolution: "bundler"`, `jsx: "react-jsx"`, `jsxImportSource: "preact"`, path alias `@/*` → `src/*` (mirrored in Vite and Vitest).
@@ -21,6 +21,8 @@ Card fields: **Size** S/M/L · **Tier** A/B/C (`README.md` §2) · **Review** re
   - `tools/check-bundle-size.ts`: reads `dist/.vite/manifest.json` (enable `build.manifest`), gzips the entry chunk plus its static imports and every lazy chunk, compares against `contracts.md` §14, prints a table, exits 1 on breach.
   - `index.html`: `lang="en"`, viewport meta, a placeholder CSP meta (`default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'; media-src 'self' blob:; worker-src 'self' blob:`) — tightened in M6-06.
   - `.nvmrc` pins Node major 26. `engines` in `package.json` says `>=26`.
+  - `.gitattributes`: `* text=auto eol=lf`, and `binary` for `*.png`, `*.woff2`, `*.ico`. Prettier `endOfLine: "lf"`. The owner develops on Windows; CI is Linux.
+  - Screenshots are compared only on Linux (`README.md` §3.7): `playwright.config.ts` sets `ignoreSnapshots: !process.env.CI`, and `npm run e2e:docker` runs the suite inside the `mcr.microsoft.com/playwright` image matching the installed version, with `CI=1`, for local pixel checks.
 - **Acceptance:**
   - [ ] Clean clone → `npm ci` → `npm run verify` passes.
   - [ ] `npm run e2e` passes a smoke test that loads `/` and finds `#app`.
