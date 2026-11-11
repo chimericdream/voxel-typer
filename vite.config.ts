@@ -20,6 +20,15 @@ export default defineConfig(({ mode }) => ({
     manifest: true,
     target: "es2023",
     sourcemap: mode === "test",
+    // atlas.html is a developer page (M1-14): in the e2e build, never in dist/.
+    rolldownOptions: {
+      input: {
+        main: fileURLToPath(new URL("./index.html", import.meta.url)),
+        ...(mode === "test" && {
+          atlas: fileURLToPath(new URL("./atlas.html", import.meta.url)),
+        }),
+      },
+    },
   },
   server: {
     port: 5173,
