@@ -43,6 +43,14 @@ jobs:
       actions: read # look up CI runs for a tagged commit
       packages: write # push to GHCR
     steps:
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
       - name: Work out the commit and tags
         id: meta
         env:
@@ -54,7 +62,14 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
+          promote=false
           if [ "$EVENT" = push ]; then
+            # The trigger's glob also matches tags like v1.0.0-rc.1 or m2-wip. Only exact milestone
+            # (m<N>) and release (v<X.Y.Z>) tags may move :stable, which the kids' instance runs.
+            if ! [[ "$TAG" =~ ^(m[0-9]+|v[0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+              echo "::error::Tag $TAG is not a milestone (m<N>) or release (v<X.Y.Z>) tag, so it does not publish :stable."
+              exit 1
+            fi
             sha="$TAG_SHA"
             passed="$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$sha&event=push&branch=main&status=success&per_page=1" --jq '.total_count')"
             if [ "$passed" = 0 ]; then
@@ -63,6 +78,16 @@ jobs:
             fi
             tags="$IMAGE:stable,$IMAGE:$TAG"
             version="$TAG"
+            # Promote the image CI already built and published for this commit, so :stable is the
+            # exact image that ran as :edge. Rebuild only if that :sha- image is missing (publish
+            # concurrency can skip a :sha- tag when several merges land at once).
+            source="$IMAGE:sha-${sha::7}"
+            if docker buildx imagetools inspect "$source" > /dev/null 2>&1; then
+              promote=true
+              echo "source=$source" >> "$GITHUB_OUTPUT"
+            else
+              echo "::notice::$source not found; rebuilding $sha for $TAG."
+            fi
           else
             sha="$RUN_SHA"
             short="${sha::7}"
@@ -82,25 +107,37 @@ jobs:
             echo "tags=$tags"
             echo "version=$version"
             echo "created=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "promote=$promote"
           } >> "$GITHUB_OUTPUT"
-          echo "Publishing $sha as: $tags" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$promote" = true ]; then
+            echo "Promoting $IMAGE:sha-${sha::7} as: $tags" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Publishing $sha as: $tags" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Promote the tested image
+        if: steps.meta.outputs.promote == 'true'
+        env:
+          SOURCE: ${{ steps.meta.outputs.source }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+          args=()
+          IFS=, read -ra list <<< "$TAGS"
+          for t in "${list[@]}"; do args+=(--tag "$t"); done
+          docker buildx imagetools create "${args[@]}" "$SOURCE"
+          docker buildx imagetools inspect "${list[0]}"
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.meta.outputs.promote != 'true'
         with:
           ref: ${{ steps.meta.outputs.sha }}
           persist-credentials: false
 
-      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-
-      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
       # No QEMU: the Dockerfile builds dist/ on the runner's own platform and the final stage has
       # no RUN, so the arm64 image is just the arm64 nginx base plus the same files.
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        if: steps.meta.outputs.promote != 'true'
         with:
           context: .
           platforms: linux/amd64,linux/arm64

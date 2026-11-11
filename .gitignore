@@ -21,3 +21,8 @@ playwright/.cache/
 # OS
 .DS_Store
 Thumbs.db
+
+# Secrets: deploy/.env holds TS_AUTHKEY. Only the example is tracked.
+.env
+.env.*
+!.env.example
