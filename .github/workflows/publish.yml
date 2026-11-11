@@ -1,7 +1,7 @@
 # Publishes the container image to GHCR (docs/impl/README.md §8.13, deploy/README.md).
 #
 # - After the CI workflow succeeds on a push to main: :edge and :sha-<short>.
-# - On a tag m* or v* (milestone gate or release): :stable and :<tag>. CI doesn't run on tags, so
+# - On a tag m<digit>* or v<digit>* (milestone gate or release): :stable and :<tag>. CI doesn't run on tags, so
 #   this job first checks that the tagged commit has a successful CI run from a push to main.
 #   Tag a commit only after its CI on main is green; if you tagged too early, re-run this job.
 #
@@ -14,7 +14,7 @@ on:
     types: [completed]
     branches: [main]
   push:
-    tags: ["m*", "v*"]
+    tags: ["m[0-9]*", "v[0-9]*"] # milestone (m0, m1, …) and release (v1.0.0) tags only
 
 permissions: {}
 

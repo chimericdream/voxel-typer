@@ -77,6 +77,11 @@ Do these once, before the first `docker compose up`.
 - **The game is reachable only over the tailnet, not by the host's LAN IP.** `voxel-typer` shares
   the Tailscale container's network namespace (`network_mode: service:tailscale`) and publishes no
   port. That's on purpose. If you also want LAN access, see the appendix.
+- **Never turn on Tailscale Funnel for this device.** Funnel publishes a `serve` target on the
+  public internet. The game is meant for your tailnet only (`PLAN.md` §6.7), so keep
+  `serve.json` without `AllowFunnel`.
+- **Keep the Tailscale image updated.** Watchtower here only updates `voxel-typer`. Pull a new
+  Tailscale image now and then: `docker compose pull tailscale && docker compose up -d`.
 - **Check that `${TS_CERT_DOMAIN}` gets filled in.** `serve.json` uses `${TS_CERT_DOMAIN}` and the
   Tailscale container replaces it with the device's `*.ts.net` name when it starts. Confirm with
   `docker compose exec tailscale tailscale serve status`: it should list
