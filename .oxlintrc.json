@@ -65,7 +65,16 @@
         "src/save/schema.ts",
         "src/save/migrations.ts"
       ],
+      "env": {
+        "browser": false
+      },
+      "globals": {
+        "console": "readonly",
+        "structuredClone": "readonly"
+      },
       "rules": {
+        "no-undef": "error",
+        "typescript/no-import-type-side-effects": "error",
         "no-restricted-imports": [
           "error",
           {
@@ -81,26 +90,20 @@
               {
                 "group": ["idb", "idb/**"],
                 "message": "Pure zone: no IndexedDB wrappers here; persistence lives in src/save/store.ts."
-              },
-              {
-                "group": ["@/ui", "@/ui/**", "@/audio", "@/audio/**", "@/app", "@/app/**"],
-                "message": "Pure zone: may not import UI, audio or app-shell modules."
-              },
-              {
-                "group": [
-                  "@/render",
-                  "@/render/**",
-                  "!@/render/mesher",
-                  "!@/render/mesher/**",
-                  "!@/render/atlas/recipes"
-                ],
-                "message": "Pure zone: only @/render/mesher/** and @/render/atlas/recipes are pure; other render modules are off limits."
               }
             ]
           }
         ],
         "no-restricted-globals": [
           "error",
+          {
+            "name": "globalThis",
+            "message": "Pure zone: no global-object access. Pass what you need in as a parameter."
+          },
+          {
+            "name": "self",
+            "message": "Pure zone: no DOM globals. Pass what you need in as a parameter."
+          },
           {
             "name": "window",
             "message": "Pure zone: no DOM globals. Pass what you need in as a parameter."
@@ -114,12 +117,48 @@
             "message": "Pure zone: no DOM globals. Pass what you need in as a parameter."
           },
           {
+            "name": "location",
+            "message": "Pure zone: no DOM globals. Pass what you need in as a parameter."
+          },
+          {
             "name": "localStorage",
+            "message": "Pure zone: no storage globals; persistence lives in src/save/store.ts."
+          },
+          {
+            "name": "sessionStorage",
             "message": "Pure zone: no storage globals; persistence lives in src/save/store.ts."
           },
           {
             "name": "indexedDB",
             "message": "Pure zone: no storage globals; persistence lives in src/save/store.ts."
+          },
+          {
+            "name": "fetch",
+            "message": "Pure zone: no network. The game makes no requests at runtime, and pure code does no I/O."
+          },
+          {
+            "name": "XMLHttpRequest",
+            "message": "Pure zone: no network. The game makes no requests at runtime, and pure code does no I/O."
+          },
+          {
+            "name": "WebSocket",
+            "message": "Pure zone: no network. The game makes no requests at runtime, and pure code does no I/O."
+          },
+          {
+            "name": "crypto",
+            "message": "Pure zone: no crypto randomness (getRandomValues, randomUUID). Take an Rng or ids as parameters."
+          },
+          {
+            "name": "setTimeout",
+            "message": "Pure zone: no timers or frame callbacks. Time comes in as a parameter (Clock / t: Ms)."
+          },
+          {
+            "name": "setInterval",
+            "message": "Pure zone: no timers or frame callbacks. Time comes in as a parameter (Clock / t: Ms)."
+          },
+          {
+            "name": "requestAnimationFrame",
+            "message": "Pure zone: no timers or frame callbacks. Time comes in as a parameter (Clock / t: Ms)."
           }
         ],
         "no-restricted-properties": [
@@ -138,6 +177,11 @@
             "object": "performance",
             "property": "now",
             "message": "Pure zone: take time as a parameter (Clock / t: Ms)."
+          },
+          {
+            "object": "Intl",
+            "property": "DateTimeFormat",
+            "message": "Pure zone: Intl.DateTimeFormat defaults to the current time and the device locale. Format dates outside the pure zones."
           }
         ]
       }

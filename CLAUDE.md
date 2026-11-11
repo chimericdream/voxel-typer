@@ -45,6 +45,12 @@ parameters. Oxlint (`.oxlintrc.json`) and `tools/check-boundaries.ts` enforce th
 `tests/unit/purity.test.ts` proves it. If you need the DOM or Three.js in `engine/`, stop and
 refactor.
 
+Imports in a pure file are an allow-list: other pure-zone files, `import type` from anywhere, and
+the npm packages on `PURE_PACKAGES` in `tools/check-boundaries.ts` (empty). Everything else fails,
+because an impure module can pull in three, idb or the DOM. The browser env is off in pure zones,
+so an unlisted browser global fails too. The zone list lives once, in the pure-zone override's
+`files` in `.oxlintrc.json`; to make a file pure, add one line there.
+
 ## Contracts
 
 `docs/impl/contracts.md` defines the interfaces between modules and the file-ownership rules (§0).
