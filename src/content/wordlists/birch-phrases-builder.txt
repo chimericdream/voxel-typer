@@ -1,0 +1,35 @@
+# Birch Forest phrases of 2-4 words for Builders, authored for Voxel Typer. Provenance: SOURCES.md.
+# Every item uses only the Meadow and Birch keys: a s d f g h j k l ; e i r u t y o w q p
+# tags: band=builder reading=grade6+ kind=phrases keys=asdfghjkl;eirutyowqp biome=birch theme=forest
+the quiet forest path
+parrots repeat their words
+a tortoise steps aside
+four sparrows flutter past
+the waterfall roars
+willow trees sway
+a leafy pathway
+we hiked the trail
+the owlets are asleep
+the eagle soars
+hooray for the hikers
+the typist types fast
+a letter for you
+a quilt of squares
+toast with apple jelly
+a delightful parade
+the grateful hikers
+spaghetti for supper
+quietly tiptoe out
+poplars at the gate
+lilies at the pathway
+a pillow of feathers
+a pastry for tea
+the forest is quiet
+the trail gets steep
+eight ripe potatoes
+a fossil leaf
+the geologist is here
+stars at twilight
+photographs of the deer
+the stairway is steep
+write poetry outside

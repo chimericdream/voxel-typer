@@ -1,0 +1,41 @@
+# Theme words (food) for every band, authored for Voxel Typer. Provenance: SOURCES.md.
+# Short words of 1-5 letters, so Sprouts can read them too.
+# tags: band=all reading=grade2 kind=words theme=food
+apple
+bacon
+bagel
+bean
+beans
+berry
+bread
+bun
+cake
+cocoa
+corn
+egg
+figs
+grape
+honey
+jam
+juice
+kale
+kiwi
+lemon
+lime
+mango
+milk
+oats
+pasta
+peach
+pear
+peas
+pie
+pizza
+plum
+rice
+soup
+stew
+taco
+toast
+wafer
+yam
