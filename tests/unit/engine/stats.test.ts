@@ -319,6 +319,13 @@ function summaryWith(
   return { ...acc.summarize(context()), perKey, bigrams };
 }
 
+const foldSrs = (errors: number, srs: KeyStat["srs"]) =>
+  foldSummaryIntoKeyStats(
+    { a: stat({ srs }) },
+    summaryWith({ a: { attempts: 20, errors, latencies: [] } }),
+    7,
+  )["a"]?.srs;
+
 describe("foldSummaryIntoKeyStats", () => {
   it("is pure: its inputs deep-equal themselves afterwards, and the result shares no objects", () => {
     const prev = { a: stat(), z: stat({ attempts: 3 }) };
@@ -339,7 +346,7 @@ describe("foldSummaryIntoKeyStats", () => {
     expect(next["a"]?.recentLatencies).not.toBe(summary.perKey["a"]?.latencies);
   });
 
-  it("folds a practiced key: sums, EMA, latency ring, median, last seen; keeps srs", () => {
+  it("folds a practiced key: sums, EMA, latency ring, median, last seen, srs", () => {
     const prev = { a: stat() };
     const summary = summaryWith({ a: { attempts: 4, errors: 1, latencies: [100, 400] } });
     const next = foldSummaryIntoKeyStats(prev, summary, 5);
@@ -351,7 +358,40 @@ describe("foldSummaryIntoKeyStats", () => {
       recentLatencies: [200, 250, 300, 100, 400],
       latencyMedian: 250,
       lastSeenSession: 5,
-      srs: { intervalSessions: 2, dueSession: 6 },
+      // accuracy 0.75 < 0.85 resets the interval to 1: due 5 + 1.
+      srs: { intervalSessions: 1, dueSession: 6 },
+    });
+  });
+
+  it("reschedules srs by the session's accuracy on the key (contracts §4)", () => {
+    // ≥ 0.95 doubles, capped at 32.
+    expect(foldSrs(1, { intervalSessions: 4, dueSession: 7 })).toEqual({
+      intervalSessions: 8,
+      dueSession: 15,
+    });
+    expect(foldSrs(0, { intervalSessions: 32, dueSession: 7 })).toEqual({
+      intervalSessions: 32,
+      dueSession: 39,
+    });
+    // 0.85 ≤ accuracy < 0.95 keeps the interval.
+    expect(foldSrs(2, { intervalSessions: 4, dueSession: 7 })).toEqual({
+      intervalSessions: 4,
+      dueSession: 11,
+    });
+    // < 0.85 resets to 1.
+    expect(foldSrs(4, { intervalSessions: 16, dueSession: 7 })).toEqual({
+      intervalSessions: 1,
+      dueSession: 8,
+    });
+    // Exactly 0.85 keeps the interval (17/20).
+    expect(foldSrs(3, { intervalSessions: 4, dueSession: 7 })).toEqual({
+      intervalSessions: 4,
+      dueSession: 11,
+    });
+    // Doubling past 32 is capped.
+    expect(foldSrs(0, { intervalSessions: 20, dueSession: 7 })).toEqual({
+      intervalSessions: 32,
+      dueSession: 39,
     });
   });
 
@@ -389,6 +429,15 @@ describe("foldSummaryIntoKeyStats", () => {
         srs: { intervalSessions: 1, dueSession: 10 },
       },
     });
+  });
+
+  it("a new key at ≥ 0.95 accuracy starts at interval 2", () => {
+    const next = foldSummaryIntoKeyStats(
+      {},
+      summaryWith({ k: { attempts: 20, errors: 1, latencies: [] } }),
+      9,
+    );
+    expect(next["k"]?.srs).toEqual({ intervalSessions: 2, dueSession: 11 });
   });
 
   it("a new key with no latencies has a null median", () => {
