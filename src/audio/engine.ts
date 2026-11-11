@@ -17,11 +17,11 @@
 import { createRng } from "@/engine/rng";
 import type { CtxLike, GainLike, NodeLike, SourceLike } from "./graph";
 import { defaultContextFactory } from "./graph";
-import { NOISE_SECONDS, makeNoise } from "./preview";
+import { NOISE_SECONDS, NOISE_SLOTS, makeNoise, noiseOffset } from "./preview";
 import type { Layer, NoiseColor } from "./recipes";
 import { SILENCE, layerEnd, recipeDuration, recipeFor } from "./recipes";
 import type { SpeechDeps } from "./speech";
-import { defaultSpeech, speakWith } from "./speech";
+import { createSpeaker, defaultSpeech } from "./speech";
 import type { AudioApi, Bus, Material, SfxName } from "./types";
 
 export interface AudioOptions {
@@ -118,7 +118,8 @@ function buildGraph(ctx: CtxLike, seed: number, volume: Record<Bus, number>): Gr
 
 export function createAudio(options: AudioOptions = {}): AudioEngine {
   const makeContext = options.createContext ?? defaultContextFactory;
-  const speech = options.speech === undefined ? defaultSpeech() : options.speech;
+  const speechDeps = options.speech === undefined ? defaultSpeech() : options.speech;
+  const speaker = speechDeps ? createSpeaker(speechDeps) : null;
   const seed = options.seed ?? DEFAULT_AUDIO_SEED;
   const maxVoices = Math.max(1, options.maxVoices ?? MAX_VOICES);
   const vary = createRng(seed).fork("audio:vary");
@@ -156,7 +157,7 @@ export function createAudio(options: AudioOptions = {}): AudioEngine {
     dying.push(v);
   };
 
-  const playLayer = (g: Graph, voice: Voice, layer: Layer, t0: number): void => {
+  const playLayer = (g: Graph, voice: Voice, layer: Layer, t0: number, slot: number): void => {
     const { ctx } = g;
     const start = t0 + layer.env.at;
     const end = t0 + layerEnd(layer);
@@ -204,9 +205,9 @@ export function createAudio(options: AudioOptions = {}): AudioEngine {
     voice.nodes.push(source, lg);
     voice.sources.push(source);
     if (layer.kind === "noise") {
-      // A different slice of the noise each time, so repeats don't sound identical.
-      const room = Math.max(0, g.noise[layer.color].seconds - (end - start) - TAIL);
-      source.start(start, vary.next() * room);
+      // One of NOISE_SLOTS slices of the noise, so repeats don't sound identical. The loudness
+      // tests measure every slot.
+      source.start(start, noiseOffset(slot, end - start));
     } else {
       source.start(start);
     }
@@ -237,7 +238,8 @@ export function createAudio(options: AudioOptions = {}): AudioEngine {
       sources: [],
       end: now + recipeDuration(recipe) + TAIL,
     };
-    for (const layer of recipe.layers) playLayer(g, voice, layer, now);
+    const slot = Math.floor(vary.next() * NOISE_SLOTS);
+    for (const layer of recipe.layers) playLayer(g, voice, layer, now, slot);
     voices.push(voice);
   };
 
@@ -273,10 +275,10 @@ export function createAudio(options: AudioOptions = {}): AudioEngine {
       stop: () => undefined,
     },
     speak(text: string): void {
-      if (!speech || !speechOn) return;
+      if (!speaker || !speechOn) return;
       const v = volumeToGain(volume.master) * volumeToGain(volume.voice);
       if (v === 0) return;
-      speakWith(speech, text, v);
+      speaker.speak(text, v);
     },
     setVolume(bus: Bus, v01: number): void {
       if (!BUSES.includes(bus)) return;
@@ -290,7 +292,7 @@ export function createAudio(options: AudioOptions = {}): AudioEngine {
     },
     setSpeechEnabled(on: boolean): void {
       speechOn = on;
-      if (!on) speech?.synth.cancel();
+      if (!on) speaker?.cancel();
     },
     busNode(bus: Bus): GainLike | null {
       return graph ? graph.buses[bus] : null;

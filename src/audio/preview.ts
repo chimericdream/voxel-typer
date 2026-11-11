@@ -11,6 +11,21 @@ import { SILENCE, layerEnd, recipeDuration } from "./recipes";
 export const NOISE_SECONDS = 1;
 
 /**
+ * Noise layers start at one of this many fixed offsets into the buffer, picked per voice. A fixed
+ * set (rather than any offset) means the loudness tests can measure every slice the engine plays.
+ */
+export const NOISE_SLOTS = 16;
+
+/** Room left at the end of the buffer after a noise layer, seconds. */
+const NOISE_TAIL = 0.05;
+
+/** Start offset into a noise buffer, seconds, for `slot` (0 to NOISE_SLOTS − 1) and a layer `span` seconds long. */
+export function noiseOffset(slot: number, span: number): number {
+  const room = Math.max(0, NOISE_SECONDS - span - NOISE_TAIL);
+  return (Math.min(NOISE_SLOTS - 1, Math.max(0, Math.floor(slot))) / NOISE_SLOTS) * room;
+}
+
+/**
  * White and brown noise, both peaking at 1. `next` returns numbers in [0, 1) (a seeded
  * `Rng.next`), so the buffers are the same on every run.
  */
@@ -79,12 +94,16 @@ function renderLayer(
   layer: Layer,
   out: Float32Array,
   rate: number,
-  noise: Record<NoiseColor, Float32Array>,
+  noise: Partial<Record<NoiseColor, Float32Array>>,
+  slot: number,
 ): void {
   const start = Math.floor(layer.env.at * rate);
   const end = Math.min(out.length, Math.ceil(layerEnd(layer) * rate));
   const span = layerEnd(layer) - layer.env.at;
+  const offset = Math.round(noiseOffset(slot, span) * rate);
   const filter: FilterSpec | undefined = layer.filter;
+  const fixed = filter && filter.freqEnd === undefined;
+  let c = filter ? coefficients(filter.type, filter.freq, filter.q, rate) : null;
   let x1 = 0;
   let x2 = 0;
   let y1 = 0;
@@ -104,15 +123,17 @@ function renderLayer(
       phase = (phase + f / rate) % 1;
     } else {
       const buf = noise[layer.color];
-      x = buf[(i - start) % buf.length] ?? 0;
+      x = buf ? (buf[(offset + i - start) % buf.length] ?? 0) : 0;
     }
     let y = x;
-    if (filter) {
-      const f =
-        filter.freqEnd === undefined
-          ? filter.freq
-          : filter.freq * (filter.freqEnd / filter.freq) ** Math.min(1, tau / span);
-      const c = coefficients(filter.type, f, filter.q, rate);
+    if (filter && c) {
+      // Swept filters: update the coefficients every 16 samples (as Web Audio's k-rate does per
+      // 128-sample block), which is plenty for peak measurement.
+      if (!fixed && (i - start) % 16 === 0) {
+        const f =
+          filter.freq * ((filter.freqEnd ?? filter.freq) / filter.freq) ** Math.min(1, tau / span);
+        c = coefficients(filter.type, f, filter.q, rate);
+      }
       y = c.b0 * x + c.b1 * x1 + c.b2 * x2 - c.a1 * y1 - c.a2 * y2;
       x2 = x1;
       x1 = x;
@@ -123,15 +144,24 @@ function renderLayer(
   }
 }
 
+export interface RenderOpts {
+  /** Sample rate, Hz (default 48000). */
+  rate?: number;
+  /** Voice gain (default 1). */
+  gain?: number;
+  /** Noise slot, as the engine picks it (default 0). */
+  slot?: number;
+}
+
 /** Renders a recipe at `gain` (the voice gain), before bus, master and compressor. */
 export function renderRecipe(
   recipe: Recipe,
   noise: Record<NoiseColor, Float32Array>,
-  rate = 48000,
-  gain = 1,
+  opts: RenderOpts = {},
 ): Float32Array {
+  const { rate = 48000, gain = 1, slot = 0 } = opts;
   const out = new Float32Array(Math.ceil(recipeDuration(recipe) * rate) + 1);
-  for (const layer of recipe.layers) renderLayer(layer, out, rate, noise);
+  for (const layer of recipe.layers) renderLayer(layer, out, rate, noise, slot);
   if (gain !== 1) for (let i = 0; i < out.length; i++) out[i] = (out[i] ?? 0) * gain;
   return out;
 }
@@ -141,6 +171,36 @@ export function peakOf(samples: Float32Array): number {
   let p = 0;
   for (const s of samples) p = Math.max(p, Math.abs(s));
   return p;
+}
+
+/**
+ * The loudest a recipe can play: its peak over every noise slot and every noise buffer given.
+ * Recipes without noise render once.
+ */
+export function worstPeak(
+  recipe: Recipe,
+  noises: readonly Record<NoiseColor, Float32Array>[],
+  rate = 48000,
+): number {
+  const length = Math.ceil(recipeDuration(recipe) * rate) + 1;
+  // Tone layers don't depend on the noise, so render them once and add each noise variant on top.
+  const tones = new Float32Array(length);
+  const noiseLayers: Layer[] = [];
+  for (const layer of recipe.layers) {
+    if (layer.kind === "tone") renderLayer(layer, tones, rate, {}, 0);
+    else noiseLayers.push(layer);
+  }
+  if (noiseLayers.length === 0) return peakOf(tones);
+  let worst = 0;
+  const out = new Float32Array(length);
+  for (const noise of noises) {
+    for (let slot = 0; slot < NOISE_SLOTS; slot++) {
+      out.set(tones);
+      for (const layer of noiseLayers) renderLayer(layer, out, rate, noise, slot);
+      worst = Math.max(worst, peakOf(out));
+    }
+  }
+  return worst;
 }
 
 /** Gain as dBFS (−∞ for silence). */

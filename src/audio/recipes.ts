@@ -147,24 +147,24 @@ const MATERIALS: Record<Material, MaterialSound> = {
   // Soft, lowpassed crunch.
   dirt: {
     break: (d) => [
-      noise("white", lp(900 * d, 0, 380), env(0.004, 0.16, 0.42)),
-      noise("brown", lp(320, 0), env(0.006, 0.14, 0.3)),
+      noise("white", lp(900 * d, 0, 380), env(0.004, 0.16, 0.32)),
+      noise("brown", lp(320, 0), env(0.006, 0.14, 0.22)),
       tone("sine", 95 * d, env(0.006, 0.12, 0.12), { freqEnd: 60, glide: 0.1 }),
     ],
     chipHz: 900,
     chipQ: 3,
-    chipPeak: 0.36,
+    chipPeak: 0.304,
   },
   // Short noise burst through a bandpass near 1.2 kHz, over a low thump.
   stone: {
     break: (d) => [
-      noise("white", bp(1200 * d, 1.2), env(0.002, 0.15, 0.36)),
+      noise("white", bp(1200 * d, 1.2), env(0.002, 0.15, 0.32)),
       tone("sine", 120 * d, env(0.004, 0.14, 0.2), { freqEnd: 55, glide: 0.12 }),
-      noise("brown", lp(600, 0), env(0.004, 0.12, 0.24, 0.02)),
+      noise("brown", lp(600, 0), env(0.004, 0.12, 0.2, 0.02)),
     ],
     chipHz: 1800,
     chipQ: 3,
-    chipPeak: 0.33,
+    chipPeak: 0.199,
   },
   // Resonant knock: a narrow band of noise plus a short hollow tone.
   wood: {
@@ -179,7 +179,7 @@ const MATERIALS: Record<Material, MaterialSound> = {
     ],
     chipHz: 1100,
     chipQ: 8,
-    chipPeak: 0.5,
+    chipPeak: 0.428,
   },
   // High sine pings, kept quiet so they sparkle instead of stinging.
   glass: {
@@ -191,7 +191,7 @@ const MATERIALS: Record<Material, MaterialSound> = {
     ],
     chipHz: 3200,
     chipQ: 5,
-    chipPeak: 0.31,
+    chipPeak: 0.19,
   },
   // Muffled poof.
   wool: {
@@ -201,27 +201,27 @@ const MATERIALS: Record<Material, MaterialSound> = {
     ],
     chipHz: 700,
     chipQ: 2,
-    chipPeak: 0.4,
+    chipPeak: 0.285,
   },
   // A short "shhh" that slides down, like sand pouring.
   sand: {
     break: (d) => [
-      noise("white", bp(2400 * d, 0.8, 1500), env(0.015, 0.22, 0.32)),
-      noise("brown", lp(400, 0), env(0.01, 0.1, 0.2)),
+      noise("white", bp(2400 * d, 0.8, 1500), env(0.015, 0.22, 0.3)),
+      noise("brown", lp(400, 0), env(0.01, 0.1, 0.17)),
     ],
     chipHz: 2600,
     chipQ: 2,
-    chipPeak: 0.21,
+    chipPeak: 0.152,
   },
   // Soft crunch with a bright top.
   snow: {
     break: (d) => [
-      noise("white", bp(3200 * d, 1), env(0.008, 0.16, 0.26, 0, 0.02)),
-      noise("brown", lp(350, 0), env(0.01, 0.12, 0.24)),
+      noise("white", bp(3200 * d, 1), env(0.008, 0.16, 0.25, 0, 0.02)),
+      noise("brown", lp(350, 0), env(0.01, 0.12, 0.21)),
     ],
     chipHz: 3000,
     chipQ: 3,
-    chipPeak: 0.26,
+    chipPeak: 0.162,
   },
   // Bell-like pentatonic pings (E6 G6 C7) over a soft low note.
   crystal: {
@@ -233,7 +233,7 @@ const MATERIALS: Record<Material, MaterialSound> = {
     ],
     chipHz: 2800,
     chipQ: 6,
-    chipPeak: 0.34,
+    chipPeak: 0.228,
   },
   // A gentle clang: three inharmonic partials and a tiny tick.
   metal: {
@@ -245,7 +245,7 @@ const MATERIALS: Record<Material, MaterialSound> = {
     ],
     chipHz: 2400,
     chipQ: 6,
-    chipPeak: 0.36,
+    chipPeak: 0.238,
   },
   // Three quick rustles.
   leaf: {
@@ -256,7 +256,7 @@ const MATERIALS: Record<Material, MaterialSound> = {
     ],
     chipHz: 3400,
     chipQ: 2,
-    chipPeak: 0.2,
+    chipPeak: 0.143,
   },
 };
 
@@ -307,9 +307,9 @@ function chip(material: Material, pitchStep: number, d: number): Layer[] {
 function place(material: Material, d: number): Layer[] {
   const m = MATERIALS[material];
   return [
-    noise("brown", lp(400, 0), env(0.002, 0.07, 0.25)),
+    noise("brown", lp(400, 0), env(0.002, 0.07, 0.17)),
     tone("sine", 150 * d, env(0.003, 0.09, 0.1), { freqEnd: 100, glide: 0.05 }),
-    noise("white", bp(m.chipHz * 0.7 * d, 2), env(0.001, 0.03, 0.18)),
+    noise("white", bp(m.chipHz * 0.7 * d, 2), env(0.001, 0.03, 0.13)),
   ];
 }
 
@@ -356,9 +356,9 @@ const RECIPES: Record<Exclude<SfxName, "break" | "chip" | "place" | "chime" | "t
   ],
   // Wheels over track joints: three low rattles over a hum.
   cart: [
-    noise("brown", lp(700, 0), env(0.005, 0.05, 0.32)),
-    noise("brown", lp(700, 0), env(0.005, 0.05, 0.3, 0.07)),
-    noise("brown", lp(700, 0), env(0.005, 0.05, 0.28, 0.14)),
+    noise("brown", lp(700, 0), env(0.005, 0.05, 0.22)),
+    noise("brown", lp(700, 0), env(0.005, 0.05, 0.21, 0.07)),
+    noise("brown", lp(700, 0), env(0.005, 0.05, 0.2, 0.14)),
     tone("triangle", 110, env(0.02, 0.12, 0.1, 0, 0.1), { filter: lp(400) }),
   ],
   // Two notes stepping down, G5 then D5.

@@ -5,7 +5,7 @@
 //
 // Developer page: the text here is not kid-facing and doesn't go through t().
 import { createAudio, DEFAULT_AUDIO_SEED } from "@/audio/engine";
-import { makeNoise, peakOf, renderRecipe, toDb } from "@/audio/preview";
+import { makeNoise, renderRecipe, toDb, worstPeak } from "@/audio/preview";
 import type { Recipe, SfxOpts } from "@/audio/recipes";
 import { MATERIAL_LIST, MAX_CHIME_STEP, MAX_CRACK_STAGE, recipeFor } from "@/audio/recipes";
 import type { Bus, SfxName } from "@/audio/types";
@@ -40,7 +40,7 @@ wave.height = 140;
 wave.id = "wave";
 
 function peakDb(recipe: Recipe): string {
-  return `${toDb(peakOf(renderRecipe(recipe, noise, RATE))).toFixed(1)} dBFS`;
+  return `${toDb(worstPeak(recipe, [noise], RATE)).toFixed(1)} dBFS`;
 }
 
 function drawWave(samples: Float32Array): void {
@@ -79,10 +79,10 @@ async function play(name: SfxName, opts: SfxOpts = {}): Promise<void> {
   await unlock();
   audio.sfx(name, opts);
   const recipe = recipeFor(name, opts);
-  const samples = renderRecipe(recipe, noise, RATE);
+  const samples = renderRecipe(recipe, noise, { rate: RATE });
   drawWave(samples);
   const label = [name, opts.material, opts.pitchStep].filter((v) => v !== undefined).join(" ");
-  peakOut.textContent = `${label}: peak ${toDb(peakOf(samples)).toFixed(1)} dBFS before buses, ${(samples.length / RATE).toFixed(2)} s, ${recipe.layers.length} layers`;
+  peakOut.textContent = `${label}: peak ${toDb(worstPeak(recipe, [noise], RATE)).toFixed(1)} dBFS (worst noise slice) before buses, ${(samples.length / RATE).toFixed(2)} s, ${recipe.layers.length} layers`;
   recipeOut.textContent = JSON.stringify(recipe.layers, null, 1);
 }
 
