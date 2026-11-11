@@ -1,0 +1,73 @@
+/*
+ * Design tokens that don't change between themes (task M2-07, PLAN.md §5.1, §4.6).
+ * Colors (`--c-*`) and bevel images (`--bevel-*`) come from src/ui/theme/themes.ts through
+ * applyTheme(), so each theme has one source of truth.
+ *
+ * Fonts: M2-08 self-hosts the font files (src/ui/theme/fonts.css). Until then these stacks fall
+ * back to system fonts. Never load a font from the network.
+ */
+:root {
+  --font-pixel:
+    "Pixelify Sans", ui-monospace, "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, monospace;
+  --font-body:
+    "Atkinson Hyperlegible", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Letter size from settings (1.0–2.0; Sprout defaults to 1.5). Components multiply by it. */
+  --text-scale: 1;
+  --fs-sm: 1rem;
+  --fs-md: 1.25rem;
+  --fs-lg: 1.625rem;
+  --fs-xl: 2.25rem;
+  --fs-key: 2rem;
+  --lh: 1.3;
+
+  /* Spacing scale (px, multiples of the 4-px grid). */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+
+  /* 9-slice bevels: 3 art pixels per slice at 3 screen pixels each (src/ui/kit/bevel.ts). */
+  --bevel-unit: 3px;
+  --bevel-w: 9px;
+  --bevel-slice: 9;
+
+  /* Focus ring: a thick ring outside a thin halo (both colors come from the theme). */
+  --focus-w: 4px;
+  --focus-halo-w: 3px;
+
+  /* Motion. 1 = animate, 0 = reduced motion. Durations multiply by it where they're used. */
+  --motion-ok: 1;
+  --t-fast: 90ms;
+  --t-med: 200ms;
+  --t-slow: 450ms;
+
+  /* Hotbar and inventory slots, before --text-scale. */
+  --slot-base: 56px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-ok: 0;
+  }
+}
+
+/* An explicit setting beats the system preference (applyMotion in themes.ts). */
+[data-motion="reduced"] {
+  --motion-ok: 0;
+}
+[data-motion="full"] {
+  --motion-ok: 1;
+}
+
+/* A themed region: the scene-less backdrop and default text. */
+[data-theme] {
+  background-color: var(--c-bg);
+  color: var(--c-bg-text);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  line-height: var(--lh);
+}

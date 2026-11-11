@@ -1,0 +1,68 @@
+.tabs {
+  display: flex;
+  flex-direction: column;
+}
+
+.list {
+  display: flex;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-2);
+}
+
+.tab {
+  position: relative;
+  margin: 0 0 calc(var(--bevel-w) * -1);
+  padding: var(--sp-1) var(--sp-4) calc(var(--sp-1) + var(--bevel-unit));
+  border: var(--bevel-w) solid var(--c-button-outline);
+  border-image: var(--bevel-button, none) var(--bevel-slice) fill / var(--bevel-w) repeat;
+  background-color: var(--c-button);
+  background-clip: padding-box;
+  color: var(--c-button-text);
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  font-weight: 700;
+  image-rendering: pixelated;
+  cursor: pointer;
+}
+
+/* The selected tab joins the panel and stands taller; a top bar marks it beyond color. */
+.tab[aria-selected="true"] {
+  z-index: 1;
+  border-color: var(--c-panel-outline);
+  border-image-source: var(--bevel-panel, none);
+  background-color: var(--c-panel);
+  color: var(--c-text);
+  transform: translateY(calc(var(--bevel-unit) * -1));
+}
+.tab[aria-selected="true"]::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--bevel-w) * -1 - var(--bevel-unit) * 2);
+  right: calc(var(--bevel-w) * -1);
+  left: calc(var(--bevel-w) * -1);
+  height: calc(var(--bevel-unit) * 2);
+  background: var(--c-selected);
+}
+
+.tab:focus-visible {
+  z-index: 2;
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+  box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
+}
+
+.panel {
+  padding: var(--sp-3) var(--sp-4);
+  border: var(--bevel-w) solid var(--c-panel-outline);
+  border-image: var(--bevel-panel, none) var(--bevel-slice) fill / var(--bevel-w) repeat;
+  background-color: var(--c-panel);
+  background-clip: padding-box;
+  color: var(--c-text);
+  image-rendering: pixelated;
+}
+
+.panel:focus-visible {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+  box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
+}

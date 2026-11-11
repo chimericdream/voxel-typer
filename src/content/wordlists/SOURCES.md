@@ -74,3 +74,13 @@ owner decides at M6-08 whether to loosen any of them; until then, pick another w
   scrape), swanky, pakistan (a country), condominium, retardant, ghastly and aghast. The review
   suggests moving the terms behind "thorny" and "booboo" to whole-word sections first.
 - **From the plain hyphen split:** "yo-yo".
+
+## `meadow-phrases.txt`
+
+- **Source:** authored for Voxel Typer (M2-12). Two or three words from `home-row.txt` in a row,
+  typeable with only `a s d f j k l` and space, for Meadow lesson 6. Chosen by hand so each pair
+  reads as a tiny, friendly picture ("dad adds salsa").
+- **Left out on purpose:**
+  - `g` and `h`: Meadow teaches them after lesson 6, so no phrase uses them.
+  - `sad` and `falls`: lesson 6 should feel happy, and falling is a hurt.
+  - Pairs that don't make sense to a child ("ads ask", "fad salsa"), and words most 6-year-olds don't know (`fad`).

@@ -7,6 +7,12 @@
  */
 export * from "./atlas/build";
 export * from "./atlas/recipes";
+export * from "./camera";
+export * from "./chunks";
+export * from "./lights";
+export * from "./loop";
 export * from "./mesher/voxel-grid";
 export * from "./models/types";
+export * from "./quality";
+export * from "./scene";
 export * from "./types";

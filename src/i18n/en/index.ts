@@ -7,10 +7,12 @@
  */
 import common from "./common";
 import blocks from "./blocks";
+import lessonsMeadow from "./lessons-meadow";
 
 const en = {
   common,
   blocks,
+  lessonsMeadow,
 } as const;
 
 export default en;
