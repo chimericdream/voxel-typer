@@ -1,0 +1,39 @@
+# Theme words (nature) for every band, authored for Voxel Typer. Provenance: SOURCES.md.
+# Short words of 1-5 letters, so Sprouts can read them too.
+# tags: band=all reading=grade2 kind=words theme=nature
+beach
+bloom
+brook
+bud
+cliff
+cloud
+creek
+daisy
+dew
+dune
+fern
+field
+fog
+hill
+lake
+lily
+mist
+moon
+peak
+petal
+pond
+rain
+river
+root
+sea
+seed
+shell
+sky
+star
+sun
+tree
+tulip
+twig
+wave
+wind
+woods
