@@ -1,0 +1,32 @@
+# Meadow word pairs, authored for Voxel Typer. Provenance: SOURCES.md.
+# Two or three home-row words, typed with only a s d f j k l and space.
+# tags: band=all reading=grade2 kind=phrases keys=asdfjkl; biome=meadow
+a lad
+a dad
+a flask
+a salad
+a fall salad
+a salsa salad
+add salsa
+add a salad
+add a flask
+add all
+ask dad
+ask a lad
+ask a dad
+ask all
+ask dads
+all ask
+all lads ask
+all dads ask
+dad asks
+dad adds
+dad adds salsa
+dads add salads
+dad asks a lad
+a lad asks
+a lad asks dad
+lads add
+lads add salads
+lads ask dad
+fall salads
