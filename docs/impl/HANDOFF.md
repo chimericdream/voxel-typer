@@ -67,7 +67,8 @@ This orchestrator will run across many sessions and context resets, so status mu
 
 - **The contracts are a first draft.** M1-01 (Fable) may correct mistakes in `contracts.md` **before** freezing. Its reviewer must check the corrections. After M1-01 merges, changes follow `README.md` §4.3.
 - **Screenshots are made only on Linux.** Local `npm run e2e` on Windows skips screenshot assertions (`--ignore-snapshots` unless `CI` is set). For pixel checks locally, use `npm run e2e:docker`, which runs the suite in the same Playwright container CI uses. Both are set up in M0-01. Baselines still come only from the Update snapshots workflow.
-- **Line endings:** M0-01 adds `.gitattributes` (`* text=auto eol=lf`, binary rule for `*.png`/`*.woff2`) so Windows checkouts don't fight Prettier or CI.
+- **Line endings:** M0-01 adds `.gitattributes` (`* text=auto eol=lf`, binary rule for `*.png`/`*.woff2`) so Windows checkouts don't fight Oxfmt or CI.
+- **Oxc, not ESLint/Prettier.** The owner strongly prefers Oxlint and Oxfmt. Reject any PR that adds ESLint, Prettier or their plugins.
 - **Long context:** M2-13, M4-04 and M5-01 are the largest cards. If a Fable worker's handoff says `partial`, split the rest into a follow-up card rather than re-running the whole card.
 - **Tone and IP rules** (`README.md` §4.4–4.5) are where reviewers most often need to push back. Check them on every UI or content PR.
 - **The owner's kids are the users.** When a trade-off isn't covered by the docs, use the priority order in `PLAN.md` §12.8.

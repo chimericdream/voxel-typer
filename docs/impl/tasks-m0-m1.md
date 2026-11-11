@@ -10,18 +10,20 @@ Card fields: **Size** S/M/L · **Tier** A/B/C (`README.md` §2) · **Review** re
 - **Size/Tier:** M / B · **Review:** optional · **E2E:** yes (smoke only)
 - **Depends on:** —
 - **PLAN refs:** §6.1, §6.2, §12
-- **Owns:** `package.json`, `package-lock.json`, `tsconfig*.json`, `vite.config.ts`, `vitest.config.ts`, `playwright.config.ts`, `eslint.config.js`, `.prettierrc`, `.prettierignore`, `.gitignore`, `.gitattributes`, `.editorconfig`, `.nvmrc`, `index.html`, `src/main.ts`, `tools/check-bundle-size.ts`, `tools/run.ts`, `tests/unit/smoke.test.ts`, `tests/e2e/smoke.spec.ts`
+- **Owns:** `package.json`, `package-lock.json`, `tsconfig*.json`, `vite.config.ts`, `vitest.config.ts`, `playwright.config.ts`, `.oxlintrc.json`, `.oxfmtrc.json`, `.gitignore`, `.gitattributes`, `.editorconfig`, `.nvmrc`, `index.html`, `src/main.ts`, `tools/check-bundle-size.ts`, `tools/run.ts`, `tests/unit/smoke.test.ts`, `tests/e2e/smoke.spec.ts`
 - **Spec:**
-  - `npm init`, then install current stable versions of: `vite`, `typescript`, `preact`, `@preact/preset-vite`, `@preact/signals`, `three`, `@types/three`, `idb`; dev: `vitest`, `@vitest/coverage-v8`, `happy-dom`, `fast-check`, `fake-indexeddb`, `@playwright/test`, `@axe-core/playwright`, `eslint`, `typescript-eslint`, `eslint-plugin-jsx-a11y`, `eslint-config-prettier`, `prettier`, `tsx`. Record exact versions in the handoff note.
+  - `npm init`, then install current stable versions of: `vite`, `typescript`, `preact`, `@preact/preset-vite`, `@preact/signals`, `three`, `@types/three`, `idb`; dev: `vitest`, `@vitest/coverage-v8`, `happy-dom`, `fast-check`, `fake-indexeddb`, `@playwright/test`, `@axe-core/playwright`, `oxlint`, `oxfmt`, `tsx`. Record exact versions in the handoff note. **The owner strongly prefers the Oxc stack: never add ESLint, Prettier or their plugins.** If a check can't be expressed in Oxlint, write it as a small `tools/check-*.ts` script (TypeScript compiler API) and run it from `npm run lint`.
   - `tsconfig.json`: `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noImplicitOverride`, `verbatimModuleSyntax`, `moduleResolution: "bundler"`, `jsx: "react-jsx"`, `jsxImportSource: "preact"`, path alias `@/*` → `src/*` (mirrored in Vite and Vitest).
-  - ESLint flat config with **purity zones**: for `src/engine/**`, `src/content/**`, `src/render/mesher/**`, `src/render/atlas/recipes.ts`, `src/save/schema.ts`, `src/save/migrations.ts`: `no-restricted-imports` for `three`, `preact*`, `@/ui/*`, `@/render/*` (except mesher/recipes from each other), `@/audio/*`, `@/app/*`; `no-restricted-globals` for `window`, `document`, `navigator`, `localStorage`, `indexedDB`; `no-restricted-properties` for `Date.now`, `Math.random`, `performance.now`. Add a test file `tests/unit/purity.test.ts` that writes nothing but runs ESLint's Node API on a fixture that violates each rule and asserts errors (so the zones can't silently break).
+  - `.oxlintrc.json`: plugins `typescript`, `import`, `jsx-a11y`, `react` (JSX rules; set the JSX pragma/settings for Preact and turn off React-only rules such as `react-in-jsx-scope`); categories `correctness` and `suspicious` as errors. Turn on type-aware linting (`--type-aware`) if the installed Oxlint supports it stably; record the choice.
+  - **Purity zones**, as an `overrides` entry in `.oxlintrc.json` for `src/engine/**`, `src/content/**`, `src/render/mesher/**`, `src/render/atlas/recipes.ts`, `src/save/schema.ts`, `src/save/migrations.ts`: `no-restricted-imports` for `three`, `preact*`, `@/ui/*`, `@/render/*` (except mesher/recipes from each other), `@/audio/*`, `@/app/*`; `no-restricted-globals` for `window`, `document`, `navigator`, `localStorage`, `indexedDB`; and a ban on `Date.now`, `Math.random`, `performance.now`. Check which of these rules the installed Oxlint actually implements. Anything it doesn't goes into `tools/check-boundaries.ts`, a TypeScript-AST scan of the same zones that `npm run lint` runs. Add `tests/unit/purity.test.ts`, which runs Oxlint (and the boundary script) on fixtures that violate each rule and asserts errors, so the zones can't silently break.
+  - `.oxfmtrc.json`: `endOfLine: "lf"`, otherwise defaults. `npm run format` runs `oxfmt`; `npm run lint` includes `oxfmt --check`.
   - Vitest: default environment `node`; files under `tests/unit/dom/**` and `tests/unit/ui/**` use `happy-dom`. Coverage thresholds configurable per folder (start with `src/engine/**: 95` lines, enabled in M1-GATE).
   - Playwright: Chromium only, `launchOptions.args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']`, `webServer` runs `vite preview` on a fixed port after `vite build --mode test`, viewport 1280×720, `expect.toHaveScreenshot` tolerance `maxDiffPixelRatio: 0.01`.
   - Scripts per `README.md` §4.1. `npm run tool -- <name>` maps to `tsx tools/<name>.ts`.
   - `tools/check-bundle-size.ts`: reads `dist/.vite/manifest.json` (enable `build.manifest`), gzips the entry chunk plus its static imports and every lazy chunk, compares against `contracts.md` §14, prints a table, exits 1 on breach.
   - `index.html`: `lang="en"`, viewport meta, a placeholder CSP meta (`default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'; media-src 'self' blob:; worker-src 'self' blob:`) — tightened in M6-06.
   - `.nvmrc` pins Node major 26. `engines` in `package.json` says `>=26`.
-  - `.gitattributes`: `* text=auto eol=lf`, and `binary` for `*.png`, `*.woff2`, `*.ico`. Prettier `endOfLine: "lf"`. The owner develops on Windows; CI is Linux.
+  - `.gitattributes`: `* text=auto eol=lf`, and `binary` for `*.png`, `*.woff2`, `*.ico`. Oxfmt `endOfLine: "lf"`. The owner develops on Windows; CI is Linux.
   - Screenshots are compared only on Linux (`README.md` §3.7): `playwright.config.ts` sets `ignoreSnapshots: !process.env.CI`, and `npm run e2e:docker` runs the suite inside the `mcr.microsoft.com/playwright` image matching the installed version, with `CI=1`, for local pixel checks.
 - **Acceptance:**
   - [ ] Clean clone → `npm ci` → `npm run verify` passes.
@@ -33,12 +35,12 @@ Card fields: **Size** S/M/L · **Tier** A/B/C (`README.md` §2) · **Review** re
 - **Size/Tier:** S / C · **Review:** optional · **E2E:** no
 - **Depends on:** M0-01
 - **PLAN refs:** §1, §12
-- **Owns:** `README.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `.github/pull_request_template.md`, `docs/decisions.md`, `docs/progress.md`, `docs/handoffs/.gitkeep`, `docs/art-guide.md` (stub), `eslint.config.js` (copy-lint rule only)
+- **Owns:** `README.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `.github/pull_request_template.md`, `docs/decisions.md`, `docs/progress.md`, `docs/handoffs/.gitkeep`, `docs/art-guide.md` (stub), `.oxlintrc.json` (copy-lint rule only) or `tools/check-ui-literals.ts`
 - **Spec:**
   - `CLAUDE.md`: commands table, the purity rule (`PLAN.md` §6.3 + `contracts.md` zones), the IP rule, the priority order (`PLAN.md` §12.8), "contracts are frozen; see docs/impl/README.md §4.3", copy tone rule, where handoff notes go. Under 120 lines.
   - `docs/decisions.md`: a dated log. Seed it with every item in `docs/impl/README.md` §8.
   - `docs/progress.md`: a milestone checklist mirroring `task-graph.md`.
-  - Copy lint: forbid JSX text literals and string literals in `title`/`aria-label`/`placeholder` props inside `src/ui/**` (a small local ESLint rule in `tools/eslint-rules/no-ui-literals.js` is fine; allow punctuation-only and numbers).
+  - Copy lint: forbid JSX text literals and string literals in `title`/`aria-label`/`placeholder` props inside `src/ui/**`; allow punctuation-only and numbers. Use an Oxlint JS plugin if the installed Oxlint supports them; otherwise write `tools/check-ui-literals.ts` (TypeScript AST over `src/ui/**/*.tsx`) and run it from `npm run lint`. No ESLint.
   - Record the owner's answers from `README.md` §8.12–8.13 (PR per task, CI-heavy testing, Proxmox self-hosting) in `docs/decisions.md`.
   - `.github/pull_request_template.md` mirroring the handoff-note headings (`README.md` §6), and `CONTRIBUTING.md` (short: the PR flow from `README.md` §3, for humans and agents).
 - **Acceptance:**
@@ -55,7 +57,7 @@ Card fields: **Size** S/M/L · **Tier** A/B/C (`README.md` §2) · **Review** re
     | Job | What it runs |
     |---|---|
     | `typecheck` | `npm run typecheck` |
-    | `lint` | ESLint (incl. purity zones and copy lint) + Prettier check |
+    | `lint` | `npm run lint`: Oxlint (incl. purity zones), `oxfmt --check`, and the `tools/check-*.ts` guard scripts (boundaries, UI literals) |
     | `unit` | `npm run test:cov`; uploads the coverage report; fails on the per-folder thresholds; posts a coverage summary to the job summary |
     | `content` | word-list validator, curriculum validator + `docs/curriculum.md` staleness check, i18n missing/unused keys, block/mob/model JSON schema checks (each a no-op until its tool exists) |
     | `build` | `npm run build` + `npm run size`; uploads `dist/` as an artifact for the e2e jobs; writes the bundle-size table to the job summary and as a sticky PR comment (one comment, updated in place) |

@@ -179,7 +179,7 @@ Splash → Profile select/create (name, age band, avatar) → Placement test (sk
 | Persistence | **IndexedDB** (via `idb`) with a versioned schema + migrations; JSON export/import | Local-only, privacy-safe |
 | Audio | Web Audio API, custom synth module | See §5.2 |
 | Tests | **Vitest** (unit), **Playwright** (e2e + screenshot regression), property tests with **fast-check** for the engine | |
-| Lint/format | ESLint + Prettier + `tsc --noEmit` in CI | |
+| Lint/format | **Oxlint + Oxfmt** (Oxc stack; owner preference, no ESLint/Prettier) + `tsc --noEmit` in CI | |
 | CI | GitHub Actions: typecheck, lint, unit, e2e (headless Chromium), build, bundle-size budget | |
 | Package manager | npm (lockfile committed) | Node 26 / npm 11 present on the dev machine |
 
@@ -305,9 +305,9 @@ Examples: *Slimeling* (cube slime), *Moss Golem*, *Cave Bat* (3 voxel wings), *F
 Each phase ends with something playable, committed, tagged, and demonstrable. **Do not start a phase until the previous phase's acceptance criteria are green.** Commit small and often with conventional-commit messages; open a PR per phase if working on branches.
 
 ### Phase 0 — Foundations (½ day)
-- Scaffold Vite + TS strict + Preact + Vitest + Playwright + ESLint/Prettier + CI workflow.
+- Scaffold Vite + TS strict + Preact + Vitest + Playwright + Oxlint/Oxfmt + CI workflow.
 - `README.md`, `docs/decisions.md`, `CLAUDE.md` (project conventions for future agent sessions: commands, architecture rule §6.3, no-IP rule, testing expectations).
-- Bundle-size and a11y lint (eslint-plugin-jsx-a11y) in CI.
+- Bundle-size and a11y lint (Oxlint's `jsx-a11y` plugin) in CI.
 - **Accept:** `npm run dev`, `npm test`, `npm run e2e`, `npm run build` all pass on a clean checkout; a "Hello voxel" Three.js cube renders with nearest-filtered procedural texture.
 
 ### Phase 1 — Typing engine (pure) (1–2 days)

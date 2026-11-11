@@ -56,7 +56,7 @@ Field legend: see the top of `tasks-m0-m1.md`.
 - **Size/Tier:** M / A · **Review:** required
 - **Depends on:** M1-04, M1-06, M1-07
 - **PLAN refs:** §3.2.2 (waves scale to WPM), §8 Phase 4 accept
-- **Owns:** `src/modes/defense/director.ts` (pure zone — add it to the ESLint pure list in the same PR), `tests/unit/modes/defense/director.test.ts`, `tools/sim-defense.ts`, `docs/sim.md` (append)
+- **Owns:** `src/modes/defense/director.ts` (pure zone — add it to the purity overrides in `.oxlintrc.json` and `tools/check-boundaries.ts` in the same PR), `tests/unit/modes/defense/director.test.ts`, `tools/sim-defense.ts`, `docs/sim.md` (append)
 - **Spec:** `createDirector({ band, baselineNetWpm, calm, rng }) → { nextWave(): WaveSpec; observe(feedback: { accuracy, reachedBase, wordsDone, activeMs }): void }`. WaveSpec = list of `{ mobId, lane, spawnAtMs, speed, word }`. Controller adjusts spawn interval and mob speed to keep measured accuracy in **85–95%** and "reached base" fraction ≤ 20%: proportional step on a difficulty scalar `d ∈ [0.3, 2.0]`, bounded change per wave (±15%). Initial difficulty from baseline WPM (and a conservative default for new profiles). Words come from the generator with the mob's flavor pool, filtered to the learner's allowed keys.
 - **Acceptance:**
   - [ ] `tools/sim-defense.ts`: synthetic typists at 10, 25 and 50 WPM converge to accuracy 85–95% within 4 waves and stay there (median over 50 seeds). Evidence in `docs/sim.md`.

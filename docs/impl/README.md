@@ -108,7 +108,8 @@ A single agent working alone still opens one PR per task. It can skip worktrees.
 | `npm run dev` | Vite dev server |
 | `npm run build` | Production build to `dist/` |
 | `npm run typecheck` | `tsc --noEmit` (strict) |
-| `npm run lint` | ESLint + Prettier check |
+| `npm run lint` | Oxlint + `oxfmt --check` + `tools/check-*.ts` guard scripts |
+| `npm run format` | Oxfmt (writes changes) |
 | `npm test` | Vitest unit + property tests (Node environment by default) |
 | `npm run test:cov` | Vitest with v8 coverage |
 | `npm run e2e` | Playwright (headless Chromium, SwiftShader GL). Skips screenshot comparisons outside CI |
@@ -119,8 +120,9 @@ A single agent working alone still opens one PR per task. It can skip worktrees.
 
 ### 4.2 Code rules
 - TypeScript strict, plus `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`. No `any` without a `// reason:` comment. No `enum` (use string-literal unions).
-- **`src/engine/`, `src/render/mesher/`, `src/render/atlas/recipes.ts`, `src/content/`, `src/save/schema.ts`, `src/save/migrations.ts` are pure.** They import no DOM, no `three`, no Preact. ESLint enforces this with `no-restricted-imports` and `no-restricted-globals` (set up in M0-01).
-- Pure modules take time and randomness as parameters. They never call `performance.now()`, `Date.now()` or `Math.random()`. ESLint bans those three in pure folders.
+- **`src/engine/`, `src/render/mesher/`, `src/render/atlas/recipes.ts`, `src/content/`, `src/save/schema.ts`, `src/save/migrations.ts` are pure.** They import no DOM, no `three`, no Preact. Oxlint enforces this with `no-restricted-imports` and `no-restricted-globals`, backed by `tools/check-boundaries.ts` for anything Oxlint can't express (set up in M0-01).
+- Pure modules take time and randomness as parameters. They never call `performance.now()`, `Date.now()` or `Math.random()`. Lint bans those three in pure folders.
+- **Lint and format use the Oxc stack (Oxlint, Oxfmt). The owner strongly prefers it: never add ESLint, Prettier or their plugins.** Missing checks become small `tools/check-*.ts` scripts.
 - All kid-facing text goes through `t()` (see `contracts.md` §11). A lint rule (M0-02) flags string literals in JSX text.
 - Each new runtime dependency gets a line in the handoff note: name, why, gzip size. Prefer none.
 - No network requests at runtime. Ever. Fonts are self-hosted under `public/fonts/`.
