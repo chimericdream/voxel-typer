@@ -21,7 +21,7 @@ import {
   volumeToGain,
 } from "../../../src/audio/engine";
 import type { AudioEngine } from "../../../src/audio/engine";
-import { makeNoise, peakOf, renderRecipe } from "../../../src/audio/preview";
+import { makeNoise, NOISE_SLOTS, noiseOffset, peakOf, worstPeak } from "../../../src/audio/preview";
 import {
   chimeFrequency,
   MATERIAL_LIST,
@@ -29,7 +29,7 @@ import {
   recipeDuration,
   recipeFor,
 } from "../../../src/audio/recipes";
-import type { Recipe } from "../../../src/audio/recipes";
+import type { Recipe, SfxOpts } from "../../../src/audio/recipes";
 import { pickVoice, SPEECH_RATE } from "../../../src/audio/speech";
 import type { SpeechDeps, UtteranceLike, VoiceLike } from "../../../src/audio/speech";
 import type { SfxName } from "../../../src/audio/types";
@@ -232,18 +232,24 @@ const lastEvent = (b: FakeGain): ParamEvent | undefined => b.gain.events.at(-1);
 const ratio = (step: number): number => chimeFrequency(step) / chimeFrequency(0);
 const semis = (step: number): number => Math.round(12 * Math.log2(ratio(step)));
 
-function fakeSpeech(voices: VoiceLike[]) {
+/** A fake `speechSynthesis`. Change `voices` and call `voicesChanged()` to mimic late loading. */
+function fakeSpeech(initial: VoiceLike[]) {
+  const state = { voices: initial };
   const spoken: (UtteranceLike & { text: string })[] = [];
   const made: (UtteranceLike & { text: string })[] = [];
+  const listeners: (() => void)[] = [];
   const cancel = vi.fn();
   const deps: SpeechDeps = {
     synth: {
-      getVoices: () => voices,
+      getVoices: () => state.voices,
       speak: (u) => {
         const found = made.find((m) => m === u);
         if (found) spoken.push(found);
       },
       cancel,
+      addEventListener: (_type, listener) => {
+        listeners.push(listener);
+      },
     },
     utterance: (text) => {
       const u = { text, rate: 1, volume: 1, lang: "", voice: null };
@@ -251,8 +257,18 @@ function fakeSpeech(voices: VoiceLike[]) {
       return u;
     },
   };
-  return { deps, spoken, cancel };
+  const setVoices = (v: VoiceLike[]): void => {
+    state.voices = v;
+  };
+  const voicesChanged = (): void => {
+    for (const l of listeners) l();
+  };
+  return { deps, spoken, cancel, setVoices, voicesChanged };
 }
+/** The recipe at the low, middle and high end of the engine's ±2% detune. */
+const detuned = (name: SfxName, opts: SfxOpts): Recipe[] =>
+  [0, 0.5, 0.999].map((v) => recipeFor(name, opts, () => v));
+
 const ALL_SFX: readonly SfxName[] = [
   "break",
   "chip",
@@ -499,6 +515,27 @@ describe("unlock", () => {
     await expect(audio.unlock()).resolves.toBeUndefined();
   });
 
+  it("starts noise only at the measured slots", async () => {
+    const { audio, ctx } = await setup();
+    for (let i = 0; i < 40; i++) {
+      audio.sfx("break", { material: MATERIAL_LIST[i % MATERIAL_LIST.length] ?? "stone" });
+      ctx.currentTime += 2;
+    }
+    const noiseSources = ctx.sources().filter((s) => s instanceof FakeBufferSource);
+    expect(noiseSources.length).toBeGreaterThan(40);
+    const used = new Set<number>();
+    for (const src of noiseSources) {
+      const start = src.starts[0];
+      const span = (src.stops[0] ?? 0) - 0.02 - (start?.when ?? 0);
+      const slot = Array.from({ length: NOISE_SLOTS }, (_, k) => k).find(
+        (k) => Math.abs(noiseOffset(k, span) - (start?.offset ?? -1)) < 1e-9,
+      );
+      expect(slot).toBeDefined();
+      if (slot !== undefined) used.add(slot);
+    }
+    expect(used.size).toBeGreaterThan(NOISE_SLOTS / 2);
+  });
+
   it("fills the noise buffers from the seed", async () => {
     const a = await setup({ seed: 7 });
     const b = await setup({ seed: 7 });
@@ -511,22 +548,33 @@ describe("unlock", () => {
 });
 
 describe("recipes", () => {
-  // Noise peaks depend on the samples, so measure against several seeds and keep the worst.
-  const noises = [DEFAULT_AUDIO_SEED, 1, 2, 3].map((seed) => {
+  // Noise peaks depend on which slice of the buffer plays, so every budget below is the worst case
+  // over all NOISE_SLOTS start offsets the engine can pick, three noise seeds (the default one
+  // first) and the detune extremes.
+  const noises = [DEFAULT_AUDIO_SEED, 1, 2].map((seed) => {
     const rng = createRng(seed).fork("audio:noise");
     return makeNoise(() => rng.next(), 48000);
   });
-  const peak = (r: Recipe) => Math.max(...noises.map((n) => peakOf(renderRecipe(r, n))));
+  const peaks = new WeakMap<Recipe, number>();
+  const peak = (r: Recipe): number => {
+    const known = peaks.get(r);
+    if (known !== undefined) return known;
+    const p = worstPeak(r, noises);
+    peaks.set(r, p);
+    return p;
+  };
 
   const every: { label: string; recipe: Recipe }[] = [
     ...ALL_SFX.map((n) => ({ label: n, recipe: recipeFor(n) })),
     ...MATERIAL_LIST.flatMap((m) => [
-      { label: `break ${m}`, recipe: recipeFor("break", { material: m }) },
-      { label: `place ${m}`, recipe: recipeFor("place", { material: m }) },
-      ...Array.from({ length: MAX_CRACK_STAGE + 1 }, (_, s) => ({
-        label: `chip ${m} ${s}`,
-        recipe: recipeFor("chip", { material: m, pitchStep: s }),
-      })),
+      ...detuned("break", { material: m }).map((recipe) => ({ label: `break ${m}`, recipe })),
+      ...detuned("place", { material: m }).map((recipe) => ({ label: `place ${m}`, recipe })),
+      ...Array.from({ length: MAX_CRACK_STAGE + 1 }, (_, s) =>
+        detuned("chip", { material: m, pitchStep: s }).map((recipe) => ({
+          label: `chip ${m} ${s}`,
+          recipe,
+        })),
+      ).flat(),
     ]),
     ...Array.from({ length: 13 }, (_, s) => ({
       label: `chime ${s}`,
@@ -536,7 +584,7 @@ describe("recipes", () => {
 
   it("keeps every sound's peak at or below −9.6 dBFS before the buses", () => {
     for (const { label, recipe } of every) expect(peak(recipe), label).toBeLessThanOrEqual(0.33);
-  });
+  }, 30_000); // ~3 s locally: ~600 recipes × 16 slots × 3 seeds, rendered in plain JS
 
   it("keeps every sound short and every envelope well-formed", () => {
     for (const { label, recipe } of every) {
@@ -567,11 +615,13 @@ describe("recipes", () => {
   });
 
   it("keeps chip a quiet tick that rises with the crack stage", () => {
+    for (const { label, recipe } of every) {
+      if (label.startsWith("chip")) expect(peak(recipe), label).toBeLessThanOrEqual(0.14);
+    }
     for (const m of MATERIAL_LIST) {
       let last = 0;
       for (let s = 0; s <= MAX_CRACK_STAGE; s++) {
         const r = recipeFor("chip", { material: m, pitchStep: s });
-        expect(peak(r), `${m} ${s}`).toBeLessThanOrEqual(0.14);
         const f = r.layers[0]?.filter?.freq ?? 0;
         expect(f).toBeGreaterThan(last);
         last = f;
@@ -624,11 +674,13 @@ describe("chime ladder", () => {
 });
 
 describe("speak", () => {
-  const DE = { lang: "de-DE", name: "Anna" };
-  const GB = { lang: "en-GB", name: "Kate" };
-  const US = { lang: "en_US", name: "Alex" };
+  const DE = { lang: "de-DE", name: "Anna", localService: true };
+  const GB = { lang: "en-GB", name: "Kate", localService: true };
+  const US = { lang: "en_US", name: "Alex", localService: true };
+  const CLOUD = { lang: "en-US", name: "Cloud English", localService: false };
+  const CLOUD_GB = { lang: "en-GB", name: "Cloud UK", localService: false };
 
-  it(`speaks at rate ${SPEECH_RATE} with the first English voice`, () => {
+  it(`speaks at rate ${SPEECH_RATE} with the first local English voice`, () => {
     const s = fakeSpeech([DE, GB, US]);
     const audio = createAudio({ createContext: () => null, speech: s.deps });
     audio.speak("  cat ");
@@ -638,10 +690,60 @@ describe("speak", () => {
     expect(s.spoken[0]?.volume).toBeCloseTo(volumeToGain(0.8)); // master 0.8 × voice 1
   });
 
-  it("asks for en-US when the voice list has not loaded yet", () => {
+  it("skips a remote voice that comes first and uses the local one", () => {
+    const s = fakeSpeech([CLOUD, DE, CLOUD_GB, US]);
+    createAudio({ speech: s.deps }).speak("sun");
+    expect(s.spoken).toHaveLength(1);
+    expect(s.spoken[0]?.voice).toBe(US);
+  });
+
+  it("never speaks when every English voice is remote", () => {
+    const s = fakeSpeech([CLOUD, CLOUD_GB, DE]);
+    const audio = createAudio({ speech: s.deps });
+    audio.speak("sun");
+    s.voicesChanged();
+    expect(s.spoken).toHaveLength(0);
+  });
+
+  it("does not speak with an empty voice list (no default-voice fallback)", () => {
     const s = fakeSpeech([]);
     createAudio({ speech: s.deps }).speak("sun");
-    expect(s.spoken[0]).toMatchObject({ lang: "en-US", voice: null });
+    expect(s.spoken).toHaveLength(0);
+  });
+
+  it("speaks the waiting word when a local English voice loads late", () => {
+    const s = fakeSpeech([]);
+    const audio = createAudio({ speech: s.deps });
+    audio.speak("moon");
+    audio.speak("sun"); // only the latest word waits
+    expect(s.spoken).toHaveLength(0);
+    s.setVoices([CLOUD, GB]);
+    s.voicesChanged();
+    expect(s.spoken).toHaveLength(1);
+    expect(s.spoken[0]).toMatchObject({ text: "sun", voice: GB, lang: "en-GB", rate: 0.85 });
+    s.voicesChanged(); // nothing left waiting
+    expect(s.spoken).toHaveLength(1);
+  });
+
+  it("drops the waiting word if the late voices are all remote", () => {
+    const s = fakeSpeech([]);
+    const audio = createAudio({ speech: s.deps });
+    audio.speak("sun");
+    s.setVoices([CLOUD]);
+    s.voicesChanged();
+    s.setVoices([CLOUD, GB]);
+    s.voicesChanged();
+    expect(s.spoken).toHaveLength(0);
+  });
+
+  it("forgets the waiting word when speech is turned off", () => {
+    const s = fakeSpeech([]);
+    const audio = createAudio({ speech: s.deps });
+    audio.speak("sun");
+    audio.setSpeechEnabled(false);
+    s.setVoices([GB]);
+    s.voicesChanged();
+    expect(s.spoken).toHaveLength(0);
   });
 
   it("is a no-op without an English voice, when disabled, muted, blank or unavailable", () => {
@@ -665,9 +767,11 @@ describe("speak", () => {
     expect(() => createAudio({ speech: null }).speak("dog")).not.toThrow();
   });
 
-  it("matches en, en-* and en_* only", () => {
-    expect(pickVoice([{ lang: "eng", name: "x" }, DE])).toBeNull();
-    expect(pickVoice([{ lang: "EN", name: "y" }])).toMatchObject({ name: "y" });
+  it("picks only local voices whose language is en, en-* or en_*", () => {
+    expect(pickVoice([{ lang: "eng", name: "x", localService: true }, DE])).toBeNull();
+    expect(pickVoice([{ lang: "EN", name: "y", localService: true }])).toMatchObject({ name: "y" });
+    expect(pickVoice([CLOUD, CLOUD_GB])).toBeNull();
+    expect(pickVoice([])).toBeNull();
   });
 });
 
