@@ -138,5 +138,27 @@ describe("VoxelGrid RLE (toJSON/fromJSON)", () => {
     expect(() => VoxelGrid.fromJSON({ ...ok, rle: [70000, 2] })).toThrow(RangeError);
     expect(() => VoxelGrid.fromJSON({ ...ok, rle: [-1, 2] })).toThrow(RangeError);
     expect(() => VoxelGrid.fromJSON({ sx: -1, sy: 1, sz: 1, rle: [] })).toThrow(RangeError);
+    // A hostile save can't force a huge allocation: size is capped and runs are summed first.
+    expect(() => VoxelGrid.fromJSON({ sx: 1024, sy: 1024, sz: 1024, rle: [0, 1024 ** 3] })).toThrow(
+      RangeError,
+    );
+    expect(() => VoxelGrid.fromJSON({ sx: 512, sy: 256, sz: 128, rle: [0, 1] })).toThrow(
+      RangeError,
+    );
+  });
+
+  it("rejects a data array of the wrong length, so a grid that saves always loads", () => {
+    expect(() => new VoxelGrid(2, 2, 2, new Uint16Array(7))).toThrow(RangeError);
+    expect(() => new VoxelGrid(2.5, 1, 1)).toThrow(RangeError);
+    expect(new VoxelGrid(2, 2, 2, new Uint16Array(8)).data.length).toBe(8);
+  });
+
+  it("set rejects ids a Uint16Array would wrap", () => {
+    const g = new VoxelGrid(1, 1, 1);
+    for (const bad of [70000, -1, 1.5, Number.NaN]) {
+      expect(() => g.set(0, 0, 0, bad)).toThrow(RangeError);
+    }
+    g.set(0, 0, 0, 0xffff);
+    expect(g.get(0, 0, 0)).toBe(0xffff);
   });
 });

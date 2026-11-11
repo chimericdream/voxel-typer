@@ -9,19 +9,37 @@ import type { Vec3 } from "../types";
 /** The id of air. Air is never meshed and never occludes. */
 const AIR = 0;
 
+/** Largest grid `fromJSON` accepts (16.7M cells, 32 MB). Guards against hostile or corrupt saves. */
+export const MAX_GRID_CELLS = 1 << 24;
+
+function isSize(s: number): boolean {
+  return Number.isInteger(s) && s >= 0;
+}
+
 /** A dense 3D grid of numeric block ids. y is up. */
 export class VoxelGrid {
   /** One numeric block id per cell. Index = `x + sx * (z + sz * y)`. */
   readonly data: Uint16Array;
 
-  /** `data`, when given, is used as-is (not copied). Otherwise the grid starts as all air. */
+  /**
+   * `data`, when given, is used as-is (not copied). Otherwise the grid starts as all air. Throws
+   * `RangeError` on a non-integer or negative size, or when `data.length !== sx * sy * sz` (such a
+   * grid would save fine but fail to load).
+   */
   constructor(
     readonly sx: number,
     readonly sy: number,
     readonly sz: number,
     data?: Uint16Array,
   ) {
-    this.data = data ?? new Uint16Array(sx * sy * sz);
+    if (!isSize(sx) || !isSize(sy) || !isSize(sz)) {
+      throw new RangeError(`VoxelGrid: bad size ${sx}×${sy}×${sz}`);
+    }
+    const total = sx * sy * sz;
+    if (data !== undefined && data.length !== total) {
+      throw new RangeError(`VoxelGrid: data has ${data.length} cells, expected ${total}`);
+    }
+    this.data = data ?? new Uint16Array(total);
   }
 
   /** The numeric block id at a cell. 0 is air. Out of bounds is 0. */
@@ -30,8 +48,14 @@ export class VoxelGrid {
     return this.data[x + this.sx * (z + this.sz * y)] ?? AIR;
   }
 
-  /** Sets the block id at a cell. Out of bounds is a no-op, matching `get`. */
+  /**
+   * Sets the block id at a cell. Out of bounds is a no-op, matching `get`. Throws `RangeError` for
+   * an id that isn't an integer in 0–65535 (a `Uint16Array` would silently wrap it).
+   */
   set(x: number, y: number, z: number, id: number): void {
+    if (!Number.isInteger(id) || id < 0 || id > 0xffff) {
+      throw new RangeError(`VoxelGrid.set: bad id ${id}`);
+    }
     if (x < 0 || y < 0 || z < 0 || x >= this.sx || y >= this.sy || z >= this.sz) return;
     this.data[x + this.sx * (z + this.sz * y)] = id;
   }
@@ -55,14 +79,25 @@ export class VoxelGrid {
     return { sx: this.sx, sy: this.sy, sz: this.sz, rle };
   }
 
-  /** Decodes `toJSON` output. Throws `RangeError` on malformed input (bad sizes, ids or counts). */
+  /**
+   * Decodes `toJSON` output. Throws `RangeError` on malformed input (bad sizes, ids or counts) or a
+   * grid larger than {@link MAX_GRID_CELLS}. Sizes and run counts are checked before allocating.
+   */
   static fromJSON(j: ReturnType<VoxelGrid["toJSON"]>): VoxelGrid {
     const { sx, sy, sz, rle } = j;
     for (const s of [sx, sy, sz]) {
-      if (!Number.isInteger(s) || s < 0) throw new RangeError(`VoxelGrid.fromJSON: bad size ${s}`);
+      if (!isSize(s)) throw new RangeError(`VoxelGrid.fromJSON: bad size ${s}`);
     }
     if (rle.length % 2 !== 0) throw new RangeError("VoxelGrid.fromJSON: odd rle length");
     const total = sx * sy * sz;
+    if (total > MAX_GRID_CELLS) {
+      throw new RangeError(`VoxelGrid.fromJSON: ${total} cells exceeds ${MAX_GRID_CELLS}`);
+    }
+    let covered = 0;
+    for (let k = 1; k < rle.length; k += 2) covered += rle[k] ?? 0;
+    if (covered !== total) {
+      throw new RangeError(`VoxelGrid.fromJSON: rle covers ${covered} of ${total}`);
+    }
     const data = new Uint16Array(total);
     let at = 0;
     for (let k = 0; k < rle.length; k += 2) {
