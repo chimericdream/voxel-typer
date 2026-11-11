@@ -1,0 +1,47 @@
+# Home-row words, authored for Voxel Typer. Provenance: SOURCES.md.
+# Every item uses only the home-row keys: a s d f g h j k l ;
+# Left out on purpose (slang, unkind, violent, confusing or too hard to read): see SOURCES.md.
+# tags: band=all reading=grade2 kind=words keys=asdfghjkl; biome=meadow
+a
+ad
+add
+adds
+ads
+aha
+all
+as
+ash
+ask
+asks
+dad
+dads
+dash
+fad
+fads
+fall
+falls
+flag
+flags
+flash
+flask
+gas
+glad
+glass
+ha
+had
+haha
+half
+hall
+halls
+has
+lad
+lads
+lag
+lags
+sad
+sag
+sags
+salad
+salsa
+sash
+shall
