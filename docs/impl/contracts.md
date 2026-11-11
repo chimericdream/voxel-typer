@@ -629,6 +629,8 @@ export interface SaveStore {
 export function createIdbStore(dbName?: string): SaveStore;
 export function createMemoryStore(): SaveStore;      // tests, ?nosave
 ```
+**Secure-context note:** the app may be served over plain HTTP on a LAN by mistake (`README.md` §8.13). `crypto.randomUUID` is only available in secure contexts, so ids come from `src/save/id.ts` → `newId()`, which uses `crypto.randomUUID` when present and otherwise builds a v4 UUID from `crypto.getRandomValues` (available everywhere). The same rule applies to the service worker (registered only when `window.isSecureContext`); show a small parent-facing note in Settings → Grown-ups when it's not.
+
 Max 8 profiles. Migrations: `migrations: Record<number, (old: unknown) => unknown>`, one per version bump, each with a fixture test in `tests/fixtures/saves/v<N>.json`.
 
 ---

@@ -31,29 +31,70 @@ Card fields: **Size** S/M/L · **Tier** A/B/C (`README.md` §2) · **Review** re
 - **Size/Tier:** S / C · **Review:** optional · **E2E:** no
 - **Depends on:** M0-01
 - **PLAN refs:** §1, §12
-- **Owns:** `README.md`, `CLAUDE.md`, `docs/decisions.md`, `docs/progress.md`, `docs/handoffs/.gitkeep`, `docs/art-guide.md` (stub), `eslint.config.js` (copy-lint rule only)
+- **Owns:** `README.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `.github/pull_request_template.md`, `docs/decisions.md`, `docs/progress.md`, `docs/handoffs/.gitkeep`, `docs/art-guide.md` (stub), `eslint.config.js` (copy-lint rule only)
 - **Spec:**
   - `CLAUDE.md`: commands table, the purity rule (`PLAN.md` §6.3 + `contracts.md` zones), the IP rule, the priority order (`PLAN.md` §12.8), "contracts are frozen; see docs/impl/README.md §4.3", copy tone rule, where handoff notes go. Under 120 lines.
   - `docs/decisions.md`: a dated log. Seed it with every item in `docs/impl/README.md` §8.
   - `docs/progress.md`: a milestone checklist mirroring `task-graph.md`.
   - Copy lint: forbid JSX text literals and string literals in `title`/`aria-label`/`placeholder` props inside `src/ui/**` (a small local ESLint rule in `tools/eslint-rules/no-ui-literals.js` is fine; allow punctuation-only and numbers).
-  - **ASK OWNER** (orchestrator relays): push/PR policy, CI minutes OK. Record the answers.
+  - Record the owner's answers from `README.md` §8.12–8.13 (PR per task, CI-heavy testing, Proxmox self-hosting) in `docs/decisions.md`.
+  - `.github/pull_request_template.md` mirroring the handoff-note headings (`README.md` §6), and `CONTRIBUTING.md` (short: the PR flow from `README.md` §3, for humans and agents).
 - **Acceptance:**
   - [ ] Lint fails on `<p>Hello</p>` in a `src/ui` fixture and passes on `<p>{t('x.y')}</p>`.
   - [ ] `docs/decisions.md` contains all `README.md` §8 items.
 
-### M0-03 CI workflow
-- **Size/Tier:** S / C · **Review:** optional · **E2E:** n/a
+### M0-03 CI: test everything on every PR
+- **Size/Tier:** M / B · **Review:** required · **E2E:** n/a
 - **Depends on:** M0-01
-- **Owns:** `.github/workflows/ci.yml`
-- **Spec:** on push and PR to `main`: Node from `.nvmrc`, `npm ci`, cache npm and Playwright browsers, `npm run verify`, `npx playwright install --with-deps chromium`, `npm run e2e`, upload Playwright report and `dist/` size table as artifacts on failure. One job for verify, one for e2e (needs verify).
+- **PLAN refs:** §6.1 (CI), §9
+- **Owns:** `.github/workflows/ci.yml`, `.github/workflows/update-snapshots.yml`, `.github/workflows/nightly.yml`, `.github/workflows/actionlint.yml`, `.github/dependabot.yml`, `.github/CODEOWNERS`, `docs/ci.md`
+- **Spec:** the owner wants GitHub Actions to test as much as possible. Every check below is a **separate job** with a stable name, so it can be a required status check. Jobs added before the code they test exists must pass trivially (for example, "no e2e specs yet") and tighten automatically once files appear; later tasks never need to edit CI just to turn their tests on.
+  - **`ci.yml`** on `pull_request` and `push` to `main`, with `concurrency` cancelling superseded runs on the same PR:
+    | Job | What it runs |
+    |---|---|
+    | `typecheck` | `npm run typecheck` |
+    | `lint` | ESLint (incl. purity zones and copy lint) + Prettier check |
+    | `unit` | `npm run test:cov`; uploads the coverage report; fails on the per-folder thresholds; posts a coverage summary to the job summary |
+    | `content` | word-list validator, curriculum validator + `docs/curriculum.md` staleness check, i18n missing/unused keys, block/mob/model JSON schema checks (each a no-op until its tool exists) |
+    | `build` | `npm run build` + `npm run size`; uploads `dist/` as an artifact for the e2e jobs; writes the bundle-size table to the job summary and as a sticky PR comment (one comment, updated in place) |
+    | `e2e` | Playwright in the official `mcr.microsoft.com/playwright` container matching the installed `@playwright/test` version, **sharded ×3** against the `build` artifact; includes axe checks and screenshot comparisons; uploads the HTML report + traces on failure |
+    | `docker` | builds the container image (M0-05) without pushing, then starts it and curls `/` and `/sw.js` to check status codes and headers |
+    | `deps` | `npm audit --omit=dev --audit-level=high` and GitHub's `dependency-review-action` on PRs |
+    | `codeql` | GitHub CodeQL for JavaScript/TypeScript |
+    | `ci-ok` | needs all of the above; the single required check for branch protection |
+  - **`update-snapshots.yml`**: `workflow_dispatch` with a `branch` input (and a `/update-snapshots` PR comment trigger restricted to the repo owner and the orchestrator's account): runs Playwright with `--update-snapshots` in the same container and commits changed PNGs to that branch. This is the only way baselines are made (`README.md` §3.7).
+  - **`nightly.yml`** (cron, plus manual): full e2e run **3× in a row** to detect flakes (reports flaky test names in the job summary and opens/updates a single "Flaky tests" issue); simulator studies (`tools/sim*.ts`, once they exist) with results attached as artifacts; Lighthouse and perf budgets (M6-10, no-op until then).
+  - **`actionlint.yml`**: lints workflow files on PRs that touch `.github/`.
+  - `dependabot.yml`: weekly npm and GitHub Actions updates, grouped (dev deps in one PR); Docker base image updates once M0-05 lands.
+  - Cache npm and the Playwright container layer. Pin third-party actions to a full commit SHA with the version in a comment.
+  - **Branch protection** on `main` (the owner asked for PRs, so this is in scope): via `gh api`, require `ci-ok`, require branches up to date, no force pushes, no deletions. Allow the repo admin to bypass (for emergencies). If the token lacks admin rights, write the exact `gh api` command in the handoff note for the owner to run.
+  - `docs/ci.md`: one table of jobs, what each catches, how to re-run, how to update snapshots.
 - **Acceptance:**
-  - [ ] `actionlint` (run via `npx`/docker if available, else careful review) reports no errors.
-  - [ ] If the owner allowed pushing, the workflow runs green on GitHub.
+  - [ ] `actionlint` passes on all workflows.
+  - [ ] This task's own PR shows every job green, and the bundle-size comment appears.
+  - [ ] A throwaway PR with a deliberate type error, a lint error and a failing unit test shows `typecheck`, `lint` and `unit` red, and `ci-ok` red (close it without merging).
+  - [ ] Branch protection is on, or the owner has the command to turn it on.
+
+### M0-05 Container image and Proxmox deployment
+- **Size/Tier:** M / B · **Review:** required (security headers)
+- **Depends on:** M0-01, M0-03
+- **PLAN refs:** §6.1, §6.7, `README.md` §8.13
+- **Owns:** `Dockerfile`, `.dockerignore`, `deploy/nginx.conf` (or `deploy/Caddyfile`), `deploy/docker-compose.yml`, `deploy/.env.example`, `deploy/README.md`, `.github/workflows/publish.yml`, `tests/deploy/headers.test.ts`
+- **Spec:**
+  - Multi-stage `Dockerfile`: `node:26-alpine` builds with `npm ci && npm run build`; the final stage is an unprivileged static server (`nginxinc/nginx-unprivileged:alpine` or `caddy:alpine`; record which and why) holding only `dist/` and the config. Runs as non-root, read-only root filesystem compatible, listens on 8080, `HEALTHCHECK` on `/`.
+  - Server config: SPA fallback to `index.html`; `Cache-Control: public, max-age=31536000, immutable` for hashed assets, `no-cache` for `index.html`, `sw.js`, `manifest.webmanifest`; gzip/brotli for text; security headers (`Content-Security-Policy` from `index.html` mirrored as a header, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `Permissions-Policy` denying camera/mic/geolocation, `Cross-Origin-Opener-Policy: same-origin`, `frame-ancestors 'none'` in the CSP header). M6-06 tightens these; this task sets them up.
+  - **`publish.yml`**: on push to `main` → build and push `ghcr.io/chimericdream/voxel-typer:edge` and `:sha-<short>`; on tags `m*` and `v*` → push `:stable` and the tag name. Multi-arch `linux/amd64` (+ `arm64` if cheap). Uses `GITHUB_TOKEN` with `packages: write`. Adds OCI labels (source, revision, version). Only runs after `ci.yml` succeeds for that commit (`workflow_run` or a reusable-workflow `needs`).
+  - `deploy/docker-compose.yml` modelled on the owner's home-dashboard setup: the `voxel-typer` service on `:stable`, **Watchtower** polling GHCR (interval 5 min, label-scoped to this service, cleanup old images), an optional commented `voxel-typer-edge` service on `:edge` for previews, and a **Tailscale sidecar** (owner's choice): the `voxel-typer` service uses `network_mode: service:tailscale`, and the sidecar terminates HTTPS with `tailscale serve` (a `serve.json` mounted via `TS_SERVE_CONFIG`, proxying `https://${TS_CERT_DOMAIN}` to `http://127.0.0.1:8080`) on a tailnet device named `voxel-typer`. Reuse the owner's home-dashboard compose layout where it fits. Known gotchas to handle in the README: the tailnet needs MagicDNS and HTTPS certificates enabled; with the shared network namespace the game is reachable only over the tailnet, not by LAN IP; check that `${TS_CERT_DOMAIN}` is substituted by the current Tailscale image, and hardcode the tailnet name if not; each kid's device needs the Tailscale app (school-managed Chromebooks may not allow it, so mention that). Keep a short appendix on the reverse-proxy alternative in case that changes later. No secrets in the repo: `.env.example` lists `TS_AUTHKEY` (an auth key tagged for this device) and similar.
+  - `deploy/README.md`: step-by-step for Proxmox (create a Debian LXC with nesting enabled, or a small VM; install Docker; copy `deploy/`; `docker compose up -d`; make the GHCR package public or create a read-only PAT; how to check Watchtower picked up an update; how to roll back by pinning `:m<N>`; how to back up nothing (all game data lives in the kids' browsers, so remind parents about the in-game export)).
+  - `tests/deploy/headers.test.ts` parses the server config and asserts the cache and security header rules (so a config edit can't silently drop them); the `docker` CI job checks the live headers.
+- **Acceptance:**
+  - [ ] `docker` CI job green: image builds, serves `/` with 200 and the security headers, `sw.js` (once it exists) with `no-cache`.
+  - [ ] After merge, `publish.yml` pushes `:edge` to GHCR (visible in the run log).
+  - [ ] The owner can follow `deploy/README.md` to run the hello-voxel build on Proxmox (👤, may wait until M2 is worth showing).
 
 ### M0-04 Hello voxel
 - **Size/Tier:** S / B · **Review:** optional · **E2E:** yes
-- **Depends on:** M0-01
+- **Depends on:** M0-01, M0-03 (its screenshot baseline is generated by the Update snapshots workflow)
 - **PLAN refs:** §5.1, §8 Phase 0 accept
 - **Owns:** `src/main.ts` (replace placeholder), `src/dev/hello-voxel.ts`, `tests/e2e/hello-voxel.spec.ts`, its screenshot baseline
 - **Spec:** a spinning cube with a 16×16 procedurally painted texture (simple 2-tone noise, seeded), `NearestFilter`, no mipmaps, on a sky-blue background. Rotation stops under `?freeze=1`. This file is throwaway; M2-10 replaces `main.ts`.
@@ -61,7 +102,7 @@ Card fields: **Size** S/M/L · **Tier** A/B/C (`README.md` §2) · **Review** re
   - [ ] Screenshot test at `?freeze=1&seed=1` passes; pixels show hard texel edges (no blur).
 
 ### M0-GATE
-Orchestrator. `PLAN.md` Phase 0 acceptance list + `README.md` §7. Tag `m0`.
+Orchestrator. `PLAN.md` Phase 0 acceptance list + `README.md` §7. Branch protection active; every M0 task merged through a green PR. Tag `m0` (this publishes the first `:stable` image).
 
 ---
 

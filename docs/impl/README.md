@@ -27,7 +27,7 @@ Milestones M0–M6 map one-to-one onto `PLAN.md` §8 Phases 0–6.
 ### Orchestrator (one agent, long-lived)
 - Owns `main`, `docs/progress.md`, `docs/decisions.md`, `task-graph.md`'s status board, and the files marked **orchestrator-owned** in `contracts.md` §0.
 - Picks the next ready tasks from the graph (all dependencies merged), writes a brief for each (template in §5), and spawns workers.
-- Reviews each worker's output against the task card's acceptance list, runs `npm run verify` on the rebased branch, and merges it.
+- Reviews each worker's pull request against the task card's acceptance list, waits for CI to pass, and merges it (§3).
 - Runs the **milestone gate** at the end of each milestone (§7) and records the result in `docs/progress.md`.
 - Never writes big features itself. It does write small fixes, merge-conflict resolutions, and registry/index glue.
 
@@ -35,7 +35,7 @@ Milestones M0–M6 map one-to-one onto `PLAN.md` §8 Phases 0–6.
 - Gets one task card and nothing else to do. It reads `PLAN.md` sections named on the card, `contracts.md`, and the files under "Reads".
 - Works in its own git worktree on branch `task/<ID>` (for example `task/M1-04`).
 - Creates or changes only the files under "Owns" on its card, plus the shared files under "May touch", following the rules in `contracts.md` §0.
-- Finishes with a handoff note (§6) and a clean `npm run verify`.
+- Finishes with a handoff note (§6), a clean `npm run verify`, and a **pull request** to `main` (§3).
 - If the card is wrong or a contract can't hold, the worker **stops and reports**. It does not quietly change a contract (see §4.3).
 
 ### Reviewer (optional, per task or per milestone)
@@ -65,21 +65,27 @@ Recommended concurrency is **3–4 workers at once**. More than that raises merg
 
 ## 3. Git workflow
 
+**DECISION (owner):** every task lands through a **pull request**, and GitHub Actions tests as much as possible on every PR (`tasks-m0-m1.md` M0-03). `main` is protected: no direct pushes, CI must pass.
+
 ```
-main ─┬─ task/M1-02 (worktree ../vt-wt/M1-02) ── merge --no-ff ─┐
-      ├─ task/M1-03 (worktree ../vt-wt/M1-03) ── merge --no-ff ─┤
-      └─ ...                                                    └─ tag m1 at gate
+main ─┬─ task/M1-02 (worktree ../vt-wt/M1-02) ── PR #n ── CI green ── squash-merge ─┐
+      ├─ task/M1-03 (worktree ../vt-wt/M1-03) ── PR #m ── CI green ── squash-merge ─┤
+      └─ ...                                                                        └─ tag m1 at gate
 ```
 
-1. **Create the worktree** (orchestrator): `git worktree add ../vt-wt/<ID> -b task/<ID> main`, then `npm ci` inside it.
+1. **Create the worktree** (orchestrator): `git fetch && git worktree add ../vt-wt/<ID> -b task/<ID> origin/main`, then `npm ci` inside it.
 2. **Commits** (worker): conventional commits, one subject per logical change, task ID in the scope:
-   `feat(M1-04): weak-key weighting`. Small commits are fine. Never rewrite `main`.
-3. **Merge** (orchestrator): `git rebase main` on the task branch, then `npm run verify` (plus `npm run e2e` when the card asks for it), then `git merge --no-ff task/<ID>`, then `git worktree remove`.
-4. **Lockfile conflicts:** never hand-merge `package-lock.json`. Take `main`'s copy, re-apply the task's `package.json` change, and run `npm install`.
-5. **Milestone tag:** after the gate passes, `git tag m<N>`.
-6. **Pushing and PRs:** ask the owner once, at M0, whether to push `main` after each merge and whether they want a PR per task or per milestone. Record the answer in `docs/decisions.md`. Until then, work locally.
+   `feat(M1-04): weak-key weighting`. Small commits are fine.
+3. **Open the PR** (worker): run `npm run verify` locally, `git push -u origin task/<ID>`, then
+   `gh pr create --base main --title "<type>(<ID>): <card title>" --body-file docs/handoffs/<ID>.md`.
+   Label it with its milestone (`m1` …) and `tier-a`/`tier-b`/`tier-c`. Mark it **draft** if the handoff status is `blocked` or `partial`.
+4. **CI and review** (orchestrator): wait for every required check (M0-03) to pass. Then review against the card (or spawn a reviewer for **Review: required** cards; the reviewer posts findings as a PR review with `gh pr review`). Fixes go on the same branch, by the same worker if it's still alive, otherwise by a new worker briefed with the review.
+5. **Merge** (orchestrator): `gh pr merge <n> --squash --delete-branch`, using the PR title as the commit subject. Then `git worktree remove ../vt-wt/<ID>`. If `main` moved and the PR conflicts, the orchestrator rebases the branch (`git rebase origin/main`, force-push with `--force-with-lease`) and waits for CI again.
+6. **Lockfile conflicts:** never hand-merge `package-lock.json`. Take `main`'s copy, re-apply the task's `package.json` change, and run `npm install`.
+7. **Screenshot baselines** are generated on CI's Linux runner, never on a dev machine (fonts and GL differ between OSes). A PR that adds or changes baselines runs the **Update snapshots** workflow on its branch (M0-03), which commits the new PNGs to the PR. Reviewers look at the PNG diff in the PR.
+8. **Milestone tag and release:** after the gate passes, `git tag m<N> && git push origin m<N>`. Pushing a milestone tag publishes the `:stable` container image that the kids' server runs (§8.13).
 
-A single agent working alone can skip worktrees and do the tasks in order on a branch per milestone.
+A single agent working alone still opens one PR per task. It can skip worktrees.
 
 ---
 
@@ -144,7 +150,10 @@ Do exactly what the card says. Create/modify only files under "Owns", plus
 
 Definition of done: every acceptance item on the card is true, `npm run verify`
 passes, and (if the card says so) `npm run e2e` passes. Commit on your branch
-with conventional commits scoped (<ID>). Then write docs/handoffs/<ID>.md.
+with conventional commits scoped (<ID>). Write docs/handoffs/<ID>.md, push the
+branch and open a PR as described in docs/impl/README.md §3.3. Do not merge it.
+If CI fails on the PR, fix it on the branch until it is green, then report the
+PR URL and its check status.
 
 If a contract can't hold or the card is ambiguous in a way that changes behavior,
 stop and put it in the handoff note under "Contract change request" or
@@ -159,8 +168,10 @@ Relevant context from finished tasks:
 ```
 You are reviewing task <ID> on Voxel Typer. You did not write this code.
 
-Read docs/impl/contracts.md, the task card <ID>, and the diff (`git diff main...task/<ID>`).
-Run `npm run verify` (and `npm run e2e` if the card requires it).
+Read docs/impl/contracts.md, the task card <ID>, and the PR diff (`gh pr diff <n>`).
+Check the PR's CI results (`gh pr checks <n>`), including screenshot diffs in the
+Playwright report artifact when baselines changed.
+Post your findings as a PR review (`gh pr review <n> --request-changes` or `--comment`).
 
 Report, most severe first:
 1. Acceptance items on the card that are NOT met (quote the item).
@@ -187,6 +198,8 @@ Attach the screenshots' paths in your report.
 ---
 
 ## 6. Handoff note format (`docs/handoffs/<ID>.md`)
+
+The handoff note is committed with the task **and** used as the PR body, so the reviewer and the orchestrator read the same thing.
 
 ```md
 # <ID> <title>
@@ -237,14 +250,20 @@ These were found while planning the execution. They are **DECISIONS** unless mar
 9. **Fonts.** Default choices, each SIL OFL and self-hosted: **Pixelify Sans** (pixel headings/HUD), **Atkinson Hyperlegible** (body text, long words and sentences), **OpenDyslexic** (dyslexia toggle). M2-08 verifies each license from the font's own repository, commits the license files to `public/fonts/LICENSES/`, and records the source in `docs/decisions.md`. If any license is not OFL or similar, swap it for one that is and record why. No font is bought (buying is an **ASK OWNER** item).
 10. **Running TypeScript tools.** `tools/*.ts` run through `tsx` (dev dependency), not Node's built-in type stripping, so source files can use normal extension-less imports.
 11. **Determinism hooks.** Tests need fixed seeds, a frozen clock and a way to read game state. These are specified once in `contracts.md` §13 (URL debug params and `window.__vt`), stripped from production builds.
-12. **ASK OWNER at M0:** push/PR policy (§3.6); GitHub Actions minutes are OK to use; hosting target for M6 (GitHub Pages is the default assumption, decided at M6-09).
+12. **Owner answers (2026-11-10):** agents open a PR per task (§3); GitHub Actions should test as much as possible (M0-03); the game is self-hosted on the owner's Proxmox server for their kids (§8.13).
+13. **Hosting (DECISION).** The same pipeline as the owner's home dashboard: GitHub Actions builds a container image and pushes it to GHCR; the Proxmox host runs it with Docker Compose (Debian LXC or small VM) and **Watchtower** pulls new images. It's pull-based, so the server needs no inbound access from GitHub. Specifics:
+    - Image `ghcr.io/chimericdream/voxel-typer`: a static `dist/` served by an unprivileged web server (nginx or Caddy, alpine), with the security headers from M6-06 and correct caching (hashed assets immutable; `index.html`, `sw.js` and the manifest `no-cache`).
+    - Tags: `:edge` + `:sha-<sha>` on every merge to `main`; `:stable` + `:m<N>` (later `:v1.x.y`) on milestone/release tags. **The kids' instance follows `:stable`**, so they only get builds that passed a milestone gate. An optional second container on `:edge` is for the owner to preview.
+    - Packaging lands early (M0-05), so the owner can host the M2 slice for the go/no-go playtest.
+    - **HTTPS is required, not optional.** Service workers (offline play, install), and `crypto.randomUUID()` only work in a secure context. Plain `http://192.168.x.x` would silently lose offline support. **Owner chose (a), Tailscale, on 2026-11-10.** The options were: (a) a Tailscale sidecar with `tailscale serve` HTTPS on a `*.ts.net` name, like the home dashboard (the kids' devices need Tailscale); (b) an existing reverse proxy on the LAN with a real domain and a DNS-01 Let's Encrypt certificate (no client setup; recommended if the owner has a domain); (c) Caddy's internal CA (each kid device must trust the root cert). Separately, the app must still work, minus offline/install, if it's ever opened over plain HTTP: every secure-context API is feature-detected, with a fallback (`contracts.md` §15 note).
+    - Kids' devices on the LAN only. No ports exposed to the internet. This fits `PLAN.md` §6.7.
 
 ---
 
 ## 9. Definition of done (every task)
 
 - Every acceptance item on the card is true and named in the handoff note with its proof.
-- `npm run verify` passes on the rebased branch. If the card says **E2E**, `npm run e2e` passes too.
+- `npm run verify` passes locally, and every required CI check passes on the PR. If the card says **E2E**, the e2e checks are among them.
 - No new lint suppressions without a `// reason:` comment.
 - No kid-facing literal strings outside `src/i18n/`.
 - No files changed outside "Owns" / "May touch".

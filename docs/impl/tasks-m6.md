@@ -47,7 +47,7 @@ Field legend: see the top of `tasks-m0-m1.md`.
 - **Depends on:** M5-GATE
 - **PLAN refs:** §6.1, `README.md` §8.6
 - **Owns:** `public/manifest.webmanifest`, `tools/gen-icons.ts`, `public/icons/*` (generated), `src/app/sw-register.ts`, `vite.config.ts` (PWA plugin section), `src/ui/components/UpdateToast.tsx`, `tests/e2e/pwa.spec.ts`
-- **Spec:** Use `vite-plugin-pwa` (`generateSW`, precache all built assets, no runtime caching of external URLs since there are none). Icons generated from the voxel logo at 192/512 + maskable. Update flow: when a new SW is waiting, show "A new version is ready! Restart when you finish this lesson" and apply only from menus, never mid-lesson.
+- **Spec:** Use `vite-plugin-pwa` (`generateSW`, precache all built assets, no runtime caching of external URLs since there are none). Register only when `window.isSecureContext` (`contracts.md` §15 note); over plain HTTP the game still runs online and the Grown-ups settings tab explains why offline play is unavailable. Icons generated from the voxel logo at 192/512 + maskable. Update flow: when a new SW is waiting, show "A new version is ready! Restart when you finish this lesson" and apply only from menus, never mid-lesson.
 - **Acceptance:**
   - [ ] E2E: load, go offline (`context.setOffline(true)`), reload, play a lesson.
   - [ ] Installable: manifest valid and `beforeinstallprompt` fires in Chromium.
@@ -56,8 +56,8 @@ Field legend: see the top of `tasks-m0-m1.md`.
 - **Size/Tier:** S / B · **Review:** required (privacy)
 - **Depends on:** M6-05
 - **PLAN refs:** §6.1 (CSP), §6.7
-- **Owns:** `index.html` (CSP), `vite.config.ts` (CSP-related bits), `tests/e2e/privacy.spec.ts`, `docs/privacy.md`
-- **Spec:** Final CSP: remove `'unsafe-inline'` from `style-src` if possible (CSS modules are files; inline `style` attributes from Preact are allowed by `style-src-attr` — check browser support and record); `connect-src 'self'`; `frame-ancestors 'none'` via meta isn't supported, so document recommended headers for hosting. E2E records every request during a full playthrough and asserts all are same-origin; asserts no `localStorage` use except documented keys; no cookies.
+- **Owns:** `index.html` (CSP), `vite.config.ts` (CSP-related bits), `deploy/nginx.conf` or `deploy/Caddyfile` (headers), `tests/deploy/headers.test.ts`, `tests/e2e/privacy.spec.ts`, `docs/privacy.md`
+- **Spec:** Final CSP: remove `'unsafe-inline'` from `style-src` if possible (CSS modules are files; inline `style` attributes from Preact are allowed by `style-src-attr` — check browser support and record); `connect-src 'self'`. Keep the meta CSP and the server's CSP header (M0-05) identical; a test compares them. `frame-ancestors 'none'` lives in the header only, since browsers ignore it in a meta tag. E2E records every request during a full playthrough and asserts all are same-origin; asserts no `localStorage` use except documented keys; no cookies.
 - **Acceptance:**
   - [ ] Zero third-party requests; no CSP violations in the console during e2e.
 
@@ -80,21 +80,21 @@ Field legend: see the top of `tasks-m0-m1.md`.
   - [ ] Automated pass clean or every remaining flag justified in the README.
   - [ ] Owner sign-off recorded in `docs/progress.md`.
 
-### M6-09 Docs, release build and hosting
-- **Size/Tier:** M / C · **Review:** optional · ASK OWNER (hosting)
+### M6-09 Docs and release
+- **Size/Tier:** M / C · **Review:** optional
 - **Depends on:** M6-01 … M6-08, M6-10
-- **PLAN refs:** Phase 6, §12.9
-- **Owns:** `README.md`, `docs/screenshots/*`, `CHANGELOG.md`, `.github/workflows/deploy.yml` (if approved)
-- **Spec:** README with what it is, screenshots/GIFs (Playwright-captured), how to run, privacy statement, credits (fonts with licenses), the IP disclaimer. Ask the owner where to host (default proposal: GitHub Pages via Actions on tag `v1.0.0`). Version `1.0.0`.
+- **PLAN refs:** Phase 6, `README.md` §8.13
+- **Owns:** `README.md`, `docs/screenshots/*`, `CHANGELOG.md`, `deploy/README.md` (final pass), `.github/workflows/release.yml`
+- **Spec:** README with what it is, screenshots/GIFs (captured by Playwright in CI), how to run locally, how to self-host (link to `deploy/README.md`), privacy statement, credits (fonts with licenses), the IP disclaimer. `release.yml`: on tag `v*`, generate release notes from the squash-merged PR titles since the previous tag and create a GitHub Release with the `dist/` zip attached. Version `1.0.0`. Re-check the Proxmox guide end to end against the final image (HTTPS, offline, update toast after Watchtower pulls a new `:stable`).
 - **Acceptance:**
-  - [ ] A fresh clone builds and the release artifact runs from a static server offline after first load.
+  - [ ] A fresh clone builds; the `:v1.0.0` image runs on the owner's Proxmox host over HTTPS and plays offline after first load (👤 confirms on a kid's device).
 
 ### M6-10 Performance and budget tests in CI
 - **Size/Tier:** M / B · **Review:** optional · **E2E:** yes
 - **Depends on:** M6-03, M6-04, M6-05
 - **PLAN refs:** §6.4, §9.6, Phase 6 accept
-- **Owns:** `tests/e2e/perf/*.spec.ts`, `tools/lighthouse.ts`, `.github/workflows/ci.yml` (perf job)
-- **Spec:** CDP CPU throttling 4×; measure p95 frame time over 20 s in Mine, Defense (max wave) and Builder; draw calls; TTI. Lighthouse (Node API, desktop preset) performance ≥ 90. Perf job runs on `main` only (not every PR) to save minutes, and posts the numbers as a job summary.
+- **Owns:** `tests/e2e/perf/*.spec.ts`, `tools/lighthouse.ts`, `.github/workflows/nightly.yml` (perf section), `.github/workflows/ci.yml` (`perf` job)
+- **Spec:** CDP CPU throttling 4×; measure p95 frame time over 20 s in Mine, Defense (max wave) and Builder; draw calls; TTI. Lighthouse (Node API, desktop preset) performance ≥ 90. Runs nightly and on pushes to `main`, plus on PRs labelled `perf` or touching `src/render/**`; posts the numbers to the job summary and compares with the last `main` run (fail on > 15% regression).
 - **Acceptance:**
   - [ ] Budgets met per `contracts.md` §14 and `README.md` §8.6–8.7.
 

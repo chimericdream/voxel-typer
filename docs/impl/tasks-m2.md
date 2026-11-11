@@ -210,12 +210,12 @@ Field legend: see the top of `tasks-m0-m1.md`.
 - **Depends on:** M2-11
 - **PLAN refs:** §9.7
 - **Owns:** `docs/playtest-facilitator.md`, `docs/playtest-notes.md` (template)
-- **Spec:** One-page facilitator script: setup (fresh profile, sound on), what to say ("This is a game you play with the keyboard. I can't help, but I'd love to watch"), what to watch (first 60 s, where they stall, whether they find F/J, reactions to mistakes), 3 questions afterwards (kid-friendly), a notes table. Build-and-serve instructions for the owner (`npm run build && npx vite preview`).
+- **Spec:** One-page facilitator script: setup (fresh profile, sound on), what to say ("This is a game you play with the keyboard. I can't help, but I'd love to watch"), what to watch (first 60 s, where they stall, whether they find F/J, reactions to mistakes), 3 questions afterwards (kid-friendly), a notes table. How to get the build in front of the kid: the Proxmox deployment from `deploy/README.md` (preferred), or `npm run build && npx vite preview` on a laptop.
 - **Acceptance:**
   - [ ] Fits on one printed page.
 
 ### M2-GATE (go/no-go)
 Orchestrator + reviewer + 👤 owner.
-- `PLAN.md` Phase 2 acceptance. "A 6-year-old completes lesson 1 without instructions" and "60 fps on integrated GPU" are 👤: the orchestrator hands the owner the build instructions and the playtest kit and **waits for the result**.
+- `PLAN.md` Phase 2 acceptance. "A 6-year-old completes lesson 1 without instructions" and "60 fps on integrated GPU" are 👤: the orchestrator tells the owner the `:edge` image is ready to deploy on Proxmox (or the owner promotes it by tagging `m2` once the automated checks pass), hands over the playtest kit, and **waits for the result**.
 - Visual review (`README.md` §5.3) of the slice. If it doesn't read as a voxel world at a glance, fix lighting/palette/AO first (new `M2-FIX-*` tasks).
 - Decision recorded in `docs/progress.md`: **go**, **go with fixes**, or **stop and rethink**. Tag `m2`.

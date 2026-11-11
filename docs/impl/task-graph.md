@@ -8,13 +8,15 @@
 4. **M2 is go/no-go.** No M3+ task starts until M2-GATE says **go**, except the content tasks **M3-02** and **M5-05**, which may start once M1-10 is merged if the owner agrees (word lists are useful even if the game design changes).
 5. Run at most 3–4 workers at once (`README.md` §2). When more tasks are ready than slots, pick in this order: critical path first (★), then Tier A before B before C, then larger before smaller.
 
-★ **Critical path:** M0-01 → M1-01 → M1-02 → M1-14 → M2-01 → M2-03 → M2-13 → M2-15 → M2-GATE → M3-04 → M3-14 → M3-GATE → M4-04 → M4-10 → M4-GATE → M5-01/M5-02 → M5-11 → M5-GATE → M6-03 → M6-10 → M6-09 → release.
+★ **Critical path:** M0-01 → M0-03 → M0-05 → M0-GATE → M1-01 → M1-02 → M1-14 → M2-01 → M2-03 → M2-13 → M2-15 → M2-GATE → M3-04 → M3-14 → M3-GATE → M4-04 → M4-10 → M4-GATE → M5-01/M5-02 → M5-11 → M5-GATE → M6-03 → M6-10 → M6-09 → release.
 
 ## M0–M2 dependency graph
 
 ```mermaid
 graph LR
-  M0-01 --> M0-02 & M0-03 & M0-04 --> M0G[M0-GATE]
+  M0-01 --> M0-02 & M0-03
+  M0-03 --> M0-04 & M0-05
+  M0-02 & M0-04 & M0-05 --> M0G[M0-GATE]
   M0G --> M1-01
   M1-01 --> M1-02 & M1-03 & M1-04 & M1-05 & M1-08 & M1-09 & M1-10 & M1-11 & M1-12 & M1-13 & M2-06
   M0-01 --> M2-08
@@ -42,7 +44,8 @@ Waves are a schedule hint. The real rule is "dependencies merged" plus rules 2�
 | Wave | Tasks (★ = critical path) | Notes |
 |---|---|---|
 | W0 | ★M0-01 | Solo |
-| W1 | M0-02, M0-03, M0-04 | Then M0-GATE |
+| W1 | ★M0-03, M0-02 | CI first: every later PR depends on it |
+| W1b | ★M0-05, M0-04 | Then M0-GATE |
 | W2 | ★M1-01 | Solo; freezes contracts |
 | W3 | ★M1-02, M1-03, M1-13, M1-04, M1-05, M1-12, M1-09, M1-10, M1-08, M1-11, M2-06, M2-08 | 12 ready tasks; run 3–4 at a time in this order |
 | W4 | ★M1-14, M1-06 | |
@@ -73,9 +76,10 @@ The orchestrator updates the **Status** column (`todo` · `ready` · `running (w
 |---|---|---|---|---|
 | M0-01 | Toolchain scaffold | M/B | — | todo |
 | M0-02 | Docs, agent conventions, copy lint | S/C | M0-01 | todo |
-| M0-03 | CI workflow | S/C | M0-01 | todo |
-| M0-04 | Hello voxel | S/B | M0-01 | todo |
-| M0-GATE | Gate | — | M0-02..04 | todo |
+| M0-03 | CI: test everything on every PR | M/B | M0-01 | todo |
+| M0-04 | Hello voxel | S/B | M0-01, M0-03 | todo |
+| M0-05 | Container image + Proxmox deploy | M/B | M0-01, M0-03 | todo |
+| M0-GATE | Gate | — | M0-02..05 | todo |
 | M1-01 | Contracts into code | M/A | M0-GATE | todo |
 | M1-02 | Seeded RNG | S/B | M1-01 | todo |
 | M1-03 | Typing session and matcher | L/A | M1-01 | todo |
@@ -159,4 +163,4 @@ The orchestrator updates the **Status** column (`todo` · `ready` · `running (w
 | M6-11 | Stretch (owner asks) | — | M6-GATE | todo |
 | M6-GATE | Release | — | all M6 | todo |
 
-**Totals:** 87 rows: 79 tasks (16 S, 50 M, 13 L), 7 gates and the stretch bucket. Rough effort by size (S ≈ 1, M ≈ 3, L ≈ 6 units): about 245 units. With 3–4 workers the wall-clock is set by the critical path, roughly 55–65% of the serial total.
+**Totals:** 88 rows: 80 tasks (15 S, 52 M, 13 L), 7 gates and the stretch bucket. Rough effort by size (S ≈ 1, M ≈ 3, L ≈ 6 units): about 250 units. With 3–4 workers the wall-clock is set by the critical path, roughly 55–65% of the serial total.
