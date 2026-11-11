@@ -132,7 +132,15 @@ jobs:
           mapfile -t json < <(git ls-files 'src/**/*.json' 'src/*.json')
           if [ "${#json[@]}" -eq 0 ]; then
             report "JSON syntax (src/**/*.json)" "skipped: no JSON files yet"
-          elif node -e 'const fs=require("fs");let bad=0;for(const f of process.argv.slice(1)){try{JSON.parse(fs.readFileSync(f,"utf8"))}catch(e){bad++;console.log(`::error file=${f}::${e.message}`)}}process.exit(bad?1:0)' "${json[@]}"; then
+          elif node --input-type=module - "${json[@]}" <<'EOF'
+          import { readFileSync } from "node:fs";
+          let bad = 0;
+          for (const f of process.argv.slice(2)) {
+            try { JSON.parse(readFileSync(f, "utf8")); } catch (e) { bad++; console.log(`::error file=${f}::${e.message}`); }
+          }
+          process.exit(bad ? 1 : 0);
+          EOF
+          then
             report "JSON syntax (${#json[@]} files)" "pass"
           else
             report "JSON syntax" "**FAIL**"; status=1
@@ -216,9 +224,9 @@ jobs:
           verdict="within budget"; [ "$SIZE_STATUS" = 0 ] || verdict="**OVER BUDGET**"
           {
             echo "$marker"
-            echo "### Bundle size: $verdict"
-            echo
             cat size.md
+            echo
+            echo "**Result: $verdict.**"
             echo
             echo "<sub>Commit ${SHA:0:7}. Budgets: docs/impl/contracts.md §14. Updated in place on every run.</sub>"
           } > comment.md
@@ -390,8 +398,24 @@ jobs:
           node-version-file: .nvmrc
       # Only runtime deps ship to the kids' browsers; build tools are devDependencies.
       - run: npm audit --omit=dev --audit-level=high
-      - name: Dependency review
+      # dependency-review-action needs the repo's dependency graph. Until the owner turns it on
+      # (docs/ci.md), the step is skipped with a warning; it starts running once the graph is on.
+      - name: Is the dependency graph on?
+        id: graph
         if: ${{ github.event_name == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          if gh api "repos/$REPO/dependency-graph/sbom" --silent 2> /dev/null; then
+            echo "on=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "on=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::The dependency graph is off, so dependency review is skipped. Turn it on under Settings → Advanced Security (see docs/ci.md)."
+            echo "Dependency review skipped: the repo's dependency graph is off." >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Dependency review
+        if: ${{ github.event_name == 'pull_request' && steps.graph.outputs.on == 'true' }}
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high

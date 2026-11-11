@@ -68,6 +68,10 @@ Baselines are only made on CI's Linux image (`docs/impl/README.md` §3.7), never
 
 Both triggers need the workflow file on `main`: GitHub only dispatches workflows, and only runs `issue_comment` workflows, from the default branch. The workflow refuses to run on `main` itself and on PRs from forks.
 
+## Dependency graph (owner setting)
+
+`dependency-review-action` needs the repo's dependency graph. While it is off, the `deps` job checks for it (`GET /repos/{owner}/{repo}/dependency-graph/sbom` returns 404), skips the review with a warning and still runs `npm audit`. Turning the graph on (Settings → Advanced Security → Dependency graph, or `gh api -X PUT repos/chimericdream/voxel-typer/vulnerability-alerts`, which also turns on Dependabot alerts) makes the review run on the next PR with no CI change.
+
 ## Branch protection
 
 `main` requires `ci-ok`, requires branches to be up to date before merging, and blocks force pushes and deletion. Admins can bypass it for emergencies (`enforce_admins: false`). The `gh api` command is in `docs/handoffs/M0-03.md`.
@@ -75,7 +79,7 @@ Both triggers need the workflow file on `main`: GitHub only dispatches workflows
 ## Caching
 
 - npm: `actions/setup-node` with `cache: npm` in every job that installs (also inside the Playwright container, where it only sets up the cache and keeps the image's Node).
-- Playwright container: the image is pulled from MCR at job start. Hosted runners have no persistent Docker layer cache, and saving the ~2 GB image to the Actions cache and loading it back is slower than the pull, so it isn't cached. Using the official image means the browsers are already in it and no `playwright install` step runs.
+- Playwright container: the image is pulled from MCR when the job starts. On this PR's first run, "Initialize containers" took 19 s per e2e shard. Hosted runners keep no Docker layer cache between jobs, and saving the multi-GB image into the Actions cache (10 GB per repo) and loading it back would take longer than that pull, so the image isn't cached. The official image already contains the browsers, so no job runs `playwright install`.
 
 ## Running actionlint locally
 
