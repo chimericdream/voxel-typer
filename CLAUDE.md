@@ -37,6 +37,7 @@ The typing engine is a pure library. These paths are **pure zones**:
 - `src/render/mesher/`
 - `src/render/atlas/recipes.ts`
 - `src/save/schema.ts`, `src/save/migrations.ts`
+- `src/types/`
 
 Pure code imports no DOM, no `three`, no Preact, no `idb`, and nothing from `@/ui`, `@/audio`,
 `@/app` or the impure parts of `@/render`. It never reads the clock or randomness itself

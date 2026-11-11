@@ -82,7 +82,7 @@ Waves are a schedule hint. The real rule is "dependencies merged" plus rules 2�
 | M0-04 | Hello voxel | S/B | M0-01, M0-03 | merged |
 | M0-05 | Container image + Proxmox deploy | M/B | M0-01, M0-03 | merged |
 | M0-GATE | Gate | — | M0-02..05 | passed |
-| M1-01 | ✦ Contracts into code | M/A | M0-GATE | todo |
+| M1-01 | ✦ Contracts into code | M/A | M0-GATE | merged |
 | M1-02 | Seeded RNG | S/B | M1-01 | todo |
 | M1-03 | ✦ Typing session and matcher | L/A | M1-01 | todo |
 | M1-04 | Stats, stars, key-stat folding | M/B | M1-01 | todo |
