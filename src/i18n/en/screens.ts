@@ -17,7 +17,7 @@ export default {
     loadFailed: "We could not open that player. A grown-up can help in Settings.",
     readOnly: "Saved by a newer game. You can play, but new stars will not be saved.",
     readOnlyHidden:
-      "{count, plural, one {One player was} other {# players were}} saved by a newer version of the game. Ask a grown-up to update the game. Your progress is safe.",
+      "{count, plural, one {One player was} other {# players were}} saved by a newer game. Ask a grown-up to get the new game. Your stars are safe.",
     back: "Back",
   },
   bands: {
@@ -27,12 +27,12 @@ export default {
   },
   bandInfo: {
     sprout: "Ages 6 to 8. Big letters and one key at a time.",
-    miner: "Ages 9 to 10. Words, short phrases and fun goals.",
-    builder: "Ages 11 to 13. Sentences, numbers and speed.",
+    miner: "Ages 9 to 10. Words and fun goals.",
+    builder: "Ages 11 to 13. Long lines, numbers and speed.",
   },
   profileCreate: {
     title: "New player",
-    nameLabel: "Type a nickname",
+    nameLabel: "Type a name for your player",
     nameHint: "Make up a fun name, not your real one. Up to 16 letters.",
     nameCount: "{count} of {max}",
     empty: "Type a name first.",
@@ -91,7 +91,6 @@ export default {
     },
     aimGreat: "Great aim: {pct}%",
     aimGood: "Good aim: {pct}%",
-    aim: "Aim: {pct}%",
     best: "New best!",
     loot: "You found",
     lootItem: "{name}, {count}",
@@ -104,7 +103,7 @@ export default {
   privacy: {
     title: "How we keep you safe",
     points: {
-      nickname: "You play with a nickname. You never type your real name.",
+      nickname: "You play with a made-up name. You never type your real name.",
       device: "Your game is saved on this computer only.",
       noInternet: "The game does not use the internet. Nothing is sent anywhere.",
       noAccounts: "There are no accounts, no chat and no ads.",

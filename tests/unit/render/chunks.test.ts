@@ -11,20 +11,22 @@ import type { AtlasLookup } from "../../../src/render/mesher/voxel-grid";
 
 const GLASS = 9;
 const LAMP = 11;
+const WATER = 7;
 
 const atlas: AtlasLookup = {
   uv: () => [0, 0, 1, 1],
-  transparent: (n) => n === GLASS,
+  transparent: (n) => n === GLASS || n === WATER,
 };
 
 const materials: Record<Bucket, THREE.Material> = {
   opaque: new THREE.MeshBasicMaterial(),
   transparent: new THREE.MeshBasicMaterial(),
   glow: new THREE.MeshBasicMaterial(),
+  water: new THREE.MeshBasicMaterial(),
 };
 
 const bucketOf = (n: number): Bucket =>
-  n === LAMP ? "glow" : n === GLASS ? "transparent" : "opaque";
+  n === LAMP ? "glow" : n === GLASS ? "transparent" : n === WATER ? "water" : "opaque";
 
 /** The real mesher, counting calls by chunk origin. */
 function countingMesher(): { mesher: Mesher; calls: string[]; reset(): void } {
@@ -201,16 +203,30 @@ describe("chunk store", () => {
     }
   });
 
+  it("puts water faces in their own mesh, apart from glass (M2-03)", () => {
+    const g = new VoxelGrid(16, 16, 16);
+    g.set(2, 2, 2, GLASS);
+    g.set(3, 2, 2, WATER);
+    g.set(4, 2, 2, WATER);
+    const { store } = setup(g);
+    store.flush();
+    const names = store.group.children.map((o) => o.name).toSorted();
+    expect(names).toEqual(["chunk 0,0,0 transparent", "chunk 0,0,0 water"]);
+    const water = store.group.children.find((o) => o.name.endsWith("water"));
+    expect(water instanceof THREE.Mesh && water.material).toBe(materials.water);
+  });
+
   it("setShadows flags opaque meshes as casters and every mesh as a receiver", () => {
     const g = new VoxelGrid(16, 16, 16);
     g.set(2, 2, 2, 1);
     g.set(6, 2, 2, GLASS);
+    g.set(10, 2, 2, WATER);
     const { store } = setup(g);
     store.flush();
     store.setShadows(true);
     for (const o of store.group.children) {
       expect(o.receiveShadow).toBe(true);
-      expect(o.castShadow).toBe(!o.name.endsWith("transparent"));
+      expect(o.castShadow).toBe(!o.name.endsWith("transparent") && !o.name.endsWith("water"));
     }
   });
 });

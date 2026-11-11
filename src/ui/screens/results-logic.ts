@@ -23,13 +23,17 @@ export function messageText(stars: 0 | 1 | 2 | 3, band: AgeBand): string {
 export const percent = (accuracy: number): number =>
   Math.max(0, Math.min(100, Math.round((Number.isFinite(accuracy) ? accuracy : 0) * 100)));
 
-/** "Great aim: 94%" style, for Miner and Builder. Sprout sees stars only (returns null). */
+/**
+ * "Great aim: 94%" style, for Miner and Builder. Sprout sees stars only (returns null). Below 70%
+ * there is no aim line at all: kids never see a raw low score (PLAN §4.4); the warm outcome
+ * message already covers the run.
+ */
 export function aimLine(accuracy: number, band: AgeBand): { key: MessageKey; pct: number } | null {
   if (band === "sprout") return null;
   const pct = percent(accuracy);
   if (pct >= 90) return { key: "screens.results.aimGreat", pct };
   if (pct >= 70) return { key: "screens.results.aimGood", pct };
-  return { key: "screens.results.aim", pct };
+  return null;
 }
 
 /**

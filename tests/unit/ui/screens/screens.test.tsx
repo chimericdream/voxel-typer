@@ -13,6 +13,7 @@ import { t } from "../../../../src/i18n";
 import en from "../../../../src/i18n/en";
 import { NewerSaveError } from "../../../../src/save/store";
 import { Tabs } from "../../../../src/ui/kit/Tabs";
+import { aimLine } from "../../../../src/ui/screens/results-logic";
 import { goalLine } from "../../../../src/ui/screens/LessonIntro";
 import { useScreenInput } from "../../../../src/ui/screens/nav";
 import { PRIVACY_POINTS } from "../../../../src/ui/screens/Privacy";
@@ -399,6 +400,14 @@ describe("Results", () => {
     await showResults(sprout);
     expect(text(sprout.root)).not.toMatch(/aim|%/i);
     expect(text(sprout.root)).toContain(t("screens.results.sproutMessage.two"));
+  });
+
+  it("a low aim shows no number at all (no raw failure stats)", () => {
+    expect(aimLine(0.38, "miner")).toBeNull();
+    expect(aimLine(0.69, "builder")).toBeNull();
+    expect(aimLine(0.7, "miner")).toEqual({ key: "screens.results.aimGood", pct: 70 });
+    expect(aimLine(0.94, "builder")).toEqual({ key: "screens.results.aimGreat", pct: 94 });
+    expect(aimLine(0.99, "sprout")).toBeNull();
   });
 
   it("a run that beats every earlier one gets the New best badge; a first play doesn't", async () => {

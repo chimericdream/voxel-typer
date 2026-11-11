@@ -68,6 +68,17 @@ export const INK_IDS = [
   "focusHalo",
   /** The outline of a selected slot or tab. */
   "selected",
+  /**
+   * On-screen keyboard finger zones (task M2-09), one per finger type: the key faces behind
+   * `keycapText`. Each zone also has its own pattern (`src/ui/keyboard/`), drawn in `zonePattern`,
+   * a semi-opaque shade laid over the zone color, so color is never the only cue.
+   */
+  "zonePinky",
+  "zoneRing",
+  "zoneMiddle",
+  "zoneIndex",
+  "zoneThumb",
+  "zonePattern",
 ] as const;
 export type InkId = (typeof INK_IDS)[number];
 
@@ -163,6 +174,12 @@ const DAY: Theme = {
     focus: p("wool-blue", 0),
     focusHalo: WHITE,
     selected: p("ore-amber", 4),
+    zonePinky: p("wool-pink", 4),
+    zoneRing: p("wool-cyan", 4),
+    zoneMiddle: p("wool-lime", 4),
+    zoneIndex: p("ore-amber", 4),
+    zoneThumb: p("ore-moon", 4),
+    zonePattern: "rgba(20, 20, 24, 0.22)",
   },
 };
 
@@ -239,6 +256,12 @@ const NIGHT: Theme = {
     focus: p("spark", 4),
     focusHalo: BLACK,
     selected: p("spark", 4),
+    zonePinky: p("wool-pink", 4),
+    zoneRing: p("wool-cyan", 4),
+    zoneMiddle: p("wool-lime", 3),
+    zoneIndex: p("spark", 3),
+    zoneThumb: p("ore-moon", 3),
+    zonePattern: "rgba(20, 20, 24, 0.24)",
   },
 };
 
@@ -275,6 +298,12 @@ const CONTRAST: Theme = {
     focus: p("spark", 4),
     focusHalo: BLACK,
     selected: p("wool-cyan", 4),
+    zonePinky: p("wool-pink", 4),
+    zoneRing: p("wool-cyan", 4),
+    zoneMiddle: p("wool-lime", 4),
+    zoneIndex: p("wool-yellow", 4),
+    zoneThumb: WHITE,
+    zonePattern: "rgba(0, 0, 0, 0.3)",
   },
 };
 
@@ -300,6 +329,13 @@ export const TEXT_PAIRS: readonly (readonly [fg: InkId, bg: ColorToken])[] = [
   ["toastInfoText", "toastInfo"],
   ["toastCheerText", "toastCheer"],
   ["badgeText", "badge"],
+  // On-screen keyboard (M2-09): key glyphs on every finger zone. The zone pattern laid over each
+  // zone is checked in tests/unit/ui/keyboard.test.tsx.
+  ["keycapText", "zonePinky"],
+  ["keycapText", "zoneRing"],
+  ["keycapText", "zoneMiddle"],
+  ["keycapText", "zoneIndex"],
+  ["keycapText", "zoneThumb"],
 ];
 
 /**
@@ -310,6 +346,10 @@ export const UI_PAIRS: readonly (readonly [a: ColorToken, b: ColorToken])[] = [
   ["accent", "track"],
   ["selected", "slot"],
   ["focus", "focusHalo"],
+  // On-screen keyboard (M2-09): the next-key ring is two-tone, `selected` outside (on the
+  // keyboard's text plate) and `keycapText` inside (on the zone faces, checked as TEXT_PAIRS).
+  ["selected", "plate"],
+  ["selected", "keycapText"],
 ];
 
 /** Surfaces a focused control can sit on (the focus ring is drawn outside the control). */
