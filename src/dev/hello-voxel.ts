@@ -1,5 +1,5 @@
 // "Hello voxel" (M0-04): a spinning cube with a seeded 16×16 procedural texture.
-// Throwaway: M2-10 replaces main.ts and this file goes with it.
+// Developer page only (hello.html); the app entry is the M2-10 shell.
 import {
   BoxGeometry,
   Color,
