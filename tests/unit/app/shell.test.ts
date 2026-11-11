@@ -54,6 +54,39 @@ describe("app shell", () => {
     expect(s.audio.setVolume).toHaveBeenCalledWith("voice", 1);
   });
 
+  it("a deep link straight into play finds the starting profile (?profile fixtures)", async () => {
+    const s = setup({
+      initial: { id: "play", lesson: "meadow-01" },
+      initialProfile: fixture("fresh-sprout"),
+    });
+    await s.shell.ready();
+    expect(s.shell.profile.value?.id).toBe(fixture("fresh-sprout").id);
+    expect(s.shell.playStatus.value).toBe("running");
+  });
+
+  it("an old lesson's slow save never routes a newer lesson to results", async () => {
+    const s = setup();
+    const p = fixture("fresh-sprout");
+    await s.store.save(p);
+    s.shell.api.setProfile(p);
+    s.shell.api.navigate({ id: "map" });
+    s.shell.api.navigate({ id: "play", lesson: "meadow-01" });
+    await s.shell.ready();
+    let release: () => void = () => undefined;
+    const slow = new Promise<void>((r) => {
+      release = r;
+    });
+    vi.spyOn(s.store, "save").mockImplementationOnce(() => slow);
+    s.mode.ctx().finish(result());
+    s.shell.api.back();
+    s.shell.api.navigate({ id: "play", lesson: "meadow-02" });
+    await s.shell.ready();
+    release();
+    await flush();
+    expect(s.shell.route.value).toEqual({ id: "play", lesson: "meadow-02" });
+    expect(s.shell.playStatus.value).toBe("running");
+  });
+
   it("navigates with history; back pops, and falls back to splash", () => {
     const s = setup();
     s.shell.api.navigate({ id: "profiles" });

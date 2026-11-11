@@ -50,6 +50,9 @@ export interface ShellDeps {
   /** Shows or hides the shared canvas. */
   showCanvas(on: boolean): void;
   initial?: Route;
+  /** A profile to start with (`?profile=` fixtures). Set before the first route is entered, so a
+   * deep link straight into `play` finds it. */
+  initialProfile?: Profile | null;
 }
 
 /** A kind message for the family, shown as a toast. */
@@ -234,7 +237,8 @@ export function createShell(deps: ShellDeps): Shell {
     recording: () => play.recording(),
   };
 
-  applySettings(deviceSettings());
+  if (deps.initialProfile) setProfile(deps.initialProfile);
+  else applySettings(deviceSettings());
   enter(route.value);
 
   return {

@@ -174,7 +174,10 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
     queueMicrotask(() => teardown(r));
     const updated = applyResult(r.profile, r.lesson, result, deps.clock.epoch());
     void deps.saveProfile(updated).then(() => {
-      if (run === r) run = null;
+      // A newer lesson started (or this one was quit) while the save was in flight: don't let
+      // the old finish route the new lesson to results.
+      if (run !== r) return;
+      run = null;
       deps.onFinished(result, updated);
     });
   };

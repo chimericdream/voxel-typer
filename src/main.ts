@@ -124,9 +124,9 @@ async function boot(host: HTMLElement): Promise<void> {
       canvas.hidden = !on;
     },
     initial,
+    initialProfile: firstProfile,
   });
   onProblem = (p) => shell.onSaveProblem(p);
-  if (firstProfile !== null) shell.api.setProfile(firstProfile);
 
   // Input: always the real clock, also under ?freeze (contracts §13).
   const detachKeys = attachKeyboard(
