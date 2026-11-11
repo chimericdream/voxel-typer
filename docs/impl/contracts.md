@@ -474,13 +474,16 @@ Stored as `<id>.model.json`, validated by a JSON schema test.
 ```ts
 export type ControlInput = { kind: 'control'; action: 'pause' | 'confirm' | 'back' | 'next' | 'prev' | 'up' | 'down' | 'left' | 'right' | 'hearAgain'; t: Ms };
 export type TypedInput = { kind: 'typed'; input: KeyInput };
-export function normalizeKeyEvent(e: KeyboardEvent, t: Ms, ctx: { inPlay: boolean }): TypedInput | ControlInput | null;
-export function attachKeyboard(target: Window, clock: Clock, handler: (i: TypedInput | ControlInput) => void, getCtx: () => { inPlay: boolean }): () => void;
+// Every field but `inPlay` is optional and off by default (approved in M1-08).
+// band: 'sprout' enables Backquote → hearAgain; undo: Ctrl+Z / Cmd+Z → typed 'Undo'; wantsEnter: Enter in play → typed 'Enter'.
+export type InputCtx = { inPlay: boolean; band?: AgeBand; undo?: boolean; wantsEnter?: boolean };
+export function normalizeKeyEvent(e: KeyboardEvent, t: Ms, ctx: InputCtx): TypedInput | ControlInput | null;
+export function attachKeyboard(target: Window, clock: Clock, handler: (i: TypedInput | ControlInput) => void, getCtx: () => InputCtx): () => void;
 export function capsLockOn(e: KeyboardEvent): boolean;
 ```
 Rules (from `PLAN.md` §6.5, made exact):
-- Ignore `e.repeat`, `e.isComposing`, `key === 'Dead'`, `key === 'Process'`, and any event with `ctrlKey | metaKey | altKey` **except** `Ctrl+Z` in Builder (delivered as `typed` with key `'Undo'`) and `AltGr` combos where `getModifierState('AltGraph')` is true (those are real chars on some layouts).
-- `Escape` → `pause` (in play) / `back` (menus). `Enter` → `confirm` in menus; in play, `Enter` is delivered as `typed` only if the mode declared it wants it (none in v1, so it's ignored). `Tab` → `next` / `Shift+Tab` → `prev` in menus; ignored in play. Arrows → directions. `F1` or `` ` `` (Backquote, in Sprout band) → `hearAgain`.
+- Ignore `e.repeat`, `e.isComposing`, `key === 'Dead'`, `key === 'Process'`, and any event with `ctrlKey | metaKey | altKey` **except** `Ctrl+Z`, or `Cmd+Z` (Meta+Z with no Ctrl/Alt/Shift), when `ctx.undo` is on (Builder; delivered as `typed` with key `'Undo'`; the Shift variants are not redo and stay ignored) and `AltGr` combos where `getModifierState('AltGraph')` is true (those are real chars on some layouts).
+- `Escape` → `pause` (in play) / `back` (menus). `Enter` → `confirm` in menus; in play, `Enter` is delivered as `typed` (key `'Enter'`) only if the mode declared it wants it via `ctx.wantsEnter` (none in v1, so it's ignored). `Tab` → `next` / `Shift+Tab` → `prev` in menus; ignored in play. Arrows → directions. `F1` or `` ` `` (by `key`, when `ctx.band === 'sprout'`) → `hearAgain`.
 - In play, `preventDefault` for every key that becomes `typed`, plus Space, `'`, `/`, Backspace, Tab.
 - Single printable chars pass through as-is; `' '` for Space. Typographic apostrophes/quotes from some keyboards (`’ ‘ “ ”`) normalize to `'` and `"`.
 - Window `blur` and `visibilitychange → hidden` produce `pause` immediately.
