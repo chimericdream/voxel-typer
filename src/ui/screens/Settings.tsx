@@ -424,7 +424,7 @@ function NoPlayer({ app }: { app: AppApi }) {
   return (
     <div class={screen.screen} ref={root} data-no-player="">
       <h1 class={screen.title}>{t("settings.title")}</h1>
-      <Panel class={styles.body}>
+      <Panel class={styles.body ?? ""}>
         <div class={styles.stack}>
           <p class={screen.text}>{t("settings.noPlayer")}</p>
           <section class={styles.section} aria-labelledby="settings-data">
