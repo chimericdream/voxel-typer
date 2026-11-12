@@ -10,8 +10,8 @@ export default {
   almost: "Almost! Try that key again",
   // A glowing bonus block arrived.
   oreVein: "Wow! A shiny block!",
-  // Floats up from a broken block: "+2 Oak Log".
-  got: "+{count} {name}",
+  // Floats up from a broken block: "+2". The item itself flies to the hotbar.
+  got: "+{count}",
   // The name of a filled hotbar slot, for screen readers: "Oak Log, 3".
   slot: "{name}, {count}",
 } as const;

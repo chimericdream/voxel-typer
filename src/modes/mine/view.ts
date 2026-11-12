@@ -34,6 +34,10 @@ export const RECOIL_MS: Ms = 110;
 /** The beat between a break and the next block, so the burst is seen before the stage refills. */
 export const ARRIVE_DELAY_MS: Ms = 150;
 
+/** How far the block may shrink or grow to fit the space the HUD leaves. */
+const FIT_MIN = 0.45;
+const FIT_MAX = 1.15;
+
 const BOB_PERIOD: Ms = 3400;
 const BOB_HEIGHT = 0.06;
 const SWAY_PERIOD: Ms = 5600;
@@ -82,6 +86,12 @@ export interface StageView {
   /** A wrong key: the block shakes its head. No-op under reduced motion. */
   wobble(): void;
   frame(dtMs: Ms): void;
+  /**
+   * Puts the block's center at a point on the canvas (CSS pixels) at about `size` pixels across,
+   * by sliding the camera's view and scaling the block. `null` goes back to the plain view.
+   * `armX` is where the hand stands across the canvas (CSS pixels); default: the lower right.
+   */
+  frameAt(spot: { x: number; y: number; size: number } | null, armX?: number | null): void;
   /** Where effects for the block go (its resting center). */
   readonly at: Vec3;
   /** The block's place on the page, in CSS pixels. False when it is behind the camera. */
@@ -292,6 +302,8 @@ export function createStageView(opts: StageViewOptions): StageView {
   camera.add(armPivot);
   const ARM_SCALE = 0.034;
   const ARM_DEPTH = 1.3;
+  /** The hand sits a little left of the elbow pivot, in view units. */
+  const ARM_HAND_OFFSET = 0.12;
   arm.scale.setScalar(ARM_SCALE);
   // The pivot is the elbow, behind and below the hand, so a swing chops forward and down.
   arm.position.set(0, -4 * ARM_SCALE, -12 * ARM_SCALE);
@@ -310,11 +322,25 @@ export function createStageView(opts: StageViewOptions): StageView {
   let veinOn = false;
   let disposed = false;
   const v = new THREE.Vector3();
+  /** Block scale that makes it the asked size on screen, and the view shift in CSS pixels. */
+  let fit = 1;
+  let shiftX = 0;
+  let shiftY = 0;
+  let armAt: number | null = null;
 
   const placeArm = (): void => {
     const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * ARM_DEPTH;
     const halfW = halfH * camera.aspect;
-    armPivot.position.set(Math.min(halfW * 0.74, halfH * 1.4), -halfH * 1.02, -ARM_DEPTH);
+    // The view shift moves the whole picture; the arm stays in the corner of the screen.
+    const perPx = (2 * halfH) / Math.max(1, canvas.clientHeight);
+    armPivot.position.set(
+      (armAt === null
+        ? Math.min(halfW * 0.74, halfH * 1.4)
+        : (armAt - canvas.clientWidth / 2) * perPx + ARM_HAND_OFFSET) -
+        shiftX * perPx,
+      -halfH * 1.02 + shiftY * perPx,
+      -ARM_DEPTH,
+    );
     let k = 0;
     if (swingLeft > 0) {
       const u = 1 - swingLeft / SWING_MS;
@@ -348,10 +374,10 @@ export function createStageView(opts: StageViewOptions): StageView {
     }
     root.position.set(opts.at.x, opts.at.y + bob + drop, opts.at.z - back);
     root.rotation.set(0, sway, wobbleAngle);
-    root.scale.setScalar(scale);
+    root.scale.setScalar(scale * fit);
     // The shadow tightens a little as the block rises.
     const s = 0.9 - bob * 1.2 - drop * 0.25;
-    shadow.scale.set(s, 1, s);
+    shadow.scale.set(s * fit, 1, s * fit);
     if (veinOn) {
       glowMat.opacity = live ? 0.36 + 0.12 * Math.sin((phase / GLOW_PERIOD) * Math.PI * 2) : 0.4;
     }
@@ -483,6 +509,34 @@ export function createStageView(opts: StageViewOptions): StageView {
       placeBlock();
       placeArm();
     },
+    frameAt(spot, armX = null) {
+      armAt = armX;
+      if (disposed) return;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      camera.clearViewOffset();
+      shiftX = 0;
+      shiftY = 0;
+      fit = 1;
+      if (spot !== null && w > 0 && h > 0) {
+        camera.updateMatrixWorld();
+        v.set(opts.at.x, opts.at.y, opts.at.z).project(camera);
+        const x0 = ((v.x + 1) / 2) * w;
+        const y0 = ((1 - v.y) / 2) * h;
+        v.set(opts.at.x, opts.at.y + 1, opts.at.z).project(camera);
+        const pxPerUnit = Math.abs(((1 - v.y) / 2) * h - y0);
+        if (pxPerUnit > 1) {
+          fit = THREE.MathUtils.clamp(spot.size / (BLOCK_SIZE * pxPerUnit), FIT_MIN, FIT_MAX);
+        }
+        shiftX = Math.round(spot.x - x0);
+        shiftY = Math.round(spot.y - y0);
+        // A view offset slides the picture on the screen without changing its perspective.
+        if (shiftX !== 0 || shiftY !== 0) camera.setViewOffset(w, h, -shiftX, -shiftY, w, h);
+      }
+      placeBlock();
+      placeArm();
+      opts.requestRender();
+    },
     project(out) {
       v.set(opts.at.x, opts.at.y, opts.at.z).project(camera);
       if (v.z > 1) return false;
@@ -501,6 +555,8 @@ export function createStageView(opts: StageViewOptions): StageView {
       disposed = true;
       scene.remove(root, shadow);
       camera.remove(armPivot);
+      // The camera is shared: hand it back without the view shift.
+      camera.clearViewOffset();
       if (!cameraWasInScene) scene.remove(camera);
       for (const g of [blockGeo, crackGeo, glyphGeo, glowGeo, shadowGeo, armGeo]) g.dispose();
       // The atlas texture on blockMat belongs to the scene; materials don't own their maps.

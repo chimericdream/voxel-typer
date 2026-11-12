@@ -155,13 +155,14 @@ export function Hud({ fields, settings, band, layout }: HudProps) {
         {timerHidden(band, settings) ? null : <HudTimer fields={fields} />}
       </div>
       <HudWord fields={fields} />
-      <div class={styles.stage}>
+      {/* `data-hud` marks the open stage and the keyboard, so a mode can frame its scene around them. */}
+      <div class={styles.stage} data-hud="stage">
         <div class={styles.messages}>
           <HudMessage fields={fields} />
         </div>
       </div>
       {keyboard ? (
-        <div class={styles.keyboard}>
+        <div class={styles.keyboard} data-hud="keyboard">
           {/* Finger labels on every key for Sprout (M2-09 N3): a keyboard-only child never hovers. */}
           <HudKeyboard fields={fields} layout={layout} hands={hands} labels={band === "sprout"} />
         </div>

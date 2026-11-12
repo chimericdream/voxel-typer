@@ -55,6 +55,7 @@ import {
   flushFlights,
   lengthPlan,
   nextKeyOf,
+  stageFrame,
   pickTargetBlock,
   pickVeinBlock,
   policyFor,
@@ -66,7 +67,7 @@ import {
   veinOnStreak,
   veinTake,
 } from "./logic";
-import type { Flight } from "./logic";
+import type { Box, Flight } from "./logic";
 import { createLootFly } from "./loot-fly";
 import type { LootFly } from "./loot-fly";
 import { createStageView } from "./view";
@@ -326,11 +327,9 @@ export function create(ctx: ModeContext): MineInstance {
     drops.forEach((d, i) => {
       loot[d.block] = (loot[d.block] ?? 0) + d.count;
       bus.emit("loot", d);
-      const def = blockById.get(d.block);
-      const name = def ? t(def.nameKey) : d.block;
       // Float text only on a break, never per letter (M2-05 review).
       if (i < 2)
-        scene.fx.floatText(i === 0 ? textAt : textAt2, t("mine.got", { count: d.count, name }));
+        scene.fx.floatText(i === 0 ? textAt : textAt2, t("mine.got", { count: d.count }));
     });
     const hasOrigin = view?.project(from) ?? false;
     const queued = enqueueDrops(flights, drops, flyNow, reduced() || !hasOrigin || fly === null);
@@ -429,12 +428,59 @@ export function create(ctx: ModeContext): MineInstance {
 
   // --- world ---
 
+  // --- screen layout ---
+
+  let stageCanvas: HTMLCanvasElement | null = null;
+  let layoutKey = "";
+  let layoutW = 0;
+  let layoutH = 0;
+  let frames = 0;
+
+  /**
+   * Puts the block where the HUD leaves room (see `stageFrame`). It measures the page, so it runs
+   * only when something may have moved: at the start, on a few early frames (the HUD mounts and
+   * fonts load a moment after the lesson starts) and when the canvas changes size.
+   */
+  const relayout = (): void => {
+    const canvas = stageCanvas;
+    if (view === null || canvas === null) return;
+    const origin = canvas.getBoundingClientRect();
+    const boxOf = (el: Element | null | undefined): Box | null => {
+      const r = el?.getBoundingClientRect();
+      if (!r || !(r.width > 0) || !(r.height > 0)) return null;
+      return {
+        left: r.left - origin.left,
+        top: r.top - origin.top,
+        width: r.width,
+        height: r.height,
+      };
+    };
+    const doc = canvas.ownerDocument;
+    const stageBox = boxOf(doc.querySelector('[data-hud="stage"]'));
+    const keys = boxOf(
+      // The keyboard's own frame (the dark plate), not the full-width row it sits in.
+      doc.querySelector('[data-hud="keyboard"] [role="img"]')?.parentElement,
+    );
+    const spot = stageFrame({ width: origin.width, height: origin.height }, stageBox, keys);
+    const key = spot
+      ? `${Math.round(spot.x)},${Math.round(spot.y)},${Math.round(spot.size)},${Math.round(keys?.left ?? -1)}`
+      : "";
+    layoutW = canvas.clientWidth;
+    layoutH = canvas.clientHeight;
+    if (key === layoutKey) return;
+    layoutKey = key;
+    // Beside a keyboard, the arm stands in the same free column as the block.
+    const armX = keys ? (keys.left + keys.width + origin.width) / 2 : null;
+    view.frameAt(spot, armX);
+  };
+
   const ready = (): void => {
     if (disposed || phase !== "loading") return;
     phase = "playing";
     const three = scene.three;
     if (three && hasAtlas(scene)) {
       const canvas = three.renderer.domElement;
+      stageCanvas = canvas;
       view = createStageView({
         scene: three.scene,
         camera: three.camera,
@@ -449,6 +495,7 @@ export function create(ctx: ModeContext): MineInstance {
         requestRender: () => scene.requestRender(),
       });
       fly = createLootFly({ canvas, atlas: () => scene.atlas() });
+      relayout();
     }
     const v = session.view();
     if (v.active) {
@@ -492,6 +539,14 @@ export function create(ctx: ModeContext): MineInstance {
 
     frame(dtMs: Ms) {
       if (disposed) return;
+      if (stageCanvas !== null) {
+        frames++;
+        const resized = stageCanvas.clientWidth !== layoutW || stageCanvas.clientHeight !== layoutH;
+        if (resized || frames === 2 || frames === 10 || frames === 30 || frames === 90) {
+          if (resized) layoutKey = "";
+          relayout();
+        }
+      }
       view?.frame(dtMs);
       flyNow += dtMs;
       if (flights.flights.length > 0) {

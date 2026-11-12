@@ -489,3 +489,59 @@ export function lengthPlan(
 
 /** The biome whose blocks and loot a lesson uses. */
 export const biomeOf = (lesson: Pick<Lesson, "biome"> | null): BiomeId => lesson?.biome ?? "meadow";
+
+// ---------------------------------------------------------------------------------------------
+// Where the block goes on the screen
+// ---------------------------------------------------------------------------------------------
+
+/** A rectangle on the page, in CSS pixels. */
+export interface Box {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/** The biggest the block is drawn, in CSS pixels. */
+export const BLOCK_PX_MAX = 220;
+/** Below this the block is too small to enjoy; the layout then picks another place. */
+export const BLOCK_PX_MIN = 96;
+/** Room kept at the top of the open stage for the banner. */
+const BANNER_ROOM = 76;
+
+/**
+ * Where the target block goes and how big it is, given what the HUD leaves free (M2-14: the word
+ * on top, the keyboard and hands at the bottom, an open `stage` between them).
+ *
+ * 1. With no keyboard, or a stage tall enough for the banner and a good-sized block, the block
+ *    sits in the middle of the stage, under the word.
+ * 2. Otherwise it goes in the column to the right of the keyboard, in its upper part, above the
+ *    arm with the pickaxe. That column is free whatever the length of the word.
+ * 3. If that column is too narrow as well, it takes the stage anyway, as big as fits.
+ *
+ * `null` when the HUD isn't on the page (no stage): the plain camera view is used.
+ */
+export function stageFrame(
+  view: { width: number; height: number },
+  stage: Box | null,
+  keyboard: Box | null,
+): { x: number; y: number; size: number } | null {
+  if (stage === null || !(view.width > 0) || !(view.height > 0)) return null;
+  const centered = (room: number): { x: number; y: number; size: number } => {
+    const size = clamp(room * 0.8, 40, BLOCK_PX_MAX);
+    return {
+      x: stage.left + stage.width / 2,
+      y: stage.top + BANNER_ROOM + Math.max(room, size) / 2,
+      size,
+    };
+  };
+  const bottom = keyboard === null ? view.height : Math.min(view.height, keyboard.top);
+  const room = bottom - stage.top - BANNER_ROOM;
+  if (keyboard === null || room * 0.8 >= BLOCK_PX_MIN * 1.6) return centered(room);
+  const left = keyboard.left + keyboard.width;
+  const width = view.width - left;
+  const height = view.height - stage.top;
+  const size = clamp(Math.min(width * 0.72, height * 0.42), 0, BLOCK_PX_MAX);
+  if (size < BLOCK_PX_MIN) return centered(Math.max(room, 50));
+  return { x: left + width / 2, y: stage.top + size * 0.7, size };
+}

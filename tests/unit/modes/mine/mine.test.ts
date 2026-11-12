@@ -370,7 +370,7 @@ describe("mine mode: a correct key", () => {
     expect(names(r)).not.toContain("chip");
     expect(r.fx.slice(0, 2)).toEqual(["hitStop:40", `burst:${8 + 2 * word.length}`]);
     expect(r.fx.filter((f) => f.startsWith("text:"))).toHaveLength(1);
-    expect(r.fx[2]).toMatch(/^text:\+\d+ \S/);
+    expect(r.fx[2]).toMatch(/^text:\+\d+$/);
     expect(r.shakes).toHaveLength(1);
     expect(r.shakes[0]).toBeLessThanOrEqual(0.3);
     // The next word is up.
