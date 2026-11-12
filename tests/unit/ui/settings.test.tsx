@@ -402,7 +402,7 @@ describe("Settings screen", () => {
     await toTab(s, "grownUps");
     await passGate(s);
     expect(s.root.querySelector("[data-grown-ups]")).not.toBeNull();
-    expect(s.root.querySelector("[data-slot='import-export']")).not.toBeNull();
+    expect(s.root.querySelector("[data-import-export]")).not.toBeNull();
 
     // Group: Sprout → Builder, with a confirm.
     const builder = t("screens.bands.builder");
