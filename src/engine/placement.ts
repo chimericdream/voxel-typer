@@ -104,10 +104,13 @@ export const LADDER_RULES = {
   need: 8,
 } as const;
 
-/** The highest rung a band may reach. Sprouts stop at words, so they never place past Frosty. */
+/**
+ * The highest rung a band may reach. Sprouts stop at words, so they never place past Frosty;
+ * Miners stop at capitals, so they never place past the Deep Mines (M3-05 review N3).
+ */
 export const MAX_TIER: Readonly<Record<AgeBand, number>> = {
   sprout: PLACEMENT_TIERS.findIndex((t) => t.id === "words"),
-  miner: PLACEMENT_TIERS.length - 1,
+  miner: PLACEMENT_TIERS.findIndex((t) => t.id === "capitals"),
   builder: PLACEMENT_TIERS.length - 1,
 };
 
@@ -157,9 +160,7 @@ export function tierKeys(tier: number): string[] {
 // The test's length
 // ---------------------------------------------------------------------------------------------
 
-/** In calm mode (no timers anywhere) the test ends after this many blocks instead of 90 s. */
-export const PLACEMENT_CALM_BLOCKS = 60;
-/** The test's length with a timer. */
+/** The test's length, in every mode. Calm mode ends here too, with no clock shown (review B1). */
 export const PLACEMENT_MS: Ms = 90_000;
 
 // ---------------------------------------------------------------------------------------------

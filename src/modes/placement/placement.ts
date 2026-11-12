@@ -10,7 +10,7 @@
  * result. The estimate itself is made when the result is applied (`applyPlacement`).
  */
 import { wordPools } from "@/content/wordlists/pools";
-import { PLACEMENT_CALM_BLOCKS, PLACEMENT_MS } from "@/engine/placement";
+import { PLACEMENT_MS } from "@/engine/placement";
 import { createPlacementDriver } from "@/engine/placement-driver";
 import { PLACEMENT_TIER_EXTRA } from "./lesson";
 import type { Ms } from "@/types/core";
@@ -22,7 +22,6 @@ import type { ModeContext, ModeResult } from "../types";
 const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
 
 export function create(ctx: ModeContext): MineInstance {
-  const calm = ctx.settings.calmMode;
   const driver = createPlacementDriver(
     {
       band: ctx.band,
@@ -33,25 +32,23 @@ export function create(ctx: ModeContext): MineInstance {
     },
     ctx.rng.fork("placement"),
   );
-  const limitMs: Ms | null = calm ? null : PLACEMENT_MS;
+  // Calm mode too ends at 90 s: no clock is ever shown, so the hidden end puts no one under
+  // pressure, and a block count made slow typists sit for minutes and cut the fastest short
+  // (M3-05 review B1).
+  const limitMs: Ms = PLACEMENT_MS;
 
   return createMine(ctx, {
     mode: "placement",
     plan: {
       targets: [driver.first()],
-      // Timed: the session ends at 90 s. Calm mode has no timer, so the test ends after a set
-      // number of blocks instead.
-      end: limitMs === null ? { kind: "manual" } : { kind: "time", ms: limitMs },
+      end: { kind: "time", ms: limitMs },
       limitMs,
     },
     onBlock({ errors }) {
-      const next = driver.next(errors);
-      if (limitMs === null && driver.blocks() >= PLACEMENT_CALM_BLOCKS) return "end";
-      return [next];
+      return [driver.next(errors)];
     },
-    progress(done, leftMs) {
-      if (leftMs === null || limitMs === null) return clamp01(done / PLACEMENT_CALM_BLOCKS);
-      return clamp01(1 - leftMs / limitMs);
+    progress(_done, leftMs) {
+      return leftMs === null ? 0 : clamp01(1 - leftMs / limitMs);
     },
     // No countdown: the bar fills instead, so nobody races a clock on their first day.
     timer: false,

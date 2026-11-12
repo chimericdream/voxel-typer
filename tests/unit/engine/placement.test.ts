@@ -133,7 +133,7 @@ describe("the ladder", () => {
   });
 
   it("stops at the band's top rung: words for a Sprout (so never past Frosty)", () => {
-    expect(MAX_TIER).toEqual({ sprout: tierOf("words"), miner: 5, builder: 5 });
+    expect(MAX_TIER).toEqual({ sprout: tierOf("words"), miner: tierOf("capitals"), builder: 5 });
     const top = record(
       createLadder("sprout"),
       Array.from({ length: 200 }, () => true),

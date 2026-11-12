@@ -8,7 +8,7 @@ import { fixedStepClock } from "../../../../src/app/clock";
 import { createEmitter } from "../../../../src/app/events";
 import type { GameEvents } from "../../../../src/app/events";
 import { createHudStore } from "../../../../src/app/hud";
-import { PLACEMENT_CALM_BLOCKS, PLACEMENT_MS, tierKeys } from "../../../../src/engine/placement";
+import { PLACEMENT_MS, tierKeys } from "../../../../src/engine/placement";
 import { createRng } from "../../../../src/engine/rng";
 import { mode } from "../../../../src/modes/placement";
 import { PLACEMENT_LESSON, PLACEMENT_TIER_EXTRA } from "../../../../src/modes/placement/lesson";
@@ -121,20 +121,17 @@ describe("placement mode", () => {
     expect(res?.extra?.[PLACEMENT_TIER_EXTRA]).toBe(2);
   });
 
-  it("in calm mode has no clock: it ends after a set number of blocks", async () => {
+  it("in calm mode also ends at 90 s, with no clock shown (review B1)", async () => {
     const r = await rig(calm(builder));
     await r.loadWorld();
-    for (let i = 0; i < PLACEMENT_CALM_BLOCKS - 1; i++) {
-      // Each block is a letter or a short word: type it out.
-      const id = r.instance.session()?.active?.id;
-      while (r.instance.session()?.active?.id === id && r.typeNext(200) !== null);
-    }
-    r.run(5000);
+    for (let i = 0; i < 20; i++) r.typeNext();
+    expect(r.hud.get().timer).toBeNull();
+    r.run(PLACEMENT_MS / 2);
     expect(r.results).toHaveLength(0);
-    const id = r.instance.session()?.active?.id;
-    while (r.instance.session()?.active?.id === id && r.typeNext(200) !== null);
+    expect(r.hud.get().progress01).toBeGreaterThan(0.4);
+    r.run(PLACEMENT_MS / 2 + 100);
     r.run(2000);
     expect(r.results).toHaveLength(1);
-    expect(r.results[0]?.summary.targetsCompleted).toBe(PLACEMENT_CALM_BLOCKS);
+    expect(r.results[0]?.summary.mode).toBe("placement");
   });
 });
