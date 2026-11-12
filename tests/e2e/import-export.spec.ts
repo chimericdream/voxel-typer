@@ -5,7 +5,8 @@
  *   record, then downloads the save file from Settings → Grown-ups;
  * - a fresh context loads that file from the splash's grown-up link (no player yet), behind the
  *   parent gate;
- * - the profiles stored in the second context equal the first's, and the damaged one was listed as
+ * - the profiles stored in the second context equal the first's (one fixture carries M3-10's
+ *   optional `found`, one doesn't), and the damaged one was listed as
  *   left out. Axe is clean on the check and on the summary.
  */
 import { readFileSync } from "node:fs";
@@ -15,11 +16,16 @@ import type { Browser, BrowserContext, Page } from "@playwright/test";
 import { expectNoAxeViolations, expectScreen } from "./helpers/slice";
 import { collectErrors, ready } from "./helpers/vt";
 
-const FIXTURES = ["meadow-done-miner", "veteran-builder"].map((name): unknown =>
+const load = (name: string): unknown =>
   JSON.parse(
     readFileSync(resolve(import.meta.dirname, `../fixtures/profiles/${name}.json`), "utf8"),
-  ),
-);
+  );
+
+/** One older save without `found`, one with it (M3-10's optional field): both must survive. */
+const FIXTURES: unknown[] = [
+  load("meadow-done-miner"),
+  { ...Object(load("veteran-builder")), found: { grass: 40, dirt: 12, "oak-log": 5 } },
+];
 
 /** A record that can't be read: the export leaves it out and lists it. */
 const DAMAGED = "00000000-0000-4000-8000-0000000000ff";

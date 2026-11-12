@@ -529,6 +529,60 @@ describe("ImportExport: import", () => {
   });
 });
 
+/** A profile with M3-10's optional lifetime `found` counts. */
+const withFound = (): Profile => ({
+  ...fixture("meadow-done-miner"),
+  found: { grass: 12, dirt: 7, "oak-log": 3 },
+});
+
+describe("ImportExport: Profile.found (M3-10)", () => {
+  it("round trip keeps found: export, import into another device, equal", async () => {
+    const p = withFound();
+    const a = await setup({ profiles: [p] });
+    await click(a, t("importexport.export.button"));
+    const blob = only(a.downloads[0]).blob;
+    expect(await blob.text()).toContain('"found"');
+    h?.unmount();
+    extra?.remove();
+    extra = null;
+    const b = await setup({ canExport: false });
+    await pick(b, new File([await blob.text()], "save.json"));
+    await click(b, t("importexport.import.go"));
+    const back = await b.h.store.load(p.id);
+    expect(back).toEqual(p);
+    expect(back?.found).toEqual(p.found);
+  });
+
+  it("an old profile without found imports fine and stays without it", async () => {
+    const p = fixture("meadow-done-miner");
+    expect(Object.hasOwn(p, "found")).toBe(false);
+    const s = await setup({ canExport: false });
+    await pick(s, fileOf([p]));
+    await click(s, t("importexport.import.go"));
+    expect(outcomes(s)).toEqual(["added"]);
+    const back = await s.h.store.load(p.id);
+    expect(back).toEqual(p);
+    expect(back !== null && Object.hasOwn(back, "found")).toBe(false);
+  });
+
+  it("use the file's copy and keep both carry found over", async () => {
+    const mine = fixture("meadow-done-miner");
+    const theirs = withFound();
+    const s = await setup({ profiles: [mine] });
+    await pick(s, fileOf([theirs]));
+    await choose(s, 0, "useFile");
+    await click(s, t("importexport.import.go"));
+    expect((await s.h.store.load(mine.id))?.found).toEqual(theirs.found);
+
+    await pick(s, fileOf([theirs]));
+    await choose(s, 0, "keepBoth");
+    await click(s, t("importexport.import.go"));
+    const copy = (await s.h.store.listProfiles()).find((x) => x.name === "Juniper (2)");
+    expect(copy).toBeDefined();
+    expect((await s.h.store.load(only(copy).id))?.found).toEqual(theirs.found);
+  });
+});
+
 describe("Settings wiring", () => {
   it("the splash links to a gated import on the no-player screen", async () => {
     h = await mount();
