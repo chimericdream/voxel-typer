@@ -145,5 +145,39 @@ Field legend: see the top of `tasks-m0-m1.md`.
 - **Acceptance:**
   - [ ] All green twice in a row.
 
+### M3-FIX-1 World map polish from the M3-04 review
+- **Size/Tier:** S / B · **Review:** required (visual + a11y)
+- **Depends on:** M3-04
+- **Owns:** `src/ui/screens/WorldMap.tsx`, `src/ui/screens/map-logic.ts`, `src/render/map/*.ts`,
+  `src/i18n/en/map.ts`, the map e2e and unit tests
+- **Spec:** non-blocking items from the M3-04 review (PR #148, review 5869540979).
+  - **Meta line:** a new player's island reads "☆ 0 · 0 of 6", which a child sees as "0 0 of 6".
+    Hide the stars at 0 and write "0 of 6 done" through `t()`.
+  - **Labels:** at 1024 px the "Sparkstone Factory" label already loses 21–26 px off the left edge
+    at Sprout's default text scale of 1.5. At scale 2 it loses about 67 px and overlaps "Crystal
+    Caverns" by about 50 px. Keep labels inside the window, draw the focused label on top so its
+    focus ring always shows, and add an e2e check for overlap and clipping at scales 1.5 and 2.
+  - **Locked islands:** they're washed so gray that every biome looks the same. Keep some biome
+    colour under the clouds. The locked-label stripes barely show.
+  - **Clicking a locked island** does nothing. Give a gentle "not yet" response: a short wobble
+    and a kind line, with no pressure words.
+  - **Rebuilds:** the 3D view rebuilds whenever the profile object changes. Key it on the data the
+    map actually uses, before later cards save the profile on this screen.
+- **Acceptance:**
+  - [ ] Each item fixed, or listed in the handoff with a reason.
+  - [ ] Map baselines refreshed through the Update snapshots workflow; visual + a11y review passes.
+
+### M3-FIX-2 Pixel font legibility
+- **Size/Tier:** S / B · **Review:** required (visual + a11y)
+- **Depends on:** M2-08
+- **Owns:** `src/ui/theme/fonts.css` and the font tokens, plus any app-wide heading or HUD style
+  that uses Pixelify
+- **Spec:** in bold Pixelify, "C" reads as "O" and "5" as "S" (M3-04 review). Typing targets
+  already use Atkinson (decision 68). Find where bold Pixelify shows letters or digits a child
+  must read: island names, HUD numbers, Results. Then use the regular weight, or fall back to
+  `--font-body` for digits and short labels. Keep Pixelify's look for big headings.
+- **Acceptance:**
+  - [ ] Before and after screenshots of each affected screen in the handoff; baselines refreshed.
+
 ### M3-GATE
 `PLAN.md` Phase 3 acceptance (curriculum doc generated, sim plausibility, axe clean). Owner gets the word-list review dump (👤, can be deferred to M6-08 by the owner's choice). Tag `m3`.
