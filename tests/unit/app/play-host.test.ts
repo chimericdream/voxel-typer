@@ -53,6 +53,35 @@ describe("play host", () => {
     expect(s.statuses).toEqual(["loading", "running"]);
   });
 
+  it("tells the mode whether the scene is frozen", async () => {
+    const live = setup();
+    await live.host.start({ lesson: lesson(), profile: sprout });
+    expect(live.mode.ctx().params).toEqual({ frozen: false });
+    const frozen = setup({ frozen: true });
+    await frozen.host.start({ lesson: lesson(), profile: sprout, params: { text: "hi" } });
+    expect(frozen.mode.ctx().params).toEqual({ text: "hi", frozen: true });
+  });
+
+  it("starts paused when the lesson finishes loading while the page is hidden or blurred", async () => {
+    let away = true;
+    const s = setup({ away: () => away });
+    await s.host.start({ lesson: lesson(), profile: sprout });
+    expect(s.statuses).toEqual(["loading", "running", "paused"]);
+    expect(s.mode.calls).toEqual(["start", "pause"]);
+    expect(s.scene.subscribers()).toBe(0);
+    expect(s.scene.drift).toBe(false);
+    s.host.input(key("f"));
+    expect(s.mode.inputs).toEqual([]);
+    away = false;
+    s.host.resume(5);
+    expect(s.host.status()).toBe("running");
+    expect(s.scene.subscribers()).toBe(1);
+    // A lesson that loads with the page in front starts running, as before.
+    const front = setup({ away: () => false });
+    await front.host.start({ lesson: lesson(), profile: sprout });
+    expect(front.statuses).toEqual(["loading", "running"]);
+  });
+
   it("forwards typed keys only while running", async () => {
     const s = setup();
     await s.host.start({ lesson: lesson(), profile: sprout });
