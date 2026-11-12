@@ -20,7 +20,11 @@ import {
   soundsUnsafe,
   spokenForm,
 } from "../../../src/content/wordlists/spoken-blocklist";
-import { GENERATOR_CONSTANTS, generateTargets } from "../../../src/engine/generator";
+import {
+  containsBlockedRun,
+  generateTargets,
+  GENERATOR_CONSTANTS,
+} from "../../../src/engine/generator";
 import { createRng } from "../../../src/engine/rng";
 
 const SEED = 20261112;
@@ -98,6 +102,15 @@ const UNSAFE = [
   "twat",
   "porn",
   "penis",
+  // M3-FIX-6 review: x as ks, and two missed stems.
+  "fux",
+  "dix",
+  "kox",
+  "cox",
+  "fuks",
+  "wog",
+  "vag",
+  "vaj",
 ];
 
 /** Near-misses that must stay allowed, or the home-row drills starve. */
@@ -167,6 +180,15 @@ const SAFE = [
   "coconut",
   "focus",
 ];
+
+/** Short plain spellings that only the generator's letter-run list catches (M3-FIX-6 review). */
+const BLOCKED_SHORT_RUNS = ["hor", "bum", "wee", "wii", "sod", "lsd"];
+
+describe("containsBlockedRun (short runs from the review)", () => {
+  it.each(BLOCKED_SHORT_RUNS)("blocks %s", (text) => {
+    expect(containsBlockedRun(text)).toBe(true);
+  });
+});
 
 describe("soundsUnsafe", () => {
   it("has the table sizes the card asks for", () => {

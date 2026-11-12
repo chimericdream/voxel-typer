@@ -18,6 +18,8 @@ Status: done
   the check was a false positive (`cook`, `face`, `fox`, `spreadsheet`), fixed in the normaliser,
   or a real word that a voice says safely, added to `SPOKEN_SAFE_WORDS`.
 
+- **Review fixes (orchestrator, review 5883504892):** `x` reads as `ks`, so `fux`, `dix` and `kox` (also `cox`) are stems now; so are `wog`, `vag` and `vaj`. The generator's `BLOCKED_RUNS` gains `hor`, `bum`, `wee`, `wii`, `sod` and `lsd`, which can't be stems because they sit inside safe words (`horse`, `sweet`). Table rows were added for all of them, and `docs/curriculum.md` was regenerated.
+
 ## Acceptance
 
 - [x] Property test with a fixed seed (`20261112`), 10 runs × 1,000 groups = 10,000 groups for

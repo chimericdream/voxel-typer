@@ -66,6 +66,14 @@ export const SPOKEN_STEMS: readonly string[] = [
   "twat",
   "porn",
   "penis",
+  // `x` reads as `ks`, so these sound like the plural of a stem (M3-FIX-6 review).
+  "fux",
+  "dix",
+  "kox",
+  // A slur and body slang the first draft missed (M3-FIX-6 review).
+  "wog",
+  "vag",
+  "vaj",
 ];
 
 /**
