@@ -48,17 +48,19 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 - [x] **M2-10** App shell, routing, hooks (M/A) — merged (PR #129)
 - [x] **M2-11** Screens v1 (M/B) — merged (PR #134, includes the rem double-scaling fix)
 - [x] **M2-12** Meadow lessons 1–6 (S/A) — merged (PR #127)
-- [ ] **M2-13** ✦ ⛩ Mine mode (L/A) — running
+- [x] **M2-13** ✦ ⛩ Mine mode (L/A) — merged (PR #141)
 - [x] **M2-14** HUD (M/B) — merged (PR #137)
-- [ ] **M2-15** ⛩ Slice E2E + baselines (M/B) — todo (needs M2-13)
-- [ ] **M2-16** Playtest kit (S/C) — running
-- [ ] **M2-FIX-2** Slice polish from the M2 reviews (M/B) — todo
-- [ ] **M2-GATE** Go/no-go — todo
+- [x] **M2-15** ⛩ Slice E2E + baselines (M/B) — merged (PR #142)
+- [x] **M2-16** Playtest kit (S/C) — merged (PR #138)
+- [x] **M2-FIX-2** Slice polish from the M2 reviews (M/B) — merged (PR #143)
+- [ ] **M2-FIX-3** Owner playtest fixes: age-aware stars, no extra space (M/B) — todo
+- [ ] **M2-FIX-4** Flowers as small sprigs, not full blocks (M/A) — todo
+- [x] **M2-GATE** Go/no-go — **go with fixes**, 2026-11-11 (owner played the slice; decisions 78–86). Fixes: M2-FIX-3, M2-FIX-4
 
 ## M3: Curriculum, adaptation, meta screens
 
 - [ ] **M3-01** Curriculum validator + doc gen (S/B) — todo
-- [ ] **M3-02** Word lists biomes 1–4 (L/A) — todo
+- [x] **M3-02** Word lists biomes 1–4 (L/A) — merged early (PR #128)
 - [ ] **M3-03** Lessons biomes 1–4 (M/A) — todo
 - [ ] **M3-04** ✦ World map (L/A) — todo
 - [ ] **M3-05** Placement test (M/B) — todo
@@ -93,7 +95,7 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 - [ ] **M5-02** ⛩ Boss framework + DSL (M/A) — todo
 - [ ] **M5-03** ✦ Boss designs + models (L/A) — todo
 - [ ] **M5-04** Boss scripts (M/B) — todo
-- [ ] **M5-05** Content biomes 5–9 (L/A) — todo
+- [x] **M5-05** Content biomes 5–9 (L/A) — merged early (PR #136)
 - [ ] **M5-06** Lessons biomes 5–9 (M/A) — todo
 - [ ] **M5-07** ✦ Biomes 5–9 art + mobs wave 2 (L/A) — todo
 - [ ] **M5-08** Daily Quest + torches (M/B) — todo

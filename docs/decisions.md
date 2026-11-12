@@ -324,3 +324,42 @@ PRs, and the orchestrator's rulings in those PRs.
     Meadow's keys spell only about 45 safe words, so its pools fall short of the size targets and
     are padded with g/h phrases, not invented words. **Owner question for M6-08:** "Alex" and
     "Steve" are blocked as nicknames (trademark terms).
+
+78. **M2-GATE: go with fixes (owner, 2026-11-11).** The owner played the whole slice and found it
+    fun. Their kids were asleep, so the child playtest moves to M3-GATE. The fixes are M2-FIX-3
+    and M2-FIX-4; they run alongside M3 and M4.
+79. **The stack stays, and local test load stays light (owner, 2026-11-11).** Three workers
+    running verify plus repeated SwiftShader Playwright runs made the owner's PC nearly unusable,
+    and the owner considered Unity. With nothing else running, the game measured 200+ fps in Edge
+    (separate graphics card), so the browser stack stays. Rules:
+    - **7:30am–12am local time:** at most 2 workers, no local e2e (CI does it), one `verify` per
+      push.
+    - **12am–7:30am:** up to 3 workers, local e2e allowed.
+
+    "60 fps on an integrated GPU" is not yet shown; it moves to M3-GATE.
+80. **Stars depend on the age band (owner, 2026-11-11; contract §6, additive).** 3 stars stays the
+    top. `StarInput.band?` loosens the accuracy bars:
+    - Sprout: 0.85 and 0.90, no speed check.
+    - Miner: 0.88 and 0.93.
+    - Builder: unchanged at 0.90 and 0.95.
+
+    A missing band means Builder rules.
+81. **A target finishes on its last character (owner, 2026-11-11).** Kids must not press space
+    after the last word. Spaces between words still count. M2-FIX-3.
+82. **Flowers are small sprigs (owner, 2026-11-11).** `BlockDef.shape?: "cube" | "sprig"`
+    (additive). They are sub-voxel boxes inside the cell, not crossed billboards, which belong to
+    another game's look. M2-FIX-4.
+83. **Mine mode (M2-13, PR #141).** Keys are dropped until the Meadow has loaded, so tests wait for
+    `__vt.session()?.active`. A word breaks on its trailing space; decision 81 changes this for the
+    last word. The session clock starts when the first block shows, about 0.4 s after the first
+    key. That slightly favours the child, so it stays.
+84. **Slice polish (M2-FIX-2, PR #143).** Flowers got their own painters, the default avatar was
+    redrawn (IP rule), the hotbar is dark oak, and the high-contrast HUD tells typed characters
+    apart from pending ones.
+85. **The slice e2e suite (M2-15, PR #142)** covers 5 flows, plus axe on 6 screens.
+    - Draw calls and fps are logged, not asserted, on SwiftShader. Draw calls peaked at 21–28.
+    - E2E waits count frames, not wall time, because CI's software renderer runs frames slowly.
+    - Text checks are limited to `#app`, because toasts also go to a live region outside it.
+86. **E2E flakes.** The `fx.spec` loop-idle check waits up to 45 s; CI needs 9–11 s. The pause flow
+    times key and blur events on the page's own clock. One rerun of a failed CI job is allowed for
+    a known flake; a second failure is a bug.
