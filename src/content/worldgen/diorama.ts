@@ -420,12 +420,12 @@ export function generateDiorama(
   // 5d. The front lawn: a few flower patches on each corner, well clear of the stage and the
   // Mine camera's view (M2-03 review N2). Their own rng fork, so the scatter above is unchanged.
   const frontRng = rng.fork("front");
-  for (const side of [-1, 1] as const) {
+  for (const corner of [-1, 1] as const) {
     for (let i = 0; i < FRONT_PATCHES; i++) {
       const x =
-        side < 0 ? frontRng.int(3, stage.clear.x0 - 6) : frontRng.int(stage.clear.x1 + 6, sx - 4);
+        corner < 0 ? frontRng.int(3, stage.clear.x0 - 6) : frontRng.int(stage.clear.x1 + 6, sx - 4);
       const z = frontRng.int(stage.target.z - 4, sz - 3);
-      const tplRng = frontRng.fork(`front:${side}:${i}`);
+      const tplRng = frontRng.fork(`front:${corner}:${i}`);
       if (kind[idx(x, z)] !== LAND || nearFence(x, z)) continue;
       place(flowerPatch(flowers, tplRng), x, z);
     }
