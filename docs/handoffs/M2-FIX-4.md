@@ -81,11 +81,20 @@ Status: done
   |                       | meadow-01 (Sprout) | meadow-01 | meadow-02 | meadow-03 | meadow-04 | meadow-05 | meadow-06 |
   | --------------------- | ------------------ | --------- | --------- | --------- | --------- | --------- | --------- |
   | Before (main 7d8f82c) | 24                 | 25        | 26        | 26        | 26        | 26        | 26        |
-  | After                 | DRAWCALLS_AFTER    |
+  | After (e2bbc2f)       | 26                 | 25        | 26        | 26        | 26        | 26        | 26        |
 
-- [x] Meadow baselines are refreshed through the Update snapshots workflow: BASELINES.
+  The lesson peaks are unchanged. The Sprout peak includes transient fx and loot meshes and is
+  noisy on main as well: 28 at 4af5eb2 and 24 at 7d8f82c. The diorama spec's per-seed budget
+  (60 or fewer) passes.
+
+- [x] Meadow baselines are refreshed through the Update snapshots workflow: the Update snapshots workflow wrote
+      `tests/e2e/__screenshots__/atlas.spec.ts/atlas.png` and `diorama.spec.ts/meadow-mine.png`.
+      I deleted `diorama.spec.ts/meadow-overview.png` so CI would regenerate it. The slice and sky
+      baselines still pass within tolerance and were not regenerated.
 - [ ] Visual review: flowers should read as flowers at overview and play distance. This is for the
-      reviewer and the owner; my own look is under Notes.
+      reviewer and the owner. My own look: in `meadow-mine.png` (play distance) the flowers clearly
+      read as little red, yellow, purple and blue flowers on stems. In `meadow-overview.png` they
+      are small coloured specks on the lawn, so you can see where they are but not their shape.
 - `npm run verify` passes.
 
 ## Decisions
@@ -135,5 +144,8 @@ Status: done
     way (for example in `meshChunk`'s `opts`), it's a small change.
   - `contracts.md` is not edited here. Please add the line if you approve.
 - `src/render/chunks.ts` (`splitByBucket`, half a unit → 1/64) is outside the card's Owns list.
+- **Question (visual):** at overview distance a sprig is only a few pixels. If the owner wants
+  flowers to stand out more there, the cheapest lever is a wider bloom (8/16 instead of 6/16). It
+  is one line in `SPRIG` plus the painter layout.
 
 Closes #145
