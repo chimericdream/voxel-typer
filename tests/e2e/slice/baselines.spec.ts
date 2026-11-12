@@ -17,9 +17,12 @@ const STEADY = { wpm: 30, errorRate: 0, seed: 1 } as const;
 async function settle(page: Page): Promise<void> {
   await page.evaluate(async () => {
     await document.fonts.ready;
+    // At rest: the break's burst, chips and loot flight run on frame time (M2-13), about 75
+    // frames of 16 ms under ?freeze. Count frames, not wall time: CI's SwiftShader is slow.
+    for (let i = 0; i < 150; i++) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    }
   });
-  // A second at rest: the break's burst and loot flight run on frame time (M2-13).
-  await page.waitForTimeout(1200);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -63,7 +66,7 @@ test("mid-word", async ({ page }) => {
   for (const c of Array.from(word).slice(0, half)) await press(c);
   expect((await state(page)).typed).toBe(half);
   await settle(page);
-  await expect(page).toHaveScreenshot("mid-word.png");
+  await expect(page).toHaveScreenshot("mid-word.png", { timeout: 30_000 });
   expect(errors).toEqual([]);
 });
 
@@ -80,6 +83,6 @@ test("results", async ({ page }) => {
   expect((await state(page)).stars).toBe(3);
   await expect(page.getByText("Wow! Three stars!")).toBeVisible();
   await settle(page);
-  await expect(page).toHaveScreenshot("results.png");
+  await expect(page).toHaveScreenshot("results.png", { timeout: 30_000 });
   expect(errors).toEqual([]);
 });
