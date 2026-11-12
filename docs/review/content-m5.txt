@@ -1,0 +1,2641 @@
+# Word lists, phrases and sentences added in M5-05, for the owner's read-through (M6-08). One item per line: <pool id><TAB><item>.
+mines-sprout	Ada
+mines-sprout	Ali
+mines-sprout	Amir
+mines-sprout	Ana
+mines-sprout	April
+mines-sprout	Ben
+mines-sprout	Cart
+mines-sprout	Carts
+mines-sprout	Cave
+mines-sprout	Caves
+mines-sprout	Coal
+mines-sprout	Crate
+mines-sprout	Den
+mines-sprout	Dens
+mines-sprout	Dev
+mines-sprout	Drill
+mines-sprout	Dusty
+mines-sprout	Eva
+mines-sprout	Ezra
+mines-sprout	Gem
+mines-sprout	Glint
+mines-sprout	Hall
+mines-sprout	Hana
+mines-sprout	Hugo
+mines-sprout	Iris
+mines-sprout	Iron
+mines-sprout	Isla
+mines-sprout	Jade
+mines-sprout	Jewel
+mines-sprout	Jo
+mines-sprout	July
+mines-sprout	June
+mines-sprout	Kenji
+mines-sprout	Kofi
+mines-sprout	Ladle
+mines-sprout	Lane
+mines-sprout	Lena
+mines-sprout	Leo
+mines-sprout	Lin
+mines-sprout	Lola
+mines-sprout	Maya
+mines-sprout	Mia
+mines-sprout	Mine
+mines-sprout	Mines
+mines-sprout	Mo
+mines-sprout	Mole
+mines-sprout	Moles
+mines-sprout	Nell
+mines-sprout	Nina
+mines-sprout	Noor
+mines-sprout	Nora
+mines-sprout	Omar
+mines-sprout	Opal
+mines-sprout	Ores
+mines-sprout	Owen
+mines-sprout	Pablo
+mines-sprout	Picks
+mines-sprout	Rail
+mines-sprout	Rails
+mines-sprout	Raj
+mines-sprout	Ravi
+mines-sprout	Rosa
+mines-sprout	Ruby
+mines-sprout	Sam
+mines-sprout	Sara
+mines-sprout	Seth
+mines-sprout	Shiny
+mines-sprout	Tara
+mines-sprout	Tess
+mines-sprout	Theo
+mines-sprout	Tin
+mines-sprout	Torch
+mines-sprout	Uma
+mines-sprout	Vera
+mines-sprout	Yara
+mines-sprout	Yuki
+mines-miner	Ada
+mines-miner	Agate
+mines-miner	Ali
+mines-miner	Amara
+mines-miner	Amethyst
+mines-miner	Amir
+mines-miner	Ana
+mines-miner	April
+mines-miner	August
+mines-miner	Barrel
+mines-miner	Barrels
+mines-miner	Beacon
+mines-miner	Ben
+mines-miner	Birch
+mines-miner	Bridge
+mines-miner	Bridges
+mines-miner	Carlos
+mines-miner	Cart
+mines-miner	Carts
+mines-miner	Cave
+mines-miner	Cavern
+mines-miner	Caverns
+mines-miner	Caves
+mines-miner	Chisel
+mines-miner	Citadel
+mines-miner	Coal
+mines-miner	Copper
+mines-miner	Crate
+mines-miner	Depot
+mines-miner	Dev
+mines-miner	Diamond
+mines-miner	Drill
+mines-miner	Dusty
+mines-miner	Echo
+mines-miner	Echoes
+mines-miner	Elena
+mines-miner	Emerald
+mines-miner	Eva
+mines-miner	Ezra
+mines-miner	Farah
+mines-miner	Friday
+mines-miner	Garnet
+mines-miner	Gem
+mines-miner	Gems
+mines-miner	Glimmer
+mines-miner	Glint
+mines-miner	Glowing
+mines-miner	Gravel
+mines-miner	Hana
+mines-miner	Helmet
+mines-miner	Hiro
+mines-miner	Hugo
+mines-miner	Imani
+mines-miner	Iris
+mines-miner	Iron
+mines-miner	Isla
+mines-miner	Jade
+mines-miner	Jamal
+mines-miner	Jasper
+mines-miner	Jewel
+mines-miner	July
+mines-miner	June
+mines-miner	Kenji
+mines-miner	Kofi
+mines-miner	Lena
+mines-miner	Leo
+mines-miner	Lever
+mines-miner	Levers
+mines-miner	Lin
+mines-miner	Lola
+mines-miner	Lucia
+mines-miner	Mallet
+mines-miner	March
+mines-miner	Marsh
+mines-miner	Mateo
+mines-miner	May
+mines-miner	Maya
+mines-miner	Mia
+mines-miner	Mine
+mines-miner	Miner
+mines-miner	Mineral
+mines-miner	Minerals
+mines-miner	Miners
+mines-miner	Mines
+mines-miner	Mole
+mines-miner	Moles
+mines-miner	Monday
+mines-miner	Mushroom
+mines-miner	Nadia
+mines-miner	Nell
+mines-miner	Nina
+mines-miner	Noor
+mines-miner	Nora
+mines-miner	Nugget
+mines-miner	Nuggets
+mines-miner	October
+mines-miner	Omar
+mines-miner	Opal
+mines-miner	Owen
+mines-miner	Pablo
+mines-miner	Pick
+mines-miner	Pickaxe
+mines-miner	Pulley
+mines-miner	Quinn
+mines-miner	Rafael
+mines-miner	Rail
+mines-miner	Rails
+mines-miner	Railway
+mines-miner	Raj
+mines-miner	Ravi
+mines-miner	Rosa
+mines-miner	Ruby
+mines-miner	Sam
+mines-miner	Sara
+mines-miner	Saturday
+mines-miner	Seth
+mines-miner	Shimmer
+mines-miner	Shiny
+mines-miner	Shore
+mines-miner	Silver
+mines-miner	Sofia
+mines-miner	Sparkly
+mines-miner	Stairs
+mines-miner	Station
+mines-miner	Sunday
+mines-miner	Tara
+mines-miner	Tess
+mines-miner	Theo
+mines-miner	Thursday
+mines-miner	Tomas
+mines-miner	Topaz
+mines-miner	Track
+mines-miner	Tracks
+mines-miner	Tuesday
+mines-miner	Tunnel
+mines-miner	Tunnels
+mines-miner	Uma
+mines-miner	Vera
+mines-miner	Wagon
+mines-miner	Wagons
+mines-miner	Wei
+mines-miner	Yara
+mines-miner	Yuki
+mines-miner	Yusuf
+mines-miner	Zainab
+mines-builder	Adventurer
+mines-builder	Agate
+mines-builder	Amara
+mines-builder	Amethyst
+mines-builder	Amir
+mines-builder	April
+mines-builder	Archway
+mines-builder	Archways
+mines-builder	August
+mines-builder	Barrel
+mines-builder	Barrels
+mines-builder	Basalt
+mines-builder	Beacon
+mines-builder	Beatriz
+mines-builder	Birch
+mines-builder	Bridge
+mines-builder	Bridges
+mines-builder	Brightstone
+mines-builder	Brightvein
+mines-builder	Carlos
+mines-builder	Cart
+mines-builder	Cartographer
+mines-builder	Carts
+mines-builder	Cave
+mines-builder	Cavern
+mines-builder	Caverns
+mines-builder	Caves
+mines-builder	Chisel
+mines-builder	Citadel
+mines-builder	Coal
+mines-builder	Copper
+mines-builder	Copperbend
+mines-builder	Cornerstone
+mines-builder	Crate
+mines-builder	Crossroads
+mines-builder	Crystalline
+mines-builder	Crystalmere
+mines-builder	December
+mines-builder	Depot
+mines-builder	Diamond
+mines-builder	Discovery
+mines-builder	Dmitri
+mines-builder	Drill
+mines-builder	Dusty
+mines-builder	Echo
+mines-builder	Echoes
+mines-builder	Elena
+mines-builder	Emerald
+mines-builder	Engineer
+mines-builder	Engineers
+mines-builder	Excavator
+mines-builder	Ezra
+mines-builder	Farah
+mines-builder	February
+mines-builder	Foundation
+mines-builder	Friday
+mines-builder	Gabriel
+mines-builder	Garnet
+mines-builder	Gemcutter
+mines-builder	Gems
+mines-builder	Gemstone
+mines-builder	Gemstones
+mines-builder	Gemwater
+mines-builder	Geologists
+mines-builder	Glimmer
+mines-builder	Glimmerford
+mines-builder	Glint
+mines-builder	Glittering
+mines-builder	Glowhollow
+mines-builder	Glowing
+mines-builder	Goldsmith
+mines-builder	Gravel
+mines-builder	Hana
+mines-builder	Helmet
+mines-builder	Hiro
+mines-builder	Hugo
+mines-builder	Imani
+mines-builder	Ingrid
+mines-builder	Iris
+mines-builder	Iron
+mines-builder	Ironbrook
+mines-builder	Isla
+mines-builder	Jade
+mines-builder	Jamal
+mines-builder	January
+mines-builder	Jasper
+mines-builder	Jewel
+mines-builder	July
+mines-builder	June
+mines-builder	Kalani
+mines-builder	Kenji
+mines-builder	Kofi
+mines-builder	Lanternlight
+mines-builder	Lanternmaker
+mines-builder	Lanternwell
+mines-builder	Lena
+mines-builder	Lever
+mines-builder	Levers
+mines-builder	Limestone
+mines-builder	Lola
+mines-builder	Lookout
+mines-builder	Lucia
+mines-builder	Magnetite
+mines-builder	Mallet
+mines-builder	March
+mines-builder	Marsh
+mines-builder	Mateo
+mines-builder	Maya
+mines-builder	Mine
+mines-builder	Miner
+mines-builder	Mineral
+mines-builder	Mineralogy
+mines-builder	Minerals
+mines-builder	Miners
+mines-builder	Mines
+mines-builder	Mole
+mines-builder	Moles
+mines-builder	Monday
+mines-builder	Moonstone
+mines-builder	Mossglen
+mines-builder	Mushroom
+mines-builder	Mysterious
+mines-builder	Nadia
+mines-builder	Nell
+mines-builder	Nina
+mines-builder	Noor
+mines-builder	Nora
+mines-builder	November
+mines-builder	Nugget
+mines-builder	Nuggets
+mines-builder	October
+mines-builder	Olivia
+mines-builder	Omar
+mines-builder	Opal
+mines-builder	Owen
+mines-builder	Pablo
+mines-builder	Paolo
+mines-builder	Passageway
+mines-builder	Pathfinder
+mines-builder	Pebbleton
+mines-builder	Pick
+mines-builder	Pickaxe
+mines-builder	Prospector
+mines-builder	Pulley
+mines-builder	Quartzvale
+mines-builder	Quinn
+mines-builder	Rafael
+mines-builder	Rail
+mines-builder	Rails
+mines-builder	Railway
+mines-builder	Rashid
+mines-builder	Ravi
+mines-builder	Rosa
+mines-builder	Ruby
+mines-builder	Sandstone
+mines-builder	Sara
+mines-builder	Saturday
+mines-builder	Sediment
+mines-builder	September
+mines-builder	Seth
+mines-builder	Shimmer
+mines-builder	Shimmering
+mines-builder	Shimmerpool
+mines-builder	Shiny
+mines-builder	Shore
+mines-builder	Signpost
+mines-builder	Silver
+mines-builder	Silverdeep
+mines-builder	Silversmith
+mines-builder	Sofia
+mines-builder	Soraya
+mines-builder	Sparkling
+mines-builder	Sparkly
+mines-builder	Sparkstone
+mines-builder	Stairs
+mines-builder	Stalactite
+mines-builder	Stalactites
+mines-builder	Stalagmite
+mines-builder	Stalagmites
+mines-builder	Station
+mines-builder	Stonemason
+mines-builder	Stonereach
+mines-builder	Storeroom
+mines-builder	Sunday
+mines-builder	Sunstone
+mines-builder	Surveyor
+mines-builder	Tara
+mines-builder	Tatiana
+mines-builder	Tess
+mines-builder	Theo
+mines-builder	Thursday
+mines-builder	Tinkerton
+mines-builder	Tomas
+mines-builder	Toolshed
+mines-builder	Topaz
+mines-builder	Track
+mines-builder	Tracks
+mines-builder	Tuesday
+mines-builder	Tunnel
+mines-builder	Tunnels
+mines-builder	Twinkling
+mines-builder	Underground
+mines-builder	Underpass
+mines-builder	Valeria
+mines-builder	Vera
+mines-builder	Wagon
+mines-builder	Wagons
+mines-builder	Waypoint
+mines-builder	Wednesday
+mines-builder	Wheelbarrow
+mines-builder	Woodcarver
+mines-builder	Workbench
+mines-builder	Xavier
+mines-builder	Yara
+mines-builder	Yuki
+mines-builder	Yusuf
+mines-builder	Zainab
+mines-phrases-sprout	Big Red Cart
+mines-phrases-sprout	Deep Mines
+mines-phrases-sprout	Gem Hall
+mines-phrases-sprout	Coal Road
+mines-phrases-sprout	Rail Lane
+mines-phrases-sprout	Mia and Ben
+mines-phrases-sprout	Rosa and Leo
+mines-phrases-sprout	Omar and Uma
+mines-phrases-sprout	Nora and Sam
+mines-phrases-sprout	The Red Gem
+mines-phrases-sprout	The Blue Gem
+mines-phrases-sprout	The Gold Cart
+mines-phrases-sprout	Mole Den
+mines-phrases-sprout	Lamp Lane
+mines-phrases-sprout	Glow Cave
+mines-phrases-sprout	Mud Path
+mines-phrases-sprout	Home Island
+mines-phrases-sprout	Ruby Road
+mines-phrases-sprout	Opal Lake
+mines-phrases-sprout	Iron Gate
+mines-phrases-sprout	Tin Cup Cave
+mines-phrases-sprout	Moss Hill
+mines-phrases-sprout	Old Oak Mine
+mines-phrases-sprout	Big Rock Hall
+mines-phrases-sprout	Jade Pond
+mines-phrases-sprout	Sun Hill
+mines-phrases-sprout	Top Rail
+mines-phrases-sprout	Pip the Pup
+mines-phrases-sprout	Dot the Mole
+mines-phrases-sprout	Bo the Bat
+mines-phrases-sprout	Mo the Moth
+mines-phrases-sprout	Lin and Theo
+mines-phrases-sprout	Ada and Hugo
+mines-phrases-sprout	Yara and Raj
+mines-phrases-sprout	Kofi and Isla
+mines-phrases-sprout	Ana and Eva
+mines-phrases-sprout	Tess and Dev
+mines-phrases-sprout	Gem Box
+mines-phrases-sprout	Cart Two
+mines-phrases-sprout	Lamp Post
+mines-phrases-miner	Lantern Lane
+mines-phrases-miner	Copper Creek
+mines-phrases-miner	Crystal Cave
+mines-phrases-miner	Mossy Mine Gate
+mines-phrases-miner	Glow Cave Road
+mines-phrases-miner	Silver Rail Station
+mines-phrases-miner	Pebble Path
+mines-phrases-miner	Quartz Corner
+mines-phrases-miner	Granite Bridge
+mines-phrases-miner	Gravel Hill
+mines-phrases-miner	Boulder Bend
+mines-phrases-miner	Echo Tunnel
+mines-phrases-miner	Twinkle Tunnel
+mines-phrases-miner	Sparkle Steps
+mines-phrases-miner	Shimmer Hall
+mines-phrases-miner	Glimmer Gate
+mines-phrases-miner	Lucky Nugget Lane
+mines-phrases-miner	Old Wagon Road
+mines-phrases-miner	Candle Cave
+mines-phrases-miner	Beacon Hill
+mines-phrases-miner	The Long Tunnel
+mines-phrases-miner	The Copper Cart
+mines-phrases-miner	The Glowing Path
+mines-phrases-miner	Mushroom Corner
+mines-phrases-miner	Ladder Lane
+mines-phrases-miner	Barrel Depot
+mines-phrases-miner	Basket Bridge
+mines-phrases-miner	Compass Rock
+mines-phrases-miner	Pickaxe Point
+mines-phrases-miner	Helmet Hill
+mines-phrases-miner	Topaz Tower
+mines-phrases-miner	Garnet Grove
+mines-phrases-miner	Agate Arch
+mines-phrases-miner	Emerald Lake
+mines-phrases-miner	Diamond Den
+mines-phrases-miner	Amethyst Hall
+mines-phrases-miner	Jasper Junction
+mines-phrases-miner	Track Nine
+mines-phrases-miner	Railway Station Two
+mines-phrases-miner	Deep Mine Depot
+mines-phrases-miner	Sky Citadel
+mines-phrases-miner	Mushroom Marsh
+mines-phrases-miner	Crystal Caverns
+mines-phrases-miner	Frosty Peaks
+mines-phrases-miner	Sandy Shore
+mines-phrases-miner	Birch Forest
+mines-phrases-miner	Meadow Home
+mines-phrases-miner	Sparkstone Factory
+mines-phrases-miner	Sofia and Mateo
+mines-phrases-miner	Hiro and Imani
+mines-phrases-miner	Jamal and Lucia
+mines-phrases-miner	Farah and Quinn
+mines-phrases-miner	Carlos and Elena
+mines-phrases-miner	Nadia and Wei
+mines-phrases-miner	Yusuf and Zainab
+mines-phrases-miner	Tomas and Amara
+mines-phrases-miner	Rafael and Rosa
+mines-phrases-miner	Monday at the Mine
+mines-phrases-builder	Glowhollow Junction
+mines-phrases-builder	Pebbleton Station
+mines-phrases-builder	Copperbend Crossing
+mines-phrases-builder	Brightvein Tunnel
+mines-phrases-builder	Stonereach Lookout
+mines-phrases-builder	Quartzvale Market
+mines-phrases-builder	Lanternwell Square
+mines-phrases-builder	Gemwater Springs
+mines-phrases-builder	Ironbrook Bridge
+mines-phrases-builder	Crystalmere Lake
+mines-phrases-builder	Mossglen Workshop
+mines-phrases-builder	Shimmerpool Steps
+mines-phrases-builder	Silverdeep Depot
+mines-phrases-builder	Glimmerford Road
+mines-phrases-builder	Tinkerton Toolshed
+mines-phrases-builder	The Stalactite Room
+mines-phrases-builder	Stalagmite Garden
+mines-phrases-builder	Fossil Gallery
+mines-phrases-builder	Limestone Archway
+mines-phrases-builder	Sandstone Stairs
+mines-phrases-builder	Marble Fountain
+mines-phrases-builder	Basalt Columns
+mines-phrases-builder	Magnetite Corner
+mines-phrases-builder	Deep Mine Line
+mines-phrases-builder	Wheelbarrow Lane
+mines-phrases-builder	Prospector Pass
+mines-phrases-builder	Surveyor Station
+mines-phrases-builder	Cartographer Hall
+mines-phrases-builder	Engineer Workshop
+mines-phrases-builder	Gemcutter Studio
+mines-phrases-builder	Stonemason Street
+mines-phrases-builder	Woodcarver Way
+mines-phrases-builder	Lanternmaker Lane
+mines-phrases-builder	Goldsmith Gallery
+mines-phrases-builder	Silversmith Square
+mines-phrases-builder	Moonstone Grotto
+mines-phrases-builder	Sunstone Terrace
+mines-phrases-builder	Cornerstone Hall
+mines-phrases-builder	Pathfinder Point
+mines-phrases-builder	Treasure Map Room
+mines-phrases-builder	Crossroads Signpost
+mines-phrases-builder	Waypoint Seven
+mines-phrases-builder	Storeroom Number Four
+mines-phrases-builder	The Brilliant Beacon
+mines-phrases-builder	The Glittering Vault
+mines-phrases-builder	Wednesday Morning Shift
+mines-phrases-builder	First Day of September
+mines-phrases-builder	Gabriel and Valeria
+mines-phrases-builder	Beatriz and Kalani
+mines-phrases-builder	Xavier and Olivia
+mines-phrases-builder	Ingrid and Rashid
+mines-phrases-builder	Soraya and Paolo
+mines-phrases-builder	Tatiana and Dmitri
+mines-phrases-builder	Brightstone Bakery
+mines-phrases-builder	Discovery Museum
+mines-phrases-builder	Adventure Awaits Here
+mines-phrases-builder	Mysterious Map Corner
+mines-phrases-builder	Wonderful Workbench
+mines-phrases-builder	The Great Gem Fair
+marsh-sprout	bloom
+marsh-sprout	bog
+marsh-sprout	bogs
+marsh-sprout	brook
+marsh-sprout	bugs
+marsh-sprout	count
+marsh-sprout	damp
+marsh-sprout	dots
+marsh-sprout	dozen
+marsh-sprout	drop
+marsh-sprout	drops
+marsh-sprout	fern
+marsh-sprout	ferns
+marsh-sprout	frogs
+marsh-sprout	gnat
+marsh-sprout	marsh
+marsh-sprout	minus
+marsh-sprout	moss
+marsh-sprout	mossy
+marsh-sprout	mushy
+marsh-sprout	pads
+marsh-sprout	pair
+marsh-sprout	pairs
+marsh-sprout	plop
+marsh-sprout	plus
+marsh-sprout	pond
+marsh-sprout	ponds
+marsh-sprout	reed
+marsh-sprout	reeds
+marsh-sprout	slug
+marsh-sprout	slugs
+marsh-sprout	snail
+marsh-sprout	soggy
+marsh-sprout	spore
+marsh-sprout	spots
+marsh-sprout	sprig
+marsh-sprout	stem
+marsh-sprout	stems
+marsh-sprout	sum
+marsh-sprout	swamp
+marsh-sprout	tiny
+marsh-sprout	toads
+marsh-sprout	trio
+marsh-sprout	twins
+marsh-sprout	wade
+marsh-miner	bloom
+marsh-miner	bog
+marsh-miner	boggy
+marsh-miner	bogs
+marsh-miner	brook
+marsh-miner	bugs
+marsh-miner	bulrush
+marsh-miner	cattail
+marsh-miner	cattails
+marsh-miner	circle
+marsh-miner	circles
+marsh-miner	cluster
+marsh-miner	clusters
+marsh-miner	count
+marsh-miner	counting
+marsh-miner	crimson
+marsh-miner	damp
+marsh-miner	dewdrop
+marsh-miner	dewdrops
+marsh-miner	dots
+marsh-miner	dotted
+marsh-miner	dozen
+marsh-miner	drizzle
+marsh-miner	drizzly
+marsh-miner	drop
+marsh-miner	drops
+marsh-miner	duckweed
+marsh-miner	eleven
+marsh-miner	fern
+marsh-miner	ferns
+marsh-miner	froglet
+marsh-miner	frogs
+marsh-miner	frond
+marsh-miner	fungus
+marsh-miner	gills
+marsh-miner	glowcap
+marsh-miner	glowcaps
+marsh-miner	gnat
+marsh-miner	heron
+marsh-miner	herons
+marsh-miner	hopping
+marsh-miner	hundred
+marsh-miner	lilypad
+marsh-miner	lilypads
+marsh-miner	mayfly
+marsh-miner	minus
+marsh-miner	moss
+marsh-miner	mossbank
+marsh-miner	mossy
+marsh-miner	mushy
+marsh-miner	orange
+marsh-miner	paddle
+marsh-miner	paddling
+marsh-miner	pads
+marsh-miner	pair
+marsh-miner	pairs
+marsh-miner	parasol
+marsh-miner	plop
+marsh-miner	plus
+marsh-miner	pond
+marsh-miner	ponds
+marsh-miner	pondweed
+marsh-miner	raindrop
+marsh-miner	reed
+marsh-miner	reeds
+marsh-miner	ribbit
+marsh-miner	ripple
+marsh-miner	ripples
+marsh-miner	round
+marsh-miner	scarlet
+marsh-miner	sixty
+marsh-miner	slug
+marsh-miner	slugs
+marsh-miner	snail
+marsh-miner	soggy
+marsh-miner	speckled
+marsh-miner	splash
+marsh-miner	spore
+marsh-miner	spores
+marsh-miner	spots
+marsh-miner	spotty
+marsh-miner	sprig
+marsh-miner	squishy
+marsh-miner	stem
+marsh-miner	stems
+marsh-miner	stream
+marsh-miner	streams
+marsh-miner	striped
+marsh-miner	sum
+marsh-miner	swamp
+marsh-miner	swampy
+marsh-miner	tiny
+marsh-miner	toads
+marsh-miner	trickle
+marsh-miner	trio
+marsh-miner	twelve
+marsh-miner	twenty
+marsh-miner	twins
+marsh-miner	violet
+marsh-miner	wade
+marsh-miner	wading
+marsh-miner	wetland
+marsh-builder	addition
+marsh-builder	amphibian
+marsh-builder	amphibians
+marsh-builder	bloom
+marsh-builder	boggy
+marsh-builder	bogs
+marsh-builder	brook
+marsh-builder	bugs
+marsh-builder	bulrush
+marsh-builder	bulrushes
+marsh-builder	cattail
+marsh-builder	cattails
+marsh-builder	chanterelle
+marsh-builder	circle
+marsh-builder	circles
+marsh-builder	cluster
+marsh-builder	clusters
+marsh-builder	count
+marsh-builder	counting
+marsh-builder	crimson
+marsh-builder	damp
+marsh-builder	dewdrop
+marsh-builder	dewdrops
+marsh-builder	dots
+marsh-builder	dotted
+marsh-builder	dozen
+marsh-builder	drizzle
+marsh-builder	drizzly
+marsh-builder	drop
+marsh-builder	drops
+marsh-builder	duckweed
+marsh-builder	eighteenth
+marsh-builder	eleven
+marsh-builder	estimate
+marsh-builder	estimating
+marsh-builder	evaporation
+marsh-builder	fern
+marsh-builder	ferns
+marsh-builder	fifteenth
+marsh-builder	fourteenth
+marsh-builder	fraction
+marsh-builder	fractions
+marsh-builder	froglet
+marsh-builder	frogs
+marsh-builder	frond
+marsh-builder	fungi
+marsh-builder	fungus
+marsh-builder	gills
+marsh-builder	glowcap
+marsh-builder	glowcaps
+marsh-builder	gnat
+marsh-builder	heron
+marsh-builder	herons
+marsh-builder	hopping
+marsh-builder	humidity
+marsh-builder	hundred
+marsh-builder	hundredth
+marsh-builder	lichen
+marsh-builder	lichens
+marsh-builder	lilypad
+marsh-builder	lilypads
+marsh-builder	liverwort
+marsh-builder	marshland
+marsh-builder	marshlands
+marsh-builder	mayfly
+marsh-builder	measurement
+marsh-builder	metamorphosis
+marsh-builder	million
+marsh-builder	minus
+marsh-builder	moss
+marsh-builder	mossbank
+marsh-builder	mossy
+marsh-builder	multiply
+marsh-builder	multiplying
+marsh-builder	mushrooms
+marsh-builder	mushy
+marsh-builder	mycelium
+marsh-builder	mycologist
+marsh-builder	nineteenth
+marsh-builder	orange
+marsh-builder	paddle
+marsh-builder	paddling
+marsh-builder	pads
+marsh-builder	pair
+marsh-builder	pairs
+marsh-builder	parasol
+marsh-builder	peatland
+marsh-builder	plop
+marsh-builder	plus
+marsh-builder	pond
+marsh-builder	ponds
+marsh-builder	pondweed
+marsh-builder	raindrop
+marsh-builder	raindrops
+marsh-builder	reed
+marsh-builder	reeds
+marsh-builder	reflection
+marsh-builder	reflections
+marsh-builder	ribbit
+marsh-builder	ripple
+marsh-builder	ripples
+marsh-builder	round
+marsh-builder	salamanders
+marsh-builder	scarlet
+marsh-builder	seventeenth
+marsh-builder	sixteenth
+marsh-builder	sixty
+marsh-builder	slug
+marsh-builder	slugs
+marsh-builder	snail
+marsh-builder	soggy
+marsh-builder	speckled
+marsh-builder	sphagnum
+marsh-builder	splash
+marsh-builder	spore
+marsh-builder	spores
+marsh-builder	spots
+marsh-builder	spotty
+marsh-builder	sprig
+marsh-builder	squishy
+marsh-builder	stem
+marsh-builder	stems
+marsh-builder	stream
+marsh-builder	streams
+marsh-builder	striped
+marsh-builder	subtraction
+marsh-builder	swamp
+marsh-builder	swampy
+marsh-builder	thousand
+marsh-builder	thousands
+marsh-builder	tiny
+marsh-builder	toads
+marsh-builder	toadstool
+marsh-builder	toadstools
+marsh-builder	trickle
+marsh-builder	trio
+marsh-builder	twelve
+marsh-builder	twentieth
+marsh-builder	twenty
+marsh-builder	twins
+marsh-builder	violet
+marsh-builder	wade
+marsh-builder	wading
+marsh-builder	waterlilies
+marsh-builder	waterlily
+marsh-builder	wetland
+marsh-builder	wetlands
+marsh-drills	1 2 3 4 5
+marsh-drills	6 7 8 9 0
+marsh-drills	12 34 56 78 90
+marsh-drills	11 22 33 44 55
+marsh-drills	66 77 88 99 00
+marsh-drills	10 20 30 40 50
+marsh-drills	60 70 80 90 100
+marsh-drills	123 456 789
+marsh-drills	321 654 987
+marsh-drills	13 24 35 46 57
+marsh-drills	68 79 80 91 02
+marsh-drills	101 202 303
+marsh-drills	404 505 606
+marsh-drills	707 808 909
+marsh-drills	1 3 5 7 9
+marsh-drills	2 4 6 8 10
+marsh-drills	5 10 15 20 25
+marsh-drills	3 6 9 12 15
+marsh-drills	4 8 12 16 20
+marsh-drills	7 14 21 28 35
+marsh-drills	19 28 37 46 55
+marsh-drills	1111 2222 3333
+marsh-drills	4444 5555 6666
+marsh-drills	7777 8888 9999
+marsh-drills	1234 5678 90
+marsh-drills	2468 1357
+marsh-drills	1010 2020 3030
+marsh-drills	15 51 26 62
+marsh-drills	37 73 48 84
+marsh-drills	59 95 60 06
+marsh-phrases-sprout	2 red caps
+marsh-phrases-sprout	3 frogs
+marsh-phrases-sprout	4 big logs
+marsh-phrases-sprout	5 red mushrooms
+marsh-phrases-sprout	1 snail
+marsh-phrases-sprout	6 lily pads
+marsh-phrases-sprout	7 tiny bugs
+marsh-phrases-sprout	8 green ferns
+marsh-phrases-sprout	9 wet boots
+marsh-phrases-sprout	10 drops
+marsh-phrases-sprout	2 toads hop
+marsh-phrases-sprout	3 slugs nap
+marsh-phrases-sprout	1 big pond
+marsh-phrases-sprout	4 pink caps
+marsh-phrases-sprout	5 frogs on a log
+marsh-phrases-sprout	Room 12
+marsh-phrases-sprout	Path 3
+marsh-phrases-sprout	Log 7
+marsh-phrases-sprout	Pond 4
+marsh-phrases-sprout	Hut 9
+marsh-phrases-sprout	Mia has 2 hats
+marsh-phrases-sprout	Ben sees 6 bugs
+marsh-phrases-sprout	Rosa has 3 jars
+marsh-phrases-sprout	Leo has 1 kite
+marsh-phrases-sprout	6 ducks swim
+marsh-phrases-sprout	2 by 2
+marsh-phrases-sprout	1 2 3
+marsh-phrases-sprout	4 5 6
+marsh-phrases-sprout	7 8 9
+marsh-phrases-sprout	10 11 12
+marsh-phrases-sprout	0 to 10
+marsh-phrases-sprout	5 and 5
+marsh-phrases-sprout	3 and 4
+marsh-phrases-sprout	Day 1
+marsh-phrases-sprout	Day 2
+marsh-phrases-sprout	8 snails
+marsh-phrases-sprout	9 spots
+marsh-phrases-sprout	12 caps
+marsh-phrases-sprout	20 frogs
+marsh-phrases-sprout	11 moths
+marsh-phrases-miner	15 purple mushrooms
+marsh-phrases-miner	Room 21
+marsh-phrases-miner	Bridge 8
+marsh-phrases-miner	Boardwalk 14
+marsh-phrases-miner	Pond number 6
+marsh-phrases-miner	24 lily pads
+marsh-phrases-miner	13 green frogs
+marsh-phrases-miner	30 dewdrops
+marsh-phrases-miner	7 spotted toadstools
+marsh-phrases-miner	18 tiny tadpoles
+marsh-phrases-miner	Trail 5 to the marsh
+marsh-phrases-miner	Hut 16 by the reeds
+marsh-phrases-miner	Step 1 then step 2
+marsh-phrases-miner	Count to 50
+marsh-phrases-miner	100 raindrops
+marsh-phrases-miner	Lantern 3 is on
+marsh-phrases-miner	Path 9 goes north
+marsh-phrases-miner	Map page 27
+marsh-phrases-miner	40 glowcaps
+marsh-phrases-miner	12 boots by the door
+marsh-phrases-miner	2 herons and 5 ducks
+marsh-phrases-miner	Basket 4 has 11 eggs
+marsh-phrases-miner	Plant 6 seeds in row 3
+marsh-phrases-miner	Mia counts 19 snails
+marsh-phrases-miner	Ben finds 8 beetles
+marsh-phrases-miner	Rosa has 25 marbles
+marsh-phrases-miner	Theo picks 14 berries
+marsh-phrases-miner	Uma sees 3 rainbows
+marsh-phrases-miner	Gate 10 is open
+marsh-phrases-miner	Bench 22
+marsh-phrases-miner	Dock 31
+marsh-phrases-miner	Dragonfly 7 is blue
+marsh-phrases-miner	Score 45
+marsh-phrases-miner	Level 12
+marsh-phrases-miner	Week 2 Day 4
+marsh-phrases-miner	90 steps to the pond
+marsh-phrases-miner	Box 17 of 20
+marsh-phrases-miner	10 plus 10
+marsh-phrases-miner	3 times 4
+marsh-phrases-miner	Shelf 5 row 2
+marsh-phrases-miner	Table 8
+marsh-phrases-miner	Chapter 11
+marsh-phrases-miner	Page 38
+marsh-phrases-miner	Seat 26
+marsh-phrases-builder	128 glowing mushrooms
+marsh-phrases-builder	Boardwalk 47 to 52
+marsh-phrases-builder	Lily pond 3 of 9
+marsh-phrases-builder	Room 204 in the hut
+marsh-phrases-builder	Trail 18 is 6 miles long
+marsh-phrases-builder	Year 2031
+marsh-phrases-builder	1000 tiny spores
+marsh-phrases-builder	365 days a year
+marsh-phrases-builder	24 hours in a day
+marsh-phrases-builder	7 days in a week
+marsh-phrases-builder	12 months in a year
+marsh-phrases-builder	60 minutes in an hour
+marsh-phrases-builder	Plot 86 has 4 rows
+marsh-phrases-builder	Basket 73 holds 15 plums
+marsh-phrases-builder	Bridge 9 is 40 steps
+marsh-phrases-builder	Count by 5 to 100
+marsh-phrases-builder	Count by 3 to 30
+marsh-phrases-builder	Score 1250
+marsh-phrases-builder	Level 37 unlocked
+marsh-phrases-builder	256 blocks of moss
+marsh-phrases-builder	Lantern 64 glows green
+marsh-phrases-builder	Marsh map grid 7 by 9
+marsh-phrases-builder	Path 13 to Hut 31
+marsh-phrases-builder	Number 43 on the door
+marsh-phrases-builder	Stack of 64 planks
+marsh-phrases-builder	Row 5 seat 19
+marsh-phrases-builder	Tower 1 floor 8
+marsh-phrases-builder	Week 51 day 7
+marsh-phrases-builder	Pond 2 has 3 frogs
+marsh-phrases-builder	Shelf 14 has 28 jars
+marsh-phrases-builder	Gate 99 is the last
+marsh-phrases-builder	Batch 12 of 144 bricks
+marsh-phrases-builder	Recipe 3 needs 2 cups
+marsh-phrases-builder	Stall 58 sells pears
+marsh-phrases-builder	Dewdrop 1 of 1000
+marsh-phrases-builder	Station 17 at 9
+marsh-phrases-builder	Fern patch 6
+marsh-phrases-builder	Lot 410 by the willows
+marsh-phrases-builder	Bench 75 on the boardwalk
+caverns-sprout	arch
+caverns-sprout	bat
+caverns-sprout	bats
+caverns-sprout	beams
+caverns-sprout	bumps
+caverns-sprout	bumpy
+caverns-sprout	bye
+caverns-sprout	clear
+caverns-sprout	color
+caverns-sprout	deep
+caverns-sprout	dewy
+caverns-sprout	dim
+caverns-sprout	dome
+caverns-sprout	domes
+caverns-sprout	echo
+caverns-sprout	glass
+caverns-sprout	gleam
+caverns-sprout	glowy
+caverns-sprout	hello
+caverns-sprout	hi
+caverns-sprout	hue
+caverns-sprout	hues
+caverns-sprout	hush
+caverns-sprout	ledge
+caverns-sprout	lumps
+caverns-sprout	lumpy
+caverns-sprout	nook
+caverns-sprout	nooks
+caverns-sprout	oh
+caverns-sprout	ooh
+caverns-sprout	pale
+caverns-sprout	pearl
+caverns-sprout	pink
+caverns-sprout	pool
+caverns-sprout	pools
+caverns-sprout	sheen
+caverns-sprout	slope
+caverns-sprout	spark
+caverns-sprout	steep
+caverns-sprout	tint
+caverns-sprout	tints
+caverns-sprout	wing
+caverns-sprout	wings
+caverns-sprout	wow
+caverns-sprout	yay
+caverns-miner	answer
+caverns-miner	arch
+caverns-miner	arches
+caverns-miner	azure
+caverns-miner	bat
+caverns-miner	bats
+caverns-miner	beams
+caverns-miner	bright
+caverns-miner	bumps
+caverns-miner	bumpy
+caverns-miner	bye
+caverns-miner	ceiling
+caverns-miner	chamber
+caverns-miner	chambers
+caverns-miner	clear
+caverns-miner	color
+caverns-miner	comma
+caverns-miner	dazzle
+caverns-miner	dazzling
+caverns-miner	deep
+caverns-miner	dewy
+caverns-miner	dim
+caverns-miner	dome
+caverns-miner	domes
+caverns-miner	echoing
+caverns-miner	excited
+caverns-miner	facet
+caverns-miner	facets
+caverns-miner	flicker
+caverns-miner	geode
+caverns-miner	geodes
+caverns-miner	glass
+caverns-miner	gleam
+caverns-miner	gleaming
+caverns-miner	glinting
+caverns-miner	glitters
+caverns-miner	glowworm
+caverns-miner	glowy
+caverns-miner	grotto
+caverns-miner	grottos
+caverns-miner	hello
+caverns-miner	hi
+caverns-miner	hollow
+caverns-miner	hollows
+caverns-miner	hue
+caverns-miner	hues
+caverns-miner	hush
+caverns-miner	indigo
+caverns-miner	ledge
+caverns-miner	luminous
+caverns-miner	lumps
+caverns-miner	lumpy
+caverns-miner	mirrors
+caverns-miner	nook
+caverns-miner	nooks
+caverns-miner	oh
+caverns-miner	ooh
+caverns-miner	pale
+caverns-miner	passage
+caverns-miner	pearl
+caverns-miner	period
+caverns-miner	pink
+caverns-miner	pool
+caverns-miner	pools
+caverns-miner	prism
+caverns-miner	prisms
+caverns-miner	question
+caverns-miner	quote
+caverns-miner	quotes
+caverns-miner	radiant
+caverns-miner	rainbow
+caverns-miner	rainbows
+caverns-miner	reflect
+caverns-miner	sapphire
+caverns-miner	sheen
+caverns-miner	shimmery
+caverns-miner	slope
+caverns-miner	smooth
+caverns-miner	spark
+caverns-miner	sparks
+caverns-miner	steep
+caverns-miner	tint
+caverns-miner	tints
+caverns-miner	twinkly
+caverns-miner	whisper
+caverns-miner	whispers
+caverns-miner	wing
+caverns-miner	wings
+caverns-miner	wow
+caverns-miner	yay
+caverns-builder	answer
+caverns-builder	arch
+caverns-builder	arches
+caverns-builder	astonishing
+caverns-builder	azure
+caverns-builder	bats
+caverns-builder	beams
+caverns-builder	bioluminescent
+caverns-builder	bright
+caverns-builder	brilliantly
+caverns-builder	bumps
+caverns-builder	bumpy
+caverns-builder	ceiling
+caverns-builder	chamber
+caverns-builder	chambers
+caverns-builder	clear
+caverns-builder	color
+caverns-builder	contraction
+caverns-builder	dazzle
+caverns-builder	dazzling
+caverns-builder	dazzlingly
+caverns-builder	deep
+caverns-builder	dewy
+caverns-builder	dome
+caverns-builder	domes
+caverns-builder	echoing
+caverns-builder	excited
+caverns-builder	exclamation
+caverns-builder	facet
+caverns-builder	facets
+caverns-builder	flicker
+caverns-builder	formation
+caverns-builder	formations
+caverns-builder	gemologist
+caverns-builder	geode
+caverns-builder	geodes
+caverns-builder	glass
+caverns-builder	gleam
+caverns-builder	gleaming
+caverns-builder	glimmering
+caverns-builder	glinting
+caverns-builder	glistening
+caverns-builder	glitters
+caverns-builder	glowworm
+caverns-builder	glowworms
+caverns-builder	glowy
+caverns-builder	grotto
+caverns-builder	grottos
+caverns-builder	hello
+caverns-builder	hollow
+caverns-builder	hollows
+caverns-builder	hues
+caverns-builder	hush
+caverns-builder	indigo
+caverns-builder	iridescent
+caverns-builder	kaleidoscope
+caverns-builder	labyrinth
+caverns-builder	ledge
+caverns-builder	luminescent
+caverns-builder	luminous
+caverns-builder	lumps
+caverns-builder	lumpy
+caverns-builder	mirrors
+caverns-builder	nook
+caverns-builder	nooks
+caverns-builder	pale
+caverns-builder	passage
+caverns-builder	pearl
+caverns-builder	period
+caverns-builder	phenomenon
+caverns-builder	pink
+caverns-builder	pool
+caverns-builder	pools
+caverns-builder	possessive
+caverns-builder	prism
+caverns-builder	prisms
+caverns-builder	question
+caverns-builder	quotation
+caverns-builder	quote
+caverns-builder	quotes
+caverns-builder	radiant
+caverns-builder	rainbow
+caverns-builder	rainbows
+caverns-builder	reflect
+caverns-builder	reflective
+caverns-builder	refraction
+caverns-builder	sapphire
+caverns-builder	sheen
+caverns-builder	shimmery
+caverns-builder	slope
+caverns-builder	smooth
+caverns-builder	spark
+caverns-builder	sparks
+caverns-builder	spectacular
+caverns-builder	spectrum
+caverns-builder	spelunker
+caverns-builder	spelunking
+caverns-builder	steep
+caverns-builder	subterranean
+caverns-builder	tint
+caverns-builder	tints
+caverns-builder	translucent
+caverns-builder	transparent
+caverns-builder	twinkly
+caverns-builder	whisper
+caverns-builder	whispering
+caverns-builder	whispers
+caverns-builder	wing
+caverns-builder	wings
+caverns-phrases-sprout	it's a gem
+caverns-phrases-sprout	it's pink
+caverns-phrases-sprout	I'm here
+caverns-phrases-sprout	I'm in a cave
+caverns-phrases-sprout	we're up
+caverns-phrases-sprout	let's go
+caverns-phrases-sprout	let's look
+caverns-phrases-sprout	let's dig
+caverns-phrases-sprout	don't forget
+caverns-phrases-sprout	can't wait
+caverns-phrases-sprout	you're kind
+caverns-phrases-sprout	he's glad
+caverns-phrases-sprout	she's fast
+caverns-phrases-sprout	that's fun
+caverns-phrases-sprout	that's big
+caverns-phrases-sprout	the bat's wing
+caverns-phrases-sprout	the crab's shell
+caverns-phrases-sprout	Mia's lamp
+caverns-phrases-sprout	Ben's map
+caverns-phrases-sprout	Rosa's hat
+caverns-phrases-sprout	Leo's cup
+caverns-phrases-sprout	Uma's gem
+caverns-phrases-sprout	Omar's cart
+caverns-phrases-sprout	the cave's roof
+caverns-phrases-sprout	a pup's nose
+caverns-phrases-sprout	it's my turn
+caverns-phrases-sprout	we're a team
+caverns-phrases-sprout	I'm so happy
+caverns-phrases-sprout	let's sing
+caverns-phrases-sprout	that's a gem
+caverns-phrases-miner	it's a crystal geode
+caverns-phrases-miner	the glowworm's light
+caverns-phrases-miner	the lantern's glow
+caverns-phrases-miner	we're almost there
+caverns-phrases-miner	let's follow the echo
+caverns-phrases-miner	don't forget the map
+caverns-phrases-miner	I'll hold the lantern
+caverns-phrases-miner	you'll love this cave
+caverns-phrases-miner	there's a rainbow
+caverns-phrases-miner	here's a quiet nook
+caverns-phrases-miner	who's ready to look
+caverns-phrases-miner	what's around the bend
+caverns-phrases-miner	the miner's helmet
+caverns-phrases-miner	the cavern's ceiling
+caverns-phrases-miner	Sofia's purple prism
+caverns-phrases-miner	Hiro's crystal collection
+caverns-phrases-miner	Jamal's shiny compass
+caverns-phrases-miner	Imani's glowing lamp
+caverns-phrases-miner	Mateo's rope ladder
+caverns-phrases-miner	Nadia's sketchbook
+caverns-phrases-miner	the crab's blue claws
+caverns-phrases-miner	the bat's soft wings
+caverns-phrases-miner	it's time to rest
+caverns-phrases-miner	we've found the pool
+caverns-phrases-miner	they've got the cart
+caverns-phrases-miner	I've got an idea
+caverns-phrases-miner	you've done it
+caverns-phrases-miner	she'll find the path
+caverns-phrases-miner	he'd like a turn
+caverns-phrases-miner	we'd love to help
+caverns-phrases-builder	the geologist's notebook
+caverns-phrases-builder	the crystal's bright facets
+caverns-phrases-builder	the spelunker's headlamp
+caverns-phrases-builder	the cavern's echo chamber
+caverns-phrases-builder	it's beautifully translucent
+caverns-phrases-builder	we'll chart the labyrinth
+caverns-phrases-builder	they'd mapped every tunnel
+caverns-phrases-builder	you'll want a lantern
+caverns-phrases-builder	there's a hidden grotto
+caverns-phrases-builder	what's behind that archway
+caverns-phrases-builder	let's measure the stalactite
+caverns-phrases-builder	the glowworms' green glow
+caverns-phrases-builder	the miners' long rope
+caverns-phrases-builder	the crabs' crystal shells
+caverns-phrases-builder	Gabriel's careful sketch
+caverns-phrases-builder	Valeria's rainbow prism
+caverns-phrases-builder	Xavier's sparkling find
+caverns-phrases-builder	Olivia's field journal
+caverns-phrases-builder	Kalani's lantern lights
+caverns-phrases-builder	Ingrid's survey map
+caverns-phrases-builder	couldn't be more amazing
+caverns-phrases-builder	wouldn't miss it
+caverns-phrases-builder	shouldn't take long
+caverns-phrases-builder	isn't it marvelous
+caverns-phrases-builder	aren't they magnificent
+caverns-phrases-builder	hasn't it grown
+caverns-phrases-builder	weren't we lucky
+caverns-phrases-builder	doesn't it shimmer
+caverns-phrases-builder	we've reached the bottom
+caverns-phrases-builder	I'd describe it as dazzling
+sparkstone-sprout	beep
+sparkstone-sprout	belt
+sparkstone-sprout	belts
+sparkstone-sprout	blink
+sparkstone-sprout	bolt
+sparkstone-sprout	clank
+sparkstone-sprout	clink
+sparkstone-sprout	cog
+sparkstone-sprout	cogs
+sparkstone-sprout	coil
+sparkstone-sprout	coils
+sparkstone-sprout	crank
+sparkstone-sprout	dial
+sparkstone-sprout	dials
+sparkstone-sprout	ding
+sparkstone-sprout	dings
+sparkstone-sprout	fan
+sparkstone-sprout	fans
+sparkstone-sprout	fix
+sparkstone-sprout	gear
+sparkstone-sprout	gears
+sparkstone-sprout	gizmo
+sparkstone-sprout	hatch
+sparkstone-sprout	lever
+sparkstone-sprout	mend
+sparkstone-sprout	panel
+sparkstone-sprout	ping
+sparkstone-sprout	pipe
+sparkstone-sprout	pipes
+sparkstone-sprout	plan
+sparkstone-sprout	plans
+sparkstone-sprout	pump
+sparkstone-sprout	pumps
+sparkstone-sprout	robot
+sparkstone-sprout	slot
+sparkstone-sprout	slots
+sparkstone-sprout	spin
+sparkstone-sprout	spins
+sparkstone-sprout	spool
+sparkstone-sprout	steam
+sparkstone-sprout	test
+sparkstone-sprout	tests
+sparkstone-sprout	tick
+sparkstone-sprout	tock
+sparkstone-sprout	tool
+sparkstone-sprout	tools
+sparkstone-sprout	tube
+sparkstone-sprout	tubes
+sparkstone-sprout	vent
+sparkstone-sprout	vents
+sparkstone-sprout	wheel
+sparkstone-sprout	whir
+sparkstone-sprout	whirl
+sparkstone-miner	beep
+sparkstone-miner	beeping
+sparkstone-miner	belt
+sparkstone-miner	belts
+sparkstone-miner	blink
+sparkstone-miner	blinking
+sparkstone-miner	blinks
+sparkstone-miner	bolt
+sparkstone-miner	chute
+sparkstone-miner	clank
+sparkstone-miner	clicking
+sparkstone-miner	clink
+sparkstone-miner	cog
+sparkstone-miner	cogs
+sparkstone-miner	coil
+sparkstone-miner	coils
+sparkstone-miner	conveyor
+sparkstone-miner	counter
+sparkstone-miner	counters
+sparkstone-miner	crank
+sparkstone-miner	cranks
+sparkstone-miner	dial
+sparkstone-miner	dials
+sparkstone-miner	ding
+sparkstone-miner	dings
+sparkstone-miner	engine
+sparkstone-miner	engines
+sparkstone-miner	factory
+sparkstone-miner	fan
+sparkstone-miner	fans
+sparkstone-miner	fix
+sparkstone-miner	gadget
+sparkstone-miner	gadgets
+sparkstone-miner	gauge
+sparkstone-miner	gauges
+sparkstone-miner	gear
+sparkstone-miner	gears
+sparkstone-miner	gizmo
+sparkstone-miner	hatch
+sparkstone-miner	humming
+sparkstone-miner	inventor
+sparkstone-miner	machine
+sparkstone-miner	machines
+sparkstone-miner	mend
+sparkstone-miner	motor
+sparkstone-miner	motors
+sparkstone-miner	panel
+sparkstone-miner	panels
+sparkstone-miner	ping
+sparkstone-miner	pipe
+sparkstone-miner	pipes
+sparkstone-miner	plan
+sparkstone-miner	plans
+sparkstone-miner	pulleys
+sparkstone-miner	pump
+sparkstone-miner	pumps
+sparkstone-miner	robot
+sparkstone-miner	robots
+sparkstone-miner	sensor
+sparkstone-miner	sensors
+sparkstone-miner	signal
+sparkstone-miner	signals
+sparkstone-miner	slot
+sparkstone-miner	slots
+sparkstone-miner	sparky
+sparkstone-miner	spin
+sparkstone-miner	spinning
+sparkstone-miner	spins
+sparkstone-miner	spool
+sparkstone-miner	spring
+sparkstone-miner	springs
+sparkstone-miner	sprocket
+sparkstone-miner	stations
+sparkstone-miner	steam
+sparkstone-miner	test
+sparkstone-miner	tests
+sparkstone-miner	tick
+sparkstone-miner	ticking
+sparkstone-miner	timer
+sparkstone-miner	timers
+sparkstone-miner	tinker
+sparkstone-miner	tock
+sparkstone-miner	tool
+sparkstone-miner	toolbox
+sparkstone-miner	tools
+sparkstone-miner	tube
+sparkstone-miner	tubes
+sparkstone-miner	valve
+sparkstone-miner	valves
+sparkstone-miner	vent
+sparkstone-miner	vents
+sparkstone-miner	wheel
+sparkstone-miner	wheels
+sparkstone-miner	whir
+sparkstone-miner	whirl
+sparkstone-miner	whirring
+sparkstone-miner	widget
+sparkstone-miner	widgets
+sparkstone-miner	workshop
+sparkstone-miner	wrench
+sparkstone-miner	wrenches
+sparkstone-builder	assembly
+sparkstone-builder	asterisk
+sparkstone-builder	automatic
+sparkstone-builder	automation
+sparkstone-builder	beep
+sparkstone-builder	beeping
+sparkstone-builder	belt
+sparkstone-builder	belts
+sparkstone-builder	blink
+sparkstone-builder	blinking
+sparkstone-builder	blinks
+sparkstone-builder	blueprint
+sparkstone-builder	blueprints
+sparkstone-builder	bolt
+sparkstone-builder	calibrate
+sparkstone-builder	calibration
+sparkstone-builder	chute
+sparkstone-builder	clank
+sparkstone-builder	clicking
+sparkstone-builder	clink
+sparkstone-builder	cogs
+sparkstone-builder	coil
+sparkstone-builder	coils
+sparkstone-builder	contraption
+sparkstone-builder	contraptions
+sparkstone-builder	conveyor
+sparkstone-builder	counter
+sparkstone-builder	counters
+sparkstone-builder	craftsmanship
+sparkstone-builder	crank
+sparkstone-builder	cranks
+sparkstone-builder	dashboard
+sparkstone-builder	dial
+sparkstone-builder	dials
+sparkstone-builder	ding
+sparkstone-builder	dings
+sparkstone-builder	engine
+sparkstone-builder	engineering
+sparkstone-builder	engines
+sparkstone-builder	equals
+sparkstone-builder	factory
+sparkstone-builder	fans
+sparkstone-builder	function
+sparkstone-builder	functions
+sparkstone-builder	gadget
+sparkstone-builder	gadgets
+sparkstone-builder	gauge
+sparkstone-builder	gauges
+sparkstone-builder	gear
+sparkstone-builder	gears
+sparkstone-builder	gizmo
+sparkstone-builder	hatch
+sparkstone-builder	humming
+sparkstone-builder	indicator
+sparkstone-builder	indicators
+sparkstone-builder	instruction
+sparkstone-builder	instructions
+sparkstone-builder	inventions
+sparkstone-builder	inventors
+sparkstone-builder	machines
+sparkstone-builder	mechanism
+sparkstone-builder	mechanisms
+sparkstone-builder	mend
+sparkstone-builder	motor
+sparkstone-builder	motors
+sparkstone-builder	panel
+sparkstone-builder	panels
+sparkstone-builder	parentheses
+sparkstone-builder	parenthesis
+sparkstone-builder	pattern
+sparkstone-builder	patterns
+sparkstone-builder	ping
+sparkstone-builder	pipe
+sparkstone-builder	pipes
+sparkstone-builder	plan
+sparkstone-builder	plans
+sparkstone-builder	precision
+sparkstone-builder	prototype
+sparkstone-builder	prototypes
+sparkstone-builder	pulleys
+sparkstone-builder	pump
+sparkstone-builder	pumps
+sparkstone-builder	repeat
+sparkstone-builder	repeating
+sparkstone-builder	robot
+sparkstone-builder	robots
+sparkstone-builder	sensor
+sparkstone-builder	sensors
+sparkstone-builder	sequence
+sparkstone-builder	sequences
+sparkstone-builder	signal
+sparkstone-builder	signals
+sparkstone-builder	slot
+sparkstone-builder	slots
+sparkstone-builder	sparky
+sparkstone-builder	spin
+sparkstone-builder	spinning
+sparkstone-builder	spins
+sparkstone-builder	spool
+sparkstone-builder	spring
+sparkstone-builder	springs
+sparkstone-builder	sprocket
+sparkstone-builder	sprockets
+sparkstone-builder	stations
+sparkstone-builder	steam
+sparkstone-builder	symbol
+sparkstone-builder	symbols
+sparkstone-builder	test
+sparkstone-builder	tests
+sparkstone-builder	tick
+sparkstone-builder	ticking
+sparkstone-builder	timer
+sparkstone-builder	timers
+sparkstone-builder	tinker
+sparkstone-builder	tinkering
+sparkstone-builder	tock
+sparkstone-builder	tool
+sparkstone-builder	toolbox
+sparkstone-builder	tools
+sparkstone-builder	tube
+sparkstone-builder	tubes
+sparkstone-builder	underscore
+sparkstone-builder	valve
+sparkstone-builder	valves
+sparkstone-builder	vent
+sparkstone-builder	vents
+sparkstone-builder	wheel
+sparkstone-builder	wheels
+sparkstone-builder	whir
+sparkstone-builder	whirl
+sparkstone-builder	whirring
+sparkstone-builder	widget
+sparkstone-builder	widgets
+sparkstone-builder	workshop
+sparkstone-builder	wrench
+sparkstone-builder	wrenches
+sparkstone-code-sprout	lamp_on
+sparkstone-code-sprout	lamp_off
+sparkstone-code-sprout	cart-1
+sparkstone-code-sprout	cart-2
+sparkstone-code-sprout	gems + 2
+sparkstone-code-sprout	cogs + 1
+sparkstone-code-sprout	3 + 4
+sparkstone-code-sprout	5 = 5
+sparkstone-code-sprout	hop()
+sparkstone-code-sprout	spin()
+sparkstone-code-sprout	beep()
+sparkstone-code-sprout	go()
+sparkstone-code-sprout	my #gems: 3
+sparkstone-code-sprout	all #cogs: 7
+sparkstone-code-sprout	(1 + 1)
+sparkstone-code-sprout	red-cap
+sparkstone-code-sprout	big_gear
+sparkstone-code-sprout	tick-tock
+sparkstone-code-sprout	2 * 3
+sparkstone-code-sprout	on/off
+sparkstone-code-sprout	yes/no
+sparkstone-code-sprout	top-row
+sparkstone-code-sprout	gear: 8
+sparkstone-code-sprout	pipe-4
+sparkstone-code-sprout	pup @ home
+sparkstone-code-miner	light_on()
+sparkstone-code-miner	mine-cart-3
+sparkstone-code-miner	total #blocks: 12
+sparkstone-code-miner	gears = 4
+sparkstone-code-miner	lamp_on = yes
+sparkstone-code-miner	cart_speed = 5
+sparkstone-code-miner	open(gate)
+sparkstone-code-miner	bake(bread)
+sparkstone-code-miner	plant(seeds)
+sparkstone-code-miner	spin_gear()
+sparkstone-code-miner	ring_bell()
+sparkstone-code-miner	water_plants()
+sparkstone-code-miner	gems * 2
+sparkstone-code-miner	lit #lanterns: 9
+sparkstone-code-miner	belt-2-fast
+sparkstone-code-miner	pipe_12
+sparkstone-code-miner	valve(open)
+sparkstone-code-miner	(3 + 4) * 2
+sparkstone-code-miner	10 / 2 = 5
+sparkstone-code-miner	gear-A
+sparkstone-code-miner	gear-B
+sparkstone-code-miner	robot_wave()
+sparkstone-code-miner	day/night
+sparkstone-code-miner	cart @ station 7
+sparkstone-code-miner	seeds: 24
+sparkstone-code-miner	blocks + bricks
+sparkstone-code-miner	total = 6 + 9
+sparkstone-code-miner	lamp-row-4
+sparkstone-code-miner	mix(paint)
+sparkstone-code-builder	build_bridge(10)
+sparkstone-code-builder	light_all(lanterns)
+sparkstone-code-builder	move_cart(track-3)
+sparkstone-code-builder	now #gears_turning: 48
+sparkstone-code-builder	stack(blocks) * 64
+sparkstone-code-builder	paint_wall(blue)
+sparkstone-code-builder	fill(bucket) * 3
+sparkstone-code-builder	speed = (5 + 3) * 2
+sparkstone-code-builder	belt_A + belt_B
+sparkstone-code-builder	sort(gems)
+sparkstone-code-builder	cogs_counted: 128
+sparkstone-code-builder	sprocket-7-small
+sparkstone-code-builder	pipe_14 = open
+sparkstone-code-builder	lift(crate) / 2
+sparkstone-code-builder	(gears + cogs) * 4
+sparkstone-code-builder	height = 12 + 6
+sparkstone-code-builder	open_valve(2)
+sparkstone-code-builder	water(garden)
+sparkstone-code-builder	plant_row(5)
+sparkstone-code-builder	wave_hello()
+sparkstone-code-builder	draw(circle)
+sparkstone-code-builder	tune(bell_3)
+sparkstone-code-builder	team #robots_happy: 9
+sparkstone-code-builder	lever-panel-11
+sparkstone-code-builder	map_grid = 8 * 8
+sparkstone-code-builder	timer: 1:30
+sparkstone-code-builder	pump(water) + 2
+sparkstone-code-builder	greet(friend)
+sparkstone-code-builder	start_conveyor()
+sparkstone-code-builder	smile_count = 100
+citadel-sprout	airy
+citadel-sprout	bells
+citadel-sprout	climb
+citadel-sprout	comet
+citadel-sprout	crown
+citadel-sprout	dash
+citadel-sprout	dove
+citadel-sprout	doves
+citadel-sprout	drift
+citadel-sprout	drum
+citadel-sprout	drums
+citadel-sprout	flag
+citadel-sprout	flags
+citadel-sprout	flap
+citadel-sprout	flaps
+citadel-sprout	float
+citadel-sprout	flute
+citadel-sprout	glide
+citadel-sprout	gull
+citadel-sprout	harp
+citadel-sprout	high
+citadel-sprout	loft
+citadel-sprout	lofty
+citadel-sprout	loop
+citadel-sprout	loops
+citadel-sprout	mast
+citadel-sprout	masts
+citadel-sprout	orbit
+citadel-sprout	perch
+citadel-sprout	puffs
+citadel-sprout	ramp
+citadel-sprout	ramps
+citadel-sprout	ray
+citadel-sprout	rays
+citadel-sprout	roost
+citadel-sprout	soar
+citadel-sprout	stair
+citadel-sprout	swift
+citadel-sprout	swoop
+citadel-sprout	tower
+citadel-sprout	twirl
+citadel-sprout	upper
+citadel-sprout	view
+citadel-miner	accurate
+citadel-miner	airship
+citadel-miner	airships
+citadel-miner	airy
+citadel-miner	aloft
+citadel-miner	balcony
+citadel-miner	banner
+citadel-miner	banners
+citadel-miner	beacons
+citadel-miner	bell
+citadel-miner	bells
+citadel-miner	blue
+citadel-miner	castle
+citadel-miner	castles
+citadel-miner	champion
+citadel-miner	crown
+citadel-miner	dash
+citadel-miner	daylight
+citadel-miner	dove
+citadel-miner	doves
+citadel-miner	drift
+citadel-miner	drum
+citadel-miner	drumroll
+citadel-miner	drums
+citadel-miner	flag
+citadel-miner	flags
+citadel-miner	flap
+citadel-miner	flaps
+citadel-miner	float
+citadel-miner	flute
+citadel-miner	fly
+citadel-miner	focused
+citadel-miner	fountain
+citadel-miner	garden
+citadel-miner	gardens
+citadel-miner	gliders
+citadel-miner	gull
+citadel-miner	harp
+citadel-miner	high
+citadel-miner	hilltop
+citadel-miner	horizon
+citadel-miner	keep
+citadel-miner	loft
+citadel-miner	lofty
+citadel-miner	lookout
+citadel-miner	loop
+citadel-miner	loops
+citadel-miner	mast
+citadel-miner	mastery
+citadel-miner	masts
+citadel-miner	nest
+citadel-miner	orbit
+citadel-miner	pennant
+citadel-miner	perch
+citadel-miner	plume
+citadel-miner	practice
+citadel-miner	puffs
+citadel-miner	ramp
+citadel-miner	rampart
+citadel-miner	ramps
+citadel-miner	ray
+citadel-miner	rays
+citadel-miner	roost
+citadel-miner	skyway
+citadel-miner	soar
+citadel-miner	speedy
+citadel-miner	spire
+citadel-miner	spires
+citadel-miner	stair
+citadel-miner	steady
+citadel-miner	sunrise
+citadel-miner	swift
+citadel-miner	swoop
+citadel-miner	tower
+citadel-miner	towers
+citadel-miner	trumpet
+citadel-miner	turret
+citadel-miner	turrets
+citadel-miner	twilight
+citadel-miner	twirl
+citadel-miner	upper
+citadel-miner	victory
+citadel-miner	view
+citadel-miner	wind
+citadel-miner	windmill
+citadel-builder	accomplishment
+citadel-builder	accuracy
+citadel-builder	accurate
+citadel-builder	achievement
+citadel-builder	achievements
+citadel-builder	aerodynamic
+citadel-builder	airship
+citadel-builder	airships
+citadel-builder	airy
+citadel-builder	aloft
+citadel-builder	architecture
+citadel-builder	balcony
+citadel-builder	banner
+citadel-builder	banners
+citadel-builder	beacons
+citadel-builder	bell
+citadel-builder	bells
+citadel-builder	blue
+citadel-builder	castle
+citadel-builder	castles
+citadel-builder	celebrations
+citadel-builder	champion
+citadel-builder	championship
+citadel-builder	cirrus
+citadel-builder	concentration
+citadel-builder	confidence
+citadel-builder	consistency
+citadel-builder	courtyard
+citadel-builder	crown
+citadel-builder	cumulus
+citadel-builder	dash
+citadel-builder	determination
+citadel-builder	dove
+citadel-builder	doves
+citadel-builder	drift
+citadel-builder	drum
+citadel-builder	drumroll
+citadel-builder	drums
+citadel-builder	flag
+citadel-builder	flags
+citadel-builder	flap
+citadel-builder	flaps
+citadel-builder	float
+citadel-builder	flute
+citadel-builder	focused
+citadel-builder	fountain
+citadel-builder	garden
+citadel-builder	gardens
+citadel-builder	gliders
+citadel-builder	gull
+citadel-builder	harp
+citadel-builder	high
+citadel-builder	improvement
+citadel-builder	keep
+citadel-builder	loft
+citadel-builder	lofty
+citadel-builder	loop
+citadel-builder	loops
+citadel-builder	mast
+citadel-builder	mastery
+citadel-builder	masts
+citadel-builder	nest
+citadel-builder	orbit
+citadel-builder	panorama
+citadel-builder	panoramic
+citadel-builder	pennant
+citadel-builder	perch
+citadel-builder	perseverance
+citadel-builder	plume
+citadel-builder	practice
+citadel-builder	puffs
+citadel-builder	ramp
+citadel-builder	rampart
+citadel-builder	ramps
+citadel-builder	rays
+citadel-builder	roost
+citadel-builder	skybridge
+citadel-builder	skyscraper
+citadel-builder	skyway
+citadel-builder	soar
+citadel-builder	speedy
+citadel-builder	spire
+citadel-builder	spires
+citadel-builder	stair
+citadel-builder	steady
+citadel-builder	stratosphere
+citadel-builder	stratus
+citadel-builder	swift
+citadel-builder	swoop
+citadel-builder	tower
+citadel-builder	towers
+citadel-builder	trumpet
+citadel-builder	turret
+citadel-builder	turrets
+citadel-builder	twirl
+citadel-builder	unforgettable
+citadel-builder	upper
+citadel-builder	victory
+citadel-builder	view
+citadel-builder	weathervane
+citadel-builder	wind
+citadel-builder	windmill
+citadel-phrases-miner	high above the clouds
+citadel-phrases-miner	the tallest tower
+citadel-phrases-miner	a breezy balcony
+citadel-phrases-miner	flags on every turret
+citadel-phrases-miner	the airship floats by
+citadel-phrases-miner	bells ring at noon
+citadel-phrases-miner	the garden in the sky
+citadel-phrases-miner	a bridge of clouds
+citadel-phrases-miner	steady hands go far
+citadel-phrases-miner	slow and steady
+citadel-phrases-miner	eyes on the screen
+citadel-phrases-miner	fingers on home row
+citadel-phrases-miner	Sky Citadel at sunrise
+citadel-phrases-miner	the courtyard fountain
+citadel-phrases-miner	a golden pennant
+citadel-phrases-miner	kites over the rampart
+citadel-phrases-miner	the lookout sees far
+citadel-phrases-miner	feathers on the breeze
+citadel-phrases-miner	a rainbow skyway
+citadel-phrases-miner	stars over the spire
+citadel-phrases-miner	the final climb
+citadel-phrases-miner	one more step
+citadel-phrases-miner	you are almost there
+citadel-phrases-miner	keep your rhythm
+citadel-phrases-miner	type with care
+citadel-phrases-miner	the gliders glide
+citadel-phrases-miner	balloons in a row
+citadel-phrases-miner	the windmill turns
+citadel-phrases-miner	a calm clear sky
+citadel-phrases-miner	the view from the top
+citadel-phrases-builder	above the cumulus clouds
+citadel-phrases-builder	the observatory telescope
+citadel-phrases-builder	constellations at twilight
+citadel-phrases-builder	a panoramic view
+citadel-phrases-builder	the weathervane spins east
+citadel-phrases-builder	accuracy before speed
+citadel-phrases-builder	practice makes progress
+citadel-phrases-builder	consistency builds confidence
+citadel-phrases-builder	the championship gauntlet
+citadel-phrases-builder	an extraordinary journey
+citadel-phrases-builder	steady rhythm and focus
+citadel-phrases-builder	the final mastery check
+citadel-phrases-builder	airships at high altitude
+citadel-phrases-builder	the skybridge to the spire
+citadel-phrases-builder	celebration in the courtyard
+citadel-phrases-builder	a magnificent citadel
+citadel-phrases-builder	determination and patience
+citadel-phrases-builder	perseverance pays off
+citadel-phrases-builder	a spectacular sunset
+citadel-phrases-builder	the stratosphere is blue
+citadel-phrases-builder	architecture of the clouds
+citadel-phrases-builder	improvement every day
+citadel-phrases-builder	calm hands quick keys
+citadel-phrases-builder	every key in its place
+citadel-phrases-builder	look ahead not down
+citadel-phrases-builder	breathe and keep going
+citadel-phrases-builder	the summit of the sky
+citadel-phrases-builder	unforgettable adventure
+citadel-phrases-builder	the last tower awaits
+citadel-phrases-builder	a banner on every spire
+frosty-sentences-miner	the frost pup runs to the top of the hill
+frosty-sentences-miner	snow falls soft on the little island
+frosty-sentences-miner	we packed warm socks and a big blue scarf
+frosty-sentences-miner	the lantern on the island glows a little brighter
+frosty-sentences-miner	a fox naps in the snow by the pine trees
+frosty-sentences-miner	the kids build a snow fort out of white blocks
+frosty-sentences-miner	hot cocoa makes cold hands feel warm again
+frosty-sentences-miner	the frost pup wags its tail at the falling snow
+frosty-sentences-miner	we slide down the hill on a wooden sled
+frosty-sentences-miner	ice on the lake shines like glass
+frosty-sentences-miner	the moon is bright over the frosty peaks
+frosty-sentences-miner	a snowy owl sits on a pine branch
+frosty-sentences-miner	tiny flakes land on my mitten
+frosty-sentences-miner	the yak has a coat of thick soft wool
+frosty-sentences-miner	we follow the paw prints up the trail
+frosty-sentences-miner	the cabin has a cozy rug and a warm quilt
+frosty-sentences-miner	stars twinkle over the quiet snowy valley
+frosty-sentences-miner	the pup found a shiny blue stone in the snow
+frosty-sentences-miner	my scarf is red and my hat is green
+frosty-sentences-miner	we stack snow blocks to make a tall tower
+frosty-sentences-miner	the wind sings a soft song in the pines
+frosty-sentences-miner	a little seal waves a flipper from the ice
+frosty-sentences-miner	the trail goes up and up to the peak
+frosty-sentences-miner	we share warm bread by the lantern light
+frosty-sentences-miner	frost makes lacy patterns on the window
+frosty-sentences-miner	the elk walks slowly through the deep snow
+frosty-sentences-miner	a hare hops past with big white feet
+frosty-sentences-miner	the sun comes up and the snow sparkles
+frosty-sentences-miner	we skate in a big circle on the pond
+frosty-sentences-miner	the island lantern waits for us at home
+frosty-sentences-builder	the frost pup leads the way up the mountain trail and waits for us at every bend
+frosty-sentences-builder	our sled zooms down the long hill and stops softly in a pile of fresh powder
+frosty-sentences-builder	we carved a staircase into the snowbank so the little pups could climb to the top
+frosty-sentences-builder	high on the frosty peaks the air is crisp and the whole island looks tiny below
+frosty-sentences-builder	each snowflake has six arms and no two of them are ever exactly the same
+frosty-sentences-builder	the old map shows a hidden valley where the snow foxes play in the moonlight
+frosty-sentences-builder	we brought a pot of cocoa and shared it with everyone at the lookout
+frosty-sentences-builder	the big lantern on home island shines a little brighter every time we travel
+frosty-sentences-builder	a family of yaks walks in a line through the quiet valley
+frosty-sentences-builder	the ice cave glows blue when the morning sun shines through the walls
+frosty-sentences-builder	we built an igloo with round snow blocks and a tunnel for a door
+frosty-sentences-builder	the snowy owl turned its head and blinked its big golden eyes at us
+frosty-sentences-builder	my mittens are soaked but my cheeks are pink and my heart is happy
+frosty-sentences-builder	the moose munched on willow twigs at the edge of the frozen lake
+frosty-sentences-builder	we counted the stars until our eyes grew sleepy and we headed back to camp
+frosty-sentences-builder	the trail markers are painted bright orange so the path is easy to follow
+frosty-sentences-builder	a gentle breeze brushed the snow off the branches like powdered sugar
+frosty-sentences-builder	the frost pup curled up by the warm stove and snored a tiny happy snore
+frosty-sentences-builder	at the top of the peak we planted a flag and waved to the island far below
+frosty-sentences-builder	the mountain hut has bunk beds and shelves full of board games
+frosty-sentences-builder	we followed a line of tiny bird tracks that zigzagged across the frozen meadow
+frosty-sentences-builder	a sleepy polar bear yawned and rolled over in the soft snow
+frosty-sentences-builder	the northern lights painted the sky with ribbons of green and purple
+frosty-sentences-builder	every evening we light the lantern and tell stories about our day
+frosty-sentences-builder	the snow was so deep that it came all the way up to our knees
+frosty-sentences-builder	we packed snow into molds to build a little village of tiny houses
+frosty-sentences-builder	a quiet hush settles over the forest when the first snowflakes drift down
+frosty-sentences-builder	the arctic fox changes its coat from brown in summer to white in winter
+frosty-sentences-builder	our team rolled three giant snowballs and stacked them into a friendly snow giant
+frosty-sentences-builder	the wind whistled over the ridge but we were warm inside our cozy tent
+frosty-sentences-builder	icicles lined the edge of the roof like a row of shining crystals
+frosty-sentences-builder	we took turns pulling the sled so that everyone could have a rest
+frosty-sentences-builder	the hot spring steamed in the cold air and the yaks gathered around it to stay warm
+frosty-sentences-builder	a tiny wren hopped along the fence looking for seeds in the snow
+frosty-sentences-builder	the ski lift carried us slowly over the trees to the top of the mountain
+frosty-sentences-builder	after a long day in the snow we had warm soup and went to bed early
+frosty-sentences-builder	the frozen waterfall looked like a giant curtain made of crystal
+frosty-sentences-builder	penguins live far to the south so we will not meet any up here
+frosty-sentences-builder	the snowplow cleared the road so the bakery could open in the morning
+frosty-sentences-builder	when spring comes the snow will melt and the meadow will bloom again
+mines-sentences-sprout	Mia has a red cart
+mines-sentences-sprout	Ben digs in the mine
+mines-sentences-sprout	The cart goes down the track
+mines-sentences-sprout	Rosa sees a big blue gem
+mines-sentences-sprout	Leo has a lamp on his hat
+mines-sentences-sprout	The mole says hi to Uma
+mines-sentences-sprout	We ride the cart to Gem Hall
+mines-sentences-sprout	Omar finds a gold rock
+mines-sentences-sprout	The bat naps in the cave
+mines-sentences-sprout	Nora and Sam go to the mine
+mines-sentences-sprout	I can see the Iron Gate
+mines-sentences-sprout	The lamp is on in Glow Cave
+mines-sentences-sprout	Theo has a pick and a map
+mines-sentences-sprout	A Cave Bat flaps its wings
+mines-sentences-sprout	We like the Deep Mines
+mines-sentences-sprout	Dad and I ride the rail
+mines-sentences-sprout	Mom packs a snack for me
+mines-sentences-sprout	The gem is pink and shiny
+mines-sentences-sprout	Ada sees the Big Lantern glow
+mines-sentences-sprout	Hugo and Isla ride a cart
+mines-sentences-sprout	The rocks go clink and clank
+mines-sentences-sprout	Lin puts a gem in a box
+mines-sentences-sprout	Kofi has a hat with a lamp
+mines-sentences-sprout	The mine cart is red and gold
+mines-sentences-sprout	We take the gems home
+mines-sentences-miner	Sofia rides the mine cart down Lantern Lane
+mines-sentences-miner	The Big Lantern on Home Island needs a new crystal
+mines-sentences-miner	Hiro found a green gem near Copper Creek
+mines-sentences-miner	On Monday the miners meet at Silver Rail Station
+mines-sentences-miner	Jamal and Lucia took the long tunnel to Echo Hall
+mines-sentences-miner	A friendly mole popped up and waved at Imani
+mines-sentences-miner	The cart rolled past Quartz Corner and into Shimmer Hall
+mines-sentences-miner	Mateo keeps his maps in a basket by the door
+mines-sentences-miner	Nadia drew a map of every tunnel in the Deep Mines
+mines-sentences-miner	Grandpa Eli showed us how to fix a squeaky wheel
+mines-sentences-miner	The lamps along the track glow a soft yellow
+mines-sentences-miner	Farah stacked the coal blocks in neat rows
+mines-sentences-miner	In April we go to the Great Gem Fair
+mines-sentences-miner	Quinn counts the carts as they roll by
+mines-sentences-miner	Every Friday Wei brings warm muffins to the mine
+mines-sentences-miner	The Cave Bat sleeps upside down and smiles at us
+mines-sentences-miner	Carlos and Elena built a bridge over the stream
+mines-sentences-miner	We found a glittering geode at the bottom of the ladder
+mines-sentences-miner	The Moss Golem helps carry heavy crates to the depot
+mines-sentences-miner	Yusuf likes to ring the bell when the cart arrives
+mines-sentences-miner	Zainab has a helmet with a bright blue lamp
+mines-sentences-miner	The tunnel to Glow Cave is lit with tiny crystals
+mines-sentences-miner	On Sunday the whole mine takes a rest
+mines-sentences-miner	Our cart is called Rusty and it never goes too fast
+mines-sentences-miner	Tomas and Amara traded a ruby for a bag of apples
+mines-sentences-miner	The miners sing a happy song as they work
+mines-sentences-miner	Rafael painted a sign that says Welcome to the Deep Mines
+mines-sentences-miner	A Slimeling bounced along the rails behind our cart
+mines-sentences-miner	We sent a crystal up to Home Island in a basket
+mines-sentences-miner	The Big Lantern glows a little brighter tonight
+mines-sentences-miner	Aunt Mei has a lamp shop on Pebble Path
+mines-sentences-miner	In October the mines hold a lantern parade
+mines-sentences-miner	Dev and Tess found a fossil shaped like a shell
+mines-sentences-miner	The old wagon road leads back to Birch Forest
+mines-sentences-miner	Ezra wrote his name in the Gem Hall guest book
+mines-sentences-builder	The Big Lantern on Home Island has grown dim and we need crystals from every biome
+mines-sentences-builder	Our first stop is the Deep Mines where the miners have dug tunnels for many years
+mines-sentences-builder	Valeria checks the Brightvein Tunnel map before the cart leaves Pebbleton Station
+mines-sentences-builder	The Deep Mine Line connects Glowhollow Junction with Copperbend Crossing
+mines-sentences-builder	Gabriel is a geologist who studies the layers of limestone and sandstone
+mines-sentences-builder	Every Wednesday the Stonemason Street workshop teaches kids how to carve tiles
+mines-sentences-builder	Beatriz and Kalani measured the tallest stalagmite in the Stalactite Room
+mines-sentences-builder	A cartographer named Xavier is drawing a new map of the Silverdeep tunnels
+mines-sentences-builder	In September the Lanternwell Square market sells bright lamps and warm pies
+mines-sentences-builder	The Moss Golem walks slowly but carries more stones than anyone else in the mines
+mines-sentences-builder	Olivia polished a moonstone until it shone like a tiny pale moon
+mines-sentences-builder	Ingrid keeps a notebook of every mineral she finds near Ironbrook Bridge
+mines-sentences-builder	The Cave Bats of Glimmerford sleep all day and come out at night to catch bugs
+mines-sentences-builder	Rashid fixed the brakes on the mine cart so it stops gently at each station
+mines-sentences-builder	We followed the signposts from Waypoint Seven all the way to Crystalmere Lake
+mines-sentences-builder	The miners of Quartzvale share their lunch at a long wooden table
+mines-sentences-builder	Soraya is the best gemcutter in the Deep Mines and she loves to teach
+mines-sentences-builder	Paolo pulled the lever and the little lift rose up to the next level
+mines-sentences-builder	The Gemwater Springs are warm and the water sparkles with tiny flecks of gold
+mines-sentences-builder	A friendly prospector named Tatiana showed us how to pan for shiny stones
+mines-sentences-builder	Dmitri built a model of the mines out of craft sticks and glue
+mines-sentences-builder	The Tinkerton Toolshed has a hammer for every job and a hook for every rope
+mines-sentences-builder	On the first day of January the miners light every lantern in the Deep Mines
+mines-sentences-builder	We packed sandwiches and apples before we rode down to Shimmerpool Steps
+mines-sentences-builder	The Discovery Museum has a room full of fossils and a huge crystal in the middle
+mines-sentences-builder	Our Slimeling friend bounced ahead to check that the tunnel was clear
+mines-sentences-builder	Grandma Noor tells stories about the first miners who came to Stonereach long ago
+mines-sentences-builder	The surveyor uses a compass and a long tape to measure each new tunnel
+mines-sentences-builder	Hiro and Imani won a ribbon at the Great Gem Fair for their crystal garden
+mines-sentences-builder	The first stone of Cornerstone Hall was set in place by the very first miners
+mines-sentences-builder	A Lantern Fish swims in the underground lake and lights the water green
+mines-sentences-builder	The Engineer Workshop builds new carts every winter and paints them bright colors
+mines-sentences-builder	When the bell rings at noon everyone in Mossglen stops for a picnic
+mines-sentences-builder	Our mine cart is named Pebble and it squeaks a little on every corner
+mines-sentences-builder	Copperbend Crossing is where the red line and the blue line meet
+mines-sentences-builder	Lucia found a crystal shaped like a star and carried it up to the Big Lantern
+mines-sentences-builder	The Big Lantern glowed brighter and a cheer echoed through the Deep Mines
+mines-sentences-builder	Next we will ride the cart up to the surface and head for Mushroom Marsh
+mines-sentences-builder	In November the woodcarvers of Woodcarver Way make little wooden carts for kids
+mines-sentences-builder	The Goldsmith Gallery shows rings and bracelets made from Deep Mines gold
+marsh-sentences-sprout	I see 3 red caps
+marsh-sentences-sprout	5 frogs sit on a log
+marsh-sentences-sprout	Mia has 2 green boots
+marsh-sentences-sprout	The snail is in Room 12
+marsh-sentences-sprout	Ben counts 10 bugs
+marsh-sentences-sprout	4 ducks swim in the pond
+marsh-sentences-sprout	We hop on 6 big pads
+marsh-sentences-sprout	Rosa has 1 pink cap
+marsh-sentences-sprout	Leo sees 7 little toads
+marsh-sentences-sprout	2 slugs nap on a leaf
+marsh-sentences-sprout	The frog jumps 3 times
+marsh-sentences-sprout	Uma picks 8 mushrooms
+marsh-sentences-sprout	We walk on Path 9
+marsh-sentences-sprout	9 bees buzz by the reeds
+marsh-sentences-sprout	Omar has 4 wet socks
+marsh-sentences-sprout	The hut has 2 doors
+marsh-sentences-sprout	I can count to 20
+marsh-sentences-sprout	6 snails go for a walk
+marsh-sentences-sprout	Theo has 5 red dots on his hat
+marsh-sentences-sprout	A frog sat on Log 7
+marsh-sentences-sprout	We see 11 moths at night
+marsh-sentences-sprout	Nora has 3 jars of jam
+marsh-sentences-sprout	12 caps grow by the pond
+marsh-sentences-sprout	1 big frog says hi
+marsh-sentences-sprout	We found 15 pink spots
+marsh-sentences-miner	The Mushroom Marsh has 24 kinds of glowing mushrooms
+marsh-sentences-miner	Sofia and Mateo hopped across 13 lily pads to reach the hut
+marsh-sentences-miner	Room 21 at the Marsh Inn has a round window
+marsh-sentences-miner	Our team counted 48 tadpoles in Pond 6
+marsh-sentences-miner	The boardwalk is 150 steps long and it bends 3 times
+marsh-sentences-miner	At 4 in the afternoon the frogs sing together
+marsh-sentences-miner	Hiro planted 12 seeds and 9 of them sprouted
+marsh-sentences-miner	The Big Lantern needs 1 marsh crystal to glow brighter
+marsh-sentences-miner	Imani found the crystal under mushroom number 7
+marsh-sentences-miner	The heron stands on 1 leg for a very long time
+marsh-sentences-miner	We picked 30 berries and shared them with 5 friends
+marsh-sentences-miner	Jamal saw 2 dragonflies with 4 wings each
+marsh-sentences-miner	A Slimeling bounced 10 times and landed in a puddle
+marsh-sentences-miner	Lucia keeps 6 pet snails in a glass box with moss
+marsh-sentences-miner	The marsh bus stops at Bridge 8 and Bridge 9
+marsh-sentences-miner	Quinn has 100 stickers in a blue book
+marsh-sentences-miner	Every 2 days the mushroom folk bake 40 loaves of bread
+marsh-sentences-miner	The tallest toadstool is 3 blocks high
+marsh-sentences-miner	Farah drew 14 frogs on a map of the marsh
+marsh-sentences-miner	Hut 16 is the one with the purple roof
+marsh-sentences-miner	We walked 2000 steps and then sat on a mossy bench
+marsh-sentences-miner	Wei gave 3 apples to the friendly Moss Golem
+marsh-sentences-miner	In 1 week the lily flowers will open
+marsh-sentences-miner	The marsh map has 9 trails and 5 bridges
+marsh-sentences-miner	Carlos and Elena built a raft out of 8 logs
+marsh-sentences-miner	The frog choir has 20 singers and 1 very loud toad
+marsh-sentences-miner	Nadia saved 25 coins to buy a new lantern
+marsh-sentences-miner	Yusuf scored 7 points in the lily pad game
+marsh-sentences-miner	The mushroom market opens at 9 and closes at 5
+marsh-sentences-miner	Zainab knows there are 7 days in a week
+marsh-sentences-miner	Amara found 3 crystals but kept only 1 for the Big Lantern
+marsh-sentences-miner	Our raft floated past 11 sleepy turtles
+marsh-sentences-miner	Trail 5 ends at a pond with 2 big rocks
+marsh-sentences-miner	The glowcaps light up when 3 or more grow together
+marsh-sentences-miner	Rafael wrote 10 thank you notes to the mushroom folk
+marsh-sentences-builder	The Mushroom Marsh map lists 128 kinds of mushrooms and 37 kinds of moss
+marsh-sentences-builder	Boardwalk 14 runs for 450 steps and crosses 6 little bridges over the reeds
+marsh-sentences-builder	Valeria counted 256 glowcaps in Grove 3 and wrote the number in her notebook
+marsh-sentences-builder	The marsh crystal for the Big Lantern rests in Room 204 of the Old Mill
+marsh-sentences-builder	Gabriel knows that a single frog can lay more than 1000 eggs in one spring
+marsh-sentences-builder	Our team needs 1 marsh crystal and the mushroom folk say it is close by
+marsh-sentences-builder	In the year 2031 the marsh school planted 500 new willow trees
+marsh-sentences-builder	The mushroom folk bake 72 loaves on Saturday and give half to their neighbors
+marsh-sentences-builder	Beatriz timed a dragonfly and it flew 10 meters in about 2 seconds
+marsh-sentences-builder	The Lily Pond Library has 1200 books and 15 cozy reading nooks
+marsh-sentences-builder	Kalani and Xavier paddled 4 kilometers from Hut 31 to the Fern Patch
+marsh-sentences-builder	A salamander has 4 toes on each front foot and 5 toes on each back foot
+marsh-sentences-builder	The marsh train leaves Station 17 at 9 and reaches Station 18 at 10
+marsh-sentences-builder	Olivia sorted 64 mushrooms into 8 baskets with 8 in each basket
+marsh-sentences-builder	If you multiply 6 by 7 you get 42 and if you add 6 and 7 you get 13
+marsh-sentences-builder	Ingrid measured the rain and found that 12 millimeters fell overnight
+marsh-sentences-builder	The heron colony has 19 nests in the tall trees near Pond 2
+marsh-sentences-builder	Rashid carved the numbers 1 to 100 on a long wooden counting board
+marsh-sentences-builder	It takes about 12 weeks for a tadpole to grow into a frog
+marsh-sentences-builder	The marsh festival has 40 food stalls and 1 giant mushroom slide
+marsh-sentences-builder	Soraya built a bridge from 36 planks and tested it with 10 friends
+marsh-sentences-builder	The Moss Golem is 9 blocks tall but it moves very gently through the reeds
+marsh-sentences-builder	Paolo found the marsh crystal under the 99th lily pad on Trail 13
+marsh-sentences-builder	Tatiana counted by 5 all the way to 200 without stopping once
+marsh-sentences-builder	The Big Lantern now holds 2 crystals and glows twice as bright as before
+marsh-sentences-builder	Dmitri recorded 14 different frog songs on his little sound box
+marsh-sentences-builder	Our score in the lily pad relay was 1250 points which is a new team record
+marsh-sentences-builder	The marsh has 7 bridges and every bridge is painted a different color
+marsh-sentences-builder	Grandma Noor grows 30 kinds of herbs in her garden behind Hut 9
+marsh-sentences-builder	There are 365 days in a year and 366 days in a leap year
+marsh-sentences-builder	The mushroom folk light 88 tiny lanterns on the longest night of the year
+marsh-sentences-builder	Our group walked 3 miles along Trail 18 and saw 21 kinds of birds
+marsh-sentences-builder	The pond is 30 meters wide and 50 meters long with a little island in the middle
+marsh-sentences-builder	The friendly toad at Gate 10 checks tickets and gives every visitor a sticker
+marsh-sentences-builder	Hiro saved 45 coins for 6 weeks so he could buy a paint set for his sister
+marsh-sentences-builder	Lot 410 is a quiet field where 12 families of rabbits live under the ferns
+marsh-sentences-builder	The next crystal is not in the marsh so we will look for it in the caverns
+marsh-sentences-builder	The town clock in Mossglen chimes 12 times at noon and 6 times at dinner
+marsh-sentences-builder	Imani planted 3 rows of 15 cranberry bushes which makes 45 bushes in all
+marsh-sentences-builder	Before we left the mushroom folk gave us 20 jars of honey for the trip
+caverns-sentences-sprout	I see a gem!
+caverns-sentences-sprout	Is that a bat?
+caverns-sentences-sprout	The cave is so pretty.
+caverns-sentences-sprout	Mia said, "Look up!"
+caverns-sentences-sprout	Ben's lamp is on.
+caverns-sentences-sprout	Can you see the crab?
+caverns-sentences-sprout	Wow, it is pink!
+caverns-sentences-sprout	We sat by the pool.
+caverns-sentences-sprout	"Hi, bat!" said Leo.
+caverns-sentences-sprout	Rosa has a big, red gem.
+caverns-sentences-sprout	Is it time to go home?
+caverns-sentences-sprout	Yes, it is time.
+caverns-sentences-sprout	Uma's hat has a lamp.
+caverns-sentences-sprout	Let's look in here.
+caverns-sentences-sprout	The crab is blue and kind.
+caverns-sentences-sprout	Do you hear the drip?
+caverns-sentences-sprout	It's a quiet cave.
+caverns-sentences-sprout	"I like it here," said Omar.
+caverns-sentences-sprout	The gems glow at night.
+caverns-sentences-sprout	Look, a rainbow!
+caverns-sentences-sprout	Theo can't wait to see it.
+caverns-sentences-sprout	We're in the Crystal Caverns!
+caverns-sentences-sprout	Nora found a pink rock.
+caverns-sentences-sprout	Where is the bat? Up there!
+caverns-sentences-sprout	I'm happy, and so is Sam.
+caverns-sentences-sprout	The crab said, "Hello!"
+caverns-sentences-sprout	Can we take one gem home?
+caverns-sentences-sprout	Yes! It's for the Big Lantern.
+caverns-sentences-sprout	Ada and Hugo hold hands.
+caverns-sentences-sprout	Good job, team!
+caverns-sentences-miner	"Look at the ceiling!" said Sofia. "It's full of crystals."
+caverns-sentences-miner	The Crystal Caverns are quiet, cool and full of light.
+caverns-sentences-miner	Hiro asked, "Which way is the glowworm grotto?"
+caverns-sentences-miner	Turn left at the big geode, then follow the blue glow.
+caverns-sentences-miner	Jamal's lantern made rainbows dance on the walls.
+caverns-sentences-miner	Can you hear the echo? Say hello and listen!
+caverns-sentences-miner	The crystal crab waved its claw and said, "Welcome!"
+caverns-sentences-miner	We're looking for a cavern crystal to light the Big Lantern.
+caverns-sentences-miner	"Is it far?" asked Imani. "Not very," said the crab.
+caverns-sentences-miner	Mateo found a purple prism, a green pebble and a white shell.
+caverns-sentences-miner	Wow! The pool is so clear that we can see the bottom.
+caverns-sentences-miner	Nadia whispered, "Let's be quiet so the bats can sleep."
+caverns-sentences-miner	The glowworms' light looked like a sky full of stars.
+caverns-sentences-miner	Lucia's map was wet, but she could still read it.
+caverns-sentences-miner	"Who wants a snack?" asked Grandpa Eli.
+caverns-sentences-miner	Everyone said, "Me!" and sat down on the smooth rocks.
+caverns-sentences-miner	I'd like to visit the caverns again next summer.
+caverns-sentences-miner	The bats' wings went flap, flap, flap as they flew past.
+caverns-sentences-miner	Quinn asked, "How old are these crystals?"
+caverns-sentences-miner	"Very, very old," said the guide with a smile.
+caverns-sentences-miner	Farah's favorite stone is the bright blue one.
+caverns-sentences-miner	The tunnel was narrow, so we walked in a line.
+caverns-sentences-miner	Don't forget a warm sweater; caves are cool inside.
+caverns-sentences-miner	Wei laughed when the echo laughed back.
+caverns-sentences-miner	Is that a crystal or a drop of water? It's both!
+caverns-sentences-miner	Carlos counted twelve stalactites and three stalagmites.
+caverns-sentences-miner	The Slimeling bounced ahead and squeaked, "This way!"
+caverns-sentences-miner	We'll need both hands to carry the cavern crystal.
+caverns-sentences-miner	"Careful," said Elena. "It's heavy, but we can do it together."
+caverns-sentences-miner	Zainab held the lantern, and Yusuf held the map.
+caverns-sentences-miner	Have you ever seen a rock that sparkles like sugar?
+caverns-sentences-miner	The guide's name is Pearl, and she knows every tunnel.
+caverns-sentences-miner	"Thank you, Pearl!" we said as we waved goodbye.
+caverns-sentences-miner	Our footsteps went tap, tap, tap on the stone floor.
+caverns-sentences-miner	Amara asked, "Can crystals grow?" Pearl said, "Yes, slowly."
+caverns-sentences-miner	It's fun to guess what shapes the rocks look like.
+caverns-sentences-miner	That one looks like a cat, and that one looks like a cake!
+caverns-sentences-miner	Tomas wasn't sure, so he asked for help.
+caverns-sentences-miner	The cavern pool was still, like a mirror made of glass.
+caverns-sentences-miner	Rafael tied his boots, packed his bag and smiled.
+caverns-sentences-miner	"Ready?" asked Rosa. "Ready!" said everyone.
+caverns-sentences-miner	A cave bat peeked down from the ceiling and blinked at us.
+caverns-sentences-miner	We found the cavern crystal in a nook by the waterfall.
+caverns-sentences-miner	Hooray! The Big Lantern will have a new crystal!
+caverns-sentences-miner	On the way out, we thanked the crab and the bats.
+caverns-sentences-builder	"The Crystal Caverns are older than anyone can remember," said Pearl, our cheerful guide.
+caverns-sentences-builder	Valeria asked, "Why do some crystals glow while others only sparkle?"
+caverns-sentences-builder	Pearl said that glowing crystals soak up light all day and shine it back at night.
+caverns-sentences-builder	We packed lanterns, ropes, snacks and a notebook; then we set off down the tunnel.
+caverns-sentences-builder	Gabriel's notebook was full of sketches, notes and tiny maps of each chamber.
+caverns-sentences-builder	"Watch your step," said Kalani, "because the floor here is smooth and a little wet."
+caverns-sentences-builder	The echo chamber repeated every word we said, so we sang a song in rounds.
+caverns-sentences-builder	Have you ever heard a cave hum? The wind in the tunnels sounds like a soft flute.
+caverns-sentences-builder	Xavier wondered aloud, "If a crystal grows a tiny bit each year, how old is this one?"
+caverns-sentences-builder	"Thousands of years, at least," said Pearl. "That's why we never break them."
+caverns-sentences-builder	The glowworm grotto looked like a night sky, full of tiny green stars.
+caverns-sentences-builder	Olivia whispered, "It's the most beautiful place I've ever seen."
+caverns-sentences-builder	The crystal crabs live in the shallow pools, and they're very friendly to visitors.
+caverns-sentences-builder	One crab held up a shiny pebble as if to say, "Look what I found!"
+caverns-sentences-builder	Ingrid wrote that Chamber 3 had blue crystals, cool air and a quiet stream.
+caverns-sentences-builder	When the tunnel split in two, we checked the map and chose the left path.
+caverns-sentences-builder	"Are we there yet?" asked Rashid with a grin. "Almost," said Soraya.
+caverns-sentences-builder	The cave bats were sleeping, so we turned our lanterns down and tiptoed past.
+caverns-sentences-builder	Paolo noticed that the stalactites pointed down while the stalagmites pointed up.
+caverns-sentences-builder	"Here's a trick," said Tatiana. "Stalactites hold tight to the ceiling."
+caverns-sentences-builder	We stopped for lunch beside an underground waterfall that sparkled in the lantern light.
+caverns-sentences-builder	Dmitri's sandwich had cheese, tomato and lettuce; mine had honey and banana.
+caverns-sentences-builder	Can you guess which crystal is the oldest? It's the pale one with the most facets.
+caverns-sentences-builder	The labyrinth of tunnels felt confusing at first, but the map made everything clear.
+caverns-sentences-builder	"Let's leave everything just as we found it," said Pearl, and we all agreed.
+caverns-sentences-builder	Hiro's favorite part was the rainbow room, where light bounced off every wall.
+caverns-sentences-builder	Imani's favorite part was the quiet pool, where tiny fish glowed like sparks.
+caverns-sentences-builder	Which part would you like best, the rainbow room or the quiet pool?
+caverns-sentences-builder	"I can't decide," laughed Jamal. "I'd like to visit them both again."
+caverns-sentences-builder	The Moss Golem waited at the cave mouth, holding an umbrella in case of rain.
+caverns-sentences-builder	We found the cavern crystal resting on a ledge, glowing a soft violet.
+caverns-sentences-builder	"It's perfect for the Big Lantern," said Lucia, holding it carefully in both hands.
+caverns-sentences-builder	Before we left, we wrote a note to say thank you to the crabs.
+caverns-sentences-builder	Mateo asked, "Do crabs read notes?" Pearl smiled and said, "These ones do!"
+caverns-sentences-builder	The tunnel back to the surface was long, but our steps felt light and happy.
+caverns-sentences-builder	Outside, the sun was setting, and the sky was orange, pink and gold.
+caverns-sentences-builder	Nadia said, "That was the best day ever," and nobody disagreed.
+caverns-sentences-builder	A question mark goes at the end of a question, and a period ends a statement.
+caverns-sentences-builder	An apostrophe can join two words, as in "can't" or "we're."
+caverns-sentences-builder	Commas help a reader pause, the way you pause to take a breath.
+caverns-sentences-builder	"What a day!" said Farah. "Let's tell everyone back home."
+caverns-sentences-builder	The Big Lantern glowed brighter than ever when we added the cavern crystal.
+caverns-sentences-builder	Everyone on Home Island cheered, and the Frost Pup barked happily.
+caverns-sentences-builder	Quinn said, "We have one crystal left to find. Where could it be?"
+caverns-sentences-builder	"Look up," said Wei, pointing at the clouds. "I think it's in the Sky Citadel."
+caverns-sentences-builder	Carlos learned that bats use echoes to find their way when it's dark.
+caverns-sentences-builder	Elena asked, "If bats can hear echoes, can they hear us singing?"
+caverns-sentences-builder	Yusuf's lantern flickered, so he swapped in a fresh crystal and it glowed again.
+caverns-sentences-builder	Zainab sketched a crab, a bat and a glowworm, then gave each one a name.
+caverns-sentences-builder	"This crab is Pebble, this bat is Echo and this glowworm is Spark," she said.
+caverns-sentences-builder	Amara's riddle was, "What has a mouth but never eats?" The answer is a cave!
+caverns-sentences-builder	Tomas laughed so hard at the riddle that the echo laughed along with him.
+caverns-sentences-builder	"Shh," said Rosa, "the bats are trying to sleep!"
+caverns-sentences-builder	We'll always remember the day we walked through the Crystal Caverns.
+caverns-sentences-builder	Rafael asked, "Is it okay if we come back next week?" Pearl said, "Of course!"
+sparkstone-sentences-sprout	The gear goes spin, spin, spin!
+sparkstone-sentences-sprout	Mia set lamp_on to yes.
+sparkstone-sentences-sprout	Ben has cart-1 and cart-2.
+sparkstone-sentences-sprout	2 + 2 = 4 gears.
+sparkstone-sentences-sprout	The robot says beep (hi)!
+sparkstone-sentences-sprout	Type go() to start the belt.
+sparkstone-sentences-sprout	The pipe-4 door is open.
+sparkstone-sentences-sprout	3 * 2 = 6 cogs.
+sparkstone-sentences-sprout	The robot Bolt-7 waves!
+sparkstone-sentences-sprout	The sign says #gems: 5.
+sparkstone-sentences-miner	The Sparkstone Factory runs on gears, belts and happy robots.
+sparkstone-sentences-miner	Each robot has a name tag, like Bolt-7 or Gizmo-12.
+sparkstone-sentences-miner	Sofia typed light_on() and every lamp in the hall lit up.
+sparkstone-sentences-miner	The sign says #crates: 24, so we stacked 24 crates.
+sparkstone-sentences-miner	Hiro set cart_speed = 3 so the cart would roll slowly.
+sparkstone-sentences-miner	The belt moves boxes from Station A to Station B.
+sparkstone-sentences-miner	Robot Tinker-5 likes to hum while it sorts the cogs.
+sparkstone-sentences-miner	Jamal added 6 + 4 gears and got 10 gears in all.
+sparkstone-sentences-miner	Imani wrote bake(bread) on the panel, and the oven beeped.
+sparkstone-sentences-miner	The factory clock reads 12:00, so it's time for lunch.
+sparkstone-sentences-miner	Mateo fixed pipe_7 with a wrench and a smile.
+sparkstone-sentences-miner	Every gear has a number (1, 2, 3 and so on).
+sparkstone-sentences-miner	Nadia drew a plan: gear-A turns gear-B, and gear-B turns gear-C.
+sparkstone-sentences-miner	When we walk in, the robots run wave_hello() and beep.
+sparkstone-sentences-miner	Lucia counted 8 * 3 = 24 sprockets on the shelf.
+sparkstone-sentences-miner	A label on the tube says water/juice, so we filled it with juice.
+sparkstone-sentences-miner	Quinn pressed the green button, and the belt began to move.
+sparkstone-sentences-miner	The factory's motto is: build, fix and share!
+sparkstone-sentences-miner	Farah set lamps = 9 and the hall glowed gold.
+sparkstone-sentences-miner	Wei asked Robot Sparky-3, "Can you help me lift this crate?"
+sparkstone-sentences-builder	The Sparkstone Factory is full of copper pipes, glowing panels and humming machines.
+sparkstone-sentences-builder	Every machine has a friendly label, like mixer-3 or polisher_12.
+sparkstone-sentences-builder	Valeria typed open_gate(2) and the copper doors slid apart with a soft hum.
+sparkstone-sentences-builder	The big board shows #robots: 48 and #robots_happy: 48, so everyone is doing fine.
+sparkstone-sentences-builder	Gabriel learned that the = sign means "is the same as" in a factory recipe.
+sparkstone-sentences-builder	Recipe 7 says flour + water + salt = dough, so the bakery robot mixed all three.
+sparkstone-sentences-builder	The conveyor belt speed is set to (2 + 3) * 2, which equals 10.
+sparkstone-sentences-builder	Kalani wrote plant_row(5) on the panel, and five seedlings popped into the soil.
+sparkstone-sentences-builder	Each robot is named after a gear size, such as Cog-8, Cog-16 and Cog-32.
+sparkstone-sentences-builder	Xavier saw that the panel said water: low, so he refilled the jug from the pump.
+sparkstone-sentences-builder	Olivia's favorite machine is paint_wall(), which paints a mural one block at a time.
+sparkstone-sentences-builder	The sign on the door says Welcome @ Sparkstone, and the robots wave as we walk in.
+sparkstone-sentences-builder	Underscores join words into one name, like big_gear or lamp_post.
+sparkstone-sentences-builder	Hyphens join words too, as in mine-cart-3 or blue-pipe-9.
+sparkstone-sentences-builder	Parentheses hold extra details (like this) inside a sentence.
+sparkstone-sentences-builder	An asterisk (*) can mean times, so 4 * 5 = 20.
+sparkstone-sentences-builder	The / sign can mean or, as in yes/no, on/off and day/night.
+sparkstone-sentences-builder	The # sign on a label means number, as in #crates: 12.
+sparkstone-sentences-builder	Ingrid set timer: 30 and the oven baked 30 golden rolls.
+sparkstone-sentences-builder	Rashid built a tiny robot named Beep_Boop that sweeps the floor and hums.
+sparkstone-sentences-builder	Soraya typed sort(gems) and the machine lined them up from red to violet.
+sparkstone-sentences-builder	When the panel shows gears_turning: 64, the whole factory sings like a music box.
+sparkstone-sentences-builder	Paolo asked Robot Gizmo-9, "Which lever lifts the bridge?" It beeped twice and pointed.
+sparkstone-sentences-builder	The factory has 3 floors: parts on floor 1, building on floor 2 and testing on floor 3.
+sparkstone-sentences-builder	Tatiana loves the test room, where new gadgets get to try their very first spin.
+sparkstone-sentences-builder	A new robot named Sprocket-1 rolled off the line and said, "Hello, friends!"
+sparkstone-sentences-builder	Dmitri set lights = on for the night crew so the robots could see their work.
+sparkstone-sentences-builder	Every hour the clock robot rings a bell: ding (1), ding (2), ding (3).
+sparkstone-sentences-builder	Hiro's job was to check that pipe_1 through pipe_9 were all closed tight.
+sparkstone-sentences-builder	Imani wrote fix(squeak) on a sticky note and stuck it on a noisy wheel.
+sparkstone-sentences-builder	The gift shop sells copper key rings shaped like gears for 5 coins each.
+sparkstone-sentences-builder	Jamal asked, "Why is the factory called Sparkstone?" The guide smiled.
+sparkstone-sentences-builder	"Because our machines run on sparkstone crystals," she said, "and they never run out."
+sparkstone-sentences-builder	Lucia measured a gear with a ruler: 12 cm across and 2 cm thick.
+sparkstone-sentences-builder	The robots' favorite song is tick-tock-tick, which they hum in perfect time.
+sparkstone-sentences-builder	Mateo built a marble run with 12 ramps, 4 loops and a bell at the end.
+sparkstone-sentences-builder	Nadia typed greet(Moss_Golem) and the screen showed a golem waving hello.
+sparkstone-sentences-builder	A note on the wall says: tidy_up() before you go home!
+sparkstone-sentences-builder	Before we left, Robot Bolt-7 gave us a copper badge with #friend on it.
+sparkstone-sentences-builder	We waved goodbye to Sparkstone and set off for the Sky Citadel.
+citadel-sentences-sprout	The Sky Citadel is so high!
+citadel-sentences-sprout	Look at the big white clouds.
+citadel-sentences-sprout	Can you see the flags?
+citadel-sentences-sprout	We take the sky bridge up.
+citadel-sentences-sprout	The bells ring and ring!
+citadel-sentences-sprout	"Hi, sky!" said Mia.
+citadel-sentences-sprout	Ben has a blue kite.
+citadel-sentences-sprout	Is the tower tall? Yes!
+citadel-sentences-sprout	The wind is soft today.
+citadel-sentences-sprout	Rosa sees a bird on the wall.
+citadel-sentences-sprout	We can see Home Island!
+citadel-sentences-sprout	Leo waves at the clouds.
+citadel-sentences-sprout	The gate is gold and big.
+citadel-sentences-sprout	"Up we go!" said Uma.
+citadel-sentences-sprout	The doves sing a song.
+citadel-sentences-sprout	I can type well and with care.
+citadel-sentences-sprout	Omar's flag is red.
+citadel-sentences-sprout	Let's go up the stairs.
+citadel-sentences-sprout	We did it! We are at the top!
+citadel-sentences-sprout	The last gem is here.
+citadel-sentences-sprout	Theo puts the gem in his bag.
+citadel-sentences-sprout	"Thank you, sky!" said Nora.
+citadel-sentences-sprout	The Big Lantern is so bright!
+citadel-sentences-sprout	Look, the sun is up.
+citadel-sentences-sprout	We are a good team.
+citadel-sentences-miner	The Sky Citadel floats high above the clouds, quiet and bright.
+citadel-sentences-miner	Sofia asked, "How do we get up there?" Hiro pointed at the airship.
+citadel-sentences-miner	The airship's sails are blue, and its basket is woven from reeds.
+citadel-sentences-miner	We floated past puffy clouds, and a flock of gulls flew beside us.
+citadel-sentences-miner	"Look down!" said Jamal. "Home Island looks like a tiny cookie."
+citadel-sentences-miner	The citadel's gate opened with a gentle chime.
+citadel-sentences-miner	Inside, there were gardens, fountains and towers with gold flags.
+citadel-sentences-miner	A friendly sky owl welcomed us with a bow.
+citadel-sentences-miner	"To find the sky crystal, climb all nine towers," said the owl.
+citadel-sentences-miner	Each tower has a typing gate, and each gate asks for care.
+citadel-sentences-miner	Imani took a deep breath and typed slowly and steadily.
+citadel-sentences-miner	Mateo said, "Accuracy first, then speed. That's the plan!"
+citadel-sentences-miner	The first tower was easy, and the second was just right.
+citadel-sentences-miner	Nadia's fingers stayed on the home row, ready for every key.
+citadel-sentences-miner	"Great rhythm!" cheered Lucia as the third gate opened.
+citadel-sentences-miner	The wind whistled around the spires like a happy tune.
+citadel-sentences-miner	Quinn stopped for a sip of water and a stretch.
+citadel-sentences-miner	Taking a break is smart; your hands work better after a rest.
+citadel-sentences-miner	Farah typed a long sentence without looking down. Wow!
+citadel-sentences-miner	Wei's favorite tower had a balcony full of flowers.
+citadel-sentences-miner	Carlos and Elena climbed the spiral stairs together.
+citadel-sentences-miner	The sixth tower had a garden where clouds grew like cotton.
+citadel-sentences-miner	"Can we take a cloud home?" asked Yusuf. The owl laughed.
+citadel-sentences-miner	Zainab noticed that every tower showed a different biome below.
+citadel-sentences-miner	From the seventh tower, we could see the Deep Mines and the marsh.
+citadel-sentences-miner	Amara pointed. "There's the Crystal Caverns, and there's Sparkstone!"
+citadel-sentences-miner	The eighth gate asked for capital letters, numbers and commas.
+citadel-sentences-miner	Tomas typed each one carefully, and the gate swung open.
+citadel-sentences-miner	Rafael whispered, "Only one tower left. We can do it."
+citadel-sentences-miner	The ninth tower was the tallest, and its stairs sparkled.
+citadel-sentences-miner	At the top, the sky crystal floated in a ring of light.
+citadel-sentences-miner	"It's beautiful," said Rosa. "It looks like a tiny sun."
+citadel-sentences-miner	The owl said, "You've practiced well. The crystal is yours."
+citadel-sentences-miner	We carried the crystal down, step by careful step.
+citadel-sentences-miner	The airship flew us home as the sun began to set.
+citadel-sentences-miner	Everyone on Home Island waited by the Big Lantern.
+citadel-sentences-miner	Mia placed the sky crystal in the lantern's last empty spot.
+citadel-sentences-miner	The Big Lantern shone so brightly that the whole island glowed.
+citadel-sentences-miner	The Frost Pup barked, the crabs clapped and the bats squeaked.
+citadel-sentences-miner	"We did it together," said Ben. "Every crystal, every key."
+citadel-sentences-miner	That night, the lantern lit up the sky like a second moon.
+citadel-sentences-miner	Would you like to visit the towers again? They're always open.
+citadel-sentences-miner	Practice a little each day, and your fingers will grow quick.
+citadel-sentences-miner	The owl said, "Keep your eyes on the words, not the keys."
+citadel-sentences-miner	And so the island was bright, happy and full of friends.
+citadel-sentences-builder	The Sky Citadel drifts above the clouds, held up by four enormous sky crystals.
+citadel-sentences-builder	Valeria read a note that said, "Climb the nine towers, and the last crystal is yours."
+citadel-sentences-builder	Gabriel checked the weathervane; the wind was gentle and blowing toward the east.
+citadel-sentences-builder	Our airship, the Breezy Biscuit, had blue sails and a basket woven from marsh reeds.
+citadel-sentences-builder	"Hold on to your hats," laughed Kalani as a soft gust lifted the airship higher.
+citadel-sentences-builder	Below us, Home Island looked like a green button sewn onto a blue blanket.
+citadel-sentences-builder	The citadel's gate was made of white stone and decorated with carvings of birds.
+citadel-sentences-builder	A wise sky owl named Zephyr greeted us and told us how the towers work.
+citadel-sentences-builder	"Each tower has a gate that opens for careful typing," said Zephyr. "Speed comes later."
+citadel-sentences-builder	Xavier took his time at the first gate, and it opened with a cheerful chime.
+citadel-sentences-builder	Olivia found that keeping a steady rhythm helped more than rushing.
+citadel-sentences-builder	Accuracy before speed is the first thing every great typist learns.
+citadel-sentences-builder	Ingrid's fingers rested on the home row, ready to reach for any key.
+citadel-sentences-builder	The second tower's garden was full of cloud flowers that smelled like vanilla.
+citadel-sentences-builder	Rashid paused, stretched his fingers and took a slow breath before the third gate.
+citadel-sentences-builder	"Taking a short break is part of practicing well," said Zephyr with a nod.
+citadel-sentences-builder	Soraya typed a sentence full of commas, and the gate opened on her very first try.
+citadel-sentences-builder	At the fourth tower, a telescope pointed toward the stars, even in the daytime.
+citadel-sentences-builder	Paolo looked through it and spotted the Deep Mines, the marsh and the shore.
+citadel-sentences-builder	"Every biome we visited taught us something new," said Tatiana thoughtfully.
+citadel-sentences-builder	The fifth gate asked for capital letters, and Dmitri remembered to use the Shift key.
+citadel-sentences-builder	The sixth gate asked for numbers, so Hiro typed the date and his favorite number.
+citadel-sentences-builder	Imani said, "Numbers live on the top row, and our fingers know the way."
+citadel-sentences-builder	The seventh gate asked for periods, commas, quotes and question marks.
+citadel-sentences-builder	Jamal typed, "Is this the right gate?" and the door answered, "Yes, it is!"
+citadel-sentences-builder	The eighth tower held a library where every book was about the sky.
+citadel-sentences-builder	Lucia read that clouds are made of tiny drops of water floating in the air.
+citadel-sentences-builder	Mateo read that the stratosphere is above the clouds, where airplanes sometimes fly.
+citadel-sentences-builder	Nadia read that cumulus clouds look like cotton and cirrus clouds look like feathers.
+citadel-sentences-builder	Before the last tower, we sat together on the balcony and shared some apple slices.
+citadel-sentences-builder	"Whatever happens, I'm proud of us," said Quinn, and everyone smiled.
+citadel-sentences-builder	The ninth tower was the tallest of all, with a spiral staircase of shining steps.
+citadel-sentences-builder	Each step showed a word, and we typed each one as we climbed.
+citadel-sentences-builder	Near the top, the words became sentences, and the sentences became a story.
+citadel-sentences-builder	The story was about a little island, a lantern and friends who never gave up.
+citadel-sentences-builder	Farah typed the final line, and the last door swung open with a soft, bright hum.
+citadel-sentences-builder	The sky crystal floated in the center of the room, glowing like a tiny sunrise.
+citadel-sentences-builder	Wei reached out gently, and the crystal settled into her hands like a feather.
+citadel-sentences-builder	"Thank you, Zephyr," said Carlos. "We couldn't have done this without your help."
+citadel-sentences-builder	Zephyr replied, "You did the work; I only opened the doors."
+citadel-sentences-builder	The trip home was quiet and happy, and the airship sailed through a golden sunset.
+citadel-sentences-builder	The whole island gathered around the Big Lantern as we stepped off the airship.
+citadel-sentences-builder	Elena placed the sky crystal in the lantern, and it began to hum softly.
+citadel-sentences-builder	Then the Big Lantern shone so brightly that the light reached every biome at once.
+citadel-sentences-builder	In the Deep Mines, the miners cheered; in the marsh, the frogs sang.
+citadel-sentences-builder	In the caverns, the crystals sparkled, and the crabs did a little dance.
+citadel-sentences-builder	In Sparkstone, the robots beeped a happy tune, and the gears spun faster.
+citadel-sentences-builder	On Frosty Peaks, the Frost Pup sang a long, joyful song to the bright new light.
+citadel-sentences-builder	Yusuf said, "Every key we learned helped light this lantern."
+citadel-sentences-builder	Zainab added, "And every slip helped us learn the keys a little better."
+citadel-sentences-builder	Amara asked, "What should we do next?" and Tomas said, "Let's build something!"
+citadel-sentences-builder	So the friends started planning a new house for Home Island.
+citadel-sentences-builder	It would have a garden, a tower, a library and a cozy reading nook.
+citadel-sentences-builder	Rafael drew the plan, and Rosa counted how many blocks they would need.
+citadel-sentences-builder	"We'll need 300 planks, 120 bricks and 45 windows," Rosa said with a grin.
+citadel-sentences-builder	Building takes patience, just like typing, and patience is a kind of strength.
+citadel-sentences-builder	A good typist keeps their eyes on the screen and lets their fingers find the keys.
+citadel-sentences-builder	Every day of practice adds up, like blocks stacking into a tall, strong tower.
+citadel-sentences-builder	If a key feels tricky, slow down, try again and feel proud of each small step.
+citadel-sentences-builder	The Big Lantern still shines on Home Island, and it glows brighter every time you type.

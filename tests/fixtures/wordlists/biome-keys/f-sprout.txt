@@ -1,0 +1,4 @@
+# Sprout sentences are short.
+# tags: band=sprout reading=grade2 kind=sentences case=mixed biome=caverns
+I see a gem!
+The little crab waved at us from the big pool.

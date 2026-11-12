@@ -1,0 +1,27 @@
+# Tiny code-ish strings for Sparkstone Factory. Authored for Voxel Typer (M5-05); see SOURCES.md.
+# tags: band=sprout reading=grade2 kind=phrases case=mixed biome=sparkstone theme=code
+lamp_on
+lamp_off
+cart-1
+cart-2
+gems + 2
+cogs + 1
+3 + 4
+5 = 5
+hop()
+spin()
+beep()
+go()
+my #gems: 3
+all #cogs: 7
+(1 + 1)
+red-cap
+big_gear
+tick-tock
+2 * 3
+on/off
+yes/no
+top-row
+gear: 8
+pipe-4
+pup @ home

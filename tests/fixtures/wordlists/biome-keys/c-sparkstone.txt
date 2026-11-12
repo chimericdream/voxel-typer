@@ -1,0 +1,4 @@
+# Sparkstone symbols are fine in Sparkstone phrases.
+# tags: band=builder reading=grade6+ kind=phrases case=mixed biome=sparkstone
+my #gems: 3
+light_on()

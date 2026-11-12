@@ -16,6 +16,7 @@ import {
 } from "../../../src/content/wordlists/loader";
 import { POOL_IDS, wordPools } from "../../../src/content/wordlists/pools";
 import {
+  biomeKeys,
   blocklistHits,
   formatProblem,
   loadBlocklist,
@@ -23,12 +24,15 @@ import {
   isContraction,
   normalizedWords,
   parseBlocklist,
+  ngramWords,
   registryIds,
+  repetitionProblems,
   validateWordlists,
 } from "../../../tools/validate-wordlists";
 
 const REPO = resolve(import.meta.dirname, "../../..");
 const LISTS = resolve(REPO, "src/content/wordlists");
+const SENTENCES = resolve(REPO, "src/content/sentences");
 const FIXTURES = resolve(REPO, "tests/fixtures/wordlists");
 /** The Meadow (home-row) key set. */
 const MEADOW_KEYS = new Set("asdfghjkl;");
@@ -54,7 +58,8 @@ describe("shipped lists", () => {
   });
 
   it("are all registered in pools.ts, and pools.ts loads exactly those (no blocklist)", () => {
-    const onDisk = readdirSync(LISTS)
+    const files: string[] = [...readdirSync(LISTS), ...readdirSync(SENTENCES)];
+    const onDisk = files
       .filter((f) => f.endsWith(".txt") && f !== "blocklist.txt")
       .map((f) => poolIdOf(f) ?? f)
       .toSorted();
@@ -167,6 +172,111 @@ describe("validator on seeded bad fixtures", () => {
       'unknown kind "poems" (words, phrases, sentences)',
       "the list has no items",
     ]);
+  });
+});
+
+const fx = (name: string) => `tests/fixtures/wordlists/${name}`;
+const fxBiome = (name: string) => fx(`biome-keys/${name}`);
+const keyString = (b: Parameters<typeof biomeKeys>[0]) => [...biomeKeys(b)].join("");
+const sentenceAt = (text: string, line: number) => ({ text, file: "s.txt", line });
+
+describe("biome key sets, sentence lengths and repetition (M5-05)", () => {
+  it("adds each biome's keys in curriculum order, leaving Sparkstone's out of Sky Citadel", () => {
+    expect(keyString("meadow")).toBe("asdfjkl;gh");
+    expect(keyString("shore")).toBe("asdfjkl;gheirutyowqpcnvmbxz");
+    expect(keyString("frosty")).toBe(keyString("shore"));
+    expect(biomeKeys("frosty").has("A")).toBe(false);
+    expect(biomeKeys("mines").has("Q")).toBe(true);
+    expect(biomeKeys("mines").has("7")).toBe(false);
+    expect(biomeKeys("marsh").has("7")).toBe(true);
+    expect(biomeKeys("marsh").has("'")).toBe(false);
+    for (const c of `.,?!'"/`) expect(biomeKeys("caverns").has(c), c).toBe(true);
+    for (const c of "-_():@#=+*") {
+      expect(biomeKeys("sparkstone").has(c), c).toBe(true);
+      expect(biomeKeys("citadel").has(c), c).toBe(false);
+    }
+    expect(keyString("citadel")).toBe(keyString("caverns"));
+  });
+
+  it("reports keys a biome hasn't taught yet, Sparkstone symbols elsewhere and long Sprout sentences", () => {
+    const { problems } = validateWordlists({ dir: resolve(FIXTURES, "biome-keys") });
+    expect(problems.map(formatProblem)).toEqual([
+      // the keys tag may not ask for more than the biome has taught
+      `${fxBiome("a-birch.txt")}:2: keys tag has "z", not taught by birch yet`,
+      `${fxBiome("a-birch.txt")}:4: "rice" uses "c", not in the keys tag`,
+      `${fxBiome("a-birch.txt")}:4: "rice" uses "c", not taught by birch yet`,
+      // the apostrophe arrives in Crystal Caverns
+      `${fxBiome("b-frosty.txt")}:4: "it's cold" uses "'", not taught by frosty yet`,
+      // c-sparkstone.txt passes: its symbols are Sparkstone's own
+      `${fxBiome("d-citadel.txt")}:3: "big_gear" uses "_", not allowed in kind=phrases`,
+      `${fxBiome("d-citadel.txt")}:3: "big_gear" uses "_", not taught by citadel yet`,
+      // capitals are fine in Deep Mines, digits are not
+      `${fxBiome("e-mines.txt")}:4: "Mia has 3 carts" uses "3", not taught by mines yet`,
+      `${fxBiome("f-sprout.txt")}:4: "The little crab waved at us from the big pool." is 46 chars; band=sprout sentences are at most 40`,
+      // an item line that starts with "#" would be dropped as a comment
+      `${fxBiome("g-hash.txt")}:4: "#cogs: 7" is read as a comment, not an item; start comments with "# ", and don't start an item with "#"`,
+    ]);
+  });
+
+  it("reports a four-word run used more than five times across the sentences", () => {
+    const { problems } = validateWordlists({ dir: resolve(FIXTURES, "ngram") });
+    const f = fx("ngram/sentences.txt");
+    // "the snow is soft" appears exactly five times, which is allowed
+    expect(problems.map(formatProblem)).toEqual([
+      `${f}:8: the words "the big red cart" appear 6 times across the sentences (at most 5; first at ${f}:3); vary the wording`,
+    ]);
+  });
+
+  it("counts runs by words, ignoring case and the punctuation at word ends", () => {
+    expect(ngramWords(`"Look," said Mia. It's #gems: 3!`)).toEqual([
+      "look",
+      "said",
+      "mia",
+      "it's",
+      "gems",
+      "3",
+    ]);
+    const same = [1, 2, 3, 4, 5, 6].map((n) =>
+      sentenceAt(n % 2 ? "The Big Red Cart!" : "the big red cart", n),
+    );
+    expect(repetitionProblems(same).map((p) => p.line)).toEqual([6]);
+    expect(repetitionProblems(same.slice(0, 5))).toEqual([]);
+    // a sentence shorter than the run has no run
+    expect(repetitionProblems([sentenceAt("a red cart", 1)])).toEqual([]);
+  });
+
+  it("reads a word folder and a sentence folder as one set, with one registry", () => {
+    const { problems, pools } = validateWordlists({
+      dir: resolve(FIXTURES, "split/lists"),
+      sentencesDir: resolve(FIXTURES, "split/sentences"),
+    });
+    expect(pools).toEqual(["extra", "stories", "words"]);
+    expect(problems.map(formatProblem)).toEqual([
+      `${fx("split/sentences/extra.txt")}: not listed in pools.ts; append "extra" to POOL_IDS`,
+      `${fx("split/sentences/stories.txt")}:3: "lantern" is a duplicate (first at ${fx("split/lists/words.txt")}:2; band=miner)`,
+    ]);
+    // with only --dir, the sentence folder is not read
+    expect(
+      validateWordlists({ dir: resolve(FIXTURES, "split/lists") }).problems.map(formatProblem),
+    ).toEqual([
+      `${fx("split/lists/pools.ts")}:5: "stories" is listed but stories.txt does not exist`,
+    ]);
+  });
+
+  it("the shipped sentences: about 600, each list tagged with its biome and keys", () => {
+    const sentencePools = wordPools.filter((p) => p.tags.includes("kind=sentences"));
+    const count = sentencePools.reduce((n, p) => n + p.items.length, 0);
+    expect(count).toBeGreaterThanOrEqual(580);
+    for (const p of sentencePools) {
+      expect(
+        p.tags.some((t) => t.startsWith("keys=")),
+        p.id,
+      ).toBe(true);
+      expect(
+        p.tags.some((t) => t.startsWith("biome=")),
+        p.id,
+      ).toBe(true);
+    }
   });
 });
 

@@ -1,0 +1,27 @@
+# Mines sentences for the sprout band: capitals, no digits or punctuation. Authored for Voxel Typer (M5-05); see wordlists/SOURCES.md.
+# tags: band=sprout reading=grade2 kind=sentences case=mixed keys=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ biome=mines theme=story
+Mia has a red cart
+Ben digs in the mine
+The cart goes down the track
+Rosa sees a big blue gem
+Leo has a lamp on his hat
+The mole says hi to Uma
+We ride the cart to Gem Hall
+Omar finds a gold rock
+The bat naps in the cave
+Nora and Sam go to the mine
+I can see the Iron Gate
+The lamp is on in Glow Cave
+Theo has a pick and a map
+A Cave Bat flaps its wings
+We like the Deep Mines
+Dad and I ride the rail
+Mom packs a snack for me
+The gem is pink and shiny
+Ada sees the Big Lantern glow
+Hugo and Isla ride a cart
+The rocks go clink and clank
+Lin puts a gem in a box
+Kofi has a hat with a lamp
+The mine cart is red and gold
+We take the gems home

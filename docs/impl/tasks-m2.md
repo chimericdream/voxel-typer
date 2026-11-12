@@ -214,6 +214,32 @@ Field legend: see the top of `tasks-m0-m1.md`.
 - **Acceptance:**
   - [ ] Fits on one printed page.
 
+### M2-FIX-2 Slice polish from the M2 reviews
+- **Size/Tier:** M / B · **Review:** required (visual + a11y)
+- **Depends on:** M2-13 (so the fixes can be seen in the real slice)
+- **Owns:** the files named below, each a small change in another card's area
+- **Spec:** non-blocking items collected from the M2 reviews. Fix them, or record why not.
+  - Diorama (M2-03 review): the overview frames the island low and to the right with an empty
+    front lawn (`camera.ts` framing); leaves read darker and bluer than the grass; flowers read as
+    berry bushes (give flowers their own texture recipe); a fence post fills the left of the Mine
+    view.
+  - Sky (M2-02 review): dawn and dusk overview backgrounds are hard to tell apart; the fog never
+    shows and the overview background is the ground colour, not the horizon; the dispose test only
+    checks removal; the cross-fade e2e has no upper bound. The Meadow pollen particle is data only;
+    render it or drop it.
+  - UI kit (M2-07 review): the high-contrast hotbar's selected outline is 1.88:1 (its test checks
+    the wrong neighbour); night empty stars are 1.2–1.6:1; Toggle ✓/✕ is cramped at scale 1; a
+    Toast may not announce on first mount; a disabled "Locked" button can't be reached by keyboard;
+    flat bevels.
+  - HUD (M2-14): in high contrast `text` and `textMuted` are both white, so typed and pending
+    characters differ only by the cursor's position.
+  - FX (M2-05 review N4): changing biome while chips are alive re-uploads the old atlas texture.
+  - Avatar (M2-11 review N5): the default avatar (8×8 head, flat brown hair band) is close to a
+    famous default character; pick a different default look (IP rule).
+- **Acceptance:**
+  - [ ] Each item fixed, or listed in the handoff with a reason.
+  - [ ] Baselines regenerated through the Update snapshots workflow; visual + a11y review passes.
+
 ### M2-GATE (go/no-go)
 Orchestrator + reviewer + 👤 owner.
 - `PLAN.md` Phase 2 acceptance. "A 6-year-old completes lesson 1 without instructions" and "60 fps on integrated GPU" are 👤: the orchestrator tells the owner the `:edge` image is ready to deploy on Proxmox (or the owner promotes it by tagging `m2` once the automated checks pass), hands over the playtest kit, and **waits for the result**.

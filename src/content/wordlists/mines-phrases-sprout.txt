@@ -1,0 +1,42 @@
+# Short Title Case names from the Deep Mines. Authored for Voxel Typer (M5-05); see SOURCES.md.
+# tags: band=sprout reading=grade2 kind=phrases case=mixed biome=mines theme=mines
+Big Red Cart
+Deep Mines
+Gem Hall
+Coal Road
+Rail Lane
+Mia and Ben
+Rosa and Leo
+Omar and Uma
+Nora and Sam
+The Red Gem
+The Blue Gem
+The Gold Cart
+Mole Den
+Lamp Lane
+Glow Cave
+Mud Path
+Home Island
+Ruby Road
+Opal Lake
+Iron Gate
+Tin Cup Cave
+Moss Hill
+Old Oak Mine
+Big Rock Hall
+Jade Pond
+Sun Hill
+Top Rail
+Pip the Pup
+Dot the Mole
+Bo the Bat
+Mo the Moth
+Lin and Theo
+Ada and Hugo
+Yara and Raj
+Kofi and Isla
+Ana and Eva
+Tess and Dev
+Gem Box
+Cart Two
+Lamp Post

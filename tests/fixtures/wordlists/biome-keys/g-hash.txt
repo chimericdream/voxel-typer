@@ -1,0 +1,4 @@
+# An item can't start with # (the loader reads it as a comment).
+# tags: band=builder reading=grade6+ kind=phrases case=mixed biome=sparkstone
+my #cogs: 7
+#cogs: 7

@@ -1,0 +1,60 @@
+# Title Case places and things of the Deep Mines. Authored for Voxel Typer (M5-05); see SOURCES.md.
+# tags: band=miner reading=grade4 kind=phrases case=mixed biome=mines theme=mines
+Lantern Lane
+Copper Creek
+Crystal Cave
+Mossy Mine Gate
+Glow Cave Road
+Silver Rail Station
+Pebble Path
+Quartz Corner
+Granite Bridge
+Gravel Hill
+Boulder Bend
+Echo Tunnel
+Twinkle Tunnel
+Sparkle Steps
+Shimmer Hall
+Glimmer Gate
+Lucky Nugget Lane
+Old Wagon Road
+Candle Cave
+Beacon Hill
+The Long Tunnel
+The Copper Cart
+The Glowing Path
+Mushroom Corner
+Ladder Lane
+Barrel Depot
+Basket Bridge
+Compass Rock
+Pickaxe Point
+Helmet Hill
+Topaz Tower
+Garnet Grove
+Agate Arch
+Emerald Lake
+Diamond Den
+Amethyst Hall
+Jasper Junction
+Track Nine
+Railway Station Two
+Deep Mine Depot
+Sky Citadel
+Mushroom Marsh
+Crystal Caverns
+Frosty Peaks
+Sandy Shore
+Birch Forest
+Meadow Home
+Sparkstone Factory
+Sofia and Mateo
+Hiro and Imani
+Jamal and Lucia
+Farah and Quinn
+Carlos and Elena
+Nadia and Wei
+Yusuf and Zainab
+Tomas and Amara
+Rafael and Rosa
+Monday at the Mine
