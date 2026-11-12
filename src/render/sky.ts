@@ -7,7 +7,10 @@
  *   camera, drawn first with no depth test or write;
  * - a square sun and moon: flat quads with an 8×8 pixel texture (`NearestFilter`, hard edges);
  * - voxel clouds ({@link createClouds}): one `InstancedMesh`, drifting slowly;
- * - `FogExp2` whose color is the horizon stop, so distant blocks fade into the sky;
+ * - `FogExp2` whose color is the horizon stop, so distant blocks fade into the sky. The data's
+ *   density is for a camera {@link FOG_NEAR_DIST} from the diorama's middle (the Mine view); a
+ *   camera further out (the overview) gets less, in proportion, so the haze shows on the far
+ *   terraces in play without washing out the whole island on the map (M2-02 review N4);
  * - the sun and hemisphere lights, through `ctx.lights`.
  *
  * Data comes from `src/content/biomes/env.ts`. `set()` cross-fades to the new biome and time of
@@ -89,6 +92,18 @@ const DISC_DEGREES = 7;
 const DEFAULT_LERP_MS = 2000;
 /** Below this opacity a disc (or the clouds) is hidden, which also saves its draw call. */
 const MIN_VISIBLE = 0.01;
+/** Camera distance from the diorama's middle at which the fog has its full strength. */
+export const FOG_NEAR_DIST = 25;
+/**
+ * The data's `fogDensity` is tuned per block for a 16-block test grid; on the 64-block diorama
+ * it never showed (M2-02 review N4). This brings the far terraces to about a quarter haze.
+ */
+export const FOG_BOOST = 3;
+
+/** The fog density for a camera `dist` from the diorama's middle. Pure, for tests. */
+export function fogFor(density: number, dist: number): number {
+  return density * FOG_BOOST * Math.min(1, FOG_NEAR_DIST / Math.max(1, dist));
+}
 
 const makeMix = (): SkyMix => ({
   zenith: new THREE.Color(),
@@ -195,7 +210,8 @@ void main() {
 `;
 
 // Above the horizon: horizon → zenith, quickly at first so the blue reads. Below: horizon →
-// ground. `cameraPosition` is three's built-in uniform.
+// ground, slowly, so the overview's backdrop (seen 20–50° down) reads as the horizon the fog
+// fades to, with the ground stop only far below (M2-02 review N4). `cameraPosition` is three's built-in uniform.
 const DOME_FRAGMENT = /* glsl */ `
 uniform vec3 zenith;
 uniform vec3 horizon;
@@ -205,7 +221,7 @@ void main() {
   float h = normalize(vWorld - cameraPosition).y;
   vec3 c = h >= 0.0
     ? mix(horizon, zenith, pow(smoothstep(0.0, 1.0, h), 0.55))
-    : mix(horizon, ground, smoothstep(0.0, 0.35, -h));
+    : mix(horizon, ground, smoothstep(0.0, 0.9, -h));
   gl_FragColor = vec4(c, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -326,6 +342,12 @@ export function createSkyEnvironment(
     clouds.mesh.onBeforeRender = () => clouds.place(focus, focus.y * 2);
 
     const fog = new THREE.FogExp2(0xffffff, 0);
+    // The dome draws first (renderOrder −100), so the fog it sets here holds for the whole frame.
+    const follow = dome.onBeforeRender;
+    dome.onBeforeRender = (...args) => {
+      follow(...args);
+      fog.density = fogFor(cur.fogDensity, args[2].position.distanceTo(focus));
+    };
     ctx.scene.background = null;
     ctx.scene.fog = fog;
     ctx.scene.add(dome, sunDisc, moonDisc, clouds.mesh);
@@ -333,7 +355,6 @@ export function createSkyEnvironment(
     /** Pushes the current mix to the dome, fog, discs, clouds and lights (no allocation). */
     const push = (): void => {
       fog.color.copy(cur.horizon);
-      fog.density = cur.fogDensity;
       const { sun, hemi } = ctx.lights;
       sun.color.copy(cur.sunColor);
       sun.intensity = cur.sunIntensity;

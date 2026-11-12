@@ -2,7 +2,7 @@
  * Biome environment data and the sky controller (task M2-02).
  */
 import * as THREE from "three";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   BIOME_ENVS,
   DEFAULT_T01,
@@ -18,7 +18,7 @@ import { CLOUD_SPAN, createClouds } from "../../../src/render/clouds";
 import { DEFAULT_LIGHTING, createLightRig } from "../../../src/render/lights";
 import type { LightingState } from "../../../src/render/lights";
 import { QUALITY_PRESETS } from "../../../src/render/quality";
-import { createSkyEnvironment } from "../../../src/render/sky";
+import { FOG_BOOST, FOG_NEAR_DIST, createSkyEnvironment, fogFor } from "../../../src/render/sky";
 import type { SkyOptions } from "../../../src/render/sky";
 import { BIOME_ORDER } from "../../../src/types/core";
 
@@ -319,13 +319,58 @@ describe("sky controller", () => {
     expect(sky.fading).toBe(true);
   });
 
-  it("dispose removes everything it added", () => {
+  it("dispose removes everything it added and frees its GPU objects (M2-02 review N2)", () => {
     const { scene, sky } = setup();
     sky.set({ biome: "meadow", timeOfDay: "day" });
+    const freed = [
+      sky.dome.geometry,
+      sky.dome.material,
+      sky.sunDisc.geometry,
+      sky.sunDisc.material,
+      sky.moonDisc.material,
+      sky.sunDisc.material.map,
+      sky.moonDisc.material.map,
+      sky.clouds.mesh.geometry,
+      sky.clouds.material,
+    ].map((o) => {
+      if (!o || Array.isArray(o)) throw new Error("expected one disposable");
+      return vi.spyOn(o, "dispose");
+    });
     sky.dispose();
-    expect(scene.getObjectByName("sky-dome")).toBeUndefined();
-    expect(scene.getObjectByName("clouds")).toBeUndefined();
-    expect(scene.getObjectByName("sun-disc")).toBeUndefined();
+    for (const name of ["sky-dome", "clouds", "sun-disc", "moon-disc"]) {
+      expect(scene.getObjectByName(name), name).toBeUndefined();
+    }
     expect(scene.fog).toBeNull();
+    for (const spy of freed) expect(spy).toHaveBeenCalled();
+    // The background stays null: the scene's default environment sets its own (scene.ts).
+    expect(scene.background).toBeNull();
+  });
+
+  it("fog is full strength near the diorama and thins in proportion further out (M2-02 N4)", () => {
+    expect(fogFor(0.004, 4)).toBeCloseTo(0.004 * FOG_BOOST, 9);
+    expect(fogFor(0.004, FOG_NEAR_DIST)).toBeCloseTo(0.004 * FOG_BOOST, 9);
+    expect(fogFor(0.004, FOG_NEAR_DIST * 4)).toBeCloseTo((0.004 * FOG_BOOST) / 4, 9);
+    expect(fogFor(0.004, 0)).toBeCloseTo(0.004 * FOG_BOOST, 9);
+    // A far block in the Mine view (about 50 away) is hazed by a fifth or more; the overview's
+    // nearest edge (about 80 away from a camera 120 out) by under a tenth.
+    const haze = (d: number, dist: number): number =>
+      1 - Math.exp(-((fogFor(0.0042, d) * dist) ** 2));
+    expect(haze(22, 50)).toBeGreaterThan(0.2);
+    expect(haze(120, 80)).toBeLessThan(0.1);
+  });
+
+  it("the dome's update sets the fog for the camera that draws it", () => {
+    const { scene, sky } = setup({ drift: false });
+    sky.set({ biome: "meadow", timeOfDay: "day" });
+    const camera = new THREE.PerspectiveCamera();
+    camera.position.set(0, 400, 0);
+    const call = sky.dome.onBeforeRender as (...a: unknown[]) => void;
+    call(null, scene, camera, null, null, null);
+    const fog = scene.fog;
+    if (!(fog instanceof THREE.FogExp2)) throw new Error("no fog");
+    expect(fog.density).toBeLessThan(MEADOW_ENV.times.day.fogDensity * FOG_BOOST);
+    expect(fog.density).toBeGreaterThan(0);
+    // The dome still follows the camera.
+    expect(sky.dome.position.y).toBe(400);
   });
 });

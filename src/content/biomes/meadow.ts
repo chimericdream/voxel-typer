@@ -11,7 +11,8 @@ export const MEADOW_ENV: BiomeEnv = {
   biome: "meadow",
   times: {
     dawn: {
-      sky: { zenith: "#7388c6", horizon: "#f3bc93", ground: "#c4b4c4" },
+      // Ground stops: dawn peach, dusk rose-violet, so the two differ from the map view too (M2-02 N1).
+      sky: { zenith: "#7388c6", horizon: "#f3bc93", ground: "#efc9a4" },
       fogDensity: 0.0042,
       sun: { color: "#ffc79c", intensity: 2.0 },
       hemi: { sky: "#f1d6c8", ground: "#8f7c6a", intensity: 1.0 },
@@ -29,7 +30,7 @@ export const MEADOW_ENV: BiomeEnv = {
       moonDisc: { color: "#e8ecff", opacity: 0 },
     },
     dusk: {
-      sky: { zenith: "#5c5ea2", horizon: "#ef9c70", ground: "#a98a9c" },
+      sky: { zenith: "#5c5ea2", horizon: "#ef9c70", ground: "#8c5c86" },
       fogDensity: 0.0042,
       sun: { color: "#ffae7a", intensity: 1.8 },
       hemi: { sky: "#dcaaa8", ground: "#7d6662", intensity: 1.0 },
