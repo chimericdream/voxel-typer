@@ -1,0 +1,10 @@
+# Tool versions for this repo, managed by mise (https://mise.jdx.dev).
+# After cloning: `mise trust && mise install`, then `npm ci`.
+#
+# Node is pinned to an exact release. npm is the one bundled with that Node (11.20.0 with 26.13.1),
+# so pinning Node pins npm too. CI reads `.nvmrc` through actions/setup-node; keep it the same
+# version. `npm run lint` fails if the two drift (tools/check-tool-versions.ts).
+min_version = "2025.1.0"
+
+[tools]
+node = "26.13.1"

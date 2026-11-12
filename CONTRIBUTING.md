@@ -13,7 +13,7 @@ milestone gates, is in [`docs/impl/README.md`](docs/impl/README.md) §3.
 
    ```sh
    git fetch && git worktree add ../vt-wt/<ID> -b task/<ID> origin/main
-   cd ../vt-wt/<ID> && npm ci
+   cd ../vt-wt/<ID> && mise trust && mise install && npm ci
    ```
 
 3. **Stay in your lane.** Change only the files the card lists under **Owns** and **May touch**
@@ -40,6 +40,8 @@ milestone gates, is in [`docs/impl/README.md`](docs/impl/README.md) §3.
 
 ## Rules worth repeating
 
+- Node and npm versions come from `mise.toml`. To bump Node, change it there and in `.nvmrc`
+  (CI reads that file) together; `npm run lint` fails if they differ.
 - Lint and format with Oxlint and Oxfmt only. Never add ESLint, Prettier or their plugins.
 - Never hand-merge `package-lock.json`. Take `main`'s copy, re-apply your `package.json` change, and
   run `npm install`.

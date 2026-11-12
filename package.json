@@ -15,7 +15,7 @@
     "build:test": "vite build --mode test",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
-    "lint": "oxlint && oxfmt --check && npm run tool -- check-boundaries && npm run tool -- check-ui-literals",
+    "lint": "oxlint && oxfmt --check && npm run tool -- check-boundaries && npm run tool -- check-ui-literals && npm run tool -- check-tool-versions",
     "format": "oxfmt",
     "test": "vitest run",
     "test:watch": "vitest",
