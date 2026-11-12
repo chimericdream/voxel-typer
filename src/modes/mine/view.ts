@@ -112,7 +112,9 @@ const ramp = (id: PaletteRampId, i: number): string => BASE_PALETTE[id][i] ?? "#
 
 /**
  * The arm and pickaxe, in model voxels (y runs up the handle, the arm reaches back along +z).
- * A plain glove and a blue sleeve, so it fits every avatar.
+ * A plain glove, a mustard cuff and a purple sleeve, so it fits every avatar. Not blue: a blue
+ * sleeve holding a stone pickaxe in the lower-right corner is too close to a famous first-person
+ * view (IP rule, M2-13 review N4).
  */
 export const ARM_MODEL: readonly VoxelBox[] = [
   // handle, with a darker grip under the hand
@@ -127,8 +129,8 @@ export const ARM_MODEL: readonly VoxelBox[] = [
   { at: [0, 15, 0], size: [3, 3, 3], color: ramp("ore-copper", 2) },
   // glove, cuff and sleeve
   { at: [0, 4, 0.5], size: [4, 4, 5], color: ramp("wool-white", 3) },
-  { at: [0, 4, 3.75], size: [4.6, 4.6, 1.5], color: ramp("wool-blue", 4) },
-  { at: [0, 4, 10], size: [4, 4, 11], color: ramp("wool-blue", 2) },
+  { at: [0, 4, 3.75], size: [4.6, 4.6, 1.5], color: ramp("wool-yellow", 1) },
+  { at: [0, 4, 10], size: [4, 4, 11], color: ramp("wool-purple", 2) },
 ];
 
 /** One geometry for a list of colored boxes (positions, normals and vertex colors). */
