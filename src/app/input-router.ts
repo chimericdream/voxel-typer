@@ -40,7 +40,11 @@ export function createInputRouter(deps: InputRouterDeps): InputRouter {
       const band = deps.band();
       const ctx: InputCtx = { inPlay: live() };
       if (band !== null) ctx.band = band;
-      if (ctx.inPlay && deps.play.modeId() === "builder") ctx.undo = true;
+      if (ctx.inPlay && deps.play.modeId() === "builder") {
+        // Builder's command line: Ctrl+Z undoes, and Enter runs the typed word (M4-07).
+        ctx.undo = true;
+        ctx.wantsEnter = true;
+      }
       return ctx;
     },
 

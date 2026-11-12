@@ -24,6 +24,7 @@ import lessonsFrosty from "./lessons-frosty";
 import achievements from "./achievements";
 import importexport from "./importexport";
 import mobs from "./mobs";
+import builder from "./builder";
 
 const en = {
   common,
@@ -45,6 +46,7 @@ const en = {
   achievements,
   importexport,
   mobs,
+  builder,
 } as const;
 
 export default en;

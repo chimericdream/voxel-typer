@@ -62,6 +62,25 @@ function ScreenView({ shell, route }: { shell: Shell; route: Route }) {
   return <Screen app={shell.api} route={route} />;
 }
 
+/**
+ * Builder's own HUD (M4-07): the command line and palette, in place of the lesson HUD. Loaded
+ * with the mode, so it stays out of the first bundle.
+ */
+function BuilderHudView({ shell }: { shell: Shell }) {
+  const [View, setView] = useState<ComponentType<{ fields: Shell["hud"]["fields"] }> | null>(null);
+  useEffect(() => {
+    let live = true;
+    const p = import("@/modes/builder/BuilderHud").then((m) => {
+      if (live) setView(() => m.default);
+    });
+    shell.api.whenReady(p);
+    return () => {
+      live = false;
+    };
+  }, [shell]);
+  return View === null ? null : <View fields={shell.hud.fields} />;
+}
+
 function PlayView({ shell, localVoice }: { shell: Shell; localVoice: boolean }) {
   const status = shell.playStatus.value;
   if (status === "failed") return <Soon shell={shell} />;
@@ -79,7 +98,9 @@ function PlayView({ shell, localVoice }: { shell: Shell; localVoice: boolean }) 
   // The HUD stays under the pause overlay (the Dialog makes it inert), so nothing jumps on resume.
   return (
     <>
-      {profile ? (
+      {shell.play.modeId() === "builder" ? (
+        <BuilderHudView shell={shell} />
+      ) : profile ? (
         <Hud
           fields={shell.hud.fields}
           settings={profile.settings}
