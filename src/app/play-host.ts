@@ -20,7 +20,8 @@ import type { Clock } from "./clock";
 import { createEmitter } from "./events";
 import type { Emitter, GameEvents } from "./events";
 import type { HudStore } from "./hud";
-import { applyResult } from "./progress";
+import { isPlacementLesson } from "@/modes/placement/lesson";
+import { applyPlacement, applyResult } from "./progress";
 import type { AppScene } from "./scene-host";
 
 /** Where the host is. `break` is the stretch-break overlay, a pause of its own. */
@@ -63,6 +64,8 @@ export interface PlayHostDeps {
   reminder: BreakReminder;
   /** Persists the updated profile. Never rejects. */
   saveProfile(p: Profile): Promise<boolean>;
+  /** Every shipped lesson, for the placement test's unlocks (M3-05). Default: none. */
+  lessons?: readonly Lesson[];
   /** Called on every status change. */
   onStatus(status: PlayStatus): void;
   /** Called once per finished lesson, after the profile is updated and the save attempted. */
@@ -177,7 +180,11 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
     setStatus("finished");
     // The mode may be inside its own call stack; dispose it after that unwinds.
     queueMicrotask(() => teardown(r));
-    const updated = applyResult(r.profile, r.lesson, result, deps.clock.epoch());
+    const at = deps.clock.epoch();
+    // The placement test is not a curriculum lesson: it sets the start instead (M3-05).
+    const updated = isPlacementLesson(r.lesson)
+      ? applyPlacement(r.profile, deps.lessons ?? [], result, at)
+      : applyResult(r.profile, r.lesson, result, at);
     void deps.saveProfile(updated).then(() => {
       // A newer lesson started (or this one was quit) while the save was in flight: don't let
       // the old finish route the new lesson to results.

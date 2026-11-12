@@ -171,7 +171,7 @@ describe("ProfileCreate", () => {
       field(s).focus();
     });
     await s.press("Enter");
-    expect(s.route().id).toBe("map");
+    expect(s.route().id).toBe("placement");
     const list = await s.store.listProfiles();
     expect(list).toHaveLength(1);
     expect(list[0]).toMatchObject({
