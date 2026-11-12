@@ -67,7 +67,7 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 - [ ] **M3-06** Remedial + recommendations (M/B) — todo
 - [x] **M3-07** Accessibility features (M/B) — merged (PR #156)
 - [ ] **M3-08** Settings + parent gate (M/B) — todo
-- [ ] **M3-09** Profiles + avatar (M/B) — todo
+- [x] **M3-09** Profiles + avatar (M/B) — merged (PR #158)
 - [ ] **M3-10** Achievements v1 (M/B) — todo
 - [ ] **M3-11** Parent Dashboard v1 (L/B) — todo
 - [ ] **M3-12** Migrations + import/export UI (S/B) — todo
@@ -77,16 +77,17 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 - [ ] **M3-FIX-2** Pixel font legibility (S/B) — todo
 - [ ] **M3-FIX-3** Placement follow-ups (S/B) — todo
 - [ ] **M3-FIX-4** Map labels + a11y follow-ups (S/B) — todo
+- [ ] **M3-FIX-5** Avatar onto the model runtime (S/B) — todo
 - [ ] **M3-GATE** Gate — todo
 
 ## M4: Night Defense and Home Island Builder
 
-- [ ] **M4-01** Voxel model runtime (M/A) — todo
+- [x] **M4-01** Voxel model runtime (M/A) — merged (PR #157)
 - [ ] **M4-02** Model Lab (S/C) — todo
 - [ ] **M4-03** ✦ Mobs wave 1 (L/A) — todo
 - [ ] **M4-04** ✦ ⛩ Night Defense mode (L/A) — todo
 - [ ] **M4-05** Wave director (M/A) — todo
-- [ ] **M4-06** Island data + persistence (S/B) — todo
+- [x] **M4-06** Island data + persistence (S/B) — merged (PR #159)
 - [ ] **M4-07** ✦ ⛩ Builder mode (L/A) — todo
 - [ ] **M4-08** Blueprints, expansion, snapshot (M/B) — todo
 - [ ] **M4-09** Inventory screen (M/B) — todo
