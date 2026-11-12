@@ -249,3 +249,15 @@ export function hotbarOf(custom: Readonly<Record<string, unknown>>): HotbarSlice
   const v = custom[HOTBAR_SLICE];
   return isHotbarSlice(v) ? v : null;
 }
+
+/**
+ * The `custom` slice a mode uses to ask for the hand overlay without the hands (M4-04): Night
+ * Defense needs the stage's height for its lanes. With `"caption"` the keys keep their finger
+ * labels and the hint line ("Use your left pinky.") stays; only the two drawn hands go.
+ */
+export const HANDS_SLICE = "hands";
+
+/** True when a mode asked for the hint line without the drawn hands. */
+export function handsCaptionOnly(custom: Readonly<Record<string, unknown>>): boolean {
+  return custom[HANDS_SLICE] === "caption";
+}

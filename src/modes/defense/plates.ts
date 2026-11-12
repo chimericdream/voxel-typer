@@ -6,8 +6,8 @@
  * are never the pixel font). Where they go is decided by the pure `layoutPlates` pass, so no two
  * ever overlap; a thin stem ties a plate that was nudged away back to its mob.
  *
- * - Typed chars step back to a muted ink with an underline; the next char of the locked word has a
- *   thick bar under it.
+ * - Typed chars step back to a muted ink; the next char of the locked word has a thick bar under
+ *   it, the only underline on the plate.
  * - The locked plate is bigger and has a bright double frame (the theme's focus ring), so the lock
  *   never relies on colour alone.
  * - A wrong key on the locked word makes its plate shake its head: a short transform animation,
@@ -93,8 +93,7 @@ export function createPlateLayer(opts: PlateLayerOptions): PlateLayer {
     p.chars.forEach((span, i) => {
       const done = i < p.typed;
       const next = p.locked && i === p.typed;
-      span.style.opacity = done ? "0.6" : "1";
-      span.style.textDecoration = done ? "underline" : "none";
+      span.style.opacity = done ? "0.55" : "1";
       span.style.boxShadow = next ? "inset 0 -0.16em 0 currentColor" : "none";
     });
     p.el.style.boxShadow = p.locked

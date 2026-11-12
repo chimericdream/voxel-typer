@@ -241,6 +241,12 @@
   --keyboard-max-unit: calc((100cqh - var(--kb-fixed)) / var(--kb-units));
 }
 
+/* The hint line without the drawn hands (a mode asked, M4-04): the keys and one line of text. */
+.keyboard[data-hands-caption] {
+  --kb-units: 5.9;
+  --kb-fixed: 36px;
+}
+
 /* "Hear it again" (M3-07): a small key cap and its label on a plate, in the top row. */
 .hear {
   flex: none;

@@ -13,7 +13,8 @@ export default {
     "cave-bat": "{count, plural, one {# cave bat is} other {# cave bats are}} on the way!",
     "frost-pup": "{count, plural, one {# frost pup is} other {# frost pups are}} on the way!",
     "cactus-cat": "{count, plural, one {# cactus cat is} other {# cactus cats are}} on the way!",
-    "lantern-fish": "{count} lantern fish are on the way!",
+    "lantern-fish":
+      "{count, plural, one {# lantern fish is} other {# lantern fish are}} on the way!",
     "crystal-crab":
       "{count, plural, one {# crystal crab is} other {# crystal crabs are}} on the way!",
     "sandstorm-imp":
@@ -41,4 +42,6 @@ export default {
   // Results: two extra lines for a night.
   resultsPopped: "{count, plural, one {# friend} other {# friends}} sent home",
   resultsStreak: "Best streak: {count} keys in a row",
+  // Results: shown only when the night's stars were held back because many friends walked in.
+  resultsMoreStar: "Send more friends home for another star!",
 } as const;

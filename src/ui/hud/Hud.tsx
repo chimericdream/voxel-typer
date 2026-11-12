@@ -20,7 +20,7 @@ import { OnScreenKeyboard } from "@/ui/keyboard/OnScreenKeyboard";
 import { Hotbar } from "@/ui/kit/Hotbar";
 import { ProgressBar } from "@/ui/kit/ProgressBar";
 import { Toast } from "@/ui/kit/Toast";
-import { hotbarOf, wrongKeyOf } from "./bridge";
+import { handsCaptionOnly, hotbarOf, wrongKeyOf } from "./bridge";
 import type { HudFields } from "./bridge";
 import { WordDisplay } from "./WordDisplay";
 import styles from "./Hud.module.css";
@@ -123,14 +123,20 @@ export interface HudKeyboardProps extends Fields {
 export function HudKeyboard({ fields, layout, hands, labels }: HudKeyboardProps) {
   // Only a new wrong press changes this slice; other custom widgets don't re-render the keyboard.
   const wrong = useComputed(() => wrongKeyOf(fields.custom.value)).value;
+  // A mode may ask for the hint line without the drawn hands (M4-04). The row is then only as
+  // tall as the keys and one line of text, which gives the stage the hands' height.
+  const caption = useComputed(() => hands && handsCaptionOnly(fields.custom.value)).value;
   return (
-    <OnScreenKeyboard
-      layout={layout}
-      nextKey={fields.nextKey.value}
-      hands={hands}
-      labels={labels}
-      wrong={wrong}
-    />
+    <div class={styles.keyboard} data-hud="keyboard" data-hands-caption={caption ? "1" : undefined}>
+      <OnScreenKeyboard
+        layout={layout}
+        nextKey={fields.nextKey.value}
+        hands={hands}
+        handsCaptionOnly={caption}
+        labels={labels}
+        wrong={wrong}
+      />
+    </div>
   );
 }
 
@@ -186,11 +192,9 @@ export function Hud({
           <HudMessage fields={fields} />
         </div>
       </div>
+      {/* Finger labels on every key (M2-09 N3): a keyboard-only child never hovers. */}
       {keyboard ? (
-        <div class={styles.keyboard} data-hud="keyboard">
-          {/* Finger labels on every key (M2-09 N3): a keyboard-only child never hovers. */}
-          <HudKeyboard fields={fields} layout={layout} hands={hands} labels={labels} />
-        </div>
+        <HudKeyboard fields={fields} layout={layout} hands={hands} labels={labels} />
       ) : null}
     </div>
   );

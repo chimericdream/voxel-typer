@@ -251,27 +251,6 @@ describe("controller", () => {
     expect(waves).toBeLessThanOrEqual(7);
   });
 
-  it("remembers the difficulty that swamped the child and comes back to it slowly", () => {
-    const fine = initialControllerState(1, { fine: true });
-    const crash = controllerStep(fine, feedback({ accuracy: 0.6, reachedBase: 5 }), false);
-    expect(crash.d).toBeCloseTo(1 - C.maxStep);
-    expect(crash.ceiling).toBeCloseTo(1 - C.crashBackoff);
-    // Perfect waves after it: `d` climbs, but stays under the ceiling, which rises 1 % a wave.
-    let s = crash;
-    for (let i = 0; i < 4; i++) {
-      s = controllerStep(s, feedback({ accuracy: 1 }), false);
-      expect(s.d).toBeLessThanOrEqual(s.ceiling + 1e-9);
-      expect(s.d).toBeLessThan(1);
-    }
-    expect(s.d).toBeGreaterThan(crash.d);
-    // A second crash lower down lowers the ceiling; a ceiling never pushes `d` down by itself.
-    const again = controllerStep(s, feedback({ accuracy: 0.6, reachedBase: 5 }), false);
-    expect(again.ceiling).toBeLessThan(s.ceiling);
-    const low: ControllerState = { ...fine, ceiling: 0.5 };
-    expect(controllerStep(low, feedback({ accuracy: 0.9 }), false).d).toBeCloseTo(1);
-    expect(controllerStep(low, feedback({ accuracy: 1 }), false).d).toBeCloseTo(1);
-  });
-
   it("calm mode: a wave that took much longer than planned holds or eases the pace", () => {
     const calm = initialControllerState(1, { fine: true });
     const plan = { plannedMs: 10_000 };

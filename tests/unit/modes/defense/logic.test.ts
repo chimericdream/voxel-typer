@@ -26,7 +26,6 @@ import {
   nextKeyFor,
   nightProgress,
   nightWaves,
-  priorityOf,
   projectLane,
   stepMobs,
   waveAnnouncement,
@@ -206,8 +205,7 @@ describe("mobs", () => {
     );
   });
 
-  it("prefers the mob nearest the base, and hints at its first letter", () => {
-    expect(priorityOf({ p: 0.9 })).toBeLessThan(priorityOf({ p: 0.2 }));
+  it("hints at the first letter of the mob nearest the base", () => {
     const far = mob({ id: "far", word: "jam", p: 0.2 });
     const near = mob({ id: "near", word: "sad", p: 0.7 });
     const leaving = mob({ id: "out", word: "fig", p: 0.95, state: "popping" });
@@ -427,13 +425,17 @@ describe("framing the field", () => {
   const canvas = { width: 1280, height: 720 };
   /** The open stage of the real HUD at 1280×720 (M2-14): under the top row, above the keys. */
   const STAGES: Record<AgeBand, Box> = {
-    // Measured on CI's screenshots, less the banner's room. Keyboard and hands: 380 px.
-    sprout: { left: 16, top: 131, width: 1248, height: 207 },
+    // Measured on CI's screenshots, less the banner's room. A night shows the keys and the
+    // hint line without the drawn hands: 272 px.
+    sprout: { left: 16, top: 131, width: 1248, height: 297 },
     // Keyboard only.
     miner: { left: 16, top: 131, width: 1248, height: 314 },
     // No keyboard.
     builder: { left: 16, top: 131, width: 1248, height: 570 },
   };
+
+  /** The mode keeps this much room for a locked plate above the far end. */
+  const PLATE_ROOM = 56;
 
   it("projects a point the way three.js does", () => {
     const view = {
@@ -468,7 +470,16 @@ describe("framing the field", () => {
     for (const band of BANDS) {
       const field = arenaLayout(BAND_LANES[band]);
       const box = STAGES[band];
-      const fit = fitLaneView(field, canvas, box);
+      const fit = fitLaneView(field, canvas, box, PLATE_ROOM);
+      // A mob at the far end has room above its head for a locked plate, inside the box.
+      const head = projectLane(
+        { x: field.center.x, y: field.groundY + FIELD_HEADROOM, z: field.farZ },
+        fit,
+        canvas,
+      );
+      expect(head.y + fit.shiftY, `${band} plate room`).toBeGreaterThanOrEqual(
+        box.top + PLATE_ROOM - 1,
+      );
       const half = field.width / 2;
       const corners = [-1, 1].flatMap((side) => [
         { x: field.center.x + side * half, y: field.groundY, z: field.baseZ + FIELD_FRONT },
@@ -498,7 +509,7 @@ describe("framing the field", () => {
   it("draws a mob big enough to read, even in a Sprout's narrow stage", () => {
     for (const band of BANDS) {
       const field = arenaLayout(BAND_LANES[band]);
-      const fit = fitLaneView(field, canvas, STAGES[band]);
+      const fit = fitLaneView(field, canvas, STAGES[band], PLATE_ROOM);
       const at = (y: number, z: number): number =>
         projectLane({ x: field.center.x, y, z }, fit, canvas).y;
       // A mob is about 2.2 blocks tall (a 16-px model at 2.2×).
@@ -524,6 +535,9 @@ describe("framing the field", () => {
       { left: 0, top: 0, width: 0, height: 0 },
     );
     expect(Number.isFinite(tiny.distance)).toBe(true);
+    // Bad plate room is ignored, and it never takes more than two fifths of the box.
+    expect(fitLaneView(field, canvas, null, Number.NaN)).toEqual(whole);
+    expect(Number.isFinite(fitLaneView(field, canvas, null, 1e9).distance)).toBe(true);
     // A flat box gets a lower camera than a tall one.
     const flat = fitLaneView(field, canvas, { left: 0, top: 100, width: 1280, height: 200 });
     const tall = fitLaneView(field, canvas, { left: 0, top: 100, width: 1280, height: 600 });

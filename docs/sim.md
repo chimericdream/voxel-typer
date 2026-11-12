@@ -262,9 +262,7 @@ After each wave:
    −8 % / +5 %. While the average is under 85 %, a step down may still be the full 15 %.
 4. **Relief.** A wave under 75 %, or with more than 30 % of its mobs at the base, makes the next
    one 15 % easier.
-5. **Crash memory.** That swamped wave also leaves a ceiling at 90 % of the `d` that caused it. The
-   ceiling rises 1 % a wave, and it only ever stops steps up.
-6. `d ← clamp(d × (1 + step), 0.3, min(2.0, ceiling))`. In calm mode: a pace of 0.75×, at most
+5. `d ← clamp(d × (1 + step), 0.3, 2.0)`. In calm mode: a pace of 0.75×, at most
    `d = 1.2`, at most +8 % a wave, and at most 10 mobs. Calm mobs never reach the base, so calm
    mode reads time instead: a wave that took more than 1.5× its planned span holds the pace, and
    one that took more than 2.25× eases it by 8 %.
@@ -313,8 +311,10 @@ a wave under 75 % accuracy, or with more than 30 % of its mobs at the base.
   fast mob that set out later caught up with a slow one, and two words were due at once. Spacing
   arrivals took that variance out, and it also softened the cliff (the sweep below now falls about
   4–6 points per 0.1 of `d` past the edge).
-- **Crash memory** is in, as the review asked, and makes no measurable difference in the sim
-  (the review found the same). It costs nothing and stops a climb straight back to a crash.
+- **Crash memory, tried and removed.** A swamped wave left a ceiling at 90 % of the `d` that
+  caused it, rising 1 % a wave. It made no measurable difference in the sim (the M4-05 review's
+  probe and the M4-04 review's mutation both found the same): with it off, one learner mean moved
+  by 0.1 point. Relief and the small fine-mode steps already do its job, so it came out.
 - **Tried and dropped:** a bigger "plenty of room" step up for a wave far above the target. It
   got fast typists to their edge sooner, but a slow typist's 4–5 mob wave is often far above the
   target by luck, and their swamped share rose from 4 % to 7 %.
@@ -326,9 +326,9 @@ about 3 % of their waves fall under 75 % by chance at any pace (measured at fixe
 
 | Row         | Typist | Band    | Baseline |   1 |   2 |   3 |   4 |   5 |   6 |   7 |   8 |   9 |  10 | Range 4+   | Learner mean 4+ | In band | Reached 4+ | Swamped 4+ | Crowded 4+ | Low 4+ | Swamped 1-3 | d first→last | Converged |
 | ----------- | ------ | ------- | -------: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | ---------- | --------------: | ------: | ---------: | ---------: | ---------: | -----: | ----------: | ------------ | --------- |
-| main        | 10wpm  | sprout  |      8.2 |  89 |  94 |  90 |  91 |  91 |  91 |  90 |  91 |  92 |  92 | 90.5-91.7  |            90.4 |     96% |       0.5% |         4% |         1% |    15% |          3% | 0.80→0.84    | yes       |
-| main        | 10wpm  | miner   |      8.3 |  93 |  90 |  94 |  89 |  93 |  91 |  91 |  91 |  90 |  91 | 89.1-92.6  |            89.8 |     96% |       0.5% |         4% |         1% |    23% |          1% | 0.80→0.83    | yes       |
-| main        | 10wpm  | builder |      8.2 |  91 |  90 |  89 |  89 |  91 |  91 |  91 |  91 |  91 |  90 | 88.6-91.4  |            89.3 |     98% |       0.7% |         3% |         1% |    21% |          2% | 0.80→0.79    | yes       |
+| main        | 10wpm  | sprout  |      8.2 |  89 |  94 |  90 |  91 |  91 |  91 |  90 |  91 |  92 |  92 | 90.5-91.7  |            90.4 |     96% |       0.5% |         4% |         1% |    16% |          3% | 0.80→0.84    | yes       |
+| main        | 10wpm  | miner   |      8.3 |  93 |  90 |  94 |  89 |  93 |  91 |  91 |  91 |  90 |  91 | 89.1-92.6  |            89.7 |     96% |       0.5% |         4% |         1% |    23% |          1% | 0.80→0.83    | yes       |
+| main        | 10wpm  | builder |      8.2 |  91 |  90 |  89 |  89 |  91 |  91 |  91 |  91 |  91 |  90 | 88.6-91.4  |            89.3 |     98% |       0.7% |         3% |         1% |    21% |          2% | 0.80→0.80    | yes       |
 | main        | 25wpm  | sprout  |     22.0 |  92 |  93 |  97 |  94 |  95 |  95 |  94 |  93 |  94 |  95 | 92.7-95.1  |            93.8 |     86% |       0.2% |         1% |         0% |     3% |          0% | 0.80→0.91    | no        |
 | main        | 25wpm  | miner   |     22.2 |  93 |  94 |  94 |  95 |  93 |  93 |  94 |  93 |  93 |  94 | 92.9-95.1  |            93.4 |     90% |       0.3% |         1% |         0% |     6% |          0% | 0.80→0.86    | no        |
 | main        | 25wpm  | builder |     21.7 |  94 |  94 |  95 |  94 |  92 |  93 |  93 |  93 |  93 |  94 | 91.7-93.7  |            92.2 |     96% |       0.2% |         1% |         0% |     8% |          0% | 0.80→0.89    | yes       |
@@ -346,7 +346,7 @@ about 3 % of their waves fall under 75 % by chance at any pace (measured at fixe
 | slope 0.2   | 50wpm  | miner   |     46.6 |  98 |  98 |  97 |  97 |  98 |  97 |  96 |  96 |  96 |  97 | 95.6-97.6  |            96.3 |     12% |       0.4% |         0% |         0% |     1% |          0% | 0.80→1.12    | no        |
 | slope 0.8   | 10wpm  | miner   |      8.3 |  91 |  89 |  91 |  87 |  90 |  89 |  89 |  90 |  89 |  91 | 87.1-91.1  |            88.2 |     76% |       1.3% |         8% |         2% |    29% |          5% | 0.80→0.71    | yes       |
 | slope 0.8   | 25wpm  | miner   |     22.2 |  91 |  92 |  93 |  94 |  93 |  91 |  93 |  94 |  93 |  93 | 90.9-93.6  |            92.4 |     98% |       0.7% |         2% |         1% |     7% |          3% | 0.80→0.75    | yes       |
-| slope 0.8   | 50wpm  | miner   |     46.6 |  96 |  96 |  95 |  96 |  95 |  94 |  96 |  95 |  96 |  96 | 94.0-96.2  |            92.3 |     80% |       3.5% |         7% |         7% |    12% |          3% | 0.80→0.83    | no        |
+| slope 0.8   | 50wpm  | miner   |     46.6 |  96 |  96 |  95 |  96 |  95 |  94 |  96 |  95 |  96 |  95 | 94.0-96.2  |            92.3 |     80% |       3.5% |         7% |         7% |    12% |          3% | 0.80→0.83    | no        |
 
 | Typist |  d 0.5 |  d 0.6 |  d 0.7 |  d 0.8 |  d 0.9 |  d 1.0 |  d 1.1 |   d 1.2 |   d 1.3 |   d 1.4 |   d 1.5 |   d 1.6 |
 | ------ | -----: | -----: | -----: | -----: | -----: | -----: | -----: | ------: | ------: | ------: | ------: | ------: |
@@ -362,7 +362,9 @@ about 3 % of their waves fall under 75 % by chance at any pace (measured at fixe
   band.
 - **50 WPM errs on the easy side, on purpose.** Learner means are 93.4–96.4 %. A fast typist is
   capped at a 93 % target and climbs at most 5 % a wave from `d = 0.8`, so a Sprout-band 50 WPM
-  typist (short words, a long reaction allowance) is still climbing at wave 10. The M4-05 review judged that a few too-easy waves are safer for a child than one in four with half the mobs at the base, and the M4-04 brief asked for that fix. The second night in a sitting starts where the first
+  typist (short words, a long reaction allowance) is still climbing at wave 10. The M4-05
+  review judged that a few too-easy waves are safer for a child than one in four with half the
+  mobs at the base, and the M4-04 brief asked for that fix. The second night in a sitting starts where the first
   ended, so the climb carries on.
 - **Swamped waves: 0–4 % on the main rows** from wave 4 on (the 10 WPM floor is about 3 %), 0–3 %
   in waves 1–3, and at most 5 % of waves have more than a fifth of the mobs at the base. At most
@@ -384,9 +386,11 @@ about 3 % of their waves fall under 75 % by chance at any pace (measured at fixe
 - 10 and 25 WPM: each learner's mean from wave 4 on is in 85–95 %, at least 80 % of learners are in
   band, and every per-wave median is within 85–96 % (it was 85–95 %; the 25 WPM target moved up).
   10 WPM also converges by the strict reading;
-- 50 WPM: the learner mean is within 90–97 % and every per-wave median within 85–98.5 %;
+- 50 WPM: the learner mean is within 90–97 % and every per-wave median within 85–98.5 %. This is
+  looser than the M4-05 card's literal 85–95 % (the Sprout row's mean is 96.4 %), on purpose;
 - **stability, on every main row:** at most 6 % of waves from wave 4 on are swamped, at most 8 %
-  have more than a fifth of the mobs at the base, and at most 5 % of waves 1–3 are swamped;
+  have more than a fifth of the mobs at the base, and at most 5 % of waves 1–3 are swamped. At
+  10 WPM, at most 25 % of waves from wave 4 on are under 85 % (15–23 % today);
 - reached base ≤ 20 % on the main rows;
 - calm mode: `d ≤ 1.2`;
 - the report is the same for the same seed.

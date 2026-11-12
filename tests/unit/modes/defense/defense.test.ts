@@ -17,9 +17,11 @@ import { HEAR_AGAIN_EVENT } from "../../../../src/app/play-host";
 import { applyResult } from "../../../../src/app/progress";
 import type { AudioApi, SfxName } from "../../../../src/audio/types";
 import { lessons } from "../../../../src/content/lessons";
+import { MOBS } from "../../../../src/content/mobs";
 import type { Lesson } from "../../../../src/content/lessons/types";
 import { foundBlocks } from "../../../../src/engine/achievements";
 import { createRng } from "../../../../src/engine/rng";
+import { t } from "../../../../src/i18n";
 import type { EngineEvent } from "../../../../src/engine/types";
 import { mode } from "../../../../src/modes/defense";
 import {
@@ -37,6 +39,7 @@ import {
 } from "../../../../src/modes/defense/logic";
 import type { ModeResult } from "../../../../src/modes/types";
 import type { Profile } from "../../../../src/save/schema";
+import { handsCaptionOnly } from "../../../../src/ui/hud/bridge";
 import { resultLines } from "../../../../src/ui/screens/results-logic";
 import { fakeScene, fixture, flush } from "../../app/helpers";
 
@@ -404,6 +407,35 @@ describe("no game over", () => {
     expect(result?.summary.accuracy).toBe(1);
     expect(result?.stars).toBe(1);
     expect(Object.keys(result?.loot ?? {}).length).toBeGreaterThan(0);
+    // Results says kindly why: perfect aim, one star, and what would earn another.
+    expect(resultLines(result?.extra).map((l) => l.key)).toEqual([
+      "defense.resultsPopped",
+      "defense.resultsStreak",
+      "defense.resultsMoreStar",
+    ]);
+    expect(t("defense.resultsMoreStar")).toBe("Send more friends home for another star!");
+  });
+
+  it("asks the HUD for the hint line without the drawn hands", async () => {
+    const r = await started(sprout);
+    expect(handsCaptionOnly(r.hud.get().custom)).toBe(true);
+    // The loot and wrong-key slices are added beside it, never over it.
+    r.until("night");
+    while (!r.events.some((e) => e.type === "targetComplete")) if (!r.typeNext()) r.run(160);
+    r.type("~");
+    r.run(2000);
+    expect(handsCaptionOnly(r.hud.get().custom)).toBe(true);
+  });
+
+  it("announces one visitor and many with the right verb, for every mob", () => {
+    for (const mob of MOBS) {
+      const one = t(`defense.onTheWay.${mob.id}`, { count: 1 });
+      const many = t(`defense.onTheWay.${mob.id}`, { count: 4 });
+      expect(one, mob.id).toMatch(/^1 [a-z ]+ is on the way!$/);
+      expect(many, mob.id).toMatch(/^4 [a-z ]+ are on the way!$/);
+    }
+    expect(t("defense.onTheWay.lantern-fish", { count: 1 })).toBe("1 lantern fish is on the way!");
+    expect(t("defense.onTheWayMixed", { count: 1 })).toBe("1 friend is on the way!");
   });
 
   it("a mob that bonks while its word is half typed lets the child go on", async () => {
@@ -529,6 +561,7 @@ describe("results", () => {
     const r = await started(miner);
     const result = r.playOut();
     const lines = resultLines(result?.extra);
+    // A night where the visitors went home has no "more stars" line.
     expect(lines.map((l) => l.key)).toEqual(["defense.resultsPopped", "defense.resultsStreak"]);
     expect(lines[0]?.params).toEqual({ count: sum(r.waves) });
     expect(lines[1]?.params).toEqual({ count: result?.summary.longestStreak });

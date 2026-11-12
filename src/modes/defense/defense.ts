@@ -45,7 +45,7 @@ import type { CameraPose } from "@/render/camera";
 import { breakShake } from "@/render/fx/tuning";
 import type { CameraRig, SceneHandle, Vec3 } from "@/render/types";
 import type { BiomeId, BlockId, Ms } from "@/types/core";
-import { HOTBAR_SLICE, reportWrongKey } from "@/ui/hud/bridge";
+import { HANDS_SLICE, HOTBAR_SLICE, reportWrongKey } from "@/ui/hud/bridge";
 import type { HotbarItem, HotbarSlice } from "@/ui/hud/bridge";
 import {
   BANNER_SHOW_MS,
@@ -115,6 +115,8 @@ const GLOW = { day: 0, dusk: 0.5, night: 1, dawn: 0.3 } as const;
 const CALM_MAX_LIVE = 4;
 /** Room kept at the top of the stage for the banner, in CSS pixels (times the text scale). */
 const BANNER_ROOM = 46;
+/** Room kept above the far end of the field for a locked word plate, in CSS pixels (× scale). */
+const PLATE_ROOM = 56;
 /** Keys a free-play night uses when there is no lesson. */
 const FREE_PLAY_KEYS = ["f", "j", "d", "k", "s", "l", "a", ";"];
 
@@ -317,6 +319,14 @@ export function create(ctx: ModeContext): DefenseInstance {
     setBanner(key ?? "defense.onTheWayMixed", "info", { count }, ms);
   };
 
+  /**
+   * The shield bar. Not in calm mode: nothing ever reaches the camp there, so the bar would only
+   * hint at a threat that can't happen.
+   */
+  const showShield = (level: number): void => {
+    if (!calm) plates?.setShield(level, SHIELD_SEGMENTS, shieldAt);
+  };
+
   // --- loot ---
 
   const land = (f: Flight): void => {
@@ -440,6 +450,7 @@ export function create(ctx: ModeContext): DefenseInstance {
     shield = hit.shield;
     audio.sfx("shield", { gain: shield > 0 ? 0.6 : 0.35 });
     view?.setShield(shield / SHIELD_SEGMENTS, true);
+    showShield(shield);
     if (hit.emptied) setBanner("defense.shieldRest", "info", undefined, 5000);
     // Removed on the bonk: unlocks it if it was locked, and no error is counted.
     handle(session.removeTarget(mob.id, nowT()));
@@ -527,7 +538,7 @@ export function create(ctx: ModeContext): DefenseInstance {
     audio.sfx("levelUp", { gain: 0.5 });
     // The shield grows back at dawn (card). The result remembers how much was left.
     view?.setShield(1, true);
-    plates?.setShield(SHIELD_SEGMENTS, SHIELD_SEGMENTS, shieldAt);
+    showShield(SHIELD_SEGMENTS);
     // The night's typing is over: the summary is taken now, so dawn's wait isn't typing time.
     handle(session.end(nowT()));
   }
@@ -563,6 +574,8 @@ export function create(ctx: ModeContext): DefenseInstance {
       resultLines: [
         { key: "defense.resultsPopped", params: { count: popped } },
         { key: "defense.resultsStreak", params: { count: summary.longestStreak } },
+        // The accuracy earned more stars than the night gives: say kindly what would earn them.
+        ...(stars < byAccuracy ? [{ key: "defense.resultsMoreStar" as const, params: {} }] : []),
       ],
     };
     ctx.finish({ summary, loot: { ...loot }, stars, extra: { ...extra } });
@@ -676,7 +689,12 @@ export function create(ctx: ModeContext): DefenseInstance {
       .join(",");
     if (key === layoutKey) return;
     layoutKey = key;
-    const fit = fitLaneView(layout, { width: origin.width, height: origin.height }, free);
+    const fit = fitLaneView(
+      layout,
+      { width: origin.width, height: origin.height },
+      free,
+      PLATE_ROOM * scale,
+    );
     if (canMoveTo(scene.camera))
       scene.camera.moveTo({
         target: fit.target,
@@ -693,7 +711,7 @@ export function create(ctx: ModeContext): DefenseInstance {
       bottom: origin.top + free.top + free.height,
     };
     shieldAt = { left: bounds.left + 8, top: bounds.bottom - 34 * scale };
-    plates?.setShield(shield, SHIELD_SEGMENTS, shieldAt);
+    showShield(shield);
   };
 
   const head = { x: 0, y: 0 };
@@ -743,6 +761,8 @@ export function create(ctx: ModeContext): DefenseInstance {
       view.setShield(1, false);
       relayout();
     }
+    // The lanes need the stage's height: keep the keys and the hint line, drop the drawn hands.
+    hud.set({ custom: { ...hud.get().custom, [HANDS_SLICE]: "caption" } });
     phase = "day";
     phaseLeft = DAY_MS;
     dayRan = 0;

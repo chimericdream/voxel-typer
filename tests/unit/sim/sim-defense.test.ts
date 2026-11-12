@@ -83,6 +83,9 @@ describe("defense sim", () => {
         expect(r.crowded, label).toBeLessThanOrEqual(0.08);
         // Waves 1–3 are the whole night for many children.
         expect(r.swampedEarly, label).toBeLessThanOrEqual(0.05);
+        // The youngest children are the slow typists: at most a quarter of their waves may fall
+        // under 85 % (15–23 % today; a wave of theirs is only about 20 keys).
+        if (r.spec.typist === "10wpm") expect(r.low, label).toBeLessThanOrEqual(0.25);
       }
     },
     TIMEOUT,

@@ -44,6 +44,8 @@ export interface OnScreenKeyboardProps {
   show?: boolean;
   /** `settings.showHands`: the hand overlay under the keys. */
   hands?: boolean;
+  /** With `hands`: only the hint line, not the two drawn hands (a mode that needs the room). */
+  handsCaptionOnly?: boolean;
   /** Show the finger label on every key, not only on hover and on the lit keys. */
   labels?: boolean;
   /** The last wrong key. A held key that repeats is gated (see `feedWobble`). */
@@ -122,6 +124,7 @@ export function OnScreenKeyboard({
   nextKey,
   show = true,
   hands = false,
+  handsCaptionOnly = false,
   labels = false,
   wrong = null,
   now = defaultNow,
@@ -168,7 +171,11 @@ export function OnScreenKeyboard({
           })}
         </div>
         {hands ? (
-          <Hands finger={target?.finger ?? null} shiftFinger={target?.shiftFinger ?? null} />
+          <Hands
+            finger={target?.finger ?? null}
+            shiftFinger={target?.shiftFinger ?? null}
+            captionOnly={handsCaptionOnly}
+          />
         ) : null}
       </div>
     </div>

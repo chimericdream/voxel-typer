@@ -243,15 +243,16 @@ describe("word plates", () => {
     expect(el?.style.boxShadow).toContain("--c-focus");
     expect(el?.style.transform).toContain(`scale(${LOCKED_SCALE})`);
     const chars = [...(el?.querySelectorAll<HTMLElement>("span") ?? [])];
-    // Typed chars step back and are underlined (not colour alone); the next one has a bar.
-    expect(chars.map((c) => c.style.textDecoration)).toEqual([
-      "underline",
-      "underline",
-      "none",
-      "none",
-      "none",
+    // Typed chars step back; the next one has a bar, the only underline on the plate.
+    expect(chars.map((c) => c.style.opacity)).toEqual(["0.55", "0.55", "1", "1", "1"]);
+    expect(chars.map((c) => c.style.boxShadow.includes("inset"))).toEqual([
+      false,
+      false,
+      true,
+      false,
+      false,
     ]);
-    expect(chars[2]?.style.boxShadow).toContain("inset");
+    for (const c of chars) expect(c.style.textDecoration).toBe("");
     // Unlocked again: the frame and the marks go.
     plates.sync([item("a")], bounds);
     expect(el?.dataset["locked"]).toBe("0");

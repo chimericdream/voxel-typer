@@ -27,10 +27,7 @@
  *    slow, though: while the average is under 85 % a step down may be the full 15 %.
  * 4. Relief: a wave under 75 % accuracy, or with more than 30 % of its mobs at the base, makes the
  *    next wave 15 % easier, whatever the average says.
- * 5. Crash memory: that swamped wave also leaves a ceiling a little under the difficulty that
- *    caused it. The ceiling rises slowly again, so `d` comes back to that level in small steps
- *    over many waves and not in three.
- * 6. `d ← clamp(d × (1 + step), 0.3, min(2.0, ceiling))` (calm: at most 1.2, and +8 % a wave).
+ * 5. `d ← clamp(d × (1 + step), 0.3, 2.0)` (calm: at most 1.2, and at most +8 % a wave).
  *
  * `tools/sim-defense.ts` and `docs/sim.md` show how this behaves with synthetic typists.
  *
@@ -197,12 +194,6 @@ export const DIRECTOR_CONSTANTS = {
   easeFastBelow: 0.85,
   calmMaxStepUp: 0.08,
   /**
-   * Crash memory. A swamped wave (see relief) at difficulty `d` leaves a ceiling at
-   * `d × (1 − crashBackoff)`; each later wave raises the ceiling by `crashRecover`.
-   */
-  crashBackoff: 0.1,
-  crashRecover: 0.01,
-  /**
    * Calm mode's slowness signal: the wave's active time over its planned time. Above `calmSlow`
    * the pace does not rise; above `calmVerySlow` it eases by {@link fineMaxStepDown}.
    */
@@ -327,8 +318,6 @@ export interface ControllerState {
   readonly fine: boolean;
   /** The accuracy aimed at ({@link accuracyTargetFor}). */
   readonly target: number;
-  /** Crash memory: `d` stays at or under this. `Infinity` until a wave has swamped the learner. */
-  readonly ceiling: number;
 }
 
 export const initialControllerState = (
@@ -340,7 +329,6 @@ export const initialControllerState = (
   accWeight: 0,
   fine: opts.fine ?? false,
   target: opts.target ?? C.accuracyTarget,
-  ceiling: Number.POSITIVE_INFINITY,
 });
 
 /** A count from the mode: non-finite or negative counts as 0. */
@@ -389,14 +377,8 @@ export function controllerStep(
   step = clamp(step, fine && !struggling ? -C.fineMaxStepDown : -C.maxStep, up);
   const swamped = (acc !== null && acc < C.reliefAccuracy) || share > C.reliefReached;
   if (swamped) step = -C.maxStep;
-  const ceiling = swamped
-    ? Math.min(s.ceiling, s.d * (1 - C.crashBackoff))
-    : s.ceiling * (1 + C.crashRecover);
-  let d = s.d * (1 + step);
-  // The ceiling only stops steps up: one that sits under `d` never adds to a step down.
-  if (d > s.d) d = Math.max(s.d, Math.min(d, ceiling));
-  d = clamp(d, C.dMin, calm ? C.calmDMax : C.dMax);
-  return { d, accSum, accWeight, fine, target: s.target, ceiling };
+  const d = clamp(s.d * (1 + step), C.dMin, calm ? C.calmDMax : C.dMax);
+  return { d, accSum, accWeight, fine, target: s.target };
 }
 
 /** The typing speed a wave asks for. */

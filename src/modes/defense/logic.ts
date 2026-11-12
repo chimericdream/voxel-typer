@@ -180,12 +180,6 @@ export function stepMobs(
 }
 
 /**
- * A mob's `lockOn` priority: lower wins a tie on the first letter. The mob closest to the base
- * goes first (contracts §3.2), so the tie-break is the distance still to walk.
- */
-export const priorityOf = (m: Pick<FieldMob, "p">): number => 1 - m.p;
-
-/**
  * The key the on-screen keyboard should light: the next char of the locked word, else the first
  * char of the mob nearest the base (a hint for where to start), else nothing.
  */
@@ -472,8 +466,12 @@ export interface LaneView {
 }
 
 export const LANE_FOV = 38;
-/** World units kept clear above the far end of the lanes, for the mobs there and their plates. */
-export const FIELD_HEADROOM = 3.9;
+/**
+ * World units kept in view above the far end of the lanes: a mob's height. Its plate's room is
+ * kept in pixels on top of that (`fitLaneView`'s `plateRoom`), because a plate doesn't shrink with
+ * distance.
+ */
+export const FIELD_HEADROOM = 2.6;
 /** World units shown in front of the shield line: the fence and its lanterns. */
 export const FIELD_FRONT = 1.5;
 const PITCH_FLAT = (12 * Math.PI) / 180;
@@ -528,15 +526,20 @@ function fieldCorners(f: FieldShape): { x: number; y: number; z: number }[] {
  * out. The camera comes as close as it can with the whole field in the box, and the picture is
  * then slid so the field sits in the middle of it.
  *
- * With no box (the HUD isn't on the page) the whole canvas is used.
+ * `plateRoom` pixels at the top of the box are left for the word plate of a mob at the far end,
+ * so a plate never has to slide down over its own mob. With no box (the HUD isn't on the page) the
+ * whole canvas is used.
  */
 export function fitLaneView(
   field: FieldShape,
   canvas: { width: number; height: number },
   box: Box | null,
+  plateRoom = 0,
 ): LaneView {
   const size = { width: Math.max(1, canvas.width), height: Math.max(1, canvas.height) };
-  const room: Box = box ?? { left: 0, top: 0, width: size.width, height: size.height };
+  const open: Box = box ?? { left: 0, top: 0, width: size.width, height: size.height };
+  const top = clamp(Number.isFinite(plateRoom) ? plateRoom : 0, 0, open.height * 0.4);
+  const room: Box = { ...open, top: open.top + top, height: open.height - top };
   const w = Math.max(40, room.width * 0.94);
   const h = Math.max(40, room.height * 0.92);
   const shape = clamp((room.height / Math.max(1, room.width) - 0.14) / 0.3, 0, 1);

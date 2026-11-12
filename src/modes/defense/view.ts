@@ -5,9 +5,10 @@
  * **Draw calls.** Each mob type is one `buildModelInstanced` (M4-01): one `InstancedMesh` per part,
  * however many of that mob are on the field, and nothing at all while none is (a hidden instance
  * draws nothing). All eight types together are 85 calls. On High the sun's shadow pass draws every
- * shadow caster again, so here **only a model's root part casts a shadow**: 8 more calls, not 85
- * (93 in all, against 170). A mob's shadow is then its body's, which is what reads on the ground
- * anyway. The lock ring and the shield add one call each.
+ * shadow caster again, so here **only a model's root part casts a shadow**: 8 more calls, not 85.
+ * A mob's shadow is then its body's, which is what reads on the ground anyway. The lock ring and
+ * the shield add one call each and cast no shadow, so everything together is 87 calls, and 95 on
+ * High (against 172 with every part casting).
  *
  * Nothing here reads a clock: the mode calls `frame(dt)` from its own frame, so mobs hold still
  * during a hit-stop and while paused. Looping anims hold their first frame under reduced motion

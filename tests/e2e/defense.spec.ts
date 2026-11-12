@@ -160,6 +160,10 @@ test("a Miner's night plays from day to dawn inside the draw-call budget", async
       await lockFirst(page, 2);
       const p = await plates(page);
       expect(p.locked).toBe(1);
+      await expect(page.locator(".vt-defense-shield")).toHaveAttribute(
+        "aria-label",
+        "Shield: 5 of 5",
+      );
       await shot(page, info, "miner-mid-wave-lock");
       midShot = true;
       continue;
@@ -221,7 +225,13 @@ test("a Sprout's calm night: the field fits above the keyboard and no clock show
   for (const font of p.fonts) expect(font).not.toMatch(/Pixelify/i);
   // Calm mode: no countdown anywhere.
   await expect(page.locator("#app").getByText("Time left")).toHaveCount(0);
-  await expect(page.locator(".vt-defense-shield")).toHaveAttribute("aria-label", "Shield: 5 of 5");
+  // Nothing reaches the camp in calm mode, so there is no shield bar to worry about.
+  await expect(page.locator(".vt-defense-shield")).toBeHidden();
+  // The keys and the hint line stay; the drawn hands make room for the field.
+  const keys = page.locator('[data-hud="keyboard"]');
+  await expect(keys).toHaveAttribute("data-hands-caption", "1");
+  await expect(keys.locator("svg")).toHaveCount(0);
+  await expect(keys.getByText(/^Use your /)).toBeVisible();
   await shot(page, info, "sprout-calm-lock");
   // A wrong key costs nothing: the same word, the same progress.
   const before = await night(page);
