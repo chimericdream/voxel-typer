@@ -1,0 +1,123 @@
+/*
+ * Settings (task M3-08). Sizes scale with --text-scale and every row wraps, so the screen fits a
+ * 1024 px wide window at text scale 2 (it scrolls down when it must).
+ */
+.body {
+  box-sizing: border-box;
+  width: min(100%, calc(44rem * var(--text-scale)));
+  max-width: 100%;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-4);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+.section,
+.danger {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  width: 100%;
+  padding-top: var(--sp-3);
+  border-top: 3px solid var(--c-slot-outline);
+}
+
+/* Not color alone: the danger zone also has a thicker, dashed rule and a ⚠ mark. */
+.danger {
+  border-top: 6px dashed var(--c-slot-outline);
+}
+
+.heading {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+  line-height: var(--lh);
+  color: var(--c-text);
+}
+
+.preview {
+  margin: 0;
+  padding: var(--sp-3);
+  border: 3px dashed var(--c-slot-outline);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+  line-height: 1.4;
+  color: var(--c-text);
+  overflow-wrap: anywhere;
+}
+
+.readOnly {
+  margin: 0 0 var(--sp-3);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  line-height: 1.4;
+  color: var(--c-bg-text);
+}
+
+.choice {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: var(--sp-2);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  color: var(--c-text);
+}
+
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 3px solid var(--c-slot-outline);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  color: var(--c-text);
+  cursor: pointer;
+}
+
+/* The chosen one: a thicker border as well as the filled radio. */
+.option[data-checked] {
+  border-width: 5px;
+  padding: calc(var(--sp-2) - 2px) calc(var(--sp-3) - 2px);
+}
+
+.option input {
+  width: calc(1.1rem * var(--text-scale));
+  height: calc(1.1rem * var(--text-scale));
+  margin: 0;
+  accent-color: var(--c-focus);
+}
+
+.option input:focus-visible {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+  box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
+}
+
+.choice:disabled .option {
+  cursor: default;
+  opacity: 0.6;
+}

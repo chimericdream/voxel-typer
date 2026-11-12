@@ -28,6 +28,11 @@ export interface Settings {
   breakReminderMin: number;
   /** Keyboard layout id. Default `'en-US'`. */
   layout: string;
+  /**
+   * Finger labels on the on-screen keyboard (decision 93, additive). Missing means on for Sprout
+   * only (`fingerLabelsOn` in `src/a11y/options.ts`), so older saves need no migration.
+   */
+  fingerLabels?: boolean;
 }
 
 /** What changes between bands (PLAN.md §2: text size, keyboard overlay, timer pressure). */

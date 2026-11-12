@@ -408,6 +408,9 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
           <span data-nav="">
             <Button onClick={() => app.navigate({ id: "profiles" })}>{t("map.players")}</Button>
           </span>
+          <span data-nav="">
+            <Button onClick={() => app.navigate({ id: "settings" })}>{t("settings.title")}</Button>
+          </span>
         </div>
       ) : (
         <div class={styles.pathWrap} ref={path}>

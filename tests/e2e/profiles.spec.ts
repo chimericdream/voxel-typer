@@ -71,7 +71,10 @@ test("change dialog: keyboard only, axe clean, the grown-up check comes first", 
   await expect(dialog.getByRole("button", { name: "New name" })).toBeFocused();
   await expectNoAxeViolations(page, "profiles change dialog");
   await page.keyboard.press("Enter");
-  await expect(dialog.getByRole("button", { name: "Yes, go ahead" })).toBeFocused();
+  // The parent gate (M3-08) opens inside the dialog, its word field focused.
+  await expect(dialog.getByLabel("Type the word")).toBeFocused();
+  await expect(dialog.locator("[data-gate-word]")).toHaveText(/^[a-z]{6,8}$/);
+  await expectNoAxeViolations(page, "profiles parent gate");
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(page.locator("li button")).toBeFocused();

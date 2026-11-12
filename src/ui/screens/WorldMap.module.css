@@ -70,6 +70,10 @@
   top: var(--sp-3);
   right: var(--sp-4);
   z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sp-2);
 }
 
 .map[data-mode="flat"] .corner {
