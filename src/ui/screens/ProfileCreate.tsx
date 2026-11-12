@@ -57,6 +57,7 @@ export function newProfile(
     keyStats: {},
     bigramStats: {},
     inventory: {},
+    found: {},
     island: null,
     cosmetics: { unlocked: [] },
     achievements: {},

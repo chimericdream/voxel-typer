@@ -98,6 +98,25 @@ describe("app shell", () => {
     expect(s.shell.route.value.id).toBe("splash");
   });
 
+  it("back arrives on a fresh route object, so a settle wait restarts (M3-10 re-review N1)", () => {
+    const s = setup();
+    s.shell.api.navigate({ id: "map" });
+    const first = s.shell.route.value;
+    s.shell.api.navigate({ id: "settings" });
+    s.shell.api.back();
+    expect(s.shell.route.value.id).toBe("map");
+    expect(s.shell.route.value).not.toBe(first);
+  });
+
+  it("drops queued badge toasts when the player changes (M3-10 re-review N3)", () => {
+    const s = setup();
+    s.shell.api.setProfile(fixture("fresh-sprout"));
+    s.shell.queueBadges(["first-lesson"]);
+    expect(s.shell.badgeToasts.value).toEqual(["first-lesson"]);
+    s.shell.api.setProfile({ ...fixture("fresh-sprout"), id: "someone-else" });
+    expect(s.shell.badgeToasts.value).toEqual([]);
+  });
+
   it("play → finish → results, saving the profile once even on rapid repeats", async () => {
     const s = setup();
     const p = fixture("fresh-sprout");
