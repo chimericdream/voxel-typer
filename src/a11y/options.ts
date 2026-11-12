@@ -4,14 +4,8 @@
 import type { Settings } from "@/save/settings";
 import type { AgeBand } from "@/types/core";
 
-/**
- * Settings with the requested finger-label field (M3-07 contract change request: an optional
- * `Settings.fingerLabels`). Until it lands, `Settings` has no such field and the band default
- * applies.
- */
-export type FingerLabelSettings = Pick<Settings, "showKeyboard"> & {
-  readonly fingerLabels?: boolean;
-};
+/** What the finger-label rule reads (`Settings.fingerLabels`, decision 93). */
+export type FingerLabelSettings = Pick<Settings, "showKeyboard" | "fingerLabels">;
 
 /**
  * Finger labels on every key of the on-screen keyboard. A keyboard-only child never hovers, so the
