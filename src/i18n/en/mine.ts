@@ -4,7 +4,9 @@
  */
 export default {
   // Shown when a lesson starts, until the first key lands.
-  startLetter: "Type the letter on the block!",
+  // "this letter" is the big letter on the plate above; "the block" is the one that breaks. The old
+  // "the letter on the block" sent eyes to the plate, which looks like a block (M2-13 review N2).
+  startLetter: "Type this letter to break the block!",
   startWord: "Type the word to break the block!",
   // A wrong key. At most once every 5 seconds.
   almost: "Almost! Try that key again",

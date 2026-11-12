@@ -92,6 +92,11 @@ export interface StageView {
    * `armX` is where the hand stands across the canvas (CSS pixels); default: the lower right.
    */
   frameAt(spot: { x: number; y: number; size: number } | null, armX?: number | null): void;
+  /**
+   * Where the `i`th float label of a break goes (M2-13 review N3): beside the block, on the side
+   * toward the middle of the screen, so it never sits in the column the next block drops into.
+   */
+  labelAt(i: number, out: Vec3): Vec3;
   /** Where effects for the block go (its resting center). */
   readonly at: Vec3;
   /** The block's place on the page, in CSS pixels. False when it is behind the camera. */
@@ -409,6 +414,15 @@ export function createStageView(opts: StageViewOptions): StageView {
   placeBlock();
 
   return {
+    labelAt(i, out) {
+      // shiftX > 0: the block was moved right of the middle, so the label goes on its left.
+      const side = shiftX > 0 ? -1 : 1;
+      const half = (BLOCK_SIZE * fit) / 2;
+      out.x = opts.at.x + side * (half + 0.45 * fit);
+      out.y = opts.at.y + half * 0.4 + i * 0.45 * fit;
+      out.z = opts.at.z;
+      return out;
+    },
     at: opts.at,
     showBlock(spec, slide) {
       if (disposed) return;

@@ -191,8 +191,11 @@ export function create(ctx: ModeContext): MineInstance {
     y: stage.target.y + 0.5,
     z: stage.target.z + 0.5,
   };
-  const textAt: Vec3 = { x: at.x, y: at.y + 0.95, z: at.z };
-  const textAt2: Vec3 = { x: at.x, y: at.y + 1.3, z: at.z };
+  /** Float text spots: above the block without a view, else beside it (`StageView.labelAt`). */
+  const labelAt = (i: number): Vec3 => {
+    const out: Vec3 = { x: at.x, y: at.y + 0.95 + i * 0.35, z: at.z };
+    return view ? view.labelAt(i, out) : out;
+  };
 
   type Phase = "loading" | "playing" | "outro" | "done";
   let phase: Phase = "loading";
@@ -345,7 +348,7 @@ export function create(ctx: ModeContext): MineInstance {
       loot[d.block] = (loot[d.block] ?? 0) + d.count;
       bus.emit("loot", d);
       // Float text only on a break, never per letter (M2-05 review).
-      if (i < 2) scene.fx.floatText(i === 0 ? textAt : textAt2, t("mine.got", { count: d.count }));
+      if (i < 2) scene.fx.floatText(labelAt(i), t("mine.got", { count: d.count }));
     });
     const hasOrigin = view?.project(from) ?? false;
     const queued = enqueueDrops(flights, drops, flyNow, reduced() || !hasOrigin || fly === null);
