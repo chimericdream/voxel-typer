@@ -1,0 +1,238 @@
+/*
+ * In-play HUD (task M2-14). Colors come from the theme (src/ui/theme/themes.ts): every text color
+ * here is a checked TEXT_PAIRS foreground on the surface it sits on, so the HUD reads over the 3D
+ * scene by day and by night.
+ *
+ * Sizes are px × --text-scale (not rem), capped by the viewport height, so the HUD with keyboard
+ * and hands fits 1280×720 and 1024×720 at text scale 2 without scrolling (tests/e2e/hud.spec.ts).
+ */
+.hud {
+  /* The keyboard's height in key units (--u), and its fixed px (frame padding, gaps, caption). */
+  --kb-units: 5;
+  --kb-fixed: 28px;
+
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  justify-items: center;
+  gap: var(--sp-2);
+  box-sizing: border-box;
+  padding: var(--sp-2) var(--sp-4) 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hud[data-hands] {
+  --kb-units: 8.1;
+  --kb-fixed: 40px;
+}
+
+.hud:not([data-keyboard]) {
+  padding-bottom: var(--sp-4);
+}
+
+/* Top row: progress, combo meter, timer. */
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-4);
+  width: 100%;
+  max-width: 1200px;
+
+  /* The combo meter shows streak, not text: it grows with the text scale only up to 64-px slots. */
+  --slot-base: min(56px, calc(64px / var(--text-scale)));
+}
+
+.progress {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 360px;
+}
+
+.progress > * {
+  min-width: 0;
+}
+
+.combo {
+  flex: none;
+  display: flex;
+}
+
+.timer {
+  flex: none;
+  margin: 0;
+  padding: var(--sp-1) var(--sp-3);
+  background: var(--c-plate);
+  color: var(--c-plate-text);
+  font-family: var(--font-pixel);
+  font-size: min(calc(24px * var(--text-scale)), 6dvh);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  box-shadow: 0 0 0 var(--bevel-unit) rgb(0 0 0 / 0.35);
+}
+
+.clock {
+  margin-right: var(--sp-2);
+  font-size: 0.8em;
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The word display. The row is the size container, so long words shrink to fit it. */
+.wordRow {
+  container-type: inline-size;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.wordPlate {
+  box-sizing: border-box;
+  width: fit-content;
+  min-width: 0;
+  max-width: 100%;
+  padding-block: var(--sp-1);
+}
+
+.word {
+  /* Biggest for one letter; a word fits the plate on one line; the height cap keeps room for keys. */
+  --size: min(calc(48px * var(--text-scale)), 12dvh, calc(92cqi / (var(--len) * 0.62)));
+
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: center;
+  gap: 0.04em;
+  font-family: var(--font-body);
+  font-size: var(--size);
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: pre;
+}
+
+.word[data-size="letter"] {
+  --size: min(calc(64px * var(--text-scale)), 14dvh);
+}
+
+.char {
+  position: relative;
+  display: inline-block;
+  padding: 0 0.04em 0.12em;
+  color: var(--c-text);
+  text-decoration-skip-ink: none;
+}
+
+/* Typed right: steps back to the muted ink. */
+.char[data-mark="ok"] {
+  color: var(--c-text-muted);
+}
+
+/* Typed right after a miss: muted, with a dotted underline. */
+.char[data-mark="fixed"] {
+  color: var(--c-text-muted);
+  text-decoration: underline dotted;
+  text-decoration-thickness: 0.06em;
+  text-underline-offset: 0.12em;
+}
+
+/* Missed: a wavy underline and a hatch pattern, so it never relies on color. It doesn't animate. */
+.char[data-mark="wrong"] {
+  color: var(--c-text);
+  text-decoration: underline wavy;
+  text-decoration-thickness: 0.05em;
+  text-underline-offset: 0.1em;
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, currentColor 22%, transparent) 0 0.06em,
+    transparent 0.06em 0.16em
+  );
+}
+
+.char[data-space] {
+  font-size: 0.6em;
+  align-self: flex-end;
+  padding-bottom: 0.3em;
+}
+
+.char[data-space]:not([data-next], [data-mark="wrong"]) {
+  color: var(--c-text-muted);
+}
+
+/* The next char: a thick bar and a soft tint (static), plus a gentle bob when motion is on. */
+.char[data-next] {
+  background-color: color-mix(in srgb, currentColor 10%, transparent);
+  animation: bob calc(1.4s * var(--motion-ok)) ease-in-out infinite;
+}
+
+.char[data-next]::after {
+  content: "";
+  position: absolute;
+  right: 0.04em;
+  bottom: 0;
+  left: 0.04em;
+  height: max(4px, 0.08em);
+  background: currentColor;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -0.06em;
+  }
+}
+
+/* The open stage over the 3D scene, where messages float without moving the layout. */
+.stage {
+  position: relative;
+  width: 100%;
+  min-height: 0;
+}
+
+.messages {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  width: min(960px, 100%);
+  translate: -50% 0;
+}
+
+/* The kit Toast, sized to the stage: at text scale 2 it stays one line and clear of the keys. */
+.messages output {
+  max-width: 100%;
+  font-size: min(calc(20px * var(--text-scale)), 3.6dvh);
+}
+
+.capsKey {
+  font-family: var(--font-body);
+}
+
+/*
+ * The keyboard. Its height is capped to a share of the viewport, and the key unit is capped to
+ * fit that height (--keyboard-max-unit, read by the keyboard), so keys shrink instead of scrolling.
+ */
+.keyboard {
+  container-type: size;
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  height: min(calc(var(--kb-units) * 40px * var(--text-scale) + var(--kb-fixed)), 54dvh);
+
+  --keyboard-max-unit: calc((100cqh - var(--kb-fixed)) / var(--kb-units));
+}

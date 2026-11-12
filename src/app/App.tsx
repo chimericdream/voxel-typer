@@ -5,11 +5,13 @@
  */
 import type { ComponentType } from "preact";
 import { useEffect, useState } from "preact/hooks";
+import { EN_US, layoutById } from "@/content/layouts";
 import { t } from "@/i18n";
 import { Button } from "@/ui/kit/Button";
 import { Panel } from "@/ui/kit/Panel";
 import { Toast } from "@/ui/kit/Toast";
 import { ComingSoon, nextLessonFor } from "@/ui/screens/ComingSoon";
+import { Hud } from "@/ui/hud/Hud";
 import { Pause } from "@/ui/screens/Pause";
 import styles from "./App.module.css";
 import { realClock } from "./clock";
@@ -74,16 +76,28 @@ function PlayView({ shell }: { shell: Shell }) {
       </div>
     );
   }
-  if (status === "paused" || status === "break") {
-    return (
-      <Pause
-        kind={status === "break" ? "break" : "pause"}
-        onResume={() => shell.play.resume(realClock.now())}
-        onQuit={() => shell.quitPlay()}
-      />
-    );
-  }
-  return null;
+  if (status !== "running" && status !== "paused" && status !== "break") return null;
+  const profile = shell.profile.value;
+  // The HUD stays under the pause overlay (the Dialog makes it inert), so nothing jumps on resume.
+  return (
+    <>
+      {profile ? (
+        <Hud
+          fields={shell.hud.fields}
+          settings={profile.settings}
+          band={profile.ageBand}
+          layout={layoutById(profile.settings.layout) ?? EN_US}
+        />
+      ) : null}
+      {status === "running" ? null : (
+        <Pause
+          kind={status === "break" ? "break" : "pause"}
+          onResume={() => shell.play.resume(realClock.now())}
+          onQuit={() => shell.quitPlay()}
+        />
+      )}
+    </>
+  );
 }
 
 function Notices({ shell }: { shell: Shell }) {
