@@ -3,7 +3,6 @@
 # tags: band=all reading=grade2 kind=words theme=colors
 amber
 aqua
-beige
 black
 blue
 brown

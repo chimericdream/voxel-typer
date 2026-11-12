@@ -189,3 +189,23 @@ were written in.
   and trying again.
 - `knob`, `slash` and `hash` are blocklisted, so the Sparkstone sentences call them "the / sign" and
   "the # sign".
+
+## M3-03 additions (lessons for biomes 1–4)
+
+- **`birch-phrases-sprout.txt`, `shore-phrases-sprout.txt`, `frosty-phrases-sprout.txt`:** short
+  phrases of 2–4 easy words for Sprouts, authored for Voxel Typer (M3-03). Each biome's phrase
+  lesson (the space-bar practice) and mastery check need a Sprout list: the Miner and Builder
+  phrase lists aren't shown to Sprouts, and without one a Sprout's phrase lesson would fall back to
+  made-up syllables. Built from words already in that biome's Sprout list, the theme lists or the
+  Dolch list. Birch phrases use only the Meadow and Birch keys; Shore and Frosty phrases use a–z.
+  Left out on purpose: falling, hurt or fear readings, anything that reads as drinking, and pairs
+  that don't make sense to a child.
+- **Theme list fixes (from the M3-02 review):** `beige` (hard to decode at 6–8) left
+  `theme-colors`, and `wren` (already taken out of the Sprout lists as too hard to read) left
+  `theme-animals`, replaced by `dove`. `theme-animals` and `theme-blocks` are tagged
+  `reading=grade2`, not `cvc`: most of their words aren't CVC (`koala`, `horse`, `plank`).
+- **`home-row.txt` keeps `fad`, `fads` and `falls`** (M2-12 review N3). They're decodable and
+  harmless; `falls` is snow or water falling. Without them, lesson meadow-05 (home row, no `g h`)
+  would have 18 words, under the curriculum validator's floor of 20, and the keys `a s d f j k l`
+  spell no other word a 6-year-old knows. The phrase lists keep their stricter bar (each phrase
+  must make sense as a little scene), so `fad` stays out of them.

@@ -21,7 +21,7 @@ import {
   type Rule,
 } from "../../../tools/validate-curriculum";
 import { lessons as shipped } from "../../../src/content/lessons";
-import { lessons as meadow } from "../../../src/content/lessons/meadow";
+import { lessons as meadowAll } from "../../../src/content/lessons/meadow";
 import { allowedKeysFor, type Lesson } from "../../../src/content/lessons/types";
 import { wordPools } from "../../../src/content/wordlists/pools";
 import type { WordPool } from "../../../src/engine/generator";
@@ -31,6 +31,9 @@ import type { BiomeId } from "../../../src/types/core";
 
 const REPO = resolve(import.meta.dirname, "../../..");
 const NONE: ReadonlySet<BiomeId> = new Set();
+/** Meadow 1–6 (M2-12), the base of the fixtures: an unfinished biome. */
+const meadow = meadowAll.filter((l) => l.order <= 6);
+const SLICE: ReadonlySet<BiomeId> = new Set(["meadow"]);
 
 const input = (
   lessons: readonly Lesson[],
@@ -41,6 +44,12 @@ const input = (
   messages: en,
   ...extra,
 });
+
+/** A fixture built on Meadow 1–6, checked as a biome still in progress unless `extra` says not. */
+const partial = (
+  lessons: readonly Lesson[],
+  extra: Partial<CurriculumInput> = {},
+): CurriculumInput => input(lessons, { inProgress: SLICE, ...extra });
 
 const rulesOf = (i: CurriculumInput): Set<Rule> =>
   new Set(validateCurriculum(i).problems.map((p) => p.rule));
@@ -59,10 +68,8 @@ describe("shipped curriculum", () => {
     expect(result.problems).toEqual([]);
   });
 
-  it("warns only that Meadow, still in progress, has no mastery lesson yet", () => {
-    expect(result.warnings).toEqual([
-      { rule: "mastery", where: "meadow", message: "no mastery lesson" },
-    ]);
+  it("has no warnings: every shipped biome is finished", () => {
+    expect(result.warnings).toEqual([]);
   });
 
   it("Meadow word and phrase lessons use only pool items, never the syllable fallback", () => {
@@ -154,57 +161,57 @@ const FIXTURES: { name: string; rule: Rule; input: CurriculumInput }[] = [
   {
     name: "two lessons share an id",
     rule: "unique-id",
-    input: input([...meadow, ...meadow.slice(1, 2)]),
+    input: partial([...meadow, ...meadow.slice(1, 2)]),
   },
   {
     name: "id does not match biome and order",
     rule: "id-format",
-    input: input(edit("meadow-03", (l) => ({ ...l, id: "meadow-3" }))),
+    input: partial(edit("meadow-03", (l) => ({ ...l, id: "meadow-3" }))),
   },
   {
     name: "a gap in the order",
     rule: "order",
-    input: input(edit("meadow-06", (l) => ({ ...l, id: "meadow-07", order: 7 }))),
+    input: partial(edit("meadow-06", (l) => ({ ...l, id: "meadow-07", order: 7 }))),
   },
   {
     name: "a key introduced twice",
     rule: "new-keys",
-    input: input(edit("meadow-02", (l) => ({ ...l, newKeys: ["d", "f"] }))),
+    input: partial(edit("meadow-02", (l) => ({ ...l, newKeys: ["d", "f"] }))),
   },
   {
     name: "a key from a later biome",
     rule: "new-keys",
-    input: input(edit("meadow-05", (l) => ({ ...l, newKeys: ["e"] }))),
+    input: partial(edit("meadow-05", (l) => ({ ...l, newKeys: ["e"] }))),
   },
   {
     name: "a new key that is two chars",
     rule: "new-keys",
-    input: input(edit("meadow-05", (l) => ({ ...l, newKeys: ["gh"] }))),
+    input: partial(edit("meadow-05", (l) => ({ ...l, newKeys: ["gh"] }))),
   },
   {
     name: "a finished biome that never teaches some of its keys",
     rule: "new-keys",
-    input: input(meadow, { inProgress: NONE }),
+    input: partial(meadow, { inProgress: NONE }),
   },
   {
     name: "reviews a key not yet introduced",
     rule: "review-keys",
-    input: input(edit("meadow-02", (l) => ({ ...l, reviewKeys: ["s"] }))),
+    input: partial(edit("meadow-02", (l) => ({ ...l, reviewKeys: ["s"] }))),
   },
   {
     name: "reviews its own new key",
     rule: "review-keys",
-    input: input(edit("meadow-02", (l) => ({ ...l, reviewKeys: ["d"] }))),
+    input: partial(edit("meadow-02", (l) => ({ ...l, reviewKeys: ["d"] }))),
   },
   {
     name: "a words lesson drawing on a phrase pool types spaces",
     rule: "allowed-keys",
-    input: input(edit("meadow-05", (l) => ({ ...l, pools: ["meadow-phrases"] }))),
+    input: partial(edit("meadow-05", (l) => ({ ...l, pools: ["meadow-phrases"] }))),
   },
   {
     name: "too few distinct targets",
     rule: "variety",
-    input: input(
+    input: partial(
       edit("meadow-05", (l) => ({ ...l, pools: ["tiny"] })),
       { pools: [...wordPools, pool("tiny", ["dad", "sad", "lad", "fad", "add"])] },
     ),
@@ -212,7 +219,7 @@ const FIXTURES: { name: string; rule: Rule; input: CurriculumInput }[] = [
   {
     name: "a words lesson whose pool it cannot type falls back to syllables",
     rule: "real-words",
-    input: input(
+    input: partial(
       edit("meadow-05", (l) => ({ ...l, pools: ["untypeable"] })),
       { pools: [...wordPools, pool("untypeable", ["tree", "bird", "nest", "leaf"])] },
     ),
@@ -220,42 +227,42 @@ const FIXTURES: { name: string; rule: Rule; input: CurriculumInput }[] = [
   {
     name: "names a pool that does not exist",
     rule: "pools",
-    input: input(edit("meadow-05", (l) => ({ ...l, pools: ["no-such-pool"] }))),
+    input: partial(edit("meadow-05", (l) => ({ ...l, pools: ["no-such-pool"] }))),
   },
   {
     name: "a finished biome with no mastery lesson",
     rule: "mastery",
-    input: input(meadow, { inProgress: NONE }),
+    input: partial(meadow, { inProgress: NONE }),
   },
   {
     name: "two mastery lessons",
     rule: "mastery",
-    input: input(meadow.map((l) => (l.order >= 5 ? { ...l, tags: ["mastery" as const] } : l))),
+    input: partial(meadow.map((l) => (l.order >= 5 ? { ...l, tags: ["mastery" as const] } : l))),
   },
   {
     name: "mastery lesson not last",
     rule: "mastery",
-    input: input(edit("meadow-03", (l) => ({ ...l, tags: ["mastery"] }))),
+    input: partial(edit("meadow-03", (l) => ({ ...l, tags: ["mastery"] }))),
   },
   {
     name: "boss lesson not last",
     rule: "boss",
-    input: input(edit("meadow-03", (l) => ({ ...l, tags: ["boss"], mode: "boss" }))),
+    input: partial(edit("meadow-03", (l) => ({ ...l, tags: ["boss"], mode: "boss" }))),
   },
   {
     name: "boss tag without boss mode",
     rule: "boss",
-    input: input(edit("meadow-06", (l) => ({ ...l, tags: ["boss"] }))),
+    input: partial(edit("meadow-06", (l) => ({ ...l, tags: ["boss"] }))),
   },
   {
     name: "no lesson practises the space bar",
     rule: "space",
-    input: input(edit("meadow-06", (l) => ({ ...l, kind: "words", pools: ["home-row"] }))),
+    input: partial(edit("meadow-06", (l) => ({ ...l, kind: "words", pools: ["home-row"] }))),
   },
   {
     name: "title key with no English text",
     rule: "title",
-    input: input(
+    input: partial(
       edit("meadow-04", (l) => Object.assign({}, l, { titleKey: "lessonsMeadow.nope" })),
     ),
   },
@@ -274,7 +281,7 @@ describe("validator on fixtures", () => {
 
   it("problems name the lesson or biome", () => {
     const [p] = validateCurriculum(
-      input(edit("meadow-02", (l) => ({ ...l, reviewKeys: ["s"] }))),
+      partial(edit("meadow-02", (l) => ({ ...l, reviewKeys: ["s"] }))),
     ).problems;
     expect(p).toEqual({
       rule: "review-keys",
@@ -300,7 +307,7 @@ function finished(): Lesson[] {
 
 describe("validator accepts", () => {
   it("a mastery lesson right before the boss lesson", () => {
-    const r = validateCurriculum(input(finished(), { inProgress: NONE }));
+    const r = validateCurriculum(partial(finished(), { inProgress: NONE }));
     expect(r.problems).toEqual([]);
     expect(r.warnings).toEqual([]);
   });
@@ -312,6 +319,6 @@ describe("validator accepts", () => {
       pools: ["home-row"],
       mode: "practice",
     }));
-    expect(rulesOf(input(lessons)).has("space")).toBe(false);
+    expect(rulesOf(partial(lessons)).has("space")).toBe(false);
   });
 });

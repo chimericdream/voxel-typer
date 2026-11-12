@@ -10,13 +10,75 @@ a middle dot (`·`) when they have spaces inside them (phrases and sentences).
 
 ## Meadow Home (`meadow`)
 
-In progress: more lessons are coming.
+| Lesson      | Title               | New keys | Kind                              | Mode | Length   | Targets      | Sample                                       |
+| ----------- | ------------------- | -------- | --------------------------------- | ---- | -------- | ------------ | -------------------------------------------- |
+| `meadow-01` | Find F and J        | `f j`    | letters                           | mine | 50 chars | accuracy 85% | `j f f f j j j f j j f f f j j f f f j f …`  |
+| `meadow-02` | Hello, D and K      | `d k`    | letters                           | mine | 50 chars | accuracy 85% | `j j f j f d d d j k f f j d k d f f j j …`  |
+| `meadow-03` | Hello, S and L      | `s l`    | syllables                         | mine | 55 chars | accuracy 85% | `dl jd sfk ss lds jkf ll sk kds sk dl kjf …` |
+| `meadow-04` | Hello, A and ;      | `a ;`    | letters                           | mine | 60 chars | accuracy 85% | `s d j k f a l a l a f f d s a k f f d d …`  |
+| `meadow-05` | Home Row Words      |          | words                             | mine | 60 chars | accuracy 85% | `as fads fall add adds as ads fads fad …`    |
+| `meadow-06` | Words Together      |          | phrases                           | mine | 55 chars | accuracy 85% | `add a salad · all dads ask · dad adds …`    |
+| `meadow-07` | Hello, G and H      | `g h`    | letters                           | mine | 60 chars | accuracy 85% | `l d d s f ; a ; a g f f d s g s j j d d …`  |
+| `meadow-08` | Home Row Sounds     |          | syllables                         | mine | 65 chars | accuracy 85% | `aa sad aa a; ;aa ak saa kas ada jas ;al …`  |
+| `meadow-09` | G and H Words       |          | words                             | mine | 65 chars | accuracy 85% | `dads glad had ads ash dads ask gas flash …` |
+| `meadow-10` | Glad Words Together |          | phrases                           | mine | 65 chars | accuracy 85% | `dad adds · a lad has a flag …`              |
+| `meadow-11` | No Peeking!         |          | letters (challenge-hide-keyboard) | mine | 60 chars | accuracy 85% | `; d j k f a l a l g f f d s ; s j j d d …`  |
+| `meadow-12` | Home Row Review     |          | words                             | mine | 70 chars | accuracy 85% | `dads glad had ads ash dads ask gas flash …` |
+| `meadow-13` | Show What You Know  |          | phrases (mastery)                 | mine | 90 s     | accuracy 90% | `a fall salad · lads ask dad …`              |
+| `meadow-14` | The Cobble Colossus |          | phrases (boss)                    | boss | 70 chars | accuracy 85% | `dad adds · a lad has a flag …`              |
 
-| Lesson      | Title          | New keys | Kind      | Mode | Length   | Targets      | Sample                                       |
-| ----------- | -------------- | -------- | --------- | ---- | -------- | ------------ | -------------------------------------------- |
-| `meadow-01` | Find F and J   | `f j`    | letters   | mine | 50 chars | accuracy 85% | `j f f f j j j f j j f f f j j f f f j f …`  |
-| `meadow-02` | Hello, D and K | `d k`    | letters   | mine | 50 chars | accuracy 85% | `j j f j f d d d j k f f j d k d f f j j …`  |
-| `meadow-03` | Hello, S and L | `s l`    | syllables | mine | 55 chars | accuracy 85% | `dl jd sfk ss lds jkf ll sk kds sk dl kjf …` |
-| `meadow-04` | Hello, A and ; | `a ;`    | letters   | mine | 60 chars | accuracy 85% | `s d j k f a l a l a f f d s a k f f d d …`  |
-| `meadow-05` | Home Row Words |          | words     | mine | 60 chars | accuracy 85% | `as fads fall add adds as ads fads fad …`    |
-| `meadow-06` | Word Pairs     |          | phrases   | mine | 55 chars | accuracy 85% | `add a salad · all dads ask · dad adds …`    |
+## Birch Forest (`birch`)
+
+| Lesson     | Title              | New keys | Kind                            | Mode | Length   | Targets      | Sample                                       |
+| ---------- | ------------------ | -------- | ------------------------------- | ---- | -------- | ------------ | -------------------------------------------- |
+| `birch-01` | Hello, E and I     | `e i`    | letters                         | mine | 60 chars | accuracy 85% | `; k d s f g ; g ; e f f k l h l j j k k …`  |
+| `birch-02` | E and I Words      |          | words                           | mine | 70 chars | accuracy 85% | `field ideas ladles desk eagles feel …`      |
+| `birch-03` | Hello, R and U     | `r u`    | syllables                       | mine | 65 chars | accuracy 85% | `ii sik ia ug guu as suu sul eku jal ga; …`  |
+| `birch-04` | Key Hunt           |          | letters                         | mine | 65 chars | accuracy 85% | `h k d l j h g h ; i f f k a e a j j k k …`  |
+| `birch-05` | R and U Words      |          | words                           | mine | 70 chars | accuracy 85% | `fir idea ladder digs ears figs fed huge …`  |
+| `birch-06` | Hello, T and Y     | `t y`    | letters                         | mine | 65 chars | accuracy 85% | `h s k a j i e i h t f f s ; u ; j j s s …`  |
+| `birch-07` | T and Y Words      |          | words                           | mine | 70 chars | accuracy 85% | `flutters kettle leafy desserts eggs firs …` |
+| `birch-08` | Forest Words       |          | words                           | mine | 75 chars | accuracy 85% | `dress hike jersey flash sad desserts …`     |
+| `birch-09` | Hello, O and W     | `o w`    | letters                         | mine | 65 chars | accuracy 85% | `i s k ; j r i u e y f f s g t g d d s l …`  |
+| `birch-10` | O and W Words      |          | words                           | mine | 75 chars | accuracy 85% | `geology oak root eagle fir furry …`         |
+| `birch-11` | Hello, Q and P     | `q p`    | letters                         | mine | 65 chars | accuracy 85% | `r l k ; j t r t i w f f l h o g d d l l …`  |
+| `birch-12` | Words in the Woods |          | phrases                         | mine | 75 chars | accuracy 85% | `a pretty tulip · two jolly frogs …`         |
+| `birch-13` | No Peeking!        |          | words (challenge-hide-keyboard) | mine | 70 chars | accuracy 85% | `geese pear puppy sash eel frog fields …`    |
+| `birch-14` | Show What You Know |          | phrases (mastery)               | mine | 90 s     | accuracy 90% | `hut · spatula · toast · fields · gateway …` |
+| `birch-15` | The Bramble Stag   |          | phrases (boss)                  | boss | 80 chars | accuracy 85% | `a pretty tulip · two jolly frogs …`         |
+
+## Sandy Shore (`shore`)
+
+| Lesson     | Title              | New keys | Kind                            | Mode | Length   | Targets      | Sample                                       |
+| ---------- | ------------------ | -------- | ------------------------------- | ---- | -------- | ------------ | -------------------------------------------- |
+| `shore-01` | Hello, M and V     | `m v`    | letters                         | mine | 65 chars | accuracy 85% | `t l s g j y u y u q f f l e w e d d l a …`  |
+| `shore-02` | M and V Words      |          | words                           | mine | 75 chars | accuracy 85% | `starfish horse seal mermaid oyster smile …` |
+| `shore-03` | Hello, N and B     | `n b`    | letters                         | mine | 70 chars | accuracy 85% | `y l s h j o t w t m f f a i p e d d a a …`  |
+| `shore-04` | Sandy Words        |          | words                           | mine | 80 chars | accuracy 85% | `huge tiptoes wheat digs fork holly …`       |
+| `shore-05` | N and B Words      |          | words                           | mine | 75 chars | accuracy 85% | `marble swimsuit grass bin dolphins …`       |
+| `shore-06` | Hello, C and X     | `c x`    | letters                         | mine | 70 chars | accuracy 85% | `w a s e j q y q y n f f a r m i d d a ; …`  |
+| `shore-07` | C and X Words      |          | words                           | mine | 75 chars | accuracy 85% | `cooks rabbits snorkel birds camel …`        |
+| `shore-08` | Words by the Sea   |          | phrases                         | mine | 80 chars | accuracy 85% | `build a sand fort · a dolphin jumps …`      |
+| `shore-09` | Hello, Z           | `z`      | letters                         | mine | 65 chars | accuracy 85% | `q a l e d q o p y n f f a r v r d d a ; …`  |
+| `shore-10` | Bottom Row Words   |          | words                           | mine | 80 chars | accuracy 85% | `cooks raccoon sock birds cakes coconuts …`  |
+| `shore-11` | No Peeking!        |          | words (challenge-hide-keyboard) | mine | 75 chars | accuracy 85% | `oaks beetles captain eel goggles lake …`    |
+| `shore-12` | Seaside Review     |          | phrases                         | mine | 70 chars | accuracy 85% | `a quiet forest · a boat with sails …`       |
+| `shore-13` | Show What You Know |          | phrases (mastery)               | mine | 90 s     | accuracy 90% | `finch · zero · sunny days · bowls …`        |
+| `shore-14` | The Tidecrab King  |          | phrases (boss)                  | boss | 85 chars | accuracy 85% | `seagulls in the sky · a dolphin jumps …`    |
+
+## Frosty Peaks (`frosty`)
+
+| Lesson      | Title              | New keys | Kind                            | Mode | Length   | Targets                   | Sample                                      |
+| ----------- | ------------------ | -------- | ------------------------------- | ---- | -------- | ------------------------- | ------------------------------------------- |
+| `frosty-01` | Snow Words         |          | words                           | mine | 80 chars | accuracy 85%, speed ×1    | `foxes north planet cedars comet fluff …`   |
+| `frosty-02` | Words in the Snow  |          | phrases                         | mine | 80 chars | accuracy 85%, speed ×1    | `the sled is fast · boots in the snow …`    |
+| `frosty-03` | Chilly Words       |          | words                           | mine | 85 chars | accuracy 85%, speed ×1.05 | `lamps summits crate cloud fox icebox …`    |
+| `frosty-04` | Key Hunt           |          | letters                         | mine | 70 chars | accuracy 85%              | `p a s e j q y q y n f f a r m i d d a ; …` |
+| `frosty-05` | Words on the Ice   |          | phrases                         | mine | 85 chars | accuracy 85%, speed ×1.05 | `a hut of logs · a nice cool breeze …`      |
+| `frosty-06` | Cozy Words         |          | words                           | mine | 90 chars | accuracy 85%, speed ×1.1  | `foal bacon jam ice stair dog wood white …` |
+| `frosty-07` | No Peeking!        |          | words (challenge-hide-keyboard) | mine | 80 chars | accuracy 85%              | `foxes north planet cedars comet fluff …`   |
+| `frosty-08` | Big Word Mix       |          | words                           | mine | 90 chars | accuracy 85%, speed ×1.1  | `pottery cushion mud fir hike petal jay …`  |
+| `frosty-09` | Up the Hill        |          | phrases                         | mine | 90 chars | accuracy 85%, speed ×1.1  | `icicle · snowshoe · warmth · climbing …`   |
+| `frosty-10` | Up the Peak        |          | phrases                         | mine | 95 chars | accuracy 85%, speed ×1.15 | `toes · nests · vines · gate · lip …`       |
+| `frosty-11` | Show What You Know |          | phrases (mastery)               | mine | 90 s     | accuracy 90%, speed ×1.15 | `pinecone · pine cones in snow …`           |
+| `frosty-12` | The Frost Wyrm     |          | phrases (boss)                  | boss | 95 chars | accuracy 85%, speed ×1.15 | `a brave captain · relaxing · summit …`     |

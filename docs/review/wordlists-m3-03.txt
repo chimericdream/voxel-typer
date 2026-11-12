@@ -1,0 +1,101 @@
+# Word lists added in M3-03, for the owner's read-through (M6-08). One item per line: <pool id><TAB><item>.
+birch-phrases-sprout	a fresh pear
+birch-phrases-sprout	a gift for you
+birch-phrases-sprout	a happy pup
+birch-phrases-sprout	a hat for dad
+birch-phrases-sprout	a little frog
+birch-phrases-sprout	a little seed
+birch-phrases-sprout	a pretty kite
+birch-phrases-sprout	a quiet path
+birch-phrases-sprout	a red jay
+birch-phrases-sprout	a red leaf
+birch-phrases-sprout	a soft pillow
+birch-phrases-sprout	a tall tree
+birch-phrases-sprout	a white daisy
+birch-phrases-sprout	eat a pear
+birch-phrases-sprout	go to the hut
+birch-phrases-sprout	hug a tree
+birch-phrases-sprout	look at the owl
+birch-phrases-sprout	pet the dog
+birch-phrases-sprout	put it here
+birch-phrases-sprout	sit with a pal
+birch-phrases-sprout	the deer sleeps
+birch-phrases-sprout	the dog is wet
+birch-phrases-sprout	the frog hops
+birch-phrases-sprout	the goat is fed
+birch-phrases-sprout	the owl hoots
+birch-phrases-sprout	the owl is wise
+birch-phrases-sprout	the path is wet
+birch-phrases-sprout	the rose is red
+birch-phrases-sprout	the sky is gray
+birch-phrases-sprout	the trees are tall
+birch-phrases-sprout	two little owls
+birch-phrases-sprout	up a ladder
+birch-phrases-sprout	up the tree
+birch-phrases-sprout	we see a hare
+shore-phrases-sprout	a bee can buzz
+shore-phrases-sprout	a big crab
+shore-phrases-sprout	a big wave
+shore-phrases-sprout	a blue boat
+shore-phrases-sprout	a box of shells
+shore-phrases-sprout	a calm day
+shore-phrases-sprout	a cool breeze
+shore-phrases-sprout	a crab can dig
+shore-phrases-sprout	a map of the bay
+shore-phrases-sprout	a mix of shells
+shore-phrases-sprout	a nice picnic
+shore-phrases-sprout	a pink shell
+shore-phrases-sprout	a sand castle
+shore-phrases-sprout	a seal on a rock
+shore-phrases-sprout	a snack on the beach
+shore-phrases-sprout	a van at the beach
+shore-phrases-sprout	build a sand fort
+shore-phrases-sprout	come and play
+shore-phrases-sprout	crabs in the sand
+shore-phrases-sprout	fun in the sun
+shore-phrases-sprout	jump in the waves
+shore-phrases-sprout	my blue cap
+shore-phrases-sprout	my new kite
+shore-phrases-sprout	my red bucket
+shore-phrases-sprout	six small shells
+shore-phrases-sprout	sun and sand
+shore-phrases-sprout	swim in the sea
+shore-phrases-sprout	the boat is big
+shore-phrases-sprout	the cat naps
+shore-phrases-sprout	the fish swim
+shore-phrases-sprout	the moon is up
+shore-phrases-sprout	the sun is warm
+shore-phrases-sprout	the waves come in
+shore-phrases-sprout	we can swim
+frosty-phrases-sprout	a big snowman
+frosty-phrases-sprout	a box of socks
+frosty-phrases-sprout	a cold nose
+frosty-phrases-sprout	a cozy hat
+frosty-phrases-sprout	a gust of wind
+frosty-phrases-sprout	a jar of jam
+frosty-phrases-sprout	a long scarf
+frosty-phrases-sprout	a pine tree
+frosty-phrases-sprout	a quiet night
+frosty-phrases-sprout	a warm blanket
+frosty-phrases-sprout	a warm hat
+frosty-phrases-sprout	a white owl
+frosty-phrases-sprout	fluffy snow
+frosty-phrases-sprout	ice on the pond
+frosty-phrases-sprout	icicles drip
+frosty-phrases-sprout	make a snowball
+frosty-phrases-sprout	my red mittens
+frosty-phrases-sprout	six snowflakes
+frosty-phrases-sprout	slide on the ice
+frosty-phrases-sprout	snow on my boots
+frosty-phrases-sprout	snow on the hill
+frosty-phrases-sprout	soft snow
+frosty-phrases-sprout	the elk is big
+frosty-phrases-sprout	the fox runs
+frosty-phrases-sprout	the frost pup naps
+frosty-phrases-sprout	the moon is out
+frosty-phrases-sprout	the peak is high
+frosty-phrases-sprout	the stars shine
+frosty-phrases-sprout	the wind is cold
+frosty-phrases-sprout	tracks in the snow
+frosty-phrases-sprout	we can sled
+frosty-phrases-sprout	we zip our coats

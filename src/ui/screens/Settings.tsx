@@ -5,7 +5,7 @@
  * - **Look:** letter size (the whole page is the live preview), letters (font), strong colors,
  *   moving things (reduced motion), picture quality.
  * - **Sound:** the four volume buses, read-aloud and a test sound.
- * - **Grown-ups:** behind the parent gate. Group (band) change, the save-file slot (M3-12),
+ * - **Grown-ups:** behind the parent gate. Group (band) change, the save file (M3-12),
  *   the secure-address note, damaged saves, and the danger zone (delete this player).
  *
  * Every change applies at once (`app.saveProfile` → the shell re-applies theme, size, motion, font
@@ -25,13 +25,22 @@ import type { Settings as SettingsData } from "@/save/settings";
 import type { AgeBand, QualityLevel } from "@/types/core";
 import { fingerLabelsOn } from "@/a11y/options";
 import { DYSLEXIC_STACK } from "@/a11y/page";
+import { ImportExport } from "@/ui/components/ImportExport";
 import { ParentGate } from "@/ui/components/ParentGate";
 import { Button } from "@/ui/kit/Button";
 import { Dialog } from "@/ui/kit/Dialog";
+import { Panel } from "@/ui/kit/Panel";
 import { Slider } from "@/ui/kit/Slider";
 import { Tabs } from "@/ui/kit/Tabs";
 import { Toggle } from "@/ui/kit/Toggle";
-import { arrowStep, focusInField, focusOnControl, navItems, useScreenInput } from "./nav";
+import {
+  arrowStep,
+  focusInField,
+  focusOnControl,
+  moveFocus,
+  navItems,
+  useScreenInput,
+} from "./nav";
 import { withBand } from "./profiles-logic";
 import screen from "./screen.module.css";
 import styles from "./Settings.module.css";
@@ -287,6 +296,8 @@ function GrownUpsTab(props: {
   disabled: boolean;
   onBand: (b: AgeBand) => void;
   onRemoved: () => void;
+  /** The save file replaced this player (M3-12): show the new copy. */
+  onReplaced: (p: Profile) => void;
 }) {
   const { app, profile, disabled } = props;
   const [confirm, setConfirm] = useState<Confirm>(null);
@@ -327,10 +338,7 @@ function GrownUpsTab(props: {
         <h2 class={styles.heading} id="settings-data">
           {t("settings.grown.dataTitle")}
         </h2>
-        {/* M3-12 replaces this slot with the export/import controls (ImportExport.tsx). */}
-        <div data-slot="import-export">
-          <p class={screen.muted}>{t("settings.grown.dataSoon")}</p>
-        </div>
+        <ImportExport app={app} onActiveReplaced={props.onReplaced} />
         {insecure ? <p class={screen.muted}>{t("settings.grown.insecure")}</p> : null}
         {damaged > 0 ? (
           <>
@@ -399,15 +407,55 @@ function GrownUpsTab(props: {
   );
 }
 
+/**
+ * No player picked yet. On a new device the Players screen sends a grown-up here to load a save
+ * file (M3-12), behind the same parent gate as the Grown-ups tab.
+ */
 function NoPlayer({ app }: { app: AppApi }) {
+  const [unlocked, setUnlocked] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  useScreenInput(app, (i) => {
+    if (i.kind !== "control") return false;
+    const step = arrowStep(i.action);
+    if (step === null) return false;
+    return arrowsOwnedByFocus() || moveFocus(root.current, step);
+  });
   return (
-    <div class={screen.screen}>
+    <div class={screen.screen} ref={root} data-no-player="">
       <h1 class={screen.title}>{t("settings.title")}</h1>
-      <p class={screen.text}>{t("settings.noPlayer")}</p>
+      <Panel class={styles.body ?? ""}>
+        <div class={styles.stack}>
+          <p class={screen.text}>{t("settings.noPlayer")}</p>
+          <section class={styles.section} aria-labelledby="settings-data">
+            <h2 class={styles.heading} id="settings-data">
+              {t("settings.grown.dataTitle")}
+            </h2>
+            {unlocked ? (
+              <ImportExport app={app} canExport={false} />
+            ) : asking ? (
+              <ParentGate
+                action="grownUps"
+                onPass={() => setUnlocked(true)}
+                onCancel={() => setAsking(false)}
+              />
+            ) : (
+              <>
+                <p class={screen.muted}>{t("importexport.noPlayerIntro")}</p>
+                <span data-nav="">
+                  <Button onClick={() => setAsking(true)}>{t("importexport.import.button")}</Button>
+                </span>
+              </>
+            )}
+          </section>
+        </div>
+      </Panel>
       <div class={screen.actions}>
-        <Button variant="primary" onClick={() => app.navigate({ id: "profiles" })}>
-          {t("settings.players")}
-        </Button>
+        <span data-nav="">
+          <Button variant="primary" onClick={() => app.navigate({ id: "profiles" })}>
+            {t("settings.players")}
+          </Button>
+        </span>
       </div>
     </div>
   );
@@ -491,6 +539,7 @@ function SettingsScreen({ app, start }: { app: AppApi; start: Profile }) {
             if (!readOnly) commit(withBand(app.profile() ?? profile, b));
           }}
           onRemoved={() => app.navigate({ id: "profiles" }, { replace: true })}
+          onReplaced={setProfile}
         />
       ) : (
         <ParentGate
