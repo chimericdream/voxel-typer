@@ -22,6 +22,7 @@ import lessonsBirch from "./lessons-birch";
 import lessonsShore from "./lessons-shore";
 import lessonsFrosty from "./lessons-frosty";
 import achievements from "./achievements";
+import importexport from "./importexport";
 
 const en = {
   common,
@@ -41,6 +42,7 @@ const en = {
   lessonsShore,
   lessonsFrosty,
   achievements,
+  importexport,
 } as const;
 
 export default en;

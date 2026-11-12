@@ -153,7 +153,7 @@ test("the danger zone needs the grown-up word", async ({ page }) => {
   await passGate(page);
   const remove = page.getByRole("button", { name: "Delete Basil" });
   await expect(remove).toBeVisible();
-  await expect(page.locator("[data-slot='import-export']")).toBeVisible();
+  await expect(page.locator("[data-import-export]")).toBeVisible();
   await expectNoAxeViolations(page, "settings: grown-ups");
 
   await remove.click();

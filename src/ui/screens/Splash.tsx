@@ -106,6 +106,10 @@ export default function Splash({ app }: ScreenProps) {
       <Button onClick={() => app.navigate({ id: "privacy" })} class={styles.privacy ?? ""}>
         {t("screens.splash.privacy")}
       </Button>
+      {/* A grown-up on a new device can bring players over from a save file (M3-12). */}
+      <Button onClick={() => app.navigate({ id: "settings" })} class={styles.privacy ?? ""}>
+        {t("importexport.fromSplash")}
+      </Button>
     </div>
   );
 }

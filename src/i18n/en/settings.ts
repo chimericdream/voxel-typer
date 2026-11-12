@@ -76,7 +76,6 @@ export default {
       "Move {name} to the {band} group? Letter size, keyboard help and timers change to fit, unless you changed them yourself.",
     bandYes: "Yes, move",
     dataTitle: "Save file",
-    dataSoon: "Saving to a file and loading it back is coming soon.",
     insecure:
       "This page is not using a secure (https) address, so it can't work offline or be installed. Everything else works.",
     damaged:

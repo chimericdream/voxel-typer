@@ -247,28 +247,8 @@ export function createStoreOn(backend: Backend, options: SaveStoreOptions = {}):
   async function importAll(file: Blob): Promise<ImportResult> {
     const errors: string[] = [];
     try {
-      if (file.size > MAX_IMPORT_BYTES) return fail("The file is bigger than 5 MB.");
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(await file.text());
-      } catch {
-        return fail("The file is not a Voxel Typer save file (not JSON).");
-      }
-      if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-        return fail("The file is not a Voxel Typer save file.");
-      }
-      if (Reflect.get(parsed, "app") !== EXPORT_APP) {
-        return fail("The file is not a Voxel Typer save file (wrong app).");
-      }
-      const version: unknown = Reflect.get(parsed, "version");
-      if (typeof version !== "number" || !Number.isInteger(version) || version < 1) {
-        return fail("The save file has no version number.");
-      }
-      if (version > SCHEMA_VERSION) {
-        return fail("The save file comes from a newer version of Voxel Typer.");
-      }
-      const list: unknown = Reflect.get(parsed, "profiles");
-      if (!Array.isArray(list)) return fail("The save file has no profile list.");
+      const read = await readExportFile(file);
+      if (!read.ok) return fail(FILE_PROBLEM_TEXT[read.problem]);
 
       // Every stored id counts, even one whose records are damaged or newer: `save` counts the
       // same way. Any stored id, readable or not, makes an imported profile with that id take a
@@ -279,26 +259,21 @@ export function createStoreOn(backend: Backend, options: SaveStoreOptions = {}):
       let count = stored.length;
       let imported = 0;
       let skipped = 0;
-      for (const [i, raw] of list.entries()) {
-        const label = `Profile ${i + 1}`;
-        const migrated = migrateProfile(raw);
-        if (!migrated.ok) {
+      for (const entry of read.entries) {
+        const label = `Profile ${entry.index + 1}`;
+        if (!entry.ok) {
           skipped++;
-          errors.push(`${label}: ${migrated.error}`);
-          continue;
-        }
-        const value: unknown = migrated.value;
-        if (!isProfile(value)) {
-          skipped++;
-          errors.push(`${label}: ${profileProblem(value) ?? "invalid"}`);
+          errors.push(`${label}: ${entry.detail}`);
           continue;
         }
         if (count >= MAX_PROFILES) {
           skipped++;
-          errors.push(`${label} (${value.name}): there are already ${MAX_PROFILES} profiles.`);
+          errors.push(
+            `${label} (${entry.profile.name}): there are already ${MAX_PROFILES} profiles.`,
+          );
           continue;
         }
-        let profile: Profile = value;
+        let profile: Profile = entry.profile;
         if (ids.has(profile.id) || profile.id.includes(":")) {
           profile = { ...profile, id: freshId(ids), name: suffixedName(profile.name, names) };
         }
@@ -350,6 +325,83 @@ export function createStoreOn(backend: Backend, options: SaveStoreOptions = {}):
     },
     importAll,
   };
+}
+
+/** Why a whole export file was refused (task M3-12: the UI turns these codes into `t()` copy). */
+export type ExportFileProblem =
+  | "tooBig"
+  | "notJson"
+  | "notSave"
+  | "wrongApp"
+  | "noVersion"
+  | "newerFile"
+  | "noList"
+  | "unreadable";
+
+/** One profile of an export file: usable, or why not (`detail` is English, for logs). */
+export type ExportFileEntry =
+  | { index: number; ok: true; profile: Profile }
+  | { index: number; ok: false; reason: "newer" | "invalid"; detail: string };
+
+export type ExportFileRead =
+  | { ok: true; entries: ExportFileEntry[] }
+  | { ok: false; problem: ExportFileProblem };
+
+/** `importAll`'s English text for each whole-file problem (unchanged since M1-09). */
+const FILE_PROBLEM_TEXT: Record<ExportFileProblem, string> = {
+  tooBig: "The file is bigger than 5 MB.",
+  notJson: "The file is not a Voxel Typer save file (not JSON).",
+  notSave: "The file is not a Voxel Typer save file.",
+  wrongApp: "The file is not a Voxel Typer save file (wrong app).",
+  noVersion: "The save file has no version number.",
+  newerFile: "The save file comes from a newer version of Voxel Typer.",
+  noList: "The save file has no profile list.",
+  unreadable: "The file could not be read.",
+};
+
+/**
+ * Reads an export file without writing anything (task M3-12; `importAll` uses it too). A file
+ * over {@link MAX_IMPORT_BYTES} is never read. Each profile is migrated and validated on its own.
+ * Never rejects.
+ */
+export async function readExportFile(file: Blob): Promise<ExportFileRead> {
+  if (file.size > MAX_IMPORT_BYTES) return { ok: false, problem: "tooBig" };
+  let text: string;
+  try {
+    text = await file.text();
+  } catch {
+    return { ok: false, problem: "unreadable" };
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { ok: false, problem: "notJson" };
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return { ok: false, problem: "notSave" };
+  }
+  if (Reflect.get(parsed, "app") !== EXPORT_APP) return { ok: false, problem: "wrongApp" };
+  const version: unknown = Reflect.get(parsed, "version");
+  if (typeof version !== "number" || !Number.isInteger(version) || version < 1) {
+    return { ok: false, problem: "noVersion" };
+  }
+  if (version > SCHEMA_VERSION) return { ok: false, problem: "newerFile" };
+  const list: unknown = Reflect.get(parsed, "profiles");
+  if (!Array.isArray(list)) return { ok: false, problem: "noList" };
+  const entries: ExportFileEntry[] = list.map((raw: unknown, index): ExportFileEntry => {
+    const migrated = migrateProfile(raw);
+    if (!migrated.ok) {
+      const newer = newerVersionOf(JSON.stringify(raw ?? null)) !== null;
+      return { index, ok: false, reason: newer ? "newer" : "invalid", detail: migrated.error };
+    }
+    const value: unknown = migrated.value;
+    if (!isProfile(value)) {
+      return { index, ok: false, reason: "invalid", detail: profileProblem(value) ?? "invalid" };
+    }
+    return { index, ok: true, profile: value };
+  });
+  return { ok: true, entries };
 }
 
 function freshId(taken: ReadonlySet<string>): string {

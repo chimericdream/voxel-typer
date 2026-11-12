@@ -1,0 +1,153 @@
+/*
+ * Save file: export and import (task M3-12). Sizes follow --text-scale and every row wraps, like
+ * the rest of Settings, so it fits a 1024 px window at text scale 2.
+ */
+.box,
+.part,
+.lines,
+.conflict {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  width: 100%;
+  min-width: 0;
+}
+
+.box {
+  gap: var(--sp-5);
+}
+
+.text,
+.muted,
+.wins,
+.legend {
+  margin: 0;
+  font-family: var(--font-body);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  color: var(--c-text);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+}
+
+.muted {
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  color: var(--c-text-muted);
+}
+
+/* What the choice means, spelled out: not only the radio's state. */
+.wins {
+  padding-left: var(--sp-3);
+  border-left: 5px solid var(--c-slot-outline);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+  line-height: var(--lh);
+  color: var(--c-text);
+}
+
+/* The real picker stays in the page for the browser and for tests; the button opens it. */
+.file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.review,
+.result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--sp-3);
+  border: 3px solid var(--c-slot-outline);
+}
+
+.result {
+  border-style: dashed;
+}
+
+.review:focus-visible,
+.result:focus-visible {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row + .row {
+  padding-top: var(--sp-3);
+  border-top: 2px solid var(--c-slot-outline);
+}
+
+.actions,
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+.options {
+  gap: var(--sp-2);
+}
+
+.choice {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: var(--sp-2);
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border: 3px solid var(--c-slot-outline);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  color: var(--c-text);
+  cursor: pointer;
+}
+
+/* The chosen one: a thicker border as well as the filled radio. */
+.option[data-checked] {
+  border-width: 5px;
+  padding: calc(var(--sp-2) - 2px) calc(var(--sp-3) - 2px);
+}
+
+.option input {
+  width: calc(1.1rem * var(--text-scale));
+  height: calc(1.1rem * var(--text-scale));
+  margin: 0;
+  accent-color: var(--c-focus);
+}
+
+.option input:focus-visible {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+  box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
+}
