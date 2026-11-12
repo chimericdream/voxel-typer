@@ -101,13 +101,19 @@ The two new full-palette `builder.test.ts` cases and the arm-by-name case fail w
 - `steadyPalette(shown, inventory, placeable, n, held, picked)`: `held` and `picked` always get a
   slot.
 - `HABIT_MS` is now `Record<AgeBand, Ms>`, not a number.
+- `map-narrow-corner.png` shows an older layout problem at 1024 px: the "Pick an island. Press
+  Enter to go in." plate is drawn over part of the first corner button (Change player). This task
+  didn't cause it and doesn't fix it. A follow-up could reserve the corner's width in the
+  heading row.
 - A future inventory screen would close the remaining gap: a block that drops out of the palette
   later, once 6 other kinds outrank it, is still only visible by typing its name.
 
 ## Baselines
 
-Changed: `builder-miner.png` and `builder-sprout.png` (thicker frame). New:
-`map-narrow-corner.png`. Made on CI with the Update snapshots workflow on this branch.
+New: `map-narrow-corner.png`, made on CI with the Update snapshots workflow on this branch
+(commit 712ec5d). The workflow left `builder-miner.png` and `builder-sprout.png` as they were: the
+thicker frame stays inside their `maxDiffPixelRatio` budget, and the buried cursor isn't in
+either picture.
 
 ## Contract change request / Questions
 
