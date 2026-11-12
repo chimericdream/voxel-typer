@@ -2824,7 +2824,7 @@ theme-animals	swan
 theme-animals	tiger
 theme-animals	toad
 theme-animals	whale
-theme-animals	wren
+theme-animals	dove
 theme-animals	yak
 theme-animals	zebra
 theme-blocks	block
@@ -2866,7 +2866,6 @@ theme-blocks	wood
 theme-blocks	wool
 theme-colors	amber
 theme-colors	aqua
-theme-colors	beige
 theme-colors	black
 theme-colors	blue
 theme-colors	brown

@@ -94,7 +94,7 @@ test("keyboard only: map → island → lesson → play → results → map, wit
   const meadow = island(page, "Meadow Home");
   await expect(meadow).toBeFocused();
   await expect(meadow).toHaveAccessibleName(
-    "Meadow Home, 0 of 6 lessons done, 0 stars. Go here next!",
+    "Meadow Home, 0 of 14 lessons done, 0 stars. Go here next!",
   );
   await expect(island(page, "Birch Forest")).toHaveAttribute("aria-disabled", "true");
   await expectNoAxeViolations(page, "world map");
@@ -135,14 +135,14 @@ test("keyboard only: map → island → lesson → play → results → map, wit
   await expect(second).toHaveAccessibleName("Lesson 2: Hello, D and K. Play this one next!");
   await expect(second).toBeFocused();
   await expect(
-    page.locator("#app").getByText("1 of 6 lessons done", { exact: true }),
+    page.locator("#app").getByText("1 of 14 lessons done", { exact: true }),
   ).toBeVisible();
 
   // Escape: back out to the whole map, then the island button says the same.
   await page.keyboard.press("Escape");
   await expect(island(page, "Meadow Home")).toBeFocused();
   await expect(island(page, "Meadow Home")).toHaveAccessibleName(
-    `Meadow Home, 1 of 6 lessons done, ${stars} ${plural}. Go here next!`,
+    `Meadow Home, 1 of 14 lessons done, ${stars} ${plural}. Go here next!`,
   );
 
   // One canvas and one WebGL context for the map, the lesson and the map again.
