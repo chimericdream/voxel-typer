@@ -573,3 +573,59 @@ describe("Animator: playing again", () => {
     expect(a.animating).toBe(false);
   });
 });
+
+// M4-01 re-review m25: a bad `speed` given when replaying the anim that is already running.
+describe("Animator: a bad speed on the replay path", () => {
+  for (const speed of [0, -1, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+    it(`speed ${speed} on the running one-shot jumps to its end and fires onEnd once`, () => {
+      const onEnd = vi.fn();
+      const a = new Animator(compileRig(twoAnims()));
+      a.play("a", { fadeMs: 0 });
+      a.update(30);
+      expect(posX(a)).toBeCloseTo(3, 5);
+      expect(a.play("a", { speed, onEnd })).toBe(true);
+      a.update(16);
+      expect(posX(a)).toBe(10);
+      expect(onEnd).toHaveBeenCalledTimes(1);
+      expect(a.animating).toBe(false);
+      a.update(16);
+      expect(onEnd).toHaveBeenCalledTimes(1);
+    });
+
+    it(`speed ${speed} on the running loop holds its first frame and never shows NaN`, () => {
+      const a = new Animator(compileRig(twoAnims()));
+      a.play("b", { fadeMs: 0 });
+      a.update(50);
+      a.play("b", { speed });
+      for (let i = 0; i < 3; i++) a.update(16);
+      expect(a.timeMs).toBe(0);
+      expect(posX(a)).toBe(0);
+      expect(a.animating).toBe(false);
+    });
+  }
+
+  it("a good speed on the replay path after a bad one plays again", () => {
+    const a = new Animator(compileRig(twoAnims()));
+    a.play("b", { fadeMs: 0, speed: Number.NaN });
+    a.update(16);
+    a.play("b", { speed: 1 });
+    expect(a.animating).toBe(true);
+    a.update(50);
+    expect(posX(a)).toBeCloseTo(-5, 5);
+  });
+});
+
+describe("Animator.snap", () => {
+  it("ends a crossfade at once", () => {
+    const a = new Animator(compileRig(twoAnims()));
+    a.play("a", { fadeMs: 0 });
+    a.update(100);
+    a.play("b", { fadeMs: 120 });
+    a.update(10);
+    expect(posX(a)).toBeGreaterThan(5);
+    a.snap();
+    expect(a.animating).toBe(true);
+    a.update(0);
+    expect(posX(a)).toBeCloseTo(-1, 5);
+  });
+});
