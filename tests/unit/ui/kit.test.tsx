@@ -94,6 +94,14 @@ describe("WCAG contrast", () => {
         expect(Math.max(ring, halo)).toBeGreaterThanOrEqual(3);
       });
 
+      it("the selected-slot outline shows on the slot outline and hotbar strip it touches", () => {
+        // The outline sits between the slot's own outline and the strip, both `--c-slot-outline`
+        // (M2-07 review N1: the old check used the slot face, which it doesn't touch).
+        expect(
+          worstContrast(theme.ink.selected, theme.surfaces.slot.outline),
+        ).toBeGreaterThanOrEqual(3);
+      });
+
       it("text plates are semi-opaque, never clear", () => {
         const [, , , a] = parseColor(theme.ink.plate);
         expect(a).toBeGreaterThanOrEqual(0.75);

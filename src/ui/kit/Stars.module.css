@@ -23,6 +23,10 @@
 .edge {
   fill: var(--c-accent-edge);
 }
+/* An empty star keeps a clear outline on every theme's panel (3:1, UI_PAIRS). */
+.star:not([data-earned]) .edge {
+  fill: var(--c-star-empty-edge);
+}
 .empty {
   fill: var(--c-track);
 }
