@@ -22,16 +22,18 @@ These promises come from `PLAN.md` §1 and §6.7.
 
 ## Running it
 
-You need Node 26 or newer.
+The repo pins its Node version (and with it npm) in [`mise.toml`](mise.toml). With
+[mise](https://mise.jdx.dev) installed:
 
 ```sh
+mise trust && mise install   # once per clone: installs the pinned Node and npm
 npm ci
 npm run dev       # dev server at http://localhost:5173
 npm run verify    # typecheck, lint, tests, build, bundle size
 npm run e2e       # browser tests (Playwright, Chromium)
 ```
 
-[`CLAUDE.md`](CLAUDE.md) lists every command.
+Without mise, use the Node version in `.nvmrc`. [`CLAUDE.md`](CLAUDE.md) lists every command.
 
 ## Docs
 

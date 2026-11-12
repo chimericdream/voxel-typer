@@ -15,7 +15,7 @@ summary.
 | `npm run dev`                      | Vite dev server                                                              |
 | `npm run build`                    | Production build to `dist/`                                                  |
 | `npm run typecheck`                | `tsc --noEmit` (strict) for `src/` and for tools/tests                       |
-| `npm run lint`                     | Oxlint, `oxfmt --check`, `check-boundaries`, `check-ui-literals`             |
+| `npm run lint`                     | Oxlint, `oxfmt --check`, and the `tools/check-*` scripts                     |
 | `npm run format`                   | Oxfmt (writes changes)                                                       |
 | `npm test`                         | Vitest unit and property tests                                               |
 | `npm run test:cov`                 | Vitest with v8 coverage                                                      |
