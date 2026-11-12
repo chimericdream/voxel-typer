@@ -701,3 +701,54 @@ describe("facing: +z is the front", () => {
     expect(front.z).toBeCloseTo(-0.8, 5);
   });
 });
+
+/** The body's world scale (x) of instance `i`. */
+const bodyScale = (herd: ReturnType<typeof buildModelInstanced>, i: number): number => {
+  const m = new THREE.Matrix4();
+  herd.part("body")?.getMatrixAt(i, m);
+  // The x column's length (decompose reports 1 for a singular, scale-0 matrix).
+  return new THREE.Vector3().setFromMatrixColumn(m, 0).length();
+};
+
+/** Instance 0 after a full `defeat` (scale 0), then hidden. */
+const defeated = (): ReturnType<typeof buildModelInstanced> => {
+  const herd = buildModelInstanced(critter(), 2);
+  herd.setVisible(0, true);
+  herd.play(0, "defeat", { fadeMs: 0 });
+  herd.update(400);
+  expect(bodyScale(herd, 0)).toBeCloseTo(0, 5);
+  herd.setVisible(0, false);
+  herd.update(16);
+  return herd;
+};
+
+// M4-01 re-review: a pooled mob shown again after `defeat` must not grow in from scale 0.
+describe("a pooled instance shown again after defeat", () => {
+  it("play, then show: appears at full size on the first frame", () => {
+    const herd = defeated();
+    herd.play(0, "idle");
+    herd.setVisible(0, true);
+    herd.update(16);
+    expect(bodyScale(herd, 0)).toBeCloseTo(1, 5);
+  });
+
+  it("show, then play in the same frame: appears at full size on the first frame", () => {
+    const herd = defeated();
+    herd.setVisible(0, true);
+    herd.play(0, "idle");
+    herd.update(16);
+    expect(bodyScale(herd, 0)).toBeCloseTo(1, 5);
+  });
+
+  it("a play after the first frame shown still crossfades", () => {
+    const herd = buildModelInstanced(critter(), 1);
+    herd.setVisible(0, true);
+    herd.update(16);
+    herd.play(0, "defeat");
+    herd.update(16);
+    // defeat swells to 1.25 by 120 ms, so 16 ms in its pose is 1 + 0.25 · 16/120. A snap would
+    // show that; 16 of the 120 ms fade shows only 16/120 of the way there.
+    const swell = 0.25 * (16 / 120);
+    expect(bodyScale(herd, 0)).toBeCloseTo(1 + swell * (16 / 120), 5);
+  });
+});

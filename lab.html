@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Developer page (M4-02): served by `npm run dev` and the e2e build, never in dist/. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'"
+    />
+    <title>Model Lab · Voxel Typer</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #1b1d22;
+        color: #e8e8ea;
+        font:
+          13px/1.4 system-ui,
+          sans-serif;
+      }
+      #lab {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        height: 100%;
+      }
+      #lab aside {
+        overflow-y: auto;
+        padding: 10px;
+        border-right: 1px solid #333842;
+        background: #22252c;
+      }
+      #lab h2 {
+        margin: 14px 0 6px;
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #9aa0ab;
+      }
+      #lab h2:first-child {
+        margin-top: 0;
+      }
+      #lab button {
+        margin: 2px 4px 2px 0;
+        padding: 4px 8px;
+        border: 1px solid #444a56;
+        border-radius: 4px;
+        background: #2c3039;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+      #lab button[aria-pressed="true"] {
+        border-color: #7fb4ff;
+        background: #2f4466;
+      }
+      #lab .models button {
+        display: block;
+        width: 100%;
+        text-align: left;
+      }
+      #lab input[type="range"] {
+        width: 100%;
+      }
+      #lab .meta,
+      #lab .status {
+        color: #9aa0ab;
+      }
+      #lab .bad {
+        color: #ff8a80;
+        white-space: pre-wrap;
+      }
+      #lab .stage {
+        position: relative;
+        min-width: 0;
+      }
+      #lab canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        cursor: grab;
+        touch-action: none;
+      }
+      #lab canvas:active {
+        cursor: grabbing;
+      }
+    </style>
+  </head>
+  <body>
+    <main id="lab"></main>
+    <script type="module" src="/src/dev/model-lab.tsx"></script>
+  </body>
+</html>
