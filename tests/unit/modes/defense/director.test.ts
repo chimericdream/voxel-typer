@@ -90,6 +90,21 @@ function night(opts: DirectorOptions, n: number, f: (w: WaveSpec) => WaveFeedbac
   return waves;
 }
 
+/** A 6-wave night with a made-up accuracy that rises each wave. */
+const play = (seed: number): WaveSpec[] =>
+  night(options({ rng: createRng(seed) }), 6, (w) =>
+    feedback({ accuracy: 0.8 + 0.03 * w.index, wordsDone: w.mobs.length }),
+  );
+const at = (k: number): { gapMs: number; speed: number } => mobTiming("miner", 5, 20, k, "medium");
+/** Mean spawn gap of a wave. */
+const gap = (w: WaveSpec): number =>
+  ((w.mobs.at(-1)?.spawnAtMs ?? 0) - (w.mobs[0]?.spawnAtMs ?? 0)) / (w.mobs.length - 1);
+/** Mobs of a speed class in the first wave at difficulty `d`. */
+const classCount = (d: number, cls: string, seed: number): number =>
+  createDirector(options({ startDifficulty: d, rng: createRng(seed) }))
+    .nextWave()
+    .mobs.filter((m) => MOBS.find((x) => x.id === m.mobId)?.speedClass === cls).length;
+
 const arbFeedback = fc.record({
   accuracy: fc.oneof(fc.double({ min: -0.5, max: 1.5, noNaN: true }), fc.constant(Number.NaN)),
   reachedBase: fc.oneof(fc.integer({ min: -3, max: 30 }), fc.constant(Number.NaN)),
@@ -227,10 +242,6 @@ describe("controller", () => {
 
 describe("waves", () => {
   it("is deterministic for a seed", () => {
-    const play = (seed: number): WaveSpec[] =>
-      night(options({ rng: createRng(seed) }), 6, (w) =>
-        feedback({ accuracy: 0.8 + 0.03 * w.index, wordsDone: w.mobs.length }),
-      );
     expect(play(11)).toEqual(play(11));
     expect(play(11)).not.toEqual(play(12));
   });
@@ -270,8 +281,6 @@ describe("waves", () => {
   });
 
   it("spaces mobs out at low d and speeds them up at high d", () => {
-    const at = (k: number): { gapMs: number; speed: number } =>
-      mobTiming("miner", 5, 20, k, "medium");
     expect(at(0.5).gapMs).toBeCloseTo(at(1).gapMs * 2);
     expect(at(2).gapMs).toBeLessThan(at(1).gapMs);
     expect(at(2).gapMs).toBeGreaterThan(at(1).gapMs / 2);
@@ -283,8 +292,6 @@ describe("waves", () => {
     expect(paceWpm(20, 1, true)).toBeLessThan(paceWpm(20, 1, false));
     const plain = createDirector(options({ startDifficulty: 1 })).nextWave();
     const calm = createDirector(options({ calm: true, startDifficulty: 1 })).nextWave();
-    const gap = (w: WaveSpec): number =>
-      ((w.mobs.at(-1)?.spawnAtMs ?? 0) - (w.mobs[0]?.spawnAtMs ?? 0)) / (w.mobs.length - 1);
     expect(gap(calm)).toBeGreaterThan(gap(plain));
     expect(Math.max(...calm.mobs.map((m) => m.speed))).toBeLessThan(
       Math.max(...plain.mobs.map((m) => m.speed)) + 1e-9,
@@ -292,15 +299,11 @@ describe("waves", () => {
   });
 
   it("sends easier mobs at low difficulty", () => {
-    const count = (d: number, cls: string): number =>
-      createDirector(options({ startDifficulty: d, rng: createRng(3) }))
-        .nextWave()
-        .mobs.filter((m) => MOBS.find((x) => x.id === m.mobId)?.speedClass === cls).length;
     let lowFast = 0;
     let highFast = 0;
     for (let i = 0; i < 20; i++) {
-      lowFast += count(0.4, "fast");
-      highFast += count(1.6, "fast");
+      lowFast += classCount(0.4, "fast", i);
+      highFast += classCount(1.6, "fast", i);
     }
     expect(lowFast).toBeLessThan(highFast);
   });
