@@ -337,6 +337,7 @@ PRs, and the orchestrator's rulings in those PRs.
     - **12am–7:30am:** up to 3 workers, local e2e allowed.
 
     "60 fps on an integrated GPU" is not yet shown; it moves to M3-GATE.
+
 80. **Stars depend on the age band (owner, 2026-11-11; contract §6, additive).** 3 stars stays the
     top. `StarInput.band?` loosens the accuracy bars:
     - Sprout: 0.85 and 0.90, no speed check.
@@ -344,6 +345,7 @@ PRs, and the orchestrator's rulings in those PRs.
     - Builder: unchanged at 0.90 and 0.95.
 
     A missing band means Builder rules.
+
 81. **A target finishes on its last character (owner, 2026-11-11).** Kids must not press space
     after the last word. Spaces between words still count. M2-FIX-3.
 82. **Flowers are small sprigs (owner, 2026-11-11).** `BlockDef.shape?: "cube" | "sprig"`
