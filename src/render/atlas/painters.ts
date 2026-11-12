@@ -784,75 +784,110 @@ function blossomEye(palette: Palette, petals: PaletteRampId): Rgb {
   return rampAt(ramp(palette, petals === "wool-yellow" ? "wool-orange" : "wool-yellow"), 3);
 }
 
-/** One five-pixel blossom (a plus) with a lit top-left petal and a dark bottom-right one. */
-function blossom(
-  px: Uint8ClampedArray,
-  x: number,
-  y: number,
-  petals: readonly Rgb[],
-  eye: Rgb,
-): void {
-  const top = petals.length - 1;
-  put(px, x, y - 1, rampAt(petals, top));
-  put(px, x - 1, y, rampAt(petals, top - 1));
-  put(px, x + 1, y, rampAt(petals, top - 1));
-  put(px, x, y + 1, rampAt(petals, Math.max(0, top - 2)));
-  put(px, x, y, eye);
-}
-
 /**
- * A flower bed seen from above (M2-FIX-2): a lawn of grass with four blossoms on a jittered 2×2
- * grid, each with a leaf beside it. Its own look, so flower patches stop reading as berry bushes.
+ * Flower tiles for the sprig shape (M2-FIX-4). The mesher samples them where its boxes sit, rows
+ * counted from the bottom of the tile (painter `y = 15 - row`):
+ * - side: stem in columns 7–8 of rows 0–5, bloom in columns 5–10 of rows 6–9, leaves in columns
+ *   9–11 of row 2 and 4–6 of row 3. Everything else is clear, so the side tile is also the
+ *   block's icon: a little flower.
+ * - top: the bloom from above, columns and rows 5–10, with its middle. The rest is clear.
+ * - under: the bloom's shaded underside, the whole tile, with green where the stem joins.
  */
-const flowersTop: CustomPainter = (palette, rng, arg) => {
-  const petals = ramp(palette, need(arg, "flowers-top"));
+const SPRIG_STEM: Readonly<Record<"x0" | "x1" | "y0" | "y1", number>> = {
+  x0: 7,
+  x1: 8,
+  y0: 10,
+  y1: 15,
+};
+const SPRIG_BLOOM: Readonly<Record<"x0" | "x1" | "y0" | "y1", number>> = {
+  x0: 5,
+  x1: 10,
+  y0: 6,
+  y1: 9,
+};
+
+/** The side of a sprig: stem, two leaves and the bloom's side. */
+const flowersSide: CustomPainter = (palette, rng, arg) => {
+  const petals = ramp(palette, need(arg, "flowers-side"));
   const grass = rampNamed(palette, "grass");
-  const bed = field(rng.fork("bed"), 3);
+  const top = petals.length - 1;
   const px = blank();
-  for (let y = 0; y < N; y++) {
-    for (let x = 0; x < N; x++) {
-      put(px, x, y, rampAt(grass, 1 + Math.round(fieldAt(bed, x, y) * 0.5)));
+  for (let y = SPRIG_STEM.y0; y <= SPRIG_STEM.y1; y++) {
+    put(px, SPRIG_STEM.x0, y, rampAt(grass, y === SPRIG_STEM.y1 ? 1 : 2));
+    put(px, SPRIG_STEM.x1, y, rampAt(grass, 1));
+  }
+  // A knot on the stem, somewhere along it.
+  put(px, SPRIG_STEM.x0, rng.int(SPRIG_STEM.y0 + 1, SPRIG_STEM.y1 - 1), rampAt(grass, 3));
+  // Leaves: the right one is the strip the mesher samples for both leaf nubs.
+  put(px, 9, 13, rampAt(grass, 2));
+  put(px, 10, 13, rampAt(grass, 3));
+  put(px, 11, 13, rampAt(grass, 2));
+  put(px, 4, 12, rampAt(grass, 2));
+  put(px, 5, 12, rampAt(grass, 3));
+  put(px, 6, 12, rampAt(grass, 2));
+  // The bloom: lit along the top, shaded along the bottom, rounded corners.
+  for (let y = SPRIG_BLOOM.y0; y <= SPRIG_BLOOM.y1; y++) {
+    for (let x = SPRIG_BLOOM.x0; x <= SPRIG_BLOOM.x1; x++) {
+      const edge = x === SPRIG_BLOOM.x0 || x === SPRIG_BLOOM.x1;
+      let i = y === SPRIG_BLOOM.y0 ? top : y === SPRIG_BLOOM.y1 ? top - 3 : top - 1;
+      if (edge) i -= 1;
+      put(px, x, y, rampAt(petals, Math.max(0, i)));
     }
   }
-  const eye = blossomEye(palette, need(arg, "flowers-top"));
-  for (let gy = 0; gy < 2; gy++) {
-    for (let gx = 0; gx < 2; gx++) {
-      const x = gx * 8 + rng.int(2, 5);
-      const y = gy * 8 + rng.int(2, 5);
-      const side = rng.int(0, 1) === 0 ? -1 : 1;
-      put(px, x + side * 2, y + 1, rampAt(grass, 0));
-      put(px, x + side * 2, y + 2, rampAt(grass, 0));
-      blossom(px, x, y, petals, eye);
+  // A glint on the top edge.
+  put(px, rng.int(SPRIG_BLOOM.x0 + 1, SPRIG_BLOOM.x1 - 1), SPRIG_BLOOM.y0, rampAt(petals, top));
+  put(px, rng.int(SPRIG_BLOOM.x0 + 1, SPRIG_BLOOM.x1 - 1), SPRIG_BLOOM.y0 + 1, rampAt(petals, top));
+  return px;
+};
+
+/** A sprig's bloom from above: four petals around a gold (or orange) middle. */
+const flowersTop: CustomPainter = (palette, rng, arg) => {
+  const id = need(arg, "flowers-top");
+  const petals = ramp(palette, id);
+  const top = petals.length - 1;
+  const eye = blossomEye(palette, id);
+  const px = blank();
+  const lo = 5;
+  const hi = 10;
+  for (let y = lo; y <= hi; y++) {
+    for (let x = lo; x <= hi; x++) {
+      const ex = x === lo || x === hi;
+      const ey = y === lo || y === hi;
+      // Corners sit lowest (between petals), the rim is shaded, the petals' middles lit.
+      const i = ex && ey ? top - 3 : ex || ey ? top - 1 : top;
+      put(px, x, y, rampAt(petals, i));
     }
+  }
+  // The seams between the four petals: a darker cross through the middle.
+  for (let k = lo + 1; k <= hi - 1; k++) {
+    if (k === 7 || k === 8) continue;
+    put(px, k, 7 + rng.int(0, 1), rampAt(petals, top - 2));
+    put(px, 7 + rng.int(0, 1), k, rampAt(petals, top - 2));
+  }
+  for (const [x, y] of [
+    [7, 7],
+    [8, 7],
+    [7, 8],
+    [8, 8],
+  ] as const) {
+    put(px, x, y, eye);
   }
   return px;
 };
 
-/**
- * A flower bed from the side: grass and stems below, blossoms along the top rows, so a patch reads
- * as flowers standing on a lawn, not as specks on a bush.
- */
-const flowersSide: CustomPainter = (palette, rng, arg) => {
-  const petals = ramp(palette, need(arg, "flowers-side"));
+/** A sprig bloom's underside: petals in shade, green where the stem joins. */
+const flowersUnder: CustomPainter = (palette, rng, arg) => {
+  const petals = ramp(palette, need(arg, "flowers-under"));
   const grass = rampNamed(palette, "grass");
-  const bed = field(rng.fork("bed"), 3);
   const px = blank();
   for (let y = 0; y < N; y++) {
-    for (let x = 0; x < N; x++) {
-      // Darker toward the ground, lighter up in the leaves.
-      const low = y > 10 ? 1 : 0;
-      put(px, x, y, rampAt(grass, Math.max(0, 1 + Math.round(fieldAt(bed, x, y) * 0.5) - low)));
-    }
+    for (let x = 0; x < N; x++) put(px, x, y, rampAt(petals, rng.int(0, 1)));
   }
-  const eye = blossomEye(palette, need(arg, "flowers-side"));
-  const heads = 4;
-  for (let h = 0; h < heads; h++) {
-    const x = h * 4 + rng.int(1, 2);
-    const y = rng.int(2, 6);
-    for (let sy = y + 2; sy < N; sy++) put(px, x, sy, rampAt(grass, 0));
-    // A leaf on the stem, on alternate sides.
-    put(px, x + (h % 2 === 0 ? 1 : -1), y + rng.int(4, 6), rampAt(grass, 3));
-    blossom(px, x, y, petals, eye);
+  for (let y = 6; y <= 9; y++) {
+    for (let x = 6; x <= 9; x++) {
+      const stem = (x === 7 || x === 8) && (y === 7 || y === 8);
+      if (stem || rng.int(0, 2) === 0) put(px, x, y, rampAt(grass, stem ? 1 : 2));
+    }
   }
   return px;
 };
@@ -874,8 +909,9 @@ const flowersSide: CustomPainter = (palette, rng, arg) => {
  * | `ripple` | water | bands and glints, alpha 205 |
  * | `leaves` | leaf | leaf clusters |
  * | `pebbles` | stone | rounded stones |
- * | `flowers-top` | petal color, plus `grass` and wool | flower bed from above |
- * | `flowers-side` | petal color, plus `grass` and wool | stems and blossoms |
+ * | `flowers-top` | petal color, plus wool | a sprig's bloom from above (clear around it) |
+ * | `flowers-side` | petal color, plus `grass` | a sprig from the side (clear around it) |
+ * | `flowers-under` | petal color, plus `grass` | a sprig bloom's underside |
  */
 export const CUSTOM_PAINTERS: Readonly<Record<string, CustomPainter>> = {
   missing,
@@ -892,6 +928,7 @@ export const CUSTOM_PAINTERS: Readonly<Record<string, CustomPainter>> = {
   pebbles,
   "flowers-top": flowersTop,
   "flowers-side": flowersSide,
+  "flowers-under": flowersUnder,
 };
 
 /** Runs the custom painter named by `paint` (`'<name>'` or `'<name>:<rampId>'`). */

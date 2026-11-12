@@ -257,3 +257,43 @@ describe("splitByBucket", () => {
     expect(splitByBucket(mesh, g, bucketOf)).toEqual({ opaque: mesh });
   });
 });
+
+describe("sprigs (M2-FIX-4)", () => {
+  const FLOWER = 310;
+  const sprigAtlas: AtlasLookup = {
+    ...atlas,
+    shape: (n) => (n === FLOWER ? "sprig" : "cube"),
+  };
+
+  it("every sprig quad, leaf tops included, goes to the sprig's own bucket", () => {
+    const g = new VoxelGrid(4, 4, 4);
+    g.set(1, 0, 1, GLASS);
+    g.set(1, 1, 1, FLOWER);
+    g.set(2, 0, 2, WATER);
+    g.set(2, 1, 2, FLOWER);
+    const mesh = meshChunk(g, { x: 0, y: 0, z: 0 }, 4, sprigAtlas, { ao: true });
+    // Put flowers in the glow bucket only to see where their quads land.
+    const parts = splitByBucket(mesh, g, (n) => (n === FLOWER ? "glow" : bucketOf(n)));
+    expect(quads(parts.glow)).toBe(2 * 20);
+    expect(quads(parts.transparent)).toBe(6);
+    expect(quads(parts.water)).toBe(6);
+  });
+
+  it("a meadow chunk with flowers is still one opaque mesh: no extra draw call", () => {
+    const g = floorGrid();
+    const store = createChunkStore({ grid: g, atlas: sprigAtlas, materials, bucketOf });
+    store.flush();
+    const before = store.meshCount();
+    for (let i = 0; i < 40; i++) {
+      g.set((i * 7) % 48, 20, (i * 13) % 48, FLOWER);
+      store.markDirty((i * 7) % 48, 20, (i * 13) % 48);
+    }
+    store.flush();
+    expect(store.meshCount()).toBe(before);
+    for (const m of store.group.children) {
+      expect(m).toBeInstanceOf(THREE.Mesh);
+      if (m instanceof THREE.Mesh) expect(m.material).toBe(materials.opaque);
+    }
+    store.dispose();
+  });
+});

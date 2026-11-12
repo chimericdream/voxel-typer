@@ -13,7 +13,8 @@
  *   objects, not triangles, so mixing them in one mesh can blend in the wrong order).
  *
  * `meshChunk` returns one mesh holding every face; each quad is split into its bucket by the block
- * that emitted it (the cell half a unit behind the quad's center along its normal).
+ * that emitted it (the cell just behind the quad's center along its normal). Sprigs (flowers,
+ * M2-FIX-4) are opaque blocks, so they share the chunk's opaque mesh and add no draw call.
  *
  * `markDirty(x, y, z)` queues the chunk holding that cell, plus every neighbor chunk whose meshes
  * read it (face culling and AO look one cell across a border, diagonals included). `flush()`
@@ -221,11 +222,15 @@ export function splitByBucket(
   const counts: number[] = Array.from({ length: nb }, () => 0);
   const cache = new Map<number, number>();
   const { positions: p, normals: n } = mesh;
+  // A quad lies on the surface of the box that emitted it, so a point a hair behind its center is
+  // inside that block's cell. Half a unit would do for cubes, but a sprig's boxes have faces
+  // anywhere inside the cell (a leaf top at 3/16 would land in the cell below).
+  const behind = 1 / 64;
   for (let q = 0; q < quads; q++) {
     const v = q * 12;
-    const cx = (p[v]! + p[v + 3]! + p[v + 6]! + p[v + 9]!) / 4 - n[v]! * 0.5;
-    const cy = (p[v + 1]! + p[v + 4]! + p[v + 7]! + p[v + 10]!) / 4 - n[v + 1]! * 0.5;
-    const cz = (p[v + 2]! + p[v + 5]! + p[v + 8]! + p[v + 11]!) / 4 - n[v + 2]! * 0.5;
+    const cx = (p[v]! + p[v + 3]! + p[v + 6]! + p[v + 9]!) / 4 - n[v]! * behind;
+    const cy = (p[v + 1]! + p[v + 4]! + p[v + 7]! + p[v + 10]!) / 4 - n[v + 1]! * behind;
+    const cz = (p[v + 2]! + p[v + 5]! + p[v + 8]! + p[v + 11]!) / 4 - n[v + 2]! * behind;
     const id = grid.get(Math.floor(cx), Math.floor(cy), Math.floor(cz));
     let b = cache.get(id);
     if (b === undefined) {

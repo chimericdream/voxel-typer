@@ -9,6 +9,13 @@ import type { BlockId, Material } from "@/types/core";
 export type Rarity = "common" | "uncommon" | "rare" | "epic";
 
 /**
+ * How a block is meshed (decision 82). `cube` fills its cell. `sprig` is a small plant inside its
+ * cell (a thin stem, a small bloom and two leaf nubs, built from sub-voxel boxes): it never hides a
+ * neighbour's faces and takes and casts no AO.
+ */
+export type BlockShape = "cube" | "sprig";
+
+/**
  * One block of the world. Block files export `blocks: BlockDef[]`, one file per group.
  *
  * `num` values are allocated in ranges per group file, so files can't collide: terrain 1–99, wood
@@ -28,6 +35,8 @@ export interface BlockDef {
   /** For example `'terrain'`, `'ore'`, `'biome:meadow'`, `'placeable'`, `'light'`, `'transparent'`. */
   tags: string[];
   light?: { color: string; intensity: number };
+  /** Missing means `cube`. Flowers are `sprig`. */
+  shape?: BlockShape;
   /** What kids type in Builder to arm the block, e.g. `'oak'`. Lowercase, a–z only. */
   typedName: string;
 }

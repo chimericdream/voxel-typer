@@ -44,6 +44,7 @@ const RECIPES: readonly TextureRecipe[] = [
   { kind: "custom", paint: "pebbles:gravel" },
   { kind: "custom", paint: "flowers-top:wool-red" },
   { kind: "custom", paint: "flowers-side:wool-yellow" },
+  { kind: "custom", paint: "flowers-under:wool-blue" },
 ];
 
 function colorsOf(px: Uint8ClampedArray): Set<string> {
@@ -52,6 +53,22 @@ function colorsOf(px: Uint8ClampedArray): Set<string> {
     out.add(toHex([px[i] ?? 0, px[i + 1] ?? 0, px[i + 2] ?? 0]));
   return out;
 }
+
+/** A sprig flower tile (M2-FIX-4) in red. */
+const paintRed = (name: string) =>
+  paintTile({ kind: "custom", paint: `${name}:wool-red` }, BASE_PALETTE, createRng(3));
+/** Pixel (x, row) with row counted from the tile's bottom, as the mesher samples it. */
+const pixelAt = (px: Uint8ClampedArray, x: number, row: number) => {
+  const i = ((15 - row) * 16 + x) * 4;
+  return { rgb: toHex([px[i] ?? 0, px[i + 1] ?? 0, px[i + 2] ?? 0]), a: px[i + 3] ?? 0 };
+};
+const inRamp = (id: keyof typeof BASE_PALETTE, rgb: string) =>
+  BASE_PALETTE[id].some((c) => c.toLowerCase() === rgb);
+const rect = (x0: number, r0: number, x1: number, r1: number) =>
+  Array.from({ length: (x1 - x0) * (r1 - r0) }, (_, k) => {
+    const w = x1 - x0;
+    return [x0 + (k % w), r0 + Math.floor(k / w)] as const;
+  });
 
 describe("paintTile determinism", () => {
   // Pinned hashes: if a painter changes on purpose, update these and the screenshot baseline.
@@ -229,16 +246,41 @@ describe("errors", () => {
     expect(() => parseHex("red")).toThrow();
   });
 
-  it("flower beds show lawn, petals and a gold middle, not leaves (M2-FIX-2)", () => {
-    for (const paint of ["flowers-top:wool-red", "flowers-side:wool-red"]) {
-      const colors = colorsOf(paintTile({ kind: "custom", paint }, BASE_PALETTE, createRng(3)));
-      const has = (id: keyof typeof BASE_PALETTE) =>
-        BASE_PALETTE[id].some((c) => colors.has(c.toLowerCase()));
-      expect(has("grass"), paint).toBe(true);
-      expect(has("wool-red"), paint).toBe(true);
-      expect(colors.has(BASE_PALETTE["wool-yellow"][3] ?? ""), paint).toBe(true);
-      expect(has("leaf"), paint).toBe(false);
-    }
+  describe("sprig flower tiles (M2-FIX-4): opaque where the mesher samples, clear elsewhere", () => {
+    it("side: green stem, red bloom, green leaf strip; clear corners", () => {
+      const px = paintRed("flowers-side");
+      for (const [x, r] of rect(7, 0, 9, 6))
+        expect(inRamp("grass", pixelAt(px, x, r).rgb)).toBe(true);
+      for (const [x, r] of rect(5, 6, 11, 10)) {
+        expect(pixelAt(px, x, r).a).toBe(255);
+        expect(inRamp("wool-red", pixelAt(px, x, r).rgb)).toBe(true);
+      }
+      for (const [x, r] of rect(9, 2, 12, 3))
+        expect(inRamp("grass", pixelAt(px, x, r).rgb)).toBe(true);
+      for (const [x, r] of [
+        [0, 0],
+        [15, 15],
+        [0, 15],
+        [15, 0],
+        [7, 12],
+      ] as const) {
+        expect(pixelAt(px, x, r).a, `${x},${r}`).toBe(0);
+      }
+    });
+
+    it("top: a red bloom with a gold middle in columns and rows 5–10; clear around it", () => {
+      const px = paintRed("flowers-top");
+      for (const [x, r] of rect(5, 5, 11, 11)) expect(pixelAt(px, x, r).a).toBe(255);
+      expect(pixelAt(px, 7, 7).rgb).toBe(BASE_PALETTE["wool-yellow"][3]?.toLowerCase());
+      expect(inRamp("wool-red", pixelAt(px, 5, 5).rgb)).toBe(true);
+      expect(pixelAt(px, 4, 4).a).toBe(0);
+      expect(pixelAt(px, 11, 8).a).toBe(0);
+    });
+
+    it("under: fully opaque", () => {
+      const px = paintRed("flowers-under");
+      for (let i = 3; i < px.length; i += 4) expect(px[i]).toBe(255);
+    });
   });
 
   it("every custom painter is covered above", () => {
