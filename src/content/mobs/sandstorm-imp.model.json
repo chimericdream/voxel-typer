@@ -1,0 +1,329 @@
+{
+  "$schema": "../../render/models/schema.json",
+  "id": "sandstorm-imp",
+  "parts": [
+    {
+      "name": "head",
+      "size": [10, 7, 10],
+      "pivot": [5, 0, 5],
+      "offset": [0, 7, 0],
+      "color": "#e8d49a"
+    },
+    {
+      "name": "swirl-middle",
+      "parent": "head",
+      "size": [8, 4, 8],
+      "pivot": [4, 2, 4],
+      "offset": [0, -2, 0],
+      "tile": {
+        "blockId": "sand",
+        "face": "side"
+      }
+    },
+    {
+      "name": "swirl-tip",
+      "parent": "head",
+      "size": [4, 3, 4],
+      "pivot": [2, 1.5, 2],
+      "offset": [0, -5.5, 0],
+      "tile": {
+        "blockId": "sand",
+        "face": "side"
+      }
+    },
+    {
+      "name": "tuft",
+      "parent": "head",
+      "size": [4, 2, 4],
+      "pivot": [2, 0, 2],
+      "offset": [0, 7, 0],
+      "color": "#ccb06f"
+    },
+    {
+      "name": "eye-left",
+      "parent": "head",
+      "size": [2, 2, 1],
+      "pivot": [1, 0, 0.5],
+      "offset": [-2, 3, 5.5],
+      "color": "#43301f"
+    },
+    {
+      "name": "eye-right",
+      "parent": "head",
+      "size": [2, 2, 1],
+      "pivot": [1, 0, 0.5],
+      "offset": [2, 3, 5.5],
+      "color": "#43301f"
+    },
+    {
+      "name": "mitt-left",
+      "parent": "head",
+      "size": [2, 2, 2],
+      "pivot": [1, 1, 1],
+      "offset": [-7, 0, 2],
+      "color": "#dcc382"
+    },
+    {
+      "name": "mitt-right",
+      "parent": "head",
+      "size": [2, 2, 2],
+      "pivot": [1, 1, 1],
+      "offset": [7, 0, 2],
+      "color": "#dcc382"
+    }
+  ],
+  "anims": {
+    "idle": {
+      "durationMs": 2400,
+      "loop": true,
+      "tracks": [
+        {
+          "part": "head",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 1200,
+              "v": [0, 0.8, 0]
+            },
+            {
+              "t": 2400,
+              "v": [0, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "swirl-middle",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 2400,
+              "v": [0, 90, 0]
+            }
+          ]
+        },
+        {
+          "part": "swirl-tip",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 2400,
+              "v": [0, -90, 0]
+            }
+          ]
+        },
+        {
+          "part": "mitt-left",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 1200,
+              "v": [0, -1, 0]
+            },
+            {
+              "t": 2400,
+              "v": [0, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "mitt-right",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, -1, 0]
+            },
+            {
+              "t": 1200,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 2400,
+              "v": [0, -1, 0]
+            }
+          ]
+        }
+      ]
+    },
+    "walk": {
+      "durationMs": 800,
+      "loop": true,
+      "tracks": [
+        {
+          "part": "head",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [8, 0, 0]
+            },
+            {
+              "t": 400,
+              "v": [8, 0, 0]
+            },
+            {
+              "t": 800,
+              "v": [8, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "swirl-middle",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 800,
+              "v": [0, 90, 0]
+            }
+          ]
+        },
+        {
+          "part": "swirl-tip",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 800,
+              "v": [0, -90, 0]
+            }
+          ]
+        },
+        {
+          "part": "tuft",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 800,
+              "v": [0, 90, 0]
+            }
+          ]
+        },
+        {
+          "part": "mitt-left",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 1]
+            },
+            {
+              "t": 400,
+              "v": [0, 0, -1]
+            },
+            {
+              "t": 800,
+              "v": [0, 0, 1]
+            }
+          ]
+        },
+        {
+          "part": "mitt-right",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, -1]
+            },
+            {
+              "t": 400,
+              "v": [0, 0, 1]
+            },
+            {
+              "t": 800,
+              "v": [0, 0, -1]
+            }
+          ]
+        }
+      ]
+    },
+    "hit": {
+      "durationMs": 240,
+      "loop": false,
+      "tracks": [
+        {
+          "part": "head",
+          "prop": "scale",
+          "keys": [
+            {
+              "t": 0,
+              "v": [1, 1, 1]
+            },
+            {
+              "t": 80,
+              "v": [1.18, 0.82, 1.18]
+            },
+            {
+              "t": 240,
+              "v": [1, 1, 1]
+            }
+          ]
+        }
+      ]
+    },
+    "defeat": {
+      "durationMs": 420,
+      "loop": false,
+      "tracks": [
+        {
+          "part": "head",
+          "prop": "scale",
+          "keys": [
+            {
+              "t": 0,
+              "v": [1, 1, 1]
+            },
+            {
+              "t": 120,
+              "v": [1.2, 1.2, 1.2]
+            },
+            {
+              "t": 420,
+              "v": [0, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "head",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 420,
+              "v": [0, 4, 0]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

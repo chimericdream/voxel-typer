@@ -1,0 +1,303 @@
+{
+  "$schema": "../../render/models/schema.json",
+  "id": "moss-golem",
+  "parts": [
+    {
+      "name": "body",
+      "size": [12, 10, 10],
+      "pivot": [6, 0, 5],
+      "offset": [0, 3, 0],
+      "tile": {
+        "blockId": "mossy-cobble",
+        "face": "side"
+      }
+    },
+    {
+      "name": "cap",
+      "parent": "body",
+      "size": [10, 2, 8],
+      "pivot": [5, 0, 4],
+      "offset": [0, 10, 0],
+      "tile": {
+        "blockId": "grass",
+        "face": "top"
+      }
+    },
+    {
+      "name": "flower",
+      "parent": "cap",
+      "size": [2, 2, 2],
+      "pivot": [1, 0, 1],
+      "offset": [3, 2, 1],
+      "color": "#f2d443"
+    },
+    {
+      "name": "arm-left",
+      "parent": "body",
+      "size": [3, 7, 4],
+      "pivot": [1.5, 6, 2],
+      "offset": [-7.5, 7, 0],
+      "color": "#7a7e83"
+    },
+    {
+      "name": "arm-right",
+      "parent": "body",
+      "size": [3, 7, 4],
+      "pivot": [1.5, 6, 2],
+      "offset": [7.5, 7, 0],
+      "color": "#7a7e83"
+    },
+    {
+      "name": "foot-left",
+      "parent": "body",
+      "size": [4, 3, 5],
+      "pivot": [2, 3, 2],
+      "offset": [-3, 0, 0],
+      "color": "#63676c"
+    },
+    {
+      "name": "foot-right",
+      "parent": "body",
+      "size": [4, 3, 5],
+      "pivot": [2, 3, 2],
+      "offset": [3, 0, 0],
+      "color": "#63676c"
+    },
+    {
+      "name": "eye-left",
+      "parent": "body",
+      "size": [2, 2, 1],
+      "pivot": [1, 0, 0.5],
+      "offset": [-3, 5, 5.5],
+      "color": "#ffbe3d"
+    },
+    {
+      "name": "eye-right",
+      "parent": "body",
+      "size": [2, 2, 1],
+      "pivot": [1, 0, 0.5],
+      "offset": [3, 5, 5.5],
+      "color": "#ffbe3d"
+    }
+  ],
+  "anims": {
+    "idle": {
+      "durationMs": 1800,
+      "loop": true,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 900,
+              "v": [0, 0.5, 0]
+            },
+            {
+              "t": 1800,
+              "v": [0, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "arm-left",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [-3, 0, 0]
+            },
+            {
+              "t": 900,
+              "v": [3, 0, 0]
+            },
+            {
+              "t": 1800,
+              "v": [-3, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "arm-right",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [3, 0, 0]
+            },
+            {
+              "t": 900,
+              "v": [-3, 0, 0]
+            },
+            {
+              "t": 1800,
+              "v": [3, 0, 0]
+            }
+          ]
+        }
+      ]
+    },
+    "walk": {
+      "durationMs": 900,
+      "loop": true,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, -3]
+            },
+            {
+              "t": 450,
+              "v": [0, 0, 3]
+            },
+            {
+              "t": 900,
+              "v": [0, 0, -3]
+            }
+          ]
+        },
+        {
+          "part": "foot-left",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [20, 0, 0]
+            },
+            {
+              "t": 450,
+              "v": [-20, 0, 0]
+            },
+            {
+              "t": 900,
+              "v": [20, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "foot-right",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [-20, 0, 0]
+            },
+            {
+              "t": 450,
+              "v": [20, 0, 0]
+            },
+            {
+              "t": 900,
+              "v": [-20, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "arm-left",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [-18, 0, 0]
+            },
+            {
+              "t": 450,
+              "v": [18, 0, 0]
+            },
+            {
+              "t": 900,
+              "v": [-18, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "arm-right",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [18, 0, 0]
+            },
+            {
+              "t": 450,
+              "v": [-18, 0, 0]
+            },
+            {
+              "t": 900,
+              "v": [18, 0, 0]
+            }
+          ]
+        }
+      ]
+    },
+    "hit": {
+      "durationMs": 240,
+      "loop": false,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "scale",
+          "keys": [
+            {
+              "t": 0,
+              "v": [1, 1, 1]
+            },
+            {
+              "t": 80,
+              "v": [1.18, 0.82, 1.18]
+            },
+            {
+              "t": 240,
+              "v": [1, 1, 1]
+            }
+          ]
+        }
+      ]
+    },
+    "defeat": {
+      "durationMs": 420,
+      "loop": false,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "scale",
+          "keys": [
+            {
+              "t": 0,
+              "v": [1, 1, 1]
+            },
+            {
+              "t": 120,
+              "v": [1.2, 1.2, 1.2]
+            },
+            {
+              "t": 420,
+              "v": [0, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "body",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 420,
+              "v": [0, 4, 0]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

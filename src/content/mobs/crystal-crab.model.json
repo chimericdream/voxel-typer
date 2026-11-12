@@ -1,0 +1,305 @@
+{
+  "$schema": "../../render/models/schema.json",
+  "id": "crystal-crab",
+  "parts": [
+    {
+      "name": "body",
+      "size": [12, 5, 8],
+      "pivot": [6, 0, 4],
+      "offset": [0, 3, 0],
+      "color": "#b6948b"
+    },
+    {
+      "name": "crystal-tall",
+      "parent": "body",
+      "size": [3, 5, 3],
+      "pivot": [1.5, 0, 1.5],
+      "offset": [-2.5, 5, -0.5],
+      "color": "#9466c4"
+    },
+    {
+      "name": "crystal-mid",
+      "parent": "body",
+      "size": [3, 4, 3],
+      "pivot": [1.5, 0, 1.5],
+      "offset": [2.5, 5, -1.5],
+      "color": "#7244a3"
+    },
+    {
+      "name": "crystal-small",
+      "parent": "body",
+      "size": [2, 2, 2],
+      "pivot": [1, 0, 1],
+      "offset": [0, 5, 1],
+      "color": "#bf98e2"
+    },
+    {
+      "name": "claw-left",
+      "parent": "body",
+      "size": [4, 3, 4],
+      "pivot": [4, 1.5, 1],
+      "offset": [-6, 2.5, 3],
+      "color": "#ccaea4"
+    },
+    {
+      "name": "claw-right",
+      "parent": "body",
+      "size": [4, 3, 4],
+      "pivot": [0, 1.5, 1],
+      "offset": [6, 2.5, 3],
+      "color": "#ccaea4"
+    },
+    {
+      "name": "legs-left",
+      "parent": "body",
+      "size": [2, 3, 6],
+      "pivot": [1, 3, 3],
+      "offset": [-5, 0, 0],
+      "color": "#9e7a72"
+    },
+    {
+      "name": "legs-right",
+      "parent": "body",
+      "size": [2, 3, 6],
+      "pivot": [1, 3, 3],
+      "offset": [5, 0, 0],
+      "color": "#9e7a72"
+    },
+    {
+      "name": "eye-left",
+      "parent": "body",
+      "size": [1, 3, 1],
+      "pivot": [0.5, 0, 0.5],
+      "offset": [-2.5, 5, 3.5],
+      "color": "#26282f"
+    },
+    {
+      "name": "eye-right",
+      "parent": "body",
+      "size": [1, 3, 1],
+      "pivot": [0.5, 0, 0.5],
+      "offset": [2.5, 5, 3.5],
+      "color": "#26282f"
+    }
+  ],
+  "anims": {
+    "idle": {
+      "durationMs": 1600,
+      "loop": true,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 800,
+              "v": [0, 0.5, 0]
+            },
+            {
+              "t": 1600,
+              "v": [0, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "claw-left",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 800,
+              "v": [0, -15, 0]
+            },
+            {
+              "t": 1600,
+              "v": [0, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "claw-right",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 800,
+              "v": [0, 15, 0]
+            },
+            {
+              "t": 1600,
+              "v": [0, 0, 0]
+            }
+          ]
+        }
+      ]
+    },
+    "walk": {
+      "durationMs": 700,
+      "loop": true,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [-1, 0, 0]
+            },
+            {
+              "t": 350,
+              "v": [1, 0, 0]
+            },
+            {
+              "t": 700,
+              "v": [-1, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "legs-left",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, -15]
+            },
+            {
+              "t": 350,
+              "v": [0, 0, 12]
+            },
+            {
+              "t": 700,
+              "v": [0, 0, -15]
+            }
+          ]
+        },
+        {
+          "part": "legs-right",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, -12]
+            },
+            {
+              "t": 350,
+              "v": [0, 0, 15]
+            },
+            {
+              "t": 700,
+              "v": [0, 0, -12]
+            }
+          ]
+        },
+        {
+          "part": "claw-left",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, -10, 0]
+            },
+            {
+              "t": 350,
+              "v": [0, 8, 0]
+            },
+            {
+              "t": 700,
+              "v": [0, -10, 0]
+            }
+          ]
+        },
+        {
+          "part": "claw-right",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, -8, 0]
+            },
+            {
+              "t": 350,
+              "v": [0, 10, 0]
+            },
+            {
+              "t": 700,
+              "v": [0, -8, 0]
+            }
+          ]
+        }
+      ]
+    },
+    "hit": {
+      "durationMs": 240,
+      "loop": false,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "scale",
+          "keys": [
+            {
+              "t": 0,
+              "v": [1, 1, 1]
+            },
+            {
+              "t": 80,
+              "v": [1.18, 0.82, 1.18]
+            },
+            {
+              "t": 240,
+              "v": [1, 1, 1]
+            }
+          ]
+        }
+      ]
+    },
+    "defeat": {
+      "durationMs": 420,
+      "loop": false,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "scale",
+          "keys": [
+            {
+              "t": 0,
+              "v": [1, 1, 1]
+            },
+            {
+              "t": 120,
+              "v": [1.2, 1.2, 1.2]
+            },
+            {
+              "t": 420,
+              "v": [0, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "body",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 420,
+              "v": [0, 4, 0]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

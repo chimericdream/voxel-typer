@@ -1,0 +1,247 @@
+{
+  "$schema": "../../render/models/schema.json",
+  "id": "ambient-chicken",
+  "parts": [
+    {
+      "name": "body",
+      "size": [6, 6, 8],
+      "pivot": [3, 0, 4],
+      "offset": [0, 3, 0],
+      "color": "#d9925a"
+    },
+    {
+      "name": "head",
+      "parent": "body",
+      "size": [4, 5, 4],
+      "pivot": [2, 1, 1],
+      "offset": [0, 6, 3],
+      "color": "#f2e3b6"
+    },
+    {
+      "name": "crest",
+      "parent": "head",
+      "size": [2, 2, 3],
+      "pivot": [1, 0, 1.5],
+      "offset": [0, 4, 0.5],
+      "color": "#5d82dd"
+    },
+    {
+      "name": "beak",
+      "parent": "head",
+      "size": [2, 1, 1],
+      "pivot": [1, 0, 0.5],
+      "offset": [0, 1, 3.5],
+      "color": "#f08a2c"
+    },
+    {
+      "name": "eye-left",
+      "parent": "head",
+      "size": [1, 1, 1],
+      "pivot": [0.5, 0, 0.5],
+      "offset": [-1.5, 2, 3.5],
+      "color": "#26282f"
+    },
+    {
+      "name": "eye-right",
+      "parent": "head",
+      "size": [1, 1, 1],
+      "pivot": [0.5, 0, 0.5],
+      "offset": [1.5, 2, 3.5],
+      "color": "#26282f"
+    },
+    {
+      "name": "wing-left",
+      "parent": "body",
+      "size": [1, 4, 5],
+      "pivot": [1, 4, 2.5],
+      "offset": [-3, 5, -0.5],
+      "color": "#95532b"
+    },
+    {
+      "name": "wing-right",
+      "parent": "body",
+      "size": [1, 4, 5],
+      "pivot": [0, 4, 2.5],
+      "offset": [3, 5, -0.5],
+      "color": "#95532b"
+    },
+    {
+      "name": "tail",
+      "parent": "body",
+      "size": [4, 4, 1],
+      "pivot": [2, 1, 1],
+      "offset": [0, 5, -4],
+      "color": "#6b3a1f"
+    },
+    {
+      "name": "leg-left",
+      "parent": "body",
+      "size": [1, 3, 1],
+      "pivot": [0.5, 3, 0.5],
+      "offset": [-1.5, 0, 0.5],
+      "color": "#d96d17"
+    },
+    {
+      "name": "leg-right",
+      "parent": "body",
+      "size": [1, 3, 1],
+      "pivot": [0.5, 3, 0.5],
+      "offset": [1.5, 0, 0.5],
+      "color": "#d96d17"
+    }
+  ],
+  "anims": {
+    "idle": {
+      "durationMs": 1600,
+      "loop": true,
+      "tracks": [
+        {
+          "part": "head",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, -5]
+            },
+            {
+              "t": 800,
+              "v": [0, 0, 5]
+            },
+            {
+              "t": 1600,
+              "v": [0, 0, -5]
+            }
+          ]
+        },
+        {
+          "part": "tail",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [-4, 0, 0]
+            },
+            {
+              "t": 800,
+              "v": [6, 0, 0]
+            },
+            {
+              "t": 1600,
+              "v": [-4, 0, 0]
+            }
+          ]
+        }
+      ]
+    },
+    "walk": {
+      "durationMs": 440,
+      "loop": true,
+      "tracks": [
+        {
+          "part": "leg-left",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [25, 0, 0]
+            },
+            {
+              "t": 220,
+              "v": [-25, 0, 0]
+            },
+            {
+              "t": 440,
+              "v": [25, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "leg-right",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [-25, 0, 0]
+            },
+            {
+              "t": 220,
+              "v": [25, 0, 0]
+            },
+            {
+              "t": 440,
+              "v": [-25, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "head",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 220,
+              "v": [0, 0, 1]
+            },
+            {
+              "t": 440,
+              "v": [0, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "body",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, -2]
+            },
+            {
+              "t": 220,
+              "v": [0, 0, 2]
+            },
+            {
+              "t": 440,
+              "v": [0, 0, -2]
+            }
+          ]
+        }
+      ]
+    },
+    "peck": {
+      "durationMs": 700,
+      "loop": false,
+      "tracks": [
+        {
+          "part": "head",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 200,
+              "v": [55, 0, 0]
+            },
+            {
+              "t": 320,
+              "v": [40, 0, 0]
+            },
+            {
+              "t": 440,
+              "v": [55, 0, 0]
+            },
+            {
+              "t": 700,
+              "v": [0, 0, 0]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

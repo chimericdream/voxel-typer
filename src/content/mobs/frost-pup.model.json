@@ -1,0 +1,321 @@
+{
+  "$schema": "../../render/models/schema.json",
+  "id": "frost-pup",
+  "parts": [
+    {
+      "name": "body",
+      "size": [6, 6, 11],
+      "pivot": [3, 0, 5.5],
+      "offset": [0, 3, -0.5],
+      "color": "#b0d5ea"
+    },
+    {
+      "name": "head",
+      "parent": "body",
+      "size": [8, 7, 6],
+      "pivot": [4, 1, 1],
+      "offset": [0, 5, 4.5],
+      "color": "#d2e9f5"
+    },
+    {
+      "name": "muzzle",
+      "parent": "head",
+      "size": [4, 3, 2],
+      "pivot": [2, 0, 1],
+      "offset": [0, -1, 6],
+      "color": "#ffffff"
+    },
+    {
+      "name": "ear-left",
+      "parent": "head",
+      "size": [2, 2, 2],
+      "pivot": [1, 0, 1],
+      "offset": [-3, 6, 2],
+      "color": "#78a7cc"
+    },
+    {
+      "name": "ear-right",
+      "parent": "head",
+      "size": [2, 2, 2],
+      "pivot": [1, 0, 1],
+      "offset": [3, 6, 2],
+      "color": "#78a7cc"
+    },
+    {
+      "name": "eye-left",
+      "parent": "head",
+      "size": [1, 2, 1],
+      "pivot": [0.5, 0, 0.5],
+      "offset": [-2.5, 3, 5.5],
+      "color": "#26282f"
+    },
+    {
+      "name": "eye-right",
+      "parent": "head",
+      "size": [1, 2, 1],
+      "pivot": [0.5, 0, 0.5],
+      "offset": [2.5, 3, 5.5],
+      "color": "#26282f"
+    },
+    {
+      "name": "leg-front-left",
+      "parent": "body",
+      "size": [2, 3, 2],
+      "pivot": [1, 3, 1],
+      "offset": [-2, 0, 3.5],
+      "color": "#78a7cc"
+    },
+    {
+      "name": "leg-front-right",
+      "parent": "body",
+      "size": [2, 3, 2],
+      "pivot": [1, 3, 1],
+      "offset": [2, 0, 3.5],
+      "color": "#78a7cc"
+    },
+    {
+      "name": "leg-back-left",
+      "parent": "body",
+      "size": [2, 3, 2],
+      "pivot": [1, 3, 1],
+      "offset": [-2, 0, -3.5],
+      "color": "#78a7cc"
+    },
+    {
+      "name": "leg-back-right",
+      "parent": "body",
+      "size": [2, 3, 2],
+      "pivot": [1, 3, 1],
+      "offset": [2, 0, -3.5],
+      "color": "#78a7cc"
+    },
+    {
+      "name": "tail",
+      "parent": "body",
+      "size": [2, 2, 3],
+      "pivot": [1, 1, 3],
+      "offset": [0, 5, -5.5],
+      "color": "#ffffff"
+    }
+  ],
+  "anims": {
+    "idle": {
+      "durationMs": 1200,
+      "loop": true,
+      "tracks": [
+        {
+          "part": "tail",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, -25, 0]
+            },
+            {
+              "t": 600,
+              "v": [0, 25, 0]
+            },
+            {
+              "t": 1200,
+              "v": [0, -25, 0]
+            }
+          ]
+        },
+        {
+          "part": "head",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, -4]
+            },
+            {
+              "t": 600,
+              "v": [0, 0, 4]
+            },
+            {
+              "t": 1200,
+              "v": [0, 0, -4]
+            }
+          ]
+        }
+      ]
+    },
+    "walk": {
+      "durationMs": 480,
+      "loop": true,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 240,
+              "v": [0, 0.5, 0]
+            },
+            {
+              "t": 480,
+              "v": [0, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "leg-front-left",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [25, 0, 0]
+            },
+            {
+              "t": 240,
+              "v": [-25, 0, 0]
+            },
+            {
+              "t": 480,
+              "v": [25, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "leg-back-right",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [25, 0, 0]
+            },
+            {
+              "t": 240,
+              "v": [-25, 0, 0]
+            },
+            {
+              "t": 480,
+              "v": [25, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "leg-front-right",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [-25, 0, 0]
+            },
+            {
+              "t": 240,
+              "v": [25, 0, 0]
+            },
+            {
+              "t": 480,
+              "v": [-25, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "leg-back-left",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [-25, 0, 0]
+            },
+            {
+              "t": 240,
+              "v": [25, 0, 0]
+            },
+            {
+              "t": 480,
+              "v": [-25, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "tail",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, -30, 0]
+            },
+            {
+              "t": 240,
+              "v": [0, 30, 0]
+            },
+            {
+              "t": 480,
+              "v": [0, -30, 0]
+            }
+          ]
+        }
+      ]
+    },
+    "hit": {
+      "durationMs": 240,
+      "loop": false,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "scale",
+          "keys": [
+            {
+              "t": 0,
+              "v": [1, 1, 1]
+            },
+            {
+              "t": 80,
+              "v": [1.18, 0.82, 1.18]
+            },
+            {
+              "t": 240,
+              "v": [1, 1, 1]
+            }
+          ]
+        }
+      ]
+    },
+    "defeat": {
+      "durationMs": 420,
+      "loop": false,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "scale",
+          "keys": [
+            {
+              "t": 0,
+              "v": [1, 1, 1]
+            },
+            {
+              "t": 120,
+              "v": [1.2, 1.2, 1.2]
+            },
+            {
+              "t": 420,
+              "v": [0, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "body",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 420,
+              "v": [0, 4, 0]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

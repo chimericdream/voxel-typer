@@ -18,6 +18,7 @@ import a11y from "./a11y";
 import placement from "./placement";
 import profiles from "./profiles";
 import settings from "./settings";
+import mobs from "./mobs";
 
 const en = {
   common,
@@ -33,6 +34,7 @@ const en = {
   placement,
   profiles,
   settings,
+  mobs,
 } as const;
 
 export default en;
