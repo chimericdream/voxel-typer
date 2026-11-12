@@ -28,6 +28,8 @@ export interface VtState {
   done: number;
   netWpm: number;
   activeMs: number;
+  /** The session clock's start (`performance.now()` time). */
+  startedAtT: number;
 }
 
 /** Reads `window.__vt` in the page and returns plain values. */
@@ -80,6 +82,7 @@ export async function state(page: Page): Promise<VtState> {
       done: Number(get(summary, "targetsCompleted") ?? 0),
       netWpm: Number(get(summary, "netWpm") ?? 0),
       activeMs: Number(get(summary, "activeMs") ?? 0),
+      startedAtT: Number(get(summary, "startedAtT") ?? 0),
     };
   });
 }
