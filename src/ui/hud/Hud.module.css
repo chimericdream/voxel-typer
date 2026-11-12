@@ -245,6 +245,13 @@
 .keyboard[data-hands-caption] {
   --kb-units: 5.9;
   --kb-fixed: 36px;
+
+  /* Keys stay the size they have with the hands shown (8.1 units and 40 px inside 54dvh), so the
+     room the hands leave goes to the stage and not to bigger keys. */
+  height: min(
+    calc(var(--kb-units) * 40px * var(--text-scale) + var(--kb-fixed)),
+    calc(var(--kb-units) * (54dvh - 40px) / 8.1 + var(--kb-fixed))
+  );
 }
 
 /* "Hear it again" (M3-07): a small key cap and its label on a plate, in the top row. */
