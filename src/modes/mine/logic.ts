@@ -384,10 +384,7 @@ export const TARGET_LATENCY: Readonly<Record<AgeBand, Ms>> = {
 export const EST_WPM: Readonly<Record<AgeBand, number>> = { sprout: 6, miner: 14, builder: 24 };
 
 /** The wrong-key policy of a lesson for a band (contracts §6). */
-export function policyFor(
-  lesson: Pick<Lesson, "policy" | "kind">,
-  band: AgeBand,
-): WrongKeyPolicy {
+export function policyFor(lesson: Pick<Lesson, "policy" | "kind">, band: AgeBand): WrongKeyPolicy {
   const own = lesson.policy?.[band];
   if (own !== undefined) return own;
   if (lesson.kind === "sentences") return "backspace";
@@ -404,6 +401,10 @@ export function caseSensitiveFor(
   return !relaxed.includes(band);
 }
 
+/** Curriculum position of a lesson: biome order first, then order in the biome. */
+const rank = (l: Pick<Lesson, "biome" | "order">): number =>
+  BIOME_ORDER.indexOf(l.biome) * 1000 + l.order;
+
 /**
  * The keys a lesson may ask for: the `newKeys` of every lesson before it in curriculum order, plus
  * its own. Sparkstone is a side branch (README §8.5), so its keys count only inside Sparkstone.
@@ -412,8 +413,6 @@ export function caseSensitiveFor(
  * real one once the curriculum task lands.
  */
 export function allowedKeys(lessons: readonly Lesson[], lesson: Lesson): string[] {
-  const rank = (l: Pick<Lesson, "biome" | "order">): number =>
-    BIOME_ORDER.indexOf(l.biome) * 1000 + l.order;
   const upTo = rank(lesson);
   const keys: string[] = [];
   const add = (l: Lesson): void => {

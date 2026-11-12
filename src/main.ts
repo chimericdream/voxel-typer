@@ -99,6 +99,7 @@ async function boot(host: HTMLElement): Promise<void> {
     reducedMotion: () => reducedMotion,
     // Under ?freeze only the frame loop reads this clock; input keeps the real one.
     clock: debug.freeze ? fixedStepClock(0, 16) : realClock,
+    frozen: debug.freeze,
   });
 
   const initial: Route = { id: debug.screen ?? "splash" };
@@ -114,6 +115,7 @@ async function boot(host: HTMLElement): Promise<void> {
     clock: realClock,
     nextSeed: () => debug.seed ?? Math.floor(Math.random() * 2 ** 32),
     frozen: debug.freeze,
+    away: () => document.hidden || !document.hasFocus(),
     record: debug.record,
     applySettings(s) {
       reducedMotion = reducedMotionOf(s);

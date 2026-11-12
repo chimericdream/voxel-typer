@@ -53,6 +53,11 @@ export interface PlayHostDeps {
   nextSeed(): number;
   /** `?freeze`: never turn drift on. */
   frozen: boolean;
+  /**
+   * True when the page is hidden or has lost focus. A lesson that finishes loading in that state
+   * starts paused: the blur that would have paused it came during `loading` and was dropped.
+   */
+  away?(): boolean;
   /** `?record`: keep every typed key of the lesson. */
   record: boolean;
   reminder: BreakReminder;
@@ -225,7 +230,8 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
         deps.hud.reset();
         const ctx: ModeContext = {
           lesson,
-          params,
+          // Modes hold ambient motion still under `?freeze`, like the camera drift here.
+          params: { ...params, frozen: deps.frozen },
           profile,
           settings: profile.settings,
           band: profile.ageBand,
@@ -247,6 +253,11 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
         instance.start();
         startFrames(r);
         scene.requestRender();
+        if (deps.away?.() === true && run === r && status === "running") {
+          instance.pause(deps.clock.now());
+          stopFrames(r);
+          setStatus("paused");
+        }
       } catch (err) {
         console.error("[play] could not start the lesson", err);
         if (run === r) {

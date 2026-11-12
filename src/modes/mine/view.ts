@@ -447,7 +447,11 @@ export function createStageView(opts: StageViewOptions): StageView {
       if (wobbleAngle !== 0 || wobbleSpeed !== 0) {
         const dt = dtMs / 1000;
         wobbleSpeed += (-WOBBLE_STIFFNESS * wobbleAngle - WOBBLE_DAMPING * wobbleSpeed) * dt;
-        wobbleAngle = THREE.MathUtils.clamp(wobbleAngle + wobbleSpeed * dt, -WOBBLE_MAX, WOBBLE_MAX);
+        wobbleAngle = THREE.MathUtils.clamp(
+          wobbleAngle + wobbleSpeed * dt,
+          -WOBBLE_MAX,
+          WOBBLE_MAX,
+        );
         if (Math.abs(wobbleAngle) < 0.002 && Math.abs(wobbleSpeed) < 0.05) {
           wobbleAngle = 0;
           wobbleSpeed = 0;

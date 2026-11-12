@@ -106,8 +106,7 @@ export interface MineInstance extends ModeInstance {
 }
 
 type AtlasScene = SceneHandle & { atlas(): Atlas | null };
-const hasAtlas = (s: SceneHandle): s is AtlasScene =>
-  "atlas" in s && typeof s.atlas === "function";
+const hasAtlas = (s: SceneHandle): s is AtlasScene => "atlas" in s && typeof s.atlas === "function";
 
 type TargetCamera = CameraRig & { setTarget(at: Vec3): void };
 const canTarget = (c: CameraRig): c is TargetCamera =>
@@ -322,7 +321,8 @@ export function create(ctx: ModeContext): MineInstance {
       const def = blockById.get(d.block);
       const name = def ? t(def.nameKey) : d.block;
       // Float text only on a break, never per letter (M2-05 review).
-      if (i < 2) scene.fx.floatText(i === 0 ? textAt : textAt2, t("mine.got", { count: d.count, name }));
+      if (i < 2)
+        scene.fx.floatText(i === 0 ? textAt : textAt2, t("mine.got", { count: d.count, name }));
     });
     const hasOrigin = view?.project(from) ?? false;
     const queued = enqueueDrops(flights, drops, flyNow, reduced() || !hasOrigin || fly === null);
@@ -467,10 +467,12 @@ export function create(ctx: ModeContext): MineInstance {
       scene.camera.preset("mine", { durationMs: 0 });
       // The same meadow every time for one player: it is their place.
       const seed = hashString(`${ctx.profile.id}:${biome}`);
-      scene.loadDiorama(`mine-${biome}`, generateDiorama(biome, seed)).then(ready, (err: unknown) => {
-        console.warn("[mine] the world did not load; playing without it", err);
-        ready();
-      });
+      scene
+        .loadDiorama(`mine-${biome}`, generateDiorama(biome, seed))
+        .then(ready, (err: unknown) => {
+          console.warn("[mine] the world did not load; playing without it", err);
+          ready();
+        });
     },
 
     input(k: KeyInput) {
@@ -510,17 +512,17 @@ export function create(ctx: ModeContext): MineInstance {
       }
     },
 
-    pause(t: Ms) {
+    pause(now: Ms) {
       if (paused) return;
       paused = true;
       // The break reminder can pause on the very last block, after the session has ended.
-      if (summary === null) handle(session.pause(t));
+      if (summary === null) handle(session.pause(now));
     },
 
-    resume(t: Ms) {
+    resume(now: Ms) {
       if (!paused) return;
       paused = false;
-      if (summary === null) handle(session.resume(t));
+      if (summary === null) handle(session.resume(now));
     },
 
     dispose() {
