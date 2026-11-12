@@ -192,7 +192,7 @@ const CORNER_ICONS = {
     [3, 11, 10, 2],
     [5, 13, 6, 2],
   ],
-  // Three sliders.
+  // Two sliders, each with its knob.
   settings: [
     [1, 3, 14, 2],
     [4, 1, 3, 6],
@@ -204,8 +204,9 @@ const CORNER_ICONS = {
 /**
  * A corner button. In a wide window it shows its words. In a narrow one (1100 px or less) the four
  * buttons would wrap onto a second row at large text and crowd the island labels, so there each
- * shows its picture and keeps its words for screen readers and as a tooltip. The text size
- * setting is never overridden: the picture grows with it.
+ * shows its picture and keeps its words for screen readers and as a tip that opens on hover, on
+ * keyboard focus and on touch (CSS, `WorldMap.module.css`). The text size setting is never
+ * overridden: the picture grows with it.
  */
 function CornerButton({
   icon,
@@ -217,7 +218,7 @@ function CornerButton({
   onClick: () => void;
 }) {
   return (
-    <span data-nav="" title={label}>
+    <span data-nav="">
       <Button onClick={onClick}>
         <svg class={styles.cornerIcon} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
           {CORNER_ICONS[icon].map(([x, y, w, h]) => (

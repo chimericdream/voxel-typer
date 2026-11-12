@@ -205,8 +205,14 @@ export function mostOwned(
 /**
  * Keeps the palette steady while a child builds: blocks already shown stay in their slots while
  * they are still owned, and a free slot is filled by the most-owned block not yet shown. Without
- * this every `put` could reshuffle the slots under the child's eyes. The block in hand (`held`)
- * keeps its slot even at 0, so the child sees what ran out.
+ * this every `put` could reshuffle the slots under the child's eyes.
+ *
+ * Two blocks always get a slot (M4-FIX-1), even in a full palette, where they take the slot of
+ * the last shown block that is neither of them:
+ * - the block in hand (`held`), even at 0, so the child sees what ran out, and even when it was
+ *   armed by name from outside the palette;
+ * - the block just dug up (`picked`), so a child who digs a block they had none of sees it land
+ *   in the bag. Without this a single grass block never outranks six kinds owned by the dozen.
  */
 export function steadyPalette(
   shown: readonly BlockId[],
@@ -214,8 +220,22 @@ export function steadyPalette(
   placeable: readonly BlockId[],
   n: number = PALETTE_SIZE,
   held: BlockId | null = null,
+  picked: BlockId | null = null,
 ): BlockId[] {
+  const must = [held, picked].filter(
+    (id, i, all): id is BlockId => id !== null && placeable.includes(id) && all.indexOf(id) === i,
+  );
   const kept = shown.filter((id) => id === held || (inventory[id] ?? 0) > 0).slice(0, n);
+  for (const id of must.slice(0, n)) {
+    if (kept.includes(id)) continue;
+    if (kept.length < n) {
+      kept.push(id);
+      continue;
+    }
+    // Full: it takes the last slot that isn't held or picked, so the others don't move.
+    const out = kept.findLastIndex((k) => !must.includes(k));
+    if (out !== -1) kept[out] = id;
+  }
   const rest = mostOwned(inventory, placeable, placeable.length).filter((id) => !kept.includes(id));
   return [...kept, ...rest].slice(0, n);
 }

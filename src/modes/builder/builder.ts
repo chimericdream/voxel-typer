@@ -2,7 +2,9 @@
  * Builder mode (task M4-07, PLAN.md §3.2.4): the child builds on their Home Island by typing.
  * Words are commands (`commands.ts`): a block's name arms it, `put` places it at the cursor, `dig`
  * takes a block back, directions move the cursor, `undo` steps back. Nothing can be lost: every
- * block dug goes to the inventory, every edit can be undone, and no key is ever an error.
+ * block dug goes to the inventory as itself and shows in the palette (grass stays grass, as the
+ * Mine hands it out), every edit can be undone, and no key is ever an error. Water is the one
+ * block `dig` leaves alone: it isn't placeable and drops nothing, so no slot could show it.
  *
  * This file is the wiring. The command line is `commands.ts` and the cursor rules are `logic.ts`
  * (both pure); the cursor and ghost are `view.ts`; the HUD is `BuilderHud.tsx`, fed through
@@ -36,7 +38,7 @@ import type { EngineEvent, KeyInput, SessionView } from "@/engine/types";
 import { t } from "@/i18n";
 import type { Atlas } from "@/render/atlas/build";
 import type { CameraRig, SceneHandle } from "@/render/types";
-import type { BlockId, Ms } from "@/types/core";
+import type { AgeBand, BlockId, Ms } from "@/types/core";
 import type { ModeContext, ModeInstance } from "../types";
 import { blueprintsFor } from "./blueprints";
 import type { BuilderBlueprint } from "./blueprints";
@@ -82,9 +84,11 @@ import type { BuilderView } from "./view";
 export const AUTOSAVE_MS: Ms = 30_000;
 /**
  * How long after a word runs one Space is still the habit space between words. Later than this,
- * Space is a deliberate `put`.
+ * Space is a deliberate `put`. Per band (M4-07 review N-A): a slow Sprout often looks up at the
+ * island before the Space, so a short window would turn their habit space into an extra block.
+ * Too long only costs a deliberate `put` one more Space.
  */
-export const HABIT_MS: Ms = 1500;
+export const HABIT_MS: Readonly<Record<AgeBand, Ms>> = { sprout: 3000, miner: 2000, builder: 1500 };
 /** How long a hint stays up without another key. */
 export const HINT_MS: Ms = 5000;
 /** Camera glides: following the cursor, and a quarter turn. Snaps under reduced motion. */
@@ -406,6 +410,12 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
       return;
     }
     const id = lookup.idOf(editor.grid.get(cell.x, cell.y, cell.z));
+    if (id !== undefined && !placeableIds.includes(id)) {
+      // Only water, today: it can't be put down again, and it drops no block, so it stays where
+      // it is rather than going into the bag where no slot could show it (M4-FIX-1).
+      say({ key: "builder.hint.cantPickUp", params: { name: nameOf(id) } });
+      return;
+    }
     const res = editor.apply({ kind: "remove", ...cell });
     if (!res.ok) {
       say(refusal(res, null));
@@ -421,10 +431,13 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
         { blockId: id, count: 6, speed: 0.6 },
       );
       // The first block a child picks up is ready to put down again.
-      if (armed === null && placeableIds.includes(id)) armed = id;
+      if (armed === null) armed = id;
     }
     say(null);
     afterEdit(boxOfCell(cell));
+    // The block lands in the palette, even a full one, so the child sees where it went.
+    if (id !== undefined)
+      shown = steadyPalette(shown, inventory, placeableIds, undefined, armed, id);
   };
 
   const undo = (): void => {
@@ -611,7 +624,7 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
         line = out.state;
         if (quietly) quiet.push(k);
         else quiet = [];
-        habitLeft = line.habit ? HABIT_MS : 0;
+        habitLeft = line.habit ? HABIT_MS[band] : 0;
         if (k.key === "Backspace") {
           // A change of mind: forget the letter taken back and the misses typed after it.
           while (keys.length > 0 && keys.at(-1)?.accepted === false) keys.pop();

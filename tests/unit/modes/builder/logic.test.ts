@@ -206,6 +206,40 @@ describe("palette", () => {
     // The block in hand keeps its slot when it runs out.
     expect(steadyPalette(shown, { dirt: 0, cobble: 30, sand: 5 }, order, 6, "dirt")).toEqual(shown);
   });
+
+  it("a block just dug, and the block in hand, always get a slot (M4-FIX-1)", () => {
+    const six = ["dirt", "cobble", "planks", "glass", "brick", "sand"];
+    const inv = { dirt: 9, cobble: 9, planks: 8, glass: 7, brick: 6, sand: 5, grass: 1, clay: 2 };
+    // Without them a single grass never outranks six kinds owned by the handful.
+    expect(steadyPalette(six, inv, order)).toEqual(six);
+    // Dug: it takes the last slot, the others stay put.
+    expect(steadyPalette(six, inv, order, 6, "dirt", "grass")).toEqual([
+      "dirt",
+      "cobble",
+      "planks",
+      "glass",
+      "brick",
+      "grass",
+    ]);
+    // In hand (armed by name), and dug, at once: the last two slots that are neither.
+    expect(steadyPalette(six, inv, order, 6, "clay", "grass")).toEqual([
+      "dirt",
+      "cobble",
+      "planks",
+      "glass",
+      "grass",
+      "clay",
+    ]);
+    // Already shown: nothing moves.
+    expect(steadyPalette(six, inv, order, 6, "sand", "dirt")).toEqual(six);
+    // Room to spare: it is simply added.
+    expect(steadyPalette(["dirt"], { dirt: 3, grass: 1 }, order, 6, "dirt", "grass")).toEqual([
+      "dirt",
+      "grass",
+    ]);
+    // Only placeable blocks get a slot.
+    expect(steadyPalette(six, { ...inv, water: 1 }, order, 6, null, "water")).toEqual(six);
+  });
 });
 
 describe("redraw bookkeeping", () => {
