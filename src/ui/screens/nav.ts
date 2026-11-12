@@ -15,6 +15,7 @@
  * twice through here. The kit `Button` and `Dialog` ignore repeats on their own.
  */
 import { useEffect, useRef } from "preact/hooks";
+import { reducedMotion } from "@/a11y/motion";
 import type { ScreenInputHandler, AppApi } from "@/app/types";
 
 let lastKeyHandled = false;
@@ -134,11 +135,11 @@ export function arrowStep(action: string): 1 | -1 | null {
   return null;
 }
 
-/** The user (or the profile) asked for reduced motion. */
+/**
+ * The user (or the profile) asked for reduced motion. The app's one motion flag
+ * (`src/a11y/motion.ts`): `'system'` follows the OS, live. Without a setting, the active
+ * profile's.
+ */
 export function prefersReducedMotion(setting: boolean | "system" | undefined): boolean {
-  if (setting === true) return true;
-  if (setting === false) return false;
-  return typeof window.matchMedia === "function"
-    ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    : false;
+  return reducedMotion(setting);
 }

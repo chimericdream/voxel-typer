@@ -1,0 +1,36 @@
+/*
+ * Reduced motion, the page-wide safety net (task M3-07, PLAN.md §4.6).
+ *
+ * Kit and screen styles already scale their durations by --motion-ok (tokens.css), so with reduced
+ * motion the bob, squash, pop-in, pulse and wobble end at once. This sheet catches anything that
+ * forgot: every animation and transition ends at once, and nothing scrolls smoothly.
+ *
+ * `data-motion="reduced"` is the explicit setting; with no `data-motion` the OS preference rules.
+ * `data-motion="full"` (the child turned motion back on) is left alone.
+ *
+ * A finished animation still draws its end state (`fill-mode` is kept), so nothing pops out of
+ * view: stars and slots appear filled.
+ */
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion]) *,
+  :root:not([data-motion]) *::before,
+  :root:not([data-motion]) *::after {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}

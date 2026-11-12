@@ -11,6 +11,7 @@ const NAMES = [
   "meadow-done-miner",
   "pinky-weak",
   "veteran-builder",
+  "a11y-contrast",
 ] as const;
 
 function fixture(name: string): Profile {

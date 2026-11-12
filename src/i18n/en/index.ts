@@ -14,6 +14,7 @@ import screens from "./screens";
 import hud from "./hud";
 import mine from "./mine";
 import map from "./map";
+import a11y from "./a11y";
 
 const en = {
   common,
@@ -25,6 +26,7 @@ const en = {
   hud,
   mine,
   map,
+  a11y,
 } as const;
 
 export default en;
