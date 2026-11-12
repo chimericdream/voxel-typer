@@ -54,6 +54,35 @@ export function isPersonalBest(
   return summary.netWpm > bestWpm || summary.accuracy > bestAcc;
 }
 
+/** One extra line a mode asks Results to show: an i18n key and its params. */
+export interface ResultLine {
+  key: MessageKey;
+  params: Record<string, string | number>;
+}
+
+/** `ModeResult.extra.resultLines`: lines a mode adds under the aim line (M4-04, Night Defense). */
+export const RESULT_LINES_EXTRA = "resultLines";
+/** Results shows at most this many extra lines. */
+export const MAX_RESULT_LINES = 3;
+
+const isLine = (v: unknown): v is ResultLine => {
+  if (typeof v !== "object" || v === null) return false;
+  const key: unknown = Reflect.get(v, "key");
+  const params: unknown = Reflect.get(v, "params");
+  if (typeof key !== "string" || !/^[a-zA-Z]+\.\S+$/.test(key)) return false;
+  if (typeof params !== "object" || params === null) return false;
+  return Object.values(params).every((p) => typeof p === "string" || typeof p === "number");
+};
+
+/**
+ * The extra lines of a result, for example a night's "12 friends sent home". Anything malformed is
+ * left out, so a mode can never break the Results screen.
+ */
+export function resultLines(extra: Readonly<Record<string, unknown>> | undefined): ResultLine[] {
+  const raw = extra?.[RESULT_LINES_EXTRA];
+  return Array.isArray(raw) ? raw.filter(isLine).slice(0, MAX_RESULT_LINES) : [];
+}
+
 /** The next lesson in the same biome, or null at the end of the biome. */
 export function nextLesson(lessons: readonly Lesson[], lesson: Lesson): Lesson | null {
   return lessons.find((l) => l.biome === lesson.biome && l.order === lesson.order + 1) ?? null;

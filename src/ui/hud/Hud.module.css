@@ -196,6 +196,9 @@
 
 /* The open stage over the 3D scene, where messages float without moving the layout. */
 .stage {
+  /* Pinned to the flexible row: a mode that shows no big word (Night Defense, M4-04) leaves the
+     word row empty, and without this the stage slid up into it and collapsed. */
+  grid-row: 3;
   position: relative;
   width: 100%;
   min-height: 0;
@@ -228,6 +231,7 @@
  * fit that height (--keyboard-max-unit, read by the keyboard), so keys shrink instead of scrolling.
  */
 .keyboard {
+  grid-row: 4;
   container-type: size;
   display: flex;
   align-items: flex-end;
@@ -235,6 +239,19 @@
   height: min(calc(var(--kb-units) * 40px * var(--text-scale) + var(--kb-fixed)), 54dvh);
 
   --keyboard-max-unit: calc((100cqh - var(--kb-fixed)) / var(--kb-units));
+}
+
+/* The hint line without the drawn hands (a mode asked, M4-04): the keys and one line of text. */
+.keyboard[data-hands-caption] {
+  --kb-units: 5.9;
+  --kb-fixed: 36px;
+
+  /* Keys stay the size they have with the hands shown (8.1 units and 40 px inside 54dvh), so the
+     room the hands leave goes to the stage and not to bigger keys. */
+  height: min(
+    calc(var(--kb-units) * 40px * var(--text-scale) + var(--kb-fixed)),
+    calc(var(--kb-units) * (54dvh - 40px) / 8.1 + var(--kb-fixed))
+  );
 }
 
 /* "Hear it again" (M3-07): a small key cap and its label on a plate, in the top row. */

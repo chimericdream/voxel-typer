@@ -25,6 +25,7 @@ import achievements from "./achievements";
 import importexport from "./importexport";
 import mobs from "./mobs";
 import builder from "./builder";
+import defense from "./defense";
 
 const en = {
   common,
@@ -47,6 +48,7 @@ const en = {
   importexport,
   mobs,
   builder,
+  defense,
 } as const;
 
 export default en;

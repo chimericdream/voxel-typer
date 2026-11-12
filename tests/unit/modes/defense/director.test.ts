@@ -10,6 +10,7 @@ import { typeable } from "../../../../src/engine/generator";
 import { createRng } from "../../../../src/engine/rng";
 import {
   DIRECTOR_CONSTANTS as C,
+  accuracyTargetFor,
   controllerStep,
   createDirector,
   initialControllerState,
@@ -105,6 +106,17 @@ const classCount = (d: number, cls: string, seed: number): number =>
     .nextWave()
     .mobs.filter((m) => MOBS.find((x) => x.id === m.mobId)?.speedClass === cls).length;
 
+/** A perfect wave that took `activeMs`. */
+const tookMs = (activeMs: number): WaveFeedback => feedback({ accuracy: 1, activeMs });
+/** The first step a director takes after a perfect wave. */
+const stepOf = (over: Partial<DirectorOptions>): number => {
+  const director = createDirector(options(over));
+  const before = director.difficulty;
+  const wave = director.nextWave();
+  director.observe(feedback({ accuracy: 1, wordsDone: wave.mobs.length }));
+  return director.difficulty / before - 1;
+};
+
 const arbFeedback = fc.record({
   accuracy: fc.oneof(fc.double({ min: -0.5, max: 1.5, noNaN: true }), fc.constant(Number.NaN)),
   reachedBase: fc.oneof(fc.integer({ min: -3, max: 30 }), fc.constant(Number.NaN)),
@@ -149,10 +161,18 @@ describe("controller", () => {
         fc.double({ min: C.dMin, max: C.dMax, noNaN: true }),
         fc.boolean(),
         fc.array(arbFeedback, { minLength: 1, maxLength: 12 }),
-        (d0, calm, fs) => {
-          let s: ControllerState = initialControllerState(Math.min(d0, calm ? C.calmDMax : d0));
+        fc.record({
+          fine: fc.boolean(),
+          target: fc.double({ min: C.targetMin, max: C.targetMax, noNaN: true }),
+          plannedMs: fc.oneof(fc.integer({ min: -5, max: 60_000 }), fc.constant(Number.NaN)),
+        }),
+        (d0, calm, fs, { fine, target, plannedMs }) => {
+          let s: ControllerState = initialControllerState(Math.min(d0, calm ? C.calmDMax : d0), {
+            fine,
+            target,
+          });
           for (const f of fs) {
-            const next = controllerStep(s, f, calm);
+            const next = controllerStep(s, f, calm, { plannedMs });
             expect(next.d).toBeGreaterThanOrEqual(C.dMin);
             expect(next.d).toBeLessThanOrEqual(calm ? C.calmDMax : C.dMax);
             const step = next.d / s.d - 1;
@@ -197,6 +217,58 @@ describe("controller", () => {
     expect(edge.fine).toBe(true);
     const after = controllerStep(edge, feedback({ accuracy: 1 }), false);
     expect(after.d / edge.d - 1).toBeLessThanOrEqual(C.fineMaxStepUp + 1e-9);
+  });
+
+  it("aims a few points under the learner's own accuracy, inside 85–93 %", () => {
+    expect(accuracyTargetFor(null)).toBe(C.accuracyTarget);
+    expect(accuracyTargetFor(undefined)).toBe(C.accuracyTarget);
+    expect(accuracyTargetFor(Number.NaN)).toBe(C.accuracyTarget);
+    expect(accuracyTargetFor(0)).toBe(C.accuracyTarget);
+    expect(accuracyTargetFor(0.99)).toBeCloseTo(C.targetMax);
+    expect(accuracyTargetFor(0.94)).toBeCloseTo(0.91);
+    expect(accuracyTargetFor(0.8)).toBeCloseTo(C.targetMin);
+    // A percent passed by mistake still gives a target inside the bounds.
+    expect(accuracyTargetFor(97)).toBeCloseTo(C.targetMax);
+    // The target moves the step: 93 % is "a bit easy" at 0.90 and "just right" at 0.93.
+    const high = initialControllerState(1, { target: 0.93 });
+    expect(controllerStep(high, feedback({ accuracy: 0.93 }), false).d).toBeCloseTo(1);
+    expect(controllerStep(s0, feedback({ accuracy: 0.93 }), false).d).toBeGreaterThan(1);
+  });
+
+  it("eases a struggling child by a full step, even in fine mode", () => {
+    const fine = initialControllerState(1, { fine: true });
+    // 80 % with nobody at the base: no relief, but well under 85 %.
+    const eased = controllerStep(fine, feedback({ accuracy: 0.8 }), false);
+    expect(eased.d).toBeCloseTo(0.9);
+    expect(1 - eased.d).toBeGreaterThan(C.fineMaxStepDown);
+    // From the top it takes few waves to get back under 1.0 at a steady 80 %.
+    let s = initialControllerState(C.dMax, { fine: true });
+    let waves = 0;
+    while (s.d > 1 && waves < 30) {
+      s = controllerStep(s, feedback({ accuracy: 0.8 }), false);
+      waves++;
+    }
+    expect(waves).toBeLessThanOrEqual(7);
+  });
+
+  it("calm mode: a wave that took much longer than planned holds or eases the pace", () => {
+    const calm = initialControllerState(1, { fine: true });
+    const plan = { plannedMs: 10_000 };
+    expect(controllerStep(calm, tookMs(10_000), true, plan).d).toBeGreaterThan(1);
+    expect(controllerStep(calm, tookMs(10_000 * C.calmSlow + 500), true, plan).d).toBeCloseTo(1);
+    expect(controllerStep(calm, tookMs(10_000 * C.calmVerySlow + 500), true, plan).d).toBeCloseTo(
+      1 - C.fineMaxStepDown,
+    );
+    // Outside calm mode time is not a signal (mobs at the base are), and no plan means no signal.
+    expect(controllerStep(calm, tookMs(60_000), false, plan).d).toBeGreaterThan(1);
+    expect(controllerStep(calm, tookMs(60_000), true).d).toBeGreaterThan(1);
+  });
+
+  it("starts in fine mode with a baseline or a resumed night, and searches for a new profile", () => {
+    expect(stepOf({})).toBeCloseTo(C.fineMaxStepUp);
+    expect(stepOf({ startDifficulty: 1.2 })).toBeCloseTo(C.fineMaxStepUp);
+    expect(stepOf({ baselineNetWpm: null, startDifficulty: 1.2 })).toBeCloseTo(C.fineMaxStepUp);
+    expect(stepOf({ baselineNetWpm: null })).toBeCloseTo(C.maxStep);
   });
 
   it("weights waves by words done and forgets older ones", () => {
@@ -271,6 +343,19 @@ describe("waves", () => {
             expect(1000 / m.speed).toBeLessThanOrEqual(C.travelMs.max + 1e-6);
           });
         }
+      }
+  });
+
+  it("brings mobs to the base in spawn order, a spawn gap apart", () => {
+    for (const band of BANDS)
+      for (const d of [0.5, 1, 1.6]) {
+        const w = createDirector(options({ band, startDifficulty: d })).nextWave();
+        const arrive = w.mobs.map((m) => m.spawnAtMs + 1000 / m.speed);
+        const len = C.wordLength[band];
+        // No two mobs are due closer than the quickest spawn gap of the wave's shortest word.
+        const least = mobTiming(band, len.min, 20, d, "medium").gapMs * C.arrivalSpacing;
+        for (let i = 1; i < arrive.length; i++)
+          expect((arrive[i] ?? 0) - (arrive[i - 1] ?? 0)).toBeGreaterThanOrEqual(least - 1);
       }
   });
 

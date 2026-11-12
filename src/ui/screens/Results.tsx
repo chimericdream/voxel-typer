@@ -20,7 +20,14 @@ import { Button } from "@/ui/kit/Button";
 import { Slot } from "@/ui/kit/Slot";
 import { Stars } from "@/ui/kit/Stars";
 import { focusOnControl, prefersReducedMotion, useScreenInput } from "./nav";
-import { aimLine, isPersonalBest, lootRows, messageText, nextLesson } from "./results-logic";
+import {
+  aimLine,
+  isPersonalBest,
+  lootRows,
+  messageText,
+  nextLesson,
+  resultLines,
+} from "./results-logic";
 import screen from "./screen.module.css";
 import styles from "./Results.module.css";
 
@@ -131,6 +138,12 @@ export default function Results({ app, route }: ScreenProps) {
         {best ? <p class={styles.best}>{t("screens.results.best")}</p> : null}
         <p class={styles.message}>{messageText(stars, band)}</p>
         {aim ? <p class={styles.aim}>{t(aim.key, { pct: aim.pct })}</p> : null}
+        {/* Lines a mode adds, such as a night's "12 friends sent home" (M4-04). */}
+        {resultLines(result.extra).map((line) => (
+          <p key={line.key} class={styles.aim}>
+            {t(line.key, line.params)}
+          </p>
+        ))}
         <section class={styles.loot} aria-labelledby="results-loot">
           <h2 id="results-loot" class={styles.lootHeading}>
             {t("screens.results.loot")}

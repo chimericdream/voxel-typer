@@ -14,11 +14,13 @@ import { EN_US } from "../../../src/content/layouts";
 import { t } from "../../../src/i18n";
 import { defaultSettings } from "../../../src/save/settings";
 import {
+  HANDS_SLICE,
   HOTBAR_SLICE,
   HUD_FIELDS,
   WRONG_KEY_SLICE,
   createHudStore,
   emptyHudState,
+  handsCaptionOnly,
   hotbarOf,
   reportWrongKey,
   wrongKeyOf,
@@ -293,6 +295,42 @@ describe("parts", () => {
     expect(host.querySelector('[data-next="key"]')?.getAttribute("data-code")).toBe("KeyF");
     void act(() => reportWrongKey(hud, "k"));
     expect(host.querySelector('[data-wobble="1"]')?.getAttribute("data-code")).toBe("KeyK");
+  });
+
+  it("a mode can ask for the hint line without the drawn hands (M4-04)", () => {
+    const hud = createHudStore();
+    hud.set({ nextKey: "a" });
+    mount(<HudKeyboard fields={hud.fields} layout={EN_US} hands labels />);
+    const row = (): Element | null => host.querySelector('[data-hud="keyboard"]');
+    expect(row()?.hasAttribute("data-hands-caption")).toBe(false);
+    expect(host.querySelectorAll("svg").length).toBe(2);
+    const hint = t("keyboard.useFinger", { finger: t("keyboard.finger.L5") });
+    expect(host.textContent).toContain(hint);
+
+    void act(() => hud.set({ custom: { ...hud.get().custom, [HANDS_SLICE]: "caption" } }));
+    expect(row()?.getAttribute("data-hands-caption")).toBe("1");
+    // The hands are gone; the keys, their finger labels and the hint line stay.
+    expect(host.querySelectorAll("svg").length).toBe(0);
+    expect(host.textContent).toContain(hint);
+    expect(host.querySelector('[data-next="key"]')?.getAttribute("data-code")).toBe("KeyA");
+    expect(host.textContent).toContain(t("keyboard.zone.pinky"));
+
+    // Other slices beside it change nothing, and clearing it brings the hands back.
+    void act(() => reportWrongKey(hud, "k"));
+    expect(host.querySelectorAll("svg").length).toBe(0);
+    void act(() => hud.reset());
+    expect(host.querySelectorAll("svg").length).toBe(2);
+    expect(handsCaptionOnly({ [HANDS_SLICE]: true })).toBe(false);
+  });
+
+  it("the hint line is never forced on: without the hands setting there is none", () => {
+    const hud = createHudStore();
+    hud.set({ nextKey: "a", custom: { [HANDS_SLICE]: "caption" } });
+    mount(<HudKeyboard fields={hud.fields} layout={EN_US} hands={false} labels />);
+    expect(host.querySelector('[data-hud="keyboard"]')?.hasAttribute("data-hands-caption")).toBe(
+      false,
+    );
+    expect(host.textContent).not.toContain("Use your");
   });
 
   it("no keyboard when showKeyboard is off; labels on for Sprout", () => {

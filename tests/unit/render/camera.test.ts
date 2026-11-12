@@ -3,7 +3,13 @@
  */
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
-import { DRIFT_YAW, createCameraRig, easeInOutCubic, presetPose } from "../../../src/render/camera";
+import {
+  DRIFT_YAW,
+  applyPose,
+  createCameraRig,
+  easeInOutCubic,
+  presetPose,
+} from "../../../src/render/camera";
 import { QUALITY_PRESETS, pixelRatioFor } from "../../../src/render/quality";
 
 const BOX = new THREE.Box3(new THREE.Vector3(0, 0, 0), new THREE.Vector3(48, 24, 48));
@@ -52,9 +58,25 @@ describe("camera rig", () => {
     expect(overview.distance).toBeGreaterThan(40);
     expect(overview.pitch).toBeGreaterThan(THREE.MathUtils.degToRad(25));
     // Modes without their own preset yet use overview.
-    for (const name of ["lane", "orbit", "rail"] as const) {
+    for (const name of ["orbit", "rail"] as const) {
       expect(presetPose(name, BOX, target)).toEqual(overview);
     }
+  });
+
+  it("lane looks down the lanes from the front, at the target (M4-04)", () => {
+    const target = { x: 24.5, y: 5, z: 21.5 };
+    const lane = presetPose("lane", BOX, target);
+    expect(lane.target).toEqual(target);
+    // From +z toward −z, no turn: lanes run straight up the screen.
+    expect(lane.yaw).toBe(0);
+    expect(lane.pitch).toBeGreaterThan(THREE.MathUtils.degToRad(15));
+    expect(lane.pitch).toBeLessThan(THREE.MathUtils.degToRad(45));
+    expect(lane.distance).toBeGreaterThanOrEqual(24);
+    const camera = new THREE.PerspectiveCamera();
+    applyPose(camera, lane);
+    expect(camera.position.x).toBeCloseTo(target.x);
+    expect(camera.position.z).toBeGreaterThan(target.z);
+    expect(camera.position.y).toBeGreaterThan(target.y);
   });
 
   it("tweens to a preset over its duration, then goes idle", () => {

@@ -8,17 +8,23 @@
  * **The controller.** One difficulty scalar `d ∈ [0.3, 2.0]` sets the pace of a wave against the
  * learner's reference speed (their baseline net WPM, or a slow default for a new profile). At
  * `d = 1` a mob spawns about every "reaction + word at the reference speed", and walks its lane in
- * three of those. Lower `d` spreads mobs out and slows them; higher `d` mostly makes them walk
+ * three of those. Mobs reach the base in spawn order, a spawn gap apart: a fast mob sets out
+ * later, so two words are never due at the same moment. Lower `d` spreads mobs out and slows them; higher `d` mostly makes them walk
  * faster (see {@link mobTiming}). After each wave the director moves `d`:
  *
- * 1. `step = k × (accuracy − 0.90)`, where `accuracy` is a words-weighted average of the recent
- *    waves (each wave counts half as much as the one after it).
+ * 1. `step = k × (accuracy − target)`, where `accuracy` is a words-weighted average of the recent
+ *    waves (each wave counts half as much as the one after it). The target is the learner's own:
+ *    a few points under their accuracy in Mine ({@link accuracyTargetFor}), never above 93 % or
+ *    under 85 %, and 90 % for a new profile. So the pace costs every child about the same few
+ *    slips, whether they type at 88 % or 98 % when nothing hurries them.
  * 2. If more than 10 % of the wave's mobs reached the base, `step ≤ −1.5 × (share − 0.10)`: a
  *    learner who is accurate but can't keep up still gets slower waves.
- * 3. Search, then fine: until the first wave at or under 90 % (or with too many mobs at the base),
- *    `k = 2.5` and steps are within ±15 %. From then on the learner's edge is close: `k = 1`, steps
- *    within −8 % / +5 %. Near their edge a child's accuracy falls fast with pace, so big steps
- *    there would swing between too easy and swamped.
+ * 3. Search, then fine. A new profile searches: until the first wave at or under the target (or
+ *    with too many mobs at the base), `k = 2.5` and steps are within ±15 %. From then on, and
+ *    from the first wave for a learner with a baseline or a night resumed from an earlier one,
+ *    the edge is close: `k = 1`, steps within −8 % / +5 %. Near their edge a child's accuracy
+ *    falls fast with pace, so big steps there swing between too easy and swamped. Easing is never
+ *    slow, though: while the average is under 85 % a step down may be the full 15 %.
  * 4. Relief: a wave under 75 % accuracy, or with more than 30 % of its mobs at the base, makes the
  *    next wave 15 % easier, whatever the average says.
  * 5. `d ← clamp(d × (1 + step), 0.3, 2.0)` (calm: at most 1.2, and at most +8 % a wave).
@@ -27,7 +33,9 @@
  *
  * **Calm mode** (on by default for Sprouts) asks for a slower pace, a lower ceiling and gentler
  * steps up, and marks the wave `calm` so the mode makes mobs wait at the waiting line. Nothing
- * here is a timer the child sees: `spawnAtMs` and `speed` only drive the scene.
+ * here is a timer the child sees: `spawnAtMs` and `speed` only drive the scene. Mobs never reach
+ * the base in calm mode, so its sign of "too fast" is time: a wave that took much longer than it
+ * was planned to (mobs queued at the line) holds the pace, and a very slow one eases it.
  *
  * **No failure.** The director only plans waves. A wave that went badly makes the next one easier;
  * nothing it returns can take anything away from the child (M4-10).
@@ -65,7 +73,11 @@ export interface WaveMob {
   readonly spawnAtMs: Ms;
   /** Lane lengths per second: `1 / speed` seconds from the horizon to the base. */
   readonly speed: number;
-  /** The word it carries: one word, no spaces, only allowed keys. It completes on its last char. */
+  /**
+   * The word it carries: one word, no spaces, only allowed keys. It completes on its last char.
+   * It has the band's length, except with a key set too small to spell such words: then it is a
+   * 2–3 letter syllable.
+   */
   readonly word: string;
 }
 
@@ -96,6 +108,12 @@ export interface WaveFeedback {
   readonly activeMs: Ms;
 }
 
+/** What the controller also knows about the wave it planned. */
+export interface WavePlan {
+  /** How long the wave was planned to take: until its last mob would reach the base. */
+  readonly plannedMs: Ms;
+}
+
 export interface DirectorOptions {
   band: AgeBand;
   /** The profile's baseline net WPM (contracts §6), or null for a new profile. */
@@ -112,8 +130,17 @@ export interface DirectorOptions {
   allowed: readonly string[];
   /** `keyWeights` (contracts §4). Default: every allowed key weighs 1. */
   weights?: Record<string, number>;
-  /** Start here instead of the default (e.g. the last wave's `difficulty` of an earlier night). */
+  /**
+   * Start here instead of the default (e.g. the last wave's `difficulty` of an earlier night).
+   * The night then starts in fine mode: this edge was found before.
+   */
   startDifficulty?: number;
+  /**
+   * The learner's accuracy when nothing hurries them: the median accuracy of their recent Mine
+   * and practice sessions, 0–1, or null for a new profile. Sets the accuracy the director aims
+   * at ({@link accuracyTargetFor}).
+   */
+  baselineAccuracy?: number | null;
 }
 
 export interface Director {
@@ -132,12 +159,26 @@ export const DIRECTOR_CONSTANTS = {
   /** Start: `d` with a baseline, and with a new profile (on top of the slow default reference). */
   startD: 0.8,
   newProfileStartD: 0.7,
+  /**
+   * With a baseline, `d = 0.8` is already close to the learner's edge (about 0.85–0.95 for every
+   * typist, because `d` is relative to their own speed), so the night starts in fine mode. Only a
+   * new profile searches in big steps.
+   */
+  fineWithBaseline: true,
   /** Reference WPM for a profile with no baseline: on the slow side for each band. */
   defaultBaselineWpm: { sprout: 5, miner: 10, builder: 15 } satisfies Record<AgeBand, number>,
   /** A baseline is clamped into this range before use. */
   baselineClampWpm: { min: 2, max: 120 },
-  /** The accuracy the controller aims at: the middle of the 85–95 % band. */
+  /**
+   * The accuracy the controller aims at ({@link accuracyTargetFor}): `targetDrop` under the
+   * learner's own unhurried accuracy, inside `targetMin … targetMax`; `accuracyTarget` (the middle
+   * of the 85–95 % band) for a profile with no history. The top is 93 %, not 90 %: a fast, accurate
+   * typist's waves are "fine or swamped", and aiming their average at 90 % swamped one wave in four.
+   */
   accuracyTarget: 0.9,
+  targetDrop: 0.03,
+  targetMin: 0.85,
+  targetMax: 0.93,
   /** Search mode: step per unit of accuracy error (0.05 off target is a 12.5 % step). */
   kAccuracy: 2.5,
   /** A wave's reached-base share above which the step is pulled down, and the gain of that pull. */
@@ -149,7 +190,15 @@ export const DIRECTOR_CONSTANTS = {
   kAccuracyFine: 1,
   fineMaxStepUp: 0.05,
   fineMaxStepDown: 0.08,
+  /** Fine mode still eases by up to {@link maxStep} while the smoothed accuracy is under this. */
+  easeFastBelow: 0.85,
   calmMaxStepUp: 0.08,
+  /**
+   * Calm mode's slowness signal: the wave's active time over its planned time. Above `calmSlow`
+   * the pace does not rise; above `calmVerySlow` it eases by {@link fineMaxStepDown}.
+   */
+  calmSlow: 1.5,
+  calmVerySlow: 2.25,
   /**
    * Memory of the smoothed accuracy: each wave, the older waves count this much less. Waves are
    * weighted by their words done, so a short wave counts less. One wave is only 30–100 keys, so a
@@ -204,6 +253,13 @@ export const DIRECTOR_CONSTANTS = {
    */
   spawnExponent: 0.3,
   speedExponent: 1.5,
+  /**
+   * Mobs reach the base in the order they spawn, at least this share of the later mob's spawn gap
+   * apart. Without it a fast mob catches up with a slow one and two words are due at once, which
+   * is what swamps a child at a pace they otherwise manage. At 1 the base sees mobs at the spawn
+   * rhythm: a fast mob sets out later and a slow one sooner.
+   */
+  arrivalSpacing: 1,
   /** Travel time is kept inside this range, so mobs never dash or crawl. */
   travelMs: { min: 4000, max: 40_000 },
   speedMult: { slow: 0.8, medium: 1, fast: 1.25 } satisfies Record<SpeedClass, number>,
@@ -227,6 +283,21 @@ export function startDifficulty(
 const hasBaseline = (wpm: number | null): wpm is number =>
   wpm !== null && Number.isFinite(wpm) && wpm > 0;
 
+/**
+ * The accuracy the director aims at for a learner whose unhurried accuracy is `baselineAccuracy`
+ * (0–1; null, or anything that isn't a share, for a new profile).
+ */
+export function accuracyTargetFor(baselineAccuracy: number | null | undefined): number {
+  if (
+    baselineAccuracy === null ||
+    baselineAccuracy === undefined ||
+    !Number.isFinite(baselineAccuracy) ||
+    baselineAccuracy <= 0
+  )
+    return C.accuracyTarget;
+  return clamp(Math.min(1, baselineAccuracy) - C.targetDrop, C.targetMin, C.targetMax);
+}
+
 /** The WPM that `d = 1` stands for: the baseline, or the band's slow default. */
 export function referenceWpm(band: AgeBand, baselineNetWpm: number | null): number {
   return hasBaseline(baselineNetWpm)
@@ -245,13 +316,19 @@ export interface ControllerState {
    * the learner's edge is near and steps are small from now on.
    */
   readonly fine: boolean;
+  /** The accuracy aimed at ({@link accuracyTargetFor}). */
+  readonly target: number;
 }
 
-export const initialControllerState = (d: number): ControllerState => ({
+export const initialControllerState = (
+  d: number,
+  opts: { fine?: boolean; target?: number } = {},
+): ControllerState => ({
   d,
   accSum: 0,
   accWeight: 0,
-  fine: false,
+  fine: opts.fine ?? false,
+  target: opts.target ?? C.accuracyTarget,
 });
 
 /** A count from the mode: non-finite or negative counts as 0. */
@@ -272,6 +349,7 @@ export function controllerStep(
   s: ControllerState,
   f: WaveFeedback,
   calm: boolean,
+  plan?: WavePlan,
 ): ControllerState {
   const done = countOf(f.wordsDone);
   const reached = countOf(f.reachedBase);
@@ -285,15 +363,22 @@ export function controllerStep(
   const accuracy = smoothedAccuracy({ accSum, accWeight });
   const share = reached / resolved;
 
-  const fine = s.fine || (acc !== null && acc <= C.accuracyTarget) || share > C.reachedAim;
-  let step =
-    accuracy === null ? 0 : (fine ? C.kAccuracyFine : C.kAccuracy) * (accuracy - C.accuracyTarget);
+  const fine = s.fine || (acc !== null && acc <= s.target) || share > C.reachedAim;
+  let step = accuracy === null ? 0 : (fine ? C.kAccuracyFine : C.kAccuracy) * (accuracy - s.target);
   if (share > C.reachedAim) step = Math.min(step, -C.kReached * (share - C.reachedAim));
+  // Calm mode's only sign of "too fast": the wave took much longer than it was planned to.
+  const planned = plan === undefined ? 0 : countOf(plan.plannedMs);
+  const slowness = calm && planned > 0 ? countOf(f.activeMs) / planned : 0;
+  if (slowness > C.calmVerySlow) step = Math.min(step, -C.fineMaxStepDown);
+  else if (slowness > C.calmSlow) step = Math.min(step, 0);
   const up = Math.min(calm ? C.calmMaxStepUp : C.maxStep, fine ? C.fineMaxStepUp : C.maxStep);
-  step = clamp(step, fine ? -C.fineMaxStepDown : -C.maxStep, up);
-  if ((acc !== null && acc < C.reliefAccuracy) || share > C.reliefReached) step = -C.maxStep;
+  // Small steps near the edge, but easing is never slow for a child who is struggling.
+  const struggling = accuracy !== null && accuracy < C.easeFastBelow;
+  step = clamp(step, fine && !struggling ? -C.fineMaxStepDown : -C.maxStep, up);
+  const swamped = (acc !== null && acc < C.reliefAccuracy) || share > C.reliefReached;
+  if (swamped) step = -C.maxStep;
   const d = clamp(s.d * (1 + step), C.dMin, calm ? C.calmDMax : C.dMax);
-  return { d, accSum, accWeight, fine };
+  return { d, accSum, accWeight, fine, target: s.target };
 }
 
 /** The typing speed a wave asks for. */
@@ -412,10 +497,17 @@ export function createDirector(opts: DirectorOptions): Director {
     );
   }
 
+  const resumed = opts.startDifficulty !== undefined && Number.isFinite(opts.startDifficulty);
   let state = initialControllerState(
     clamp(startDifficulty(opts), C.dMin, calm ? C.calmDMax : C.dMax),
+    {
+      fine: resumed || (C.fineWithBaseline && hasBaseline(opts.baselineNetWpm)),
+      target: accuracyTargetFor(opts.baselineAccuracy),
+    },
   );
   let index = 0;
+  /** The last planned wave's span: until its last mob would be at the base. */
+  let plannedMs: Ms = 0;
 
   function wordsFor(flavor: string, count: number, waveRng: Rng): string[] {
     const generate = (kind: "words" | "syllables"): string[] =>
@@ -460,7 +552,8 @@ export function createDirector(opts: DirectorOptions): Director {
     const laneRng = waveRng.fork("lanes");
     const mobs: WaveMob[] = [];
     const used = new Set<string>();
-    let t = C.firstSpawnMs;
+    let t: Ms = C.firstSpawnMs;
+    let lastArrival: Ms = 0;
     let prevLane = -1;
     for (const [i, mob] of chosen.entries()) {
       // Mobs still walking when this one spawns: about `travelFactor` before it. Their words
@@ -475,6 +568,11 @@ export function createDirector(opts: DirectorOptions): Director {
         timeScale,
         mob.speedClass,
       );
+      // Keep arrivals in spawn order and apart: a mob that would catch up spawns a little later.
+      const travelMs = 1000 / speed;
+      const earliest = lastArrival + C.arrivalSpacing * gapMs - travelMs;
+      if (i > 0 && t < earliest) t = earliest;
+      lastArrival = t + travelMs;
       const others = Array.from({ length: lanes }, (_, l) => l).filter((l) => l !== prevLane);
       const lane = laneRng.pick(others.length > 0 ? others : [0]);
       prevLane = lane;
@@ -489,6 +587,7 @@ export function createDirector(opts: DirectorOptions): Director {
       t += gapMs;
     }
     const spec: WaveSpec = { index, lanes, calm, difficulty: d, paceWpm: pace, mobs };
+    plannedMs = Math.max(0, ...mobs.map((m) => m.spawnAtMs + 1000 / m.speed));
     index += 1;
     return spec;
   }
@@ -496,7 +595,7 @@ export function createDirector(opts: DirectorOptions): Director {
   return {
     nextWave,
     observe(feedback: WaveFeedback): void {
-      state = controllerStep(state, feedback, calm);
+      state = controllerStep(state, feedback, calm, { plannedMs });
     },
     get difficulty(): number {
       return state.d;

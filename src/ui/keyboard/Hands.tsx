@@ -18,6 +18,8 @@ export interface HandsProps {
   finger: Finger | null;
   /** The pinky that holds Shift, or null. */
   shiftFinger: Finger | null;
+  /** Only the hint line, without the two drawn hands (M4-04: a mode that needs the room). */
+  captionOnly?: boolean;
 }
 
 /** Art-pixel rectangle: x, y, width, height. */
@@ -162,17 +164,19 @@ function Hand({
   );
 }
 
-export function Hands({ finger, shiftFinger }: HandsProps) {
+export function Hands({ finger, shiftFinger, captionOnly = false }: HandsProps) {
   const uid = useId();
   const lit = new Set<Finger>();
   if (finger) lit.add(finger);
   if (shiftFinger) lit.add(shiftFinger);
   return (
     <div class={styles.hands}>
-      <div class={styles.pair}>
-        <Hand side="left" lit={lit} uid={uid} />
-        <Hand side="right" lit={lit} uid={uid} />
-      </div>
+      {captionOnly ? null : (
+        <div class={styles.pair}>
+          <Hand side="left" lit={lit} uid={uid} />
+          <Hand side="right" lit={lit} uid={uid} />
+        </div>
+      )}
       {finger ? (
         <p class={styles.caption}>
           <span>{t("keyboard.useFinger", { finger: t(`keyboard.finger.${finger}`) })}</span>
