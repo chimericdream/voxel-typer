@@ -9,6 +9,7 @@ import { signal } from "@preact/signals";
 import type { ReadonlySignal } from "@preact/signals";
 import type { AudioApi, Bus } from "@/audio/types";
 import type { Lesson } from "@/content/lessons/types";
+import { PLACEMENT_LESSON, PLACEMENT_LESSON_ID } from "@/modes/placement/lesson";
 import type { ModeModule } from "@/modes/types";
 import type { SaveProblem, SaveProblemKind } from "@/save/problems";
 import type { Profile } from "@/save/schema";
@@ -183,12 +184,18 @@ export function createShell(deps: ShellDeps): Shell {
     record: deps.record,
     reminder: createBreakReminder(),
     saveProfile,
+    lessons: deps.lessons,
     onStatus(s) {
       playStatus.value = s;
     },
     onFinished(_result, _updated) {
       const current = route.value;
       if (current.id !== "play") return;
+      // The placement test shows where the player starts, on its own screen (M3-05).
+      if (current.lesson === PLACEMENT_LESSON_ID) {
+        go({ id: "placement", lesson: PLACEMENT_LESSON_ID }, true);
+        return;
+      }
       const next: Route = { id: "results" };
       if (current.lesson !== undefined) next.lesson = current.lesson;
       go(next, true);
@@ -199,7 +206,12 @@ export function createShell(deps: ShellDeps): Shell {
     // The world map draws its islands in the shared scene too (M3-04).
     deps.showCanvas(to.id === "play" || to.id === "map");
     if (to.id !== "play") return;
-    const lesson = to.lesson === undefined ? null : lessonById(to.lesson);
+    const lesson =
+      to.lesson === PLACEMENT_LESSON_ID
+        ? PLACEMENT_LESSON
+        : to.lesson === undefined
+          ? null
+          : lessonById(to.lesson);
     const p = profile.value;
     if (lesson === null || p === null) {
       playStatus.value = "failed";

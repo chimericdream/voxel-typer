@@ -53,19 +53,19 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 - [x] **M2-15** ⛩ Slice E2E + baselines (M/B) — merged (PR #142)
 - [x] **M2-16** Playtest kit (S/C) — merged (PR #138)
 - [x] **M2-FIX-2** Slice polish from the M2 reviews (M/B) — merged (PR #143)
-- [ ] **M2-FIX-3** Owner playtest fixes: age-aware stars, no extra space (M/B) — todo
-- [ ] **M2-FIX-4** Flowers as small sprigs, not full blocks (M/A) — todo
+- [x] **M2-FIX-3** Owner playtest fixes: age-aware stars, no extra space (M/B) — merged (PR #147)
+- [x] **M2-FIX-4** Flowers as small sprigs, not full blocks (M/A) — merged (PR #149)
 - [x] **M2-GATE** Go/no-go — **go with fixes**, 2026-11-11 (owner played the slice; decisions 78–86). Fixes: M2-FIX-3, M2-FIX-4
 
 ## M3: Curriculum, adaptation, meta screens
 
-- [ ] **M3-01** Curriculum validator + doc gen (S/B) — todo
+- [x] **M3-01** Curriculum validator + doc gen (S/B) — merged (PR #150)
 - [x] **M3-02** Word lists biomes 1–4 (L/A) — merged early (PR #128)
 - [ ] **M3-03** Lessons biomes 1–4 (M/A) — todo
-- [ ] **M3-04** ✦ World map (L/A) — todo
-- [ ] **M3-05** Placement test (M/B) — todo
+- [x] **M3-04** ✦ World map (L/A) — merged (PR #148)
+- [x] **M3-05** Placement test (M/B) — merged (PR #154)
 - [ ] **M3-06** Remedial + recommendations (M/B) — todo
-- [ ] **M3-07** Accessibility features (M/B) — todo
+- [x] **M3-07** Accessibility features (M/B) — merged (PR #156)
 - [ ] **M3-08** Settings + parent gate (M/B) — todo
 - [ ] **M3-09** Profiles + avatar (M/B) — todo
 - [ ] **M3-10** Achievements v1 (M/B) — todo
@@ -73,8 +73,10 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 - [ ] **M3-12** Migrations + import/export UI (S/B) — todo
 - [ ] **M3-13** Progression sim study (M/A) — todo
 - [ ] **M3-14** ⛩ E2E + a11y sweep (M/B) — todo
-- [ ] **M3-FIX-1** World map polish (S/B) — todo
+- [x] **M3-FIX-1** World map polish (S/B) — merged (PR #155)
 - [ ] **M3-FIX-2** Pixel font legibility (S/B) — todo
+- [ ] **M3-FIX-3** Placement follow-ups (S/B) — todo
+- [ ] **M3-FIX-4** Map labels + a11y follow-ups (S/B) — todo
 - [ ] **M3-GATE** Gate — todo
 
 ## M4: Night Defense and Home Island Builder

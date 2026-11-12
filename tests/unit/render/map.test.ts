@@ -131,14 +131,19 @@ const chroma = (p: Uint8ClampedArray): number => {
 const quads = (g: THREE.BufferGeometry | null): number => (g?.getIndex()?.count ?? 0) / 6;
 
 describe("map tiles", () => {
-  it("washes a locked island's colors out toward a pale gray", () => {
+  it("washes a locked island's colors toward a pale gray, keeping a hint of each hue", () => {
     const tile = new Uint8ClampedArray([200, 30, 30, 255, 30, 160, 40, 120]);
     const out = washOut(tile);
     const spread = (i: number) =>
       Math.max(at(out, i), at(out, i + 1), at(out, i + 2)) -
       Math.min(at(out, i), at(out, i + 1), at(out, i + 2));
-    expect(spread(0)).toBeLessThan(40);
-    expect(spread(4)).toBeLessThan(40);
+    // Well under the source's spread (170 and 130), but not gray: red stays reddish, green greenish.
+    expect(spread(0)).toBeLessThan(70);
+    expect(spread(4)).toBeLessThan(70);
+    expect(spread(0)).toBeGreaterThan(25);
+    expect(spread(4)).toBeGreaterThan(25);
+    expect(at(out, 0)).toBeGreaterThan(Math.max(at(out, 1), at(out, 2)));
+    expect(at(out, 5)).toBeGreaterThan(Math.max(at(out, 4), at(out, 6)));
     expect(out[3]).toBe(255);
     expect(out[7]).toBe(255);
     // Paler than the source's luminance, never darker.

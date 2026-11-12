@@ -128,6 +128,7 @@ describe("routes", () => {
       "settings",
       "parent",
       "privacy",
+      "placement",
     ]);
     expect(isRouteId("map")).toBe(true);
     expect(isRouteId("toString")).toBe(false);
