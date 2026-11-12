@@ -65,6 +65,7 @@
         "src/render/atlas/painters.ts",
         "src/save/schema.ts",
         "src/save/migrations.ts",
+        "src/modes/mine/logic.ts",
         "src/types/**"
       ],
       "env": {

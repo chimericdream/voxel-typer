@@ -9,9 +9,29 @@
  * The render core is loaded with a dynamic import, so three.js stays out of the initial bundle.
  */
 import type { Clock } from "@/app/clock";
+import { createRng } from "@/engine/rng";
 import type { SceneCore } from "@/render/scene";
+import type { SkyController } from "@/render/sky";
 import type { CameraRig, SceneHandle } from "@/render/types";
 import type { QualityLevel } from "@/types/core";
+
+/**
+ * World y of the top of the highest solid block at or below `at` in its column. Without a
+ * diorama, or over a bottomless column, the bottom of `at`'s own cell (the effects' default).
+ */
+export function groundUnder(
+  grid: { get(x: number, y: number, z: number): number } | null,
+  at: { x: number; y: number; z: number },
+): number {
+  const fallback = at.y - 0.5;
+  if (grid === null) return fallback;
+  const x = Math.floor(at.x);
+  const z = Math.floor(at.z);
+  for (let y = Math.floor(at.y); y >= 0; y--) {
+    if (grid.get(x, y, z) !== 0) return y + 1;
+  }
+  return fallback;
+}
 
 /**
  * What the host needs from a scene: the contract handle plus ownership and drift. M2-01's
@@ -33,18 +53,52 @@ export interface AppSceneOptions {
   reducedMotion: () => boolean;
   /** `fixedStepClock` under `?freeze`, else the real clock. */
   clock: Clock;
+  /** `?freeze`: sky pinned and still, no water wobble, effects seeded from `seed`. */
+  frozen?: boolean;
 }
 
 export type SceneFactory = (canvas: HTMLCanvasElement, opts: AppSceneOptions) => Promise<AppScene>;
 
 /** The real factory: the M2-01 render core, loaded on first use. */
 export const renderCoreFactory: SceneFactory = async (canvas, opts) => {
-  const [{ createSceneHandle }, { blocks }] = await Promise.all([
-    import("@/render/scene"),
-    import("@/content/blocks"),
-  ]);
-  // Drift stays off (the default); play-host turns it on only during live play.
-  return createSceneHandle(canvas, { blocks, ...opts });
+  const [{ createSceneHandle }, { blocks }, { createSkyEnvironment }, { createFx }] =
+    await Promise.all([
+      import("@/render/scene"),
+      import("@/content/blocks"),
+      import("@/render/sky"),
+      import("@/render/fx"),
+    ]);
+  const frozen = opts.frozen ?? false;
+  // Clouds start still; they drift only with the camera, during live play (see `setDrift` below).
+  const skyFactory = createSkyEnvironment({ frozen, drift: false });
+  let sky: SkyController | null = null;
+  const core: SceneCore = createSceneHandle(canvas, {
+    blocks,
+    seed: opts.seed,
+    quality: opts.quality,
+    reducedMotion: opts.reducedMotion,
+    clock: opts.clock,
+    waterMotion: !frozen,
+    createEnvironment: (ctx) => {
+      sky = skyFactory(ctx);
+      return sky;
+    },
+    createFx: (ctx) =>
+      createFx(ctx, {
+        rng: createRng(opts.seed).fork("fx"),
+        // Chips land on the ground under the burst, not on the bottom of a floating block's cell.
+        groundY: (at) => groundUnder(core.grid(), at),
+      }),
+  });
+  // One switch for all ambient motion: play-host turns drift on only during live play, and the
+  // clouds follow it, so the loop idles in menus, on pause and under `?freeze`.
+  const camera = core.camera;
+  const setCameraDrift = camera.setDrift.bind(camera);
+  camera.setDrift = (on) => {
+    setCameraDrift(on);
+    sky?.setDrift(on);
+  };
+  return core;
 };
 
 export interface SceneHost {

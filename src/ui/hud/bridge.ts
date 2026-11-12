@@ -211,3 +211,41 @@ export function reportWrongKey(hud: HudBridge, got: string): void {
   const seq = (wrongKeyOf(custom)?.seq ?? 0) + 1;
   hud.set({ custom: { ...custom, [WRONG_KEY_SLICE]: { got, seq } } });
 }
+
+/** The `custom` slice that fills the hotbar's slots with items (M2-13: the loot found so far). */
+export const HOTBAR_SLICE = "hotbar";
+
+/** One item in a hotbar slot. */
+export interface HotbarItem {
+  /** Accessible name, already through `t()`, e.g. "Oak Log, 3". */
+  label: string;
+  count: number;
+  /** A small picture of the item as a URL (a data URI), or "" for none. */
+  icon: string;
+}
+
+/** Up to 9 slots, left to right; `null` is an empty slot. */
+export interface HotbarSlice {
+  slots: readonly (HotbarItem | null)[];
+}
+
+function isHotbarItem(v: unknown): v is HotbarItem | null {
+  if (v === null) return true;
+  if (typeof v !== "object") return false;
+  const label: unknown = Reflect.get(v, "label");
+  const count: unknown = Reflect.get(v, "count");
+  const icon: unknown = Reflect.get(v, "icon");
+  return typeof label === "string" && typeof count === "number" && typeof icon === "string";
+}
+
+function isHotbarSlice(v: unknown): v is HotbarSlice {
+  if (typeof v !== "object" || v === null) return false;
+  const slots: unknown = Reflect.get(v, "slots");
+  return Array.isArray(slots) && slots.every(isHotbarItem);
+}
+
+/** The hotbar items in `custom`, or null. Returns the same object until the mode sends a new one. */
+export function hotbarOf(custom: Readonly<Record<string, unknown>>): HotbarSlice | null {
+  const v = custom[HOTBAR_SLICE];
+  return isHotbarSlice(v) ? v : null;
+}

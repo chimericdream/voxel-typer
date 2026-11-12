@@ -12,6 +12,7 @@ import app from "./app";
 import keyboard from "./keyboard";
 import screens from "./screens";
 import hud from "./hud";
+import mine from "./mine";
 
 const en = {
   common,
@@ -21,6 +22,7 @@ const en = {
   keyboard,
   screens,
   hud,
+  mine,
 } as const;
 
 export default en;

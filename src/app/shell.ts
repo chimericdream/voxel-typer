@@ -42,6 +42,8 @@ export interface ShellDeps {
   clock: Clock;
   nextSeed(): number;
   frozen: boolean;
+  /** True when the page is hidden or blurred (a lesson that loads then starts paused). */
+  away?(): boolean;
   record: boolean;
   /** Applies settings to the page (theme, text size, motion, font). */
   applySettings(s: Settings): void;
@@ -161,6 +163,7 @@ export function createShell(deps: ShellDeps): Shell {
     clock: deps.clock,
     nextSeed: () => deps.nextSeed(),
     frozen: deps.frozen,
+    away: () => deps.away?.() ?? false,
     record: deps.record,
     reminder: createBreakReminder(),
     saveProfile,

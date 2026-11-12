@@ -20,7 +20,7 @@ import { OnScreenKeyboard } from "@/ui/keyboard/OnScreenKeyboard";
 import { Hotbar } from "@/ui/kit/Hotbar";
 import { ProgressBar } from "@/ui/kit/ProgressBar";
 import { Toast } from "@/ui/kit/Toast";
-import { wrongKeyOf } from "./bridge";
+import { hotbarOf, wrongKeyOf } from "./bridge";
 import type { HudFields } from "./bridge";
 import { WordDisplay } from "./WordDisplay";
 import styles from "./Hud.module.css";
@@ -44,9 +44,21 @@ export function HudWord({ fields }: Fields) {
 
 export function HudCombo({ fields }: Fields) {
   const lit = Math.max(0, Math.min(9, Math.floor(fields.combo.value)));
+  // Items a mode put in the slots (M2-13). The slice keeps its identity until the mode sends a
+  // new one, so other `custom` slices don't re-render the hotbar.
+  const items = useComputed(() => hotbarOf(fields.custom.value)).value;
+  const slots = items?.slots.map((item) =>
+    item === null
+      ? {}
+      : {
+          label: item.label,
+          count: item.count,
+          ...(item.icon !== "" && { icon: <img src={item.icon} alt="" /> }),
+        },
+  );
   return (
     <div class={styles.combo}>
-      <Hotbar label={t("hud.combo", { count: lit })} lit={lit} />
+      <Hotbar label={t("hud.combo", { count: lit })} lit={lit} {...(slots && { slots })} />
     </div>
   );
 }
@@ -143,13 +155,14 @@ export function Hud({ fields, settings, band, layout }: HudProps) {
         {timerHidden(band, settings) ? null : <HudTimer fields={fields} />}
       </div>
       <HudWord fields={fields} />
-      <div class={styles.stage}>
+      {/* `data-hud` marks the open stage and the keyboard, so a mode can frame its scene around them. */}
+      <div class={styles.stage} data-hud="stage">
         <div class={styles.messages}>
           <HudMessage fields={fields} />
         </div>
       </div>
       {keyboard ? (
-        <div class={styles.keyboard}>
+        <div class={styles.keyboard} data-hud="keyboard">
           {/* Finger labels on every key for Sprout (M2-09 N3): a keyboard-only child never hovers. */}
           <HudKeyboard fields={fields} layout={layout} hands={hands} labels={band === "sprout"} />
         </div>
