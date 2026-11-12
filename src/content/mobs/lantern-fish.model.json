@@ -1,0 +1,349 @@
+{
+  "$schema": "../../render/models/schema.json",
+  "id": "lantern-fish",
+  "parts": [
+    {
+      "name": "body",
+      "size": [6, 7, 10],
+      "pivot": [3, 0, 5],
+      "offset": [0, 5, 0],
+      "color": "#8046bb"
+    },
+    {
+      "name": "belly",
+      "parent": "body",
+      "size": [4, 1, 8],
+      "pivot": [2, 0, 4],
+      "offset": [0, -1, 0],
+      "color": "#bf98e2"
+    },
+    {
+      "name": "tail",
+      "parent": "body",
+      "size": [2, 8, 4],
+      "pivot": [1, 4, 4],
+      "offset": [0, 4, -5],
+      "color": "#9b64d1"
+    },
+    {
+      "name": "fin-left",
+      "parent": "body",
+      "size": [1, 3, 4],
+      "pivot": [1, 2, 2],
+      "offset": [-3, 3, 0],
+      "color": "#9b64d1"
+    },
+    {
+      "name": "fin-right",
+      "parent": "body",
+      "size": [1, 3, 4],
+      "pivot": [0, 2, 2],
+      "offset": [3, 3, 0],
+      "color": "#9b64d1"
+    },
+    {
+      "name": "eye-left",
+      "parent": "body",
+      "size": [2, 2, 1],
+      "pivot": [1, 0, 0.5],
+      "offset": [-2, 3, 5.5],
+      "color": "#f8f7f3"
+    },
+    {
+      "name": "eye-right",
+      "parent": "body",
+      "size": [2, 2, 1],
+      "pivot": [1, 0, 0.5],
+      "offset": [2, 3, 5.5],
+      "color": "#f8f7f3"
+    },
+    {
+      "name": "pupil-left",
+      "parent": "eye-left",
+      "size": [1, 1, 1],
+      "pivot": [0.5, 0, 0.5],
+      "offset": [0.5, 0, 1],
+      "color": "#26282f"
+    },
+    {
+      "name": "pupil-right",
+      "parent": "eye-right",
+      "size": [1, 1, 1],
+      "pivot": [0.5, 0, 0.5],
+      "offset": [-0.5, 0, 1],
+      "color": "#26282f"
+    },
+    {
+      "name": "stalk",
+      "parent": "body",
+      "size": [1, 4, 1],
+      "pivot": [0.5, 0, 0.5],
+      "offset": [0, 7, 3.5],
+      "color": "#522482"
+    },
+    {
+      "name": "lantern",
+      "parent": "stalk",
+      "size": [3, 3, 3],
+      "pivot": [1.5, 1.5, 0],
+      "offset": [0, 3.5, 0.5],
+      "color": "#ffbe3d"
+    }
+  ],
+  "anims": {
+    "idle": {
+      "durationMs": 1500,
+      "loop": true,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 750,
+              "v": [0, 1, 0]
+            },
+            {
+              "t": 1500,
+              "v": [0, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "tail",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, -20, 0]
+            },
+            {
+              "t": 750,
+              "v": [0, 20, 0]
+            },
+            {
+              "t": 1500,
+              "v": [0, -20, 0]
+            }
+          ]
+        },
+        {
+          "part": "fin-left",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, -15]
+            },
+            {
+              "t": 750,
+              "v": [0, 0, 15]
+            },
+            {
+              "t": 1500,
+              "v": [0, 0, -15]
+            }
+          ]
+        },
+        {
+          "part": "fin-right",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 15]
+            },
+            {
+              "t": 750,
+              "v": [0, 0, -15]
+            },
+            {
+              "t": 1500,
+              "v": [0, 0, 15]
+            }
+          ]
+        },
+        {
+          "part": "stalk",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [-5, 0, 0]
+            },
+            {
+              "t": 750,
+              "v": [6, 0, 0]
+            },
+            {
+              "t": 1500,
+              "v": [-5, 0, 0]
+            }
+          ]
+        }
+      ]
+    },
+    "walk": {
+      "durationMs": 500,
+      "loop": true,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, -4, 0]
+            },
+            {
+              "t": 250,
+              "v": [0, 4, 0]
+            },
+            {
+              "t": 500,
+              "v": [0, -4, 0]
+            }
+          ]
+        },
+        {
+          "part": "tail",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 30, 0]
+            },
+            {
+              "t": 250,
+              "v": [0, -30, 0]
+            },
+            {
+              "t": 500,
+              "v": [0, 30, 0]
+            }
+          ]
+        },
+        {
+          "part": "fin-left",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, -20]
+            },
+            {
+              "t": 250,
+              "v": [0, 0, 20]
+            },
+            {
+              "t": 500,
+              "v": [0, 0, -20]
+            }
+          ]
+        },
+        {
+          "part": "fin-right",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 20]
+            },
+            {
+              "t": 250,
+              "v": [0, 0, -20]
+            },
+            {
+              "t": 500,
+              "v": [0, 0, 20]
+            }
+          ]
+        },
+        {
+          "part": "stalk",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [8, 0, 0]
+            },
+            {
+              "t": 250,
+              "v": [-4, 0, 0]
+            },
+            {
+              "t": 500,
+              "v": [8, 0, 0]
+            }
+          ]
+        }
+      ]
+    },
+    "hit": {
+      "durationMs": 240,
+      "loop": false,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "scale",
+          "keys": [
+            {
+              "t": 0,
+              "v": [1, 1, 1]
+            },
+            {
+              "t": 80,
+              "v": [1.18, 0.82, 1.18]
+            },
+            {
+              "t": 240,
+              "v": [1, 1, 1]
+            }
+          ]
+        }
+      ]
+    },
+    "defeat": {
+      "durationMs": 420,
+      "loop": false,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "scale",
+          "keys": [
+            {
+              "t": 0,
+              "v": [1, 1, 1]
+            },
+            {
+              "t": 120,
+              "v": [1.2, 1.2, 1.2]
+            },
+            {
+              "t": 420,
+              "v": [0, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "body",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 420,
+              "v": [0, 4, 0]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

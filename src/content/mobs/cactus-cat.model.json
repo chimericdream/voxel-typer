@@ -1,0 +1,293 @@
+{
+  "$schema": "../../render/models/schema.json",
+  "id": "cactus-cat",
+  "parts": [
+    {
+      "name": "body",
+      "size": [10, 7, 12],
+      "pivot": [5, 0, 6],
+      "offset": [0, 0, 0],
+      "color": "#6fb37a"
+    },
+    {
+      "name": "head",
+      "parent": "body",
+      "size": [8, 7, 6],
+      "pivot": [4, 1, 1],
+      "offset": [0, 6, 5],
+      "color": "#8cc793"
+    },
+    {
+      "name": "ear-left",
+      "parent": "head",
+      "size": [2, 3, 2],
+      "pivot": [1, 0, 1],
+      "offset": [-3, 6, 2],
+      "color": "#4f9460"
+    },
+    {
+      "name": "ear-right",
+      "parent": "head",
+      "size": [2, 3, 2],
+      "pivot": [1, 0, 1],
+      "offset": [3, 6, 2],
+      "color": "#4f9460"
+    },
+    {
+      "name": "eye-left",
+      "parent": "head",
+      "size": [1, 2, 1],
+      "pivot": [0.5, 0, 0.5],
+      "offset": [-2.5, 2, 5.5],
+      "color": "#26282f"
+    },
+    {
+      "name": "eye-right",
+      "parent": "head",
+      "size": [1, 2, 1],
+      "pivot": [0.5, 0, 0.5],
+      "offset": [2.5, 2, 5.5],
+      "color": "#26282f"
+    },
+    {
+      "name": "nose",
+      "parent": "head",
+      "size": [2, 1, 1],
+      "pivot": [1, 0, 0.5],
+      "offset": [0, 1, 5.5],
+      "color": "#e27ba2"
+    },
+    {
+      "name": "prickles-head",
+      "parent": "head",
+      "size": [2, 2, 4],
+      "pivot": [1, 0, 2],
+      "offset": [0, 6, 2],
+      "color": "#f2e3b6"
+    },
+    {
+      "name": "prickles-back",
+      "parent": "body",
+      "size": [2, 2, 8],
+      "pivot": [1, 0, 4],
+      "offset": [0, 7, -1],
+      "color": "#f2e3b6"
+    },
+    {
+      "name": "tail",
+      "parent": "body",
+      "size": [2, 7, 2],
+      "pivot": [1, 1, 2],
+      "offset": [0, 4, -6],
+      "color": "#8cc793"
+    },
+    {
+      "name": "flower",
+      "parent": "tail",
+      "size": [4, 2, 4],
+      "pivot": [2, 0, 2],
+      "offset": [0, 6, -1],
+      "color": "#e27ba2"
+    },
+    {
+      "name": "paw-left",
+      "parent": "body",
+      "size": [3, 2, 2],
+      "pivot": [1.5, 0, 1],
+      "offset": [-2.5, 0, 7],
+      "color": "#4f9460"
+    },
+    {
+      "name": "paw-right",
+      "parent": "body",
+      "size": [3, 2, 2],
+      "pivot": [1.5, 0, 1],
+      "offset": [2.5, 0, 7],
+      "color": "#4f9460"
+    }
+  ],
+  "anims": {
+    "idle": {
+      "durationMs": 1600,
+      "loop": true,
+      "tracks": [
+        {
+          "part": "tail",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, -6]
+            },
+            {
+              "t": 800,
+              "v": [0, 0, 6]
+            },
+            {
+              "t": 1600,
+              "v": [0, 0, -6]
+            }
+          ]
+        },
+        {
+          "part": "head",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 3]
+            },
+            {
+              "t": 800,
+              "v": [0, 0, -3]
+            },
+            {
+              "t": 1600,
+              "v": [0, 0, 3]
+            }
+          ]
+        }
+      ]
+    },
+    "walk": {
+      "durationMs": 520,
+      "loop": true,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, -3]
+            },
+            {
+              "t": 260,
+              "v": [0, 0, 3]
+            },
+            {
+              "t": 520,
+              "v": [0, 0, -3]
+            }
+          ]
+        },
+        {
+          "part": "paw-left",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 1]
+            },
+            {
+              "t": 260,
+              "v": [0, 0, -1]
+            },
+            {
+              "t": 520,
+              "v": [0, 0, 1]
+            }
+          ]
+        },
+        {
+          "part": "paw-right",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, -1]
+            },
+            {
+              "t": 260,
+              "v": [0, 0, 1]
+            },
+            {
+              "t": 520,
+              "v": [0, 0, -1]
+            }
+          ]
+        },
+        {
+          "part": "tail",
+          "prop": "rot",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 10]
+            },
+            {
+              "t": 260,
+              "v": [0, 0, -10]
+            },
+            {
+              "t": 520,
+              "v": [0, 0, 10]
+            }
+          ]
+        }
+      ]
+    },
+    "hit": {
+      "durationMs": 240,
+      "loop": false,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "scale",
+          "keys": [
+            {
+              "t": 0,
+              "v": [1, 1, 1]
+            },
+            {
+              "t": 80,
+              "v": [1.18, 0.82, 1.18]
+            },
+            {
+              "t": 240,
+              "v": [1, 1, 1]
+            }
+          ]
+        }
+      ]
+    },
+    "defeat": {
+      "durationMs": 420,
+      "loop": false,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "scale",
+          "keys": [
+            {
+              "t": 0,
+              "v": [1, 1, 1]
+            },
+            {
+              "t": 120,
+              "v": [1.2, 1.2, 1.2]
+            },
+            {
+              "t": 420,
+              "v": [0, 0, 0]
+            }
+          ]
+        },
+        {
+          "part": "body",
+          "prop": "pos",
+          "keys": [
+            {
+              "t": 0,
+              "v": [0, 0, 0]
+            },
+            {
+              "t": 420,
+              "v": [0, 4, 0]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
