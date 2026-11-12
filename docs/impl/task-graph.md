@@ -132,6 +132,8 @@ Waves are a schedule hint. The real rule is "dependencies merged" plus rules 2�
 | M3-12 | Migrations + import/export UI | S/B | M1-09, M3-08 | todo |
 | M3-13 | Progression sim study | M/A | M1-07, M3-03, M3-05, M3-06 | todo |
 | M3-14 | ⛩ E2E + a11y sweep | M/B | M3-04, M3-05, M3-08..12 | todo |
+| M3-FIX-1 | World map polish | S/B | M3-04 | todo |
+| M3-FIX-2 | Pixel font legibility | S/B | M2-08 | todo |
 | M3-GATE | Gate | — | all M3 | todo |
 | M4-01 | Voxel model runtime | M/A | M2-01, M1-14 | todo |
 | M4-02 | Model Lab | S/C | M4-01 | todo |

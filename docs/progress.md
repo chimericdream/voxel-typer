@@ -73,6 +73,8 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 - [ ] **M3-12** Migrations + import/export UI (S/B) — todo
 - [ ] **M3-13** Progression sim study (M/A) — todo
 - [ ] **M3-14** ⛩ E2E + a11y sweep (M/B) — todo
+- [ ] **M3-FIX-1** World map polish (S/B) — todo
+- [ ] **M3-FIX-2** Pixel font legibility (S/B) — todo
 - [ ] **M3-GATE** Gate — todo
 
 ## M4: Night Defense and Home Island Builder
