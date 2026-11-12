@@ -110,13 +110,14 @@ const DAY: Theme = {
     // Parchment-and-oak panels.
     panel: {
       outline: p("oak-bark", 1),
-      shadow: p("birch", 1),
+      // A darker shadow edge than birch, so panels read as raised blocks, not flat cards (M2-07).
+      shadow: p("oak", 2),
       face: p("birch", 4),
       highlight: p("wool-white", 4),
     },
     button: {
       outline: p("oak-bark", 1),
-      shadow: p("sand", 0),
+      shadow: p("oak", 3),
       face: p("sand", 3),
       highlight: p("wool-white", 4),
     },
@@ -127,10 +128,11 @@ const DAY: Theme = {
       highlight: p("grass", 3),
     },
     slot: {
+      // Dark oak, not neutral grey: a grey 9-slot strip echoes another game's hotbar (M2-07 N8).
       outline: p("oak-bark", 1),
-      shadow: p("slate", 1),
-      face: p("stone", 1),
-      highlight: p("stone", 3),
+      shadow: p("oak-bark", 0),
+      face: p("oak-bark", 3),
+      highlight: p("oak-bark", 4),
     },
     keycap: {
       outline: p("stone", 0),
@@ -140,7 +142,8 @@ const DAY: Theme = {
     },
     toastInfo: {
       outline: p("oak-bark", 1),
-      shadow: p("birch", 1),
+      // A darker shadow edge than birch, so panels read as raised blocks, not flat cards (M2-07).
+      shadow: p("oak", 2),
       face: p("birch", 4),
       highlight: p("wool-white", 4),
     },
@@ -195,7 +198,8 @@ const NIGHT: Theme = {
       outline: p("wool-black", 0),
       shadow: p("slate", 0),
       face: p("slate", 2),
-      highlight: p("slate", 4),
+      // Moonlit edge, clearly lighter than the face.
+      highlight: p("ore-moon", 2),
     },
     button: {
       outline: p("wool-black", 0),
@@ -225,7 +229,8 @@ const NIGHT: Theme = {
       outline: p("wool-black", 0),
       shadow: p("slate", 0),
       face: p("slate", 2),
-      highlight: p("slate", 4),
+      // Moonlit edge, clearly lighter than the face.
+      highlight: p("ore-moon", 2),
     },
     toastCheer: {
       outline: p("wool-black", 0),
