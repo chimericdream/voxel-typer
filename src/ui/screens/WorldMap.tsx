@@ -167,6 +167,69 @@ function IslandButton({
   );
 }
 
+/** Corner pictures, as blocks on a 16×16 grid: `[x, y, width, height]`. */
+const CORNER_ICONS = {
+  // Two players.
+  players: [
+    [3, 2, 4, 4],
+    [2, 7, 6, 7],
+    [10, 4, 3, 3],
+    [9, 8, 5, 6],
+  ],
+  // A star.
+  badges: [
+    [7, 1, 2, 3],
+    [2, 4, 12, 3],
+    [4, 7, 8, 3],
+    [3, 10, 4, 4],
+    [9, 10, 4, 4],
+  ],
+  // A floating island with a tree.
+  island: [
+    [6, 1, 6, 4],
+    [8, 5, 2, 3],
+    [1, 8, 14, 3],
+    [3, 11, 10, 2],
+    [5, 13, 6, 2],
+  ],
+  // Three sliders.
+  settings: [
+    [1, 3, 14, 2],
+    [4, 1, 3, 6],
+    [1, 11, 14, 2],
+    [9, 9, 3, 6],
+  ],
+} as const;
+
+/**
+ * A corner button. In a wide window it shows its words. In a narrow one (1100 px or less) the four
+ * buttons would wrap onto a second row at large text and crowd the island labels, so there each
+ * shows its picture and keeps its words for screen readers and as a tooltip. The text size
+ * setting is never overridden: the picture grows with it.
+ */
+function CornerButton({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: keyof typeof CORNER_ICONS;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <span data-nav="" title={label}>
+      <Button onClick={onClick}>
+        <svg class={styles.cornerIcon} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          {CORNER_ICONS[icon].map(([x, y, w, h]) => (
+            <rect key={`${x},${y}`} x={x} y={y} width={w} height={h} />
+          ))}
+        </svg>
+        <span class={styles.cornerText}>{label}</span>
+      </Button>
+    </span>
+  );
+}
+
 /** A small blocky cloud, on the label of an island that is still in the clouds. */
 function CloudIcon() {
   return (
@@ -405,20 +468,26 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
       </ul>
       {openInfo === null ? (
         <div class={styles.corner} ref={corner}>
-          <span data-nav="">
-            <Button onClick={() => app.navigate({ id: "profiles" })}>{t("map.players")}</Button>
-          </span>
-          <span data-nav="">
-            <Button onClick={() => app.navigate({ id: "achievements" })}>
-              {t("achievements.title")}
-            </Button>
-          </span>
-          <span data-nav="">
-            <Button onClick={() => app.navigate({ id: "island" })}>{t("builder.title")}</Button>
-          </span>
-          <span data-nav="">
-            <Button onClick={() => app.navigate({ id: "settings" })}>{t("settings.title")}</Button>
-          </span>
+          <CornerButton
+            icon="players"
+            label={t("map.players")}
+            onClick={() => app.navigate({ id: "profiles" })}
+          />
+          <CornerButton
+            icon="badges"
+            label={t("achievements.title")}
+            onClick={() => app.navigate({ id: "achievements" })}
+          />
+          <CornerButton
+            icon="island"
+            label={t("builder.title")}
+            onClick={() => app.navigate({ id: "island" })}
+          />
+          <CornerButton
+            icon="settings"
+            label={t("settings.title")}
+            onClick={() => app.navigate({ id: "settings" })}
+          />
         </div>
       ) : (
         <div class={styles.pathWrap} ref={path}>

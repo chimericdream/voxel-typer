@@ -79,19 +79,24 @@ test("planks, put, east 2, put, undo: the island grid and the inventory", async 
   await expect(page.locator("#app").getByText("Type cobble to pick a block.")).toBeVisible();
   await expectNoAxeViolations(page, "builder");
 
-  await typeWord(page, "planks");
+  // Typed the way a child types words: with a space between them. The space after a word that
+  // ran is taken and places nothing (review B1).
+  await typeWord(page, "planks ");
   await expect(armed(page)).toHaveAttribute("data-block", "oak-planks");
   await expect(line(page)).toHaveAttribute("data-text", "");
-  await typeWord(page, "put");
+  await expect(slot(page, "oak-planks")).toHaveAttribute("data-count", "12");
+  await typeWord(page, "put ");
   await expect(slot(page, "oak-planks")).toHaveAttribute("data-count", "11");
   // A direction waits for its number; the number runs it.
   await typeWord(page, "east");
   await expect(line(page)).toHaveAttribute("data-text", "east");
-  await typeWord(page, " 2");
+  await typeWord(page, " 2 ");
   await expect(line(page)).toHaveAttribute("data-text", "");
-  await typeWord(page, "put");
+  await expect(slot(page, "oak-planks")).toHaveAttribute("data-count", "11");
+  await typeWord(page, "put ");
   await expect(slot(page, "oak-planks")).toHaveAttribute("data-count", "10");
   await typeWord(page, "undo");
+  await expect(page.locator("#app").getByText("Took back your last step.")).toBeVisible();
   await expect(slot(page, "oak-planks")).toHaveAttribute("data-count", "11");
 
   // The island's chunks, the cursor (2) and the ghost (1), well inside the budget.
@@ -163,7 +168,7 @@ test("a key that doesn't fit gets a gentle hint; Enter, Space, arrows and Ctrl+Z
 
   // The camera keys turn and zoom without typing anything.
   await page.keyboard.press("]");
-  await expect(page.locator('[data-builder="layer"]')).toContainText("East is up");
+  await expect(page.locator('[data-builder="layer"]')).toContainText("East is at the top");
   await page.keyboard.press("=");
   await expect(line(page)).toHaveAttribute("data-text", "");
 
@@ -200,8 +205,15 @@ test("Sprout: dig a block, then arm it with the key caps' letters", async ({ pag
   // The rest of the word is taken quietly.
   await typeWord(page, "t");
   await expect(line(page)).toHaveAttribute("data-text", "");
-  await page.keyboard.press("Space");
+  await typeWord(page, "put");
   await expect(slot(page, "dirt")).toHaveAttribute("data-count", "0");
+  // A new word that starts like the rest of a name gets its letters back: `gras`, then `south`.
+  await typeWord(page, "gras");
+  await expect(armed(page)).toHaveAttribute("data-block", "grass");
+  await typeWord(page, "so");
+  await expect(line(page)).toHaveAttribute("data-text", "so");
+  await page.keyboard.press("Backspace");
+  await page.keyboard.press("Backspace");
   await expectNoAxeViolations(page, "builder, sprout");
   // The command line, the palette and the help sit inside the window.
   for (const part of [

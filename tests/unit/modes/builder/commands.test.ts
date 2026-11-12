@@ -284,10 +284,11 @@ describe("typeKey", () => {
   });
 });
 
-describe("the habit space (review B1)", () => {
-  const kinds = (keys: string, vocab: Vocabulary = miner): string[] =>
-    type(keys, vocab).runs.map((c) => (c.kind === "move" ? `${c.dir} ${c.steps}` : c.kind));
+/** What ran, in order: `put`, `arm`, `east 2`… */
+const kinds = (keys: string, vocab: Vocabulary = miner): string[] =>
+  type(keys, vocab).runs.map((c) => (c.kind === "move" ? `${c.dir} ${c.steps}` : c.kind));
 
+describe("the habit space (review B1)", () => {
   const table: [keys: string, runs: string[]][] = [
     // The reviewer's sequence: two puts, not five.
     ["planks put east 2 put", ["arm", "put", "east 2", "put"]],
@@ -344,9 +345,7 @@ describe("the habit space (review B1)", () => {
     const words = miner.words.filter((w) => w.command.kind !== "direction").map((w) => w.word);
     fc.assert(
       fc.property(fc.array(fc.constantFrom(...words), { minLength: 1, maxLength: 6 }), (list) => {
-        const spaced = list
-          .map((w) => (parseLine(w, miner).kind === "command" ? w : ""))
-          .join(" ");
+        const spaced = list.map((w) => (parseLine(w, miner).kind === "command" ? w : "")).join(" ");
         const r = type(`${spaced} `);
         expect(r.runs).toHaveLength(list.length);
         expect(r.hints).toEqual([]);
@@ -413,7 +412,8 @@ describe("Sprout codes", () => {
     expect(r.ran).toEqual(["dir"]);
     expect(r.hints).toEqual([]);
     expect(r.rejected).toEqual([]);
-    expect(r.state).toEqual({ ...EMPTY_LINE, habit: true });
+    // The `t` is kept in case it starts the next word; the line itself is empty.
+    expect(r.state).toEqual({ text: "", tail: "", eaten: "t", habit: true });
     // And the next word starts clean.
     expect(type("dirtput", sprout).runs).toEqual([{ kind: "arm", block: "dirt" }, { kind: "put" }]);
     // Leaving the name half done is fine too.
@@ -438,6 +438,15 @@ describe("Sprout codes", () => {
     expect(typeKey(type("plan", sprout).state, "o", sprout).replayed).toBe(1);
     // Two letters deep, and into a word that runs by itself.
     expect(type("stonorth>", sprout).runs).toHaveLength(2);
+    // The reviewer's other cases: a one-letter rest of the name (`gras` + `s`).
+    for (const word of ["south>", "sand", "stone"]) {
+      const after = type(`gras${word}`, sprout);
+      expect(after.runs, word).toHaveLength(2);
+      expect(after.hints, word).toEqual([]);
+    }
+    // And the whole name, then a word that starts with its last letter.
+    expect(kinds("grass sand", sprout)).toEqual(["arm", "arm"]);
+    expect(kinds("grasssand", sprout)).toEqual(["arm", "arm"]);
     expect(type("cobbri", sprout).runs).toEqual([
       { kind: "arm", block: "cobble" },
       { kind: "arm", block: "brick" },
@@ -448,12 +457,9 @@ describe("Sprout codes", () => {
     let pairs = 0;
     for (const b of placeable) {
       const code = sprout.wordOf(b.id) ?? "";
-      const tail = b.typedName.slice(code.length);
       const armed = type(code, sprout);
       if (armed.runs.length === 0) continue; // a code that waits for Space (`blue`)
       for (const w of sprout.words) {
-        // A word that begins with the whole rest of the name can't be told from the name.
-        if (tail !== "" && w.word.startsWith(tail)) continue;
         const want = parseLine(w.word, sprout);
         const auto = want.kind === "command" && want.auto;
         const r = type(auto ? w.word : `${w.word}>`, sprout, armed.state);

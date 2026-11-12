@@ -22,6 +22,7 @@ import {
   digCell,
   facing,
   followTarget,
+  isBuried,
   mostOwned,
   moveCursor,
   putCell,
@@ -99,6 +100,15 @@ describe("where put and dig land", () => {
     expect(putCell(g, { x: 1, y: 1, z: 1 })).toEqual({ x: 1, y: 3, z: 1 });
     for (let y = 3; y < 8; y++) g.set(1, y, 1, 7);
     expect(putCell(g, { x: 1, y: 1, z: 1 })).toBeNull();
+  });
+
+  it("a cursor is buried when any block sits above it in its column", () => {
+    const g = column();
+    expect(isBuried(g, { x: 1, y: 0, z: 1 })).toBe(true);
+    expect(isBuried(g, { x: 1, y: 1, z: 1 })).toBe(true);
+    expect(isBuried(g, { x: 1, y: 2, z: 1 })).toBe(false);
+    expect(isBuried(g, { x: 1, y: 5, z: 1 })).toBe(false);
+    expect(isBuried(g, { x: 2, y: 0, z: 2 })).toBe(false);
   });
 
   it("dig empties the cursor's cell, or the first block under it", () => {

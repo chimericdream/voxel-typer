@@ -331,9 +331,7 @@ export function typeKey(state: LineState, key: string, vocab: Vocabulary): KeyOu
   if (text === "" && state.tail.startsWith(ch)) {
     // The rest of a block's name after its Sprout code: taken quietly. The habit space may
     // still follow the whole word.
-    const tail = state.tail.slice(1);
-    // Once the whole name is typed it was the name: nothing is kept to give back.
-    return stay({ ...state, tail, eaten: tail === "" ? "" : state.eaten + ch }, null, true);
+    return stay({ ...state, tail: state.tail.slice(1), eaten: state.eaten + ch }, null, true);
   }
   if (text === "" && state.eaten !== "") {
     // Not the rest of the name after all: those letters and this one are a new word (`pla`, `n`,
