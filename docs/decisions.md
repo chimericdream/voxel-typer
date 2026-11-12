@@ -378,3 +378,43 @@ PRs, and the orchestrator's rulings in those PRs.
     space with nothing of the current block typed is dropped, not counted as a slip. Mine lessons
     are about 20–33 % fewer keystrokes, because the length budget counted spaces. Before the
     M3-GATE playtest, reset dev profiles, because older sessions counted spaces in their WPM.
+91. **Flower sprigs (M2-FIX-4, PR #149).** A sprig is four sub-voxel boxes (20 faces) inside its
+    cell, turned a quarter by a fixed hash of (x, z). The mesher treats it as air for its
+    neighbours, so it hides none of their faces and gives or takes no AO. `AtlasLookup.shape?` is
+    an additive contract change (contracts §8.2). `splitByBucket` samples 1/64 of a block behind a
+    face instead of half a block. The bloom stays 6/16 wide; to make flowers stand out more at
+    overview, brighten the top tile first.
+92. **Placement test (M3-05, PR #154).**
+    - A 90 s Mine reskin with a key-set ladder: home row → top → bottom → words → capitals →
+      digits. The gates are in `src/engine/placement.ts`.
+    - Sprouts stop at Frosty Peaks and Miners at the Deep Mines.
+    - Calm mode also ends at 90 s, with no clock shown (review B1).
+    - Tested-out lessons are `plays === 0` behind `isTestedOut()` (contracts §6); there is no
+      new field.
+    - A biome with no lessons falls back to the furthest earlier island that has lessons.
+    - Follow-ups are in M3-FIX-3, before Birch lessons ship.
+93. **Accessibility (M3-07, PR #156).**
+    - One app-wide reduced-motion flag (`src/a11y/motion.ts`); `'system'` follows the OS setting
+      live.
+    - At most 3 flashes per second, through `allowFlash()`.
+    - `font: 'clean'` means no pixel font anywhere.
+    - `Settings.fingerLabels?` is an additive contract change; M3-08 adds its toggle.
+    - A plain F1 ("hear again") is always prevented, because it opened the browser's help page
+      (review B1).
+    - Screen names and results are announced; nothing is announced per keystroke.
+    - Follow-ups are in M3-FIX-4.
+94. **Curriculum validator (M3-01, PR #150).**
+    - 13 rules, run by `npm test` and CI. One beyond the card: every biome has a phrases,
+      sentences or practice lesson, to practise space.
+    - `docs/curriculum.md` is generated and checked for staleness.
+    - `IN_PROGRESS_BIOMES` (Meadow for now) turns the missing mastery lesson into a warning.
+    - meadow-05's variety is 21 against a floor of 20, so don't remove home-row words.
+95. **World map polish (M3-FIX-1, PR #155).**
+    - The island line reads "0 of 6 done", with the star count after it.
+    - Labels are laid out to stay on screen, wrap at a third of the window, and draw the focused
+      label on top.
+    - Clicking a locked island gives a kind note and a small wobble.
+    - Follow-ups are in M3-FIX-4.
+96. **Load-sensitive local tests.** With 3 workers running, the mesher benchmark (< 50 ms median)
+    and the placement sim's same-report test (5 s timeout) can fail locally. Rerun them alone
+    before calling it a failure. CI is the judge.

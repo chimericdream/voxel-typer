@@ -339,7 +339,7 @@ baseline = median netWpm of the profile's last 10 summaries in mine/practice/min
 | miner | max(0.88, target − 0.02) | 0.93 | as above |
 | builder | max(0.90, target) | 0.95 | as above |
 
-**Unlocks:** completing a lesson (any stars) unlocks the next in its biome. A biome's `mastery` lesson with ≥ 2 stars unlocks the next biome in `BIOME_ORDER` (`caverns` unlocks both `sparkstone` and `citadel`). The placement test can unlock up to the biome it estimates. Nothing ever re-locks.
+**Unlocks:** completing a lesson (any stars) unlocks the next in its biome. A biome's `mastery` lesson with ≥ 2 stars unlocks the next biome in `BIOME_ORDER` (`caverns` unlocks both `sparkstone` and `citadel`). The placement test can unlock up to the biome it estimates. Nothing ever re-locks. **Tested out** (decision 92): a lesson the placement test skipped is stored as `{ bestStars: 1, bestNetWpm: 0, bestAccuracy: 0, plays: 0 }`. `plays === 0` is the marker, and every reader goes through `isTestedOut()` in `src/app/progress.ts`. Never show its zero WPM or accuracy as a score.
 
 ---
 
@@ -374,7 +374,7 @@ export interface ModeInstance {
 export interface ModeResult {
   summary: SessionSummary;
   loot: Record<BlockId, number>;
-  stars: 0 | 1 | 2 | 3;               // 0 only for modes without stars (builder)
+  stars: 0 | 1 | 2 | 3;               // 0 only for modes without stars (builder, placement)
   extra?: Record<string, unknown>;
 }
 ```
@@ -441,7 +441,7 @@ export class VoxelGrid {
 }
 export interface ChunkMesh { positions: Float32Array; normals: Float32Array; uvs: Float32Array; colors: Float32Array; indices: Uint32Array; }
 export function meshChunk(grid: VoxelGrid, origin: Vec3, size: number, atlas: AtlasLookup, opts: { ao: boolean }): ChunkMesh;
-export interface AtlasLookup { uv(blockNum: number, face: 'top' | 'bottom' | 'side'): [u0: number, v0: number, u1: number, v1: number]; transparent(blockNum: number): boolean; }
+export interface AtlasLookup { uv(blockNum: number, face: 'top' | 'bottom' | 'side'): [u0: number, v0: number, u1: number, v1: number]; transparent(blockNum: number): boolean; shape?(blockNum: number): 'cube' | 'sprig'; }  // shape? added 2026-11-12 (decision 91, additive): missing means every block is a cube
 ```
 Chunk size 16. Culled-face meshing with per-vertex AO (the classic 3-neighbor rule) and AO-aware quad flipping. Greedy meshing is optional (M6 perf).
 
@@ -636,15 +636,16 @@ Settings (`src/save/settings.ts`, orchestrator-owned; workers request fields):
 export interface Settings {
   textScale: number;              // 1.0–2.0
   showKeyboard: boolean; showHands: boolean;
-  calmMode: boolean;              // no timers anywhere
+  calmMode: boolean;              // no timers shown anywhere (the placement test still ends at 90 s, with no clock: decision 92)
   reducedMotion: boolean | 'system';
   highContrast: boolean;
-  font: 'pixel' | 'clean' | 'dyslexic';   // body text; headings stay pixel unless 'dyslexic'
+  font: 'pixel' | 'clean' | 'dyslexic';   // 'pixel': Pixelify on headings and HUD chrome; 'clean': no pixel font anywhere; 'dyslexic': OpenDyslexic everywhere. Typing targets are never Pixelify (decisions 68, 93)
   tts: boolean;
   volume: Record<Bus, number>;
   quality: QualityLevel | 'auto';
   breakReminderMin: number;       // 0 = off; default 15
   layout: string;                 // keyboard layout id, default 'en-US'
+  fingerLabels?: boolean;         // added 2026-11-12 (decision 93, additive): on-screen keyboard finger labels; missing = on for Sprout only
 }
 export function defaultSettings(band: AgeBand): Settings;
 ```
