@@ -102,10 +102,14 @@ async function toDusk(page: Page, info: TestInfo, query: string, name: string): 
   const app = page.locator("#app");
   await expect(app.getByText("Night is coming!")).toBeVisible({ timeout: 30_000 });
   await shot(page, info, `${name}-day`);
-  // A key moves the day along once it has been seen for a moment.
-  await page.waitForTimeout(1800);
-  await page.keyboard.press("f");
-  await expect(app.getByText(/on the way!$/)).toBeVisible({ timeout: 30_000 });
+  // A key moves the day along once it has been seen for 1.5 s of game time. Game time follows
+  // frames, and CI's software renderer draws them slowly, so keep asking until dusk comes.
+  const dusk = app.getByText(/on the way!$/);
+  await expect(async () => {
+    await page.keyboard.press("f");
+    await expect(dusk).toBeVisible({ timeout: 1500 });
+  }).toPass({ timeout: 90_000 });
+  info.annotations.push({ type: `fps (${name})`, description: String((await state(page)).fps) });
 }
 
 /** Waits for the first visitor's plate, then types `chars` chars of its word. */
