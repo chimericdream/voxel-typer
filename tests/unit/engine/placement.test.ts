@@ -9,13 +9,17 @@ import {
   MAX_TIER,
   PLACEMENT_GATES,
   PLACEMENT_MIN_ACTIVE_MS,
+  PLACEMENT_MIN_GATE_KEYS,
   PLACEMENT_TIERS,
+  coverKeys,
   createLadder,
   estimatePlacement,
   ladderRecord,
+  rungRates,
+  testsNewKey,
   tierKeys,
 } from "../../../src/engine/placement";
-import type { Ladder, PlacementProgression } from "../../../src/engine/placement";
+import type { Ladder, PlacementProgression, RungScore } from "../../../src/engine/placement";
 import { createPlacementDriver, tierTargets } from "../../../src/engine/placement-driver";
 import type { TierContext } from "../../../src/engine/placement-driver";
 import { createRng } from "../../../src/engine/rng";
@@ -66,12 +70,24 @@ const at = (netWpm: number, accuracy = 0.97, tier = 5, band: AgeBand = "builder"
 function driverRun(ctx: TierContext): string[] {
   const d = createPlacementDriver(ctx, createRng(11));
   const out = [d.first().text];
-  for (let i = 0; i < 60; i++) out.push(d.next(i % 7 === 0 ? 1 : 0).text);
+  for (let i = 0; i < 60; i++) out.push(d.next(i % 7 === 0 ? 1 : 0, 500 * (i + 1)).text);
   return out;
 }
 
+/** A block of the ladder's current rung: a key it still has to cover, else one of its new keys. */
+const blockFor = (l: Ladder): string => l.pending[0] ?? PLACEMENT_TIERS[l.tier]?.newKeys[0] ?? "a";
+
+/** Records blocks of the current rung ({@link blockFor}), clean or not. */
 const record = (l: Ladder, cleans: readonly boolean[]): Ladder =>
-  cleans.reduce((acc, c) => ladderRecord(acc, c).ladder, l);
+  cleans.reduce((acc, c) => ladderRecord(acc, c, blockFor(acc)).ladder, l);
+
+/** A ladder on `tier` that has already covered its keys, so only the 8-of-10 window counts. */
+const covered = (tier: number, band: AgeBand = "miner"): Ladder => ({
+  tier,
+  maxTier: MAX_TIER[band],
+  recent: [],
+  pending: [],
+});
 
 describe("the ladder", () => {
   it("climbs home → top → bottom → words → capitals → numbers", () => {
@@ -87,7 +103,7 @@ describe("the ladder", () => {
   });
 
   it("opens the next rung on 8 clean blocks of the last 10", () => {
-    const l = createLadder("miner");
+    const l = covered(0);
     // 7 clean of 7: not yet.
     expect(
       record(
@@ -95,16 +111,22 @@ describe("the ladder", () => {
         Array.from({ length: 7 }, () => true),
       ).tier,
     ).toBe(0);
-    // The 8th clean block opens the top row, and the count starts over.
+    // The 8th clean block opens the top row, and the count starts over there.
     const up = ladderRecord(
       record(
         l,
         Array.from({ length: 7 }, () => true),
       ),
       true,
+      "f",
     );
     expect(up.advanced).toBe(true);
-    expect(up.ladder).toEqual({ tier: 1, maxTier: MAX_TIER.miner, recent: [] });
+    expect(up.ladder).toEqual({
+      tier: 1,
+      maxTier: MAX_TIER.miner,
+      recent: [],
+      pending: Array.from("qwertyuiop"),
+    });
     // Two slips among ten keep it shut until the window slides past them... 8 of 10 is enough.
     const mixed = [false, false, true, true, true, true, true, true, true];
     expect(record(l, mixed).tier).toBe(0);
@@ -113,18 +135,71 @@ describe("the ladder", () => {
     expect(record(l, [false, true, false, true, true, true, false, true, true, true]).tier).toBe(0);
   });
 
-  it("only ever counts the last 10 blocks", () => {
+  it("opens a rung only once each of its new keys broke cleanly (N1)", () => {
+    // The home row has 10 keys: 8 clean blocks are not enough, the 10th key opens it.
+    const home = createLadder("miner");
+    expect(home.pending).toEqual(Array.from("asdfghjkl;"));
+    const nine = record(
+      home,
+      Array.from({ length: 9 }, () => true),
+    );
+    expect(nine.tier).toBe(0);
+    expect(nine.pending).toEqual([";"]);
+    expect(ladderRecord(nine, true, ";").advanced).toBe(true);
+    // Clean blocks on a key already covered don't stand in for the missing one.
+    let l = nine;
+    for (let i = 0; i < 20; i++) l = ladderRecord(l, true, "f").ladder;
+    expect(l.tier).toBe(0);
+    // A slip doesn't cover its key.
+    expect(ladderRecord(nine, false, ";").ladder.pending).toEqual([";"]);
+  });
+
+  it("counts only blocks that use one of the rung's new keys (N1)", () => {
+    const top = covered(1);
+    // Home-row blocks on the top rung change nothing, clean or not.
+    expect(ladderRecord(top, true, "f")).toEqual({ ladder: top, advanced: false });
+    expect(ladderRecord(top, false, "j")).toEqual({ ladder: top, advanced: false });
+    expect(ladderRecord(top, false, "q").ladder.recent).toEqual([false]);
+    // The words rung adds no keys, so every block counts; every capitals block has a capital.
+    expect(testsNewKey(tierOf("words"), "fish")).toBe(true);
+    expect(testsNewKey(tierOf("capitals"), "Ada")).toBe(true);
+    expect(testsNewKey(tierOf("capitals"), "ada")).toBe(false);
+    expect(testsNewKey(tierOf("bottom"), "f")).toBe(false);
+    expect(testsNewKey(tierOf("bottom"), "z")).toBe(true);
+  });
+
+  it("covers the new keys of the letter rungs only", () => {
+    expect(coverKeys(tierOf("home")).join("")).toBe("asdfghjkl;");
+    expect(coverKeys(tierOf("top")).join("")).toBe("qwertyuiop");
+    expect(coverKeys(tierOf("bottom")).join("")).toBe("zxcvbnm");
+    expect(coverKeys(tierOf("words"))).toEqual([]);
+    expect(coverKeys(tierOf("capitals"))).toEqual([]);
+    expect(coverKeys(99)).toEqual([]);
+  });
+
+  it("only ever counts the last 10 counted blocks, and opens on 8 of them plus coverage", () => {
     fc.assert(
-      fc.property(fc.array(fc.boolean(), { maxLength: 120 }), (cleans) => {
+      fc.property(fc.array(fc.tuple(fc.boolean(), fc.boolean()), { maxLength: 160 }), (steps) => {
         let l = createLadder("builder");
-        for (const c of cleans) {
+        for (const [clean, onNewKey] of steps) {
           const before = l;
-          const r = ladderRecord(l, c);
+          const own = PLACEMENT_TIERS[before.tier];
+          // An old key of the rung, if it has any.
+          const old = tierKeys(before.tier).find((k) => !(own?.newKeys ?? []).includes(k));
+          const text = onNewKey || old === undefined ? blockFor(before) : old;
+          const r = ladderRecord(l, clean, text);
           l = r.ladder;
           expect(l.recent.length).toBeLessThanOrEqual(LADDER_RULES.window);
-          const window = [...before.recent, c].slice(-LADDER_RULES.window);
+          if (!testsNewKey(before.tier, text)) {
+            expect(r).toEqual({ ladder: before, advanced: false });
+            continue;
+          }
+          const window = [...before.recent, clean].slice(-LADDER_RULES.window);
           const good = window.filter(Boolean).length;
-          expect(r.advanced).toBe(good >= LADDER_RULES.need && before.tier < before.maxTier);
+          const pending = clean ? before.pending.filter((k) => k !== text) : before.pending;
+          expect(r.advanced).toBe(
+            good >= LADDER_RULES.need && pending.length === 0 && before.tier < before.maxTier,
+          );
           expect(l.tier).toBe(before.tier + (r.advanced ? 1 : 0));
         }
       }),
@@ -198,6 +273,17 @@ describe("tierTargets", () => {
     expect(caps.some((w) => /^[A-Z]/.test(w.text))).toBe(true);
   });
 
+  it("shows the keys still to cover first (N1)", () => {
+    const top = tierOf("top");
+    const out = tierTargets(top, ctx("miner"), createRng(5), "t", 12, Array.from("qwertyuiop"));
+    expect(out).toHaveLength(12);
+    const lead = out.slice(0, 10).map((x) => x.text);
+    expect(lead.toSorted().join("")).toBe("eiopqrtuwy");
+    // A batch no longer than the keys to cover is all cover keys.
+    const three = tierTargets(top, ctx("miner"), createRng(5), "t", 3, Array.from("qwe"));
+    expect(three.map((x) => x.text).toSorted()).toEqual(["e", "q", "w"]);
+  });
+
   it("is deterministic for a seed", () => {
     const a = tierTargets(1, ctx("sprout"), createRng(9), "a");
     const b = tierTargets(1, ctx("sprout"), createRng(9), "a");
@@ -216,22 +302,57 @@ describe("createPlacementDriver", () => {
 
   it("serves the new rung's blocks right after a rung opens, with unique ids", () => {
     const d = createPlacementDriver(ctx, createRng(3));
-    const ids = new Set<string>([d.first().id]);
-    let next = d.first();
-    for (let i = 0; i < 7; i++) {
-      next = d.next(0);
+    const first = d.first();
+    const ids = new Set<string>([first.id]);
+    const home = [first.text];
+    let t = 0;
+    // The home rung shows its 10 keys first; the 10th clean one opens the top row.
+    for (let i = 0; i < 9; i++) {
+      t += 400;
+      const next = d.next(0, t);
       ids.add(next.id);
+      home.push(next.text);
     }
+    expect(home.toSorted().join("")).toBe(";adfghjkls");
     expect(d.tierReached()).toBe(0);
-    const after = d.next(0); // the 8th clean block opens the top row
+    const after = d.next(0, t + 400);
     expect(d.tierReached()).toBe(1);
     expect(after.id.startsWith("p1-")).toBe(true);
     ids.add(after.id);
-    for (let i = 0; i < 40; i++) ids.add(d.next(1).id);
-    expect(ids.size).toBe(1 + 7 + 1 + 40);
-    expect(d.blocks()).toBe(48);
+    const top = [after.text];
+    for (let i = 0; i < 40; i++) {
+      t += 400;
+      const next = d.next(1, t);
+      ids.add(next.id);
+      if (i < 9) top.push(next.text);
+    }
+    // The top rung shows its 10 new keys first too.
+    expect(top.toSorted().join("")).toBe("eiopqrtuwy");
+    expect(ids.size).toBe(1 + 9 + 1 + 40);
+    expect(d.blocks()).toBe(50);
     // Slips keep it on the top row.
     expect(d.tierReached()).toBe(1);
+  });
+
+  it("scores the blocks at or below each rung it leaves (N2)", () => {
+    const d = createPlacementDriver(ctx, createRng(3));
+    d.first();
+    // Home rung: one slip on the first block, then clean blocks until the rung opens.
+    let blocks = 1;
+    d.next(1, 1400);
+    while (d.tierReached() === 0 && blocks < 20) {
+      blocks++;
+      d.next(0, 1000 + 400 * blocks);
+    }
+    expect(d.tierReached()).toBe(1);
+    // The slipped key has to break cleanly later, so it takes more than the 10 home keys.
+    expect(blocks).toBeGreaterThan(10);
+    const scores = d.rungScores(1000);
+    expect(scores).toEqual([
+      { tier: 0, ms: 400 * blocks, keystrokes: blocks + 1, correct: blocks },
+    ]);
+    // Times before the start count as 0.
+    expect(d.rungScores(10_000_000)[0]?.ms).toBe(0);
   });
 
   it("plays the same test for the same seed", () => {
@@ -264,6 +385,38 @@ describe("estimatePlacement", () => {
     expect(at(60, 0.99, 5, "sprout")).toBe("frosty");
   });
 
+  it("judges each gate on the blocks that earned its rung (N2)", () => {
+    const builder = prog({ band: "builder", tierReached: tierOf("numbers") });
+    // Slow digits pulled the whole test down to 20 WPM, but up to the capitals the child typed 80.
+    const slowDigits = summary({ netWpm: 20, accuracy: 0.9 });
+    const rungs: RungScore[] = [0, 1, 2, 3, 4].map((tier) => ({
+      tier,
+      ms: 6000 * (tier + 1),
+      keystrokes: 82 * (tier + 1),
+      correct: 80 * (tier + 1),
+    }));
+    expect(rungRates({ tier: 0, ms: 6000, keystrokes: 82, correct: 80 }).netWpm).toBeCloseTo(160);
+    expect(estimatePlacement(slowDigits, { ...builder, rungs }).startBiome).toBe("marsh");
+    // The M3-05 rule (whole test): the slow digits drag the child down to the Shore.
+    expect(estimatePlacement(slowDigits, builder).startBiome).toBe("shore");
+    // A rung left slowly holds the start at the biome it opened, whatever came after it.
+    const slowWords = rungs.map((r) => (r.tier === 3 ? { ...r, ms: 600_000 } : r));
+    const fast = summary({ netWpm: 60 });
+    expect(estimatePlacement(fast, { ...builder, rungs: slowWords }).startBiome).toBe("frosty");
+  });
+
+  it("judges a gate on at least PLACEMENT_MIN_GATE_KEYS keystrokes", () => {
+    const p = prog({ band: "builder", tierReached: tierOf("top") });
+    // Two slips in 12 home-row keys is 83 %, under Birch's bar; too few keys to judge on.
+    const tiny: RungScore = { tier: 0, ms: 6000, keystrokes: 12, correct: 10 };
+    expect(tiny.keystrokes).toBeLessThan(PLACEMENT_MIN_GATE_KEYS);
+    const fast = summary({ netWpm: 30 });
+    expect(estimatePlacement(fast, { ...p, rungs: [tiny] }).startBiome).toBe("birch");
+    // With enough keys the same accuracy counts.
+    const enough: RungScore = { tier: 0, ms: 30_000, keystrokes: 72, correct: 60 };
+    expect(estimatePlacement(fast, { ...p, rungs: [enough] }).startBiome).toBe("meadow");
+  });
+
   it("starts a short test at the Meadow", () => {
     const short = summary({ activeMs: PLACEMENT_MIN_ACTIVE_MS - 1, netWpm: 80, accuracy: 1 });
     expect(estimatePlacement(short, prog()).startBiome).toBe("meadow");
@@ -278,7 +431,7 @@ describe("estimatePlacement", () => {
         fc.integer({ min: 0, max: 5 }),
         fc.constantFrom(...BANDS),
         (wpm, extra, accuracy, tierReached, band) => {
-          const p = prog({ tierReached, band });
+          const p = prog({ tierReached, band, rungs: [] });
           const slow = estimatePlacement(summary({ netWpm: wpm, accuracy }), p).startBiome;
           const fast = estimatePlacement(summary({ netWpm: wpm + extra, accuracy }), p).startBiome;
           const i = BIOME_ORDER.indexOf(slow);

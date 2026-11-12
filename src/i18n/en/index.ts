@@ -18,6 +18,7 @@ import a11y from "./a11y";
 import placement from "./placement";
 import profiles from "./profiles";
 import settings from "./settings";
+import achievements from "./achievements";
 import importexport from "./importexport";
 
 const en = {
@@ -34,6 +35,7 @@ const en = {
   placement,
   profiles,
   settings,
+  achievements,
   importexport,
 } as const;
 

@@ -6,7 +6,7 @@ export default {
   screen: {
     island: "Home Island",
     inventory: "Your blocks",
-    achievements: "Badges",
+    achievements: "My Badges",
     settings: "Settings",
     parent: "For grown-ups",
   },

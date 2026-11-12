@@ -5,13 +5,18 @@
 import { describe, expect, it } from "vitest";
 import { createSilentAudio } from "../../../../src/app/audio";
 import { fixedStepClock } from "../../../../src/app/clock";
+import { placementRungsOf } from "../../../../src/app/progress";
 import { createEmitter } from "../../../../src/app/events";
 import type { GameEvents } from "../../../../src/app/events";
 import { createHudStore } from "../../../../src/app/hud";
 import { PLACEMENT_MS, tierKeys } from "../../../../src/engine/placement";
 import { createRng } from "../../../../src/engine/rng";
 import { mode } from "../../../../src/modes/placement";
-import { PLACEMENT_LESSON, PLACEMENT_TIER_EXTRA } from "../../../../src/modes/placement/lesson";
+import {
+  PLACEMENT_LESSON,
+  PLACEMENT_RUNGS_EXTRA,
+  PLACEMENT_TIER_EXTRA,
+} from "../../../../src/modes/placement/lesson";
 import { create } from "../../../../src/modes/placement/placement";
 import type { ModeResult } from "../../../../src/modes/types";
 import type { Profile } from "../../../../src/save/schema";
@@ -87,22 +92,26 @@ describe("placement mode", () => {
     expect(v?.elapsedMs).toBe(0);
   });
 
-  it("starts on the home row, ignores a habit space, and climbs after 8 clean blocks", async () => {
+  it("starts on the home row, ignores a habit space, and climbs once each home key broke clean", async () => {
     const r = await rig(builder);
     await r.loadWorld();
     const home = new Set(tierKeys(0));
-    for (let i = 0; i < 8; i++) {
+    const seen = new Set<string>();
+    for (let i = 0; i < 10; i++) {
       const key = r.hud.get().nextKey;
       expect(key !== null && home.has(key)).toBe(true);
+      if (key !== null) seen.add(key);
       r.typeNext();
       // A space between blocks is not a slip (decision 90).
       r.type(" ");
     }
+    // The 10 blocks were the 10 home keys (M3-FIX-3 N1).
+    expect(seen.size).toBe(10);
     expect(r.instance.session()?.active?.id.startsWith("p1-")).toBe(true);
     const top = new Set(tierKeys(1));
     expect(top.has(r.hud.get().nextKey ?? "")).toBe(true);
     // No slip was counted for the spaces.
-    expect(r.instance.session()?.streak).toBe(8);
+    expect(r.instance.session()?.streak).toBe(10);
   });
 
   it("ends after 90 s and hands back the rung reached, with no stars and no countdown", async () => {
@@ -119,6 +128,28 @@ describe("placement mode", () => {
     expect(res?.stars).toBe(0);
     expect(res?.summary.mode).toBe("placement");
     expect(res?.extra?.[PLACEMENT_TIER_EXTRA]).toBe(2);
+  });
+
+  it("scores each rung it left, with paused time taken out (N2)", async () => {
+    const r = await rig(builder);
+    await r.loadWorld();
+    for (let i = 0; i < 10; i++) {
+      r.typeNext();
+      if (i === 4) {
+        r.instance.pause(10_000 + 300 * 5 + 10);
+        r.instance.resume(10_000 + 300 * 5 + 5010);
+        r.type(" ", 5000);
+      }
+    }
+    r.run(PLACEMENT_MS + 2000);
+    const res = r.results[0];
+    expect(res?.extra?.[PLACEMENT_TIER_EXTRA]).toBe(1);
+    const rungs = res?.extra?.[PLACEMENT_RUNGS_EXTRA];
+    expect(rungs).toEqual([{ tier: 0, ms: expect.any(Number), keystrokes: 10, correct: 10 }]);
+    const ms = placementRungsOf(res ?? {})[0]?.ms ?? 0;
+    // 10 keys 300 ms apart: under 3 s of typing; the 5 s pause is not in it.
+    expect(ms).toBeGreaterThan(2000);
+    expect(ms).toBeLessThanOrEqual(3000);
   });
 
   it("in calm mode also ends at 90 s, with no clock shown (review B1)", async () => {

@@ -18,6 +18,7 @@
  */
 import type { ComponentChildren } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { settleAtMeadow, shouldOfferPlacement } from "@/app/progress";
 import type { ScreenProps } from "@/app/types";
 import { NICKNAME_MAX, checkNickname } from "@/content/nickname";
 import { t } from "@/i18n";
@@ -129,6 +130,14 @@ export default function Profiles({ app }: ScreenProps) {
     if (app.route().id !== "profiles") return;
     if (profile === null) {
       setMessage(t("profiles.loadFailed"));
+      return;
+    }
+    // A test quit mid-way, or lost to a reload, is offered once more (M3-FIX-3 N4). The offer
+    // settles the start as it shows, so it never comes back a third time. A read-only profile
+    // can't keep that mark, so it is never asked again.
+    if (shouldOfferPlacement(profile) && !app.readOnlyProfiles().has(profile.id)) {
+      void app.saveProfile(settleAtMeadow(profile, Date.now()));
+      app.navigate({ id: "placement" });
       return;
     }
     app.setProfile(profile);
