@@ -121,6 +121,8 @@ export const lessons: Lesson[] = [
   }),
   lesson({
     order: 5,
+    // A night at the camp (M4-04): the same words, on visitors walking the lanes.
+    mode: "defense",
     titleKey: "lessonsShore.shore05",
     newKeys: [],
     reviewKeys: ["n", "b"],

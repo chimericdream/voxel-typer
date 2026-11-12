@@ -135,6 +135,8 @@ export const lessons: Lesson[] = [
   }),
   lesson({
     order: 6,
+    // A night at the camp (M4-04): the same words, on visitors walking the lanes.
+    mode: "defense",
     titleKey: "lessonsFrosty.frosty06",
     kind: "words",
     pools: THEMES,

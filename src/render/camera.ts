@@ -6,8 +6,11 @@
  * - `overview`: a gentle isometric-ish three-quarter view of the whole diorama.
  * - `mine`: close and slightly low, looking at the target block (`setTarget`) with the diorama as
  *   a backdrop behind it (the camera sits on the +z side and looks toward −z).
- * - `lane`, `orbit`, `rail` belong to later modes (M4/M5); until those tasks define them they use
- *   the `overview` pose.
+ * - `lane`: Night Defense (M4-04). From the front (+z) looking down the lanes toward −z, aimed at
+ *   the middle of the field (`setTarget`). The mode then fits the distance and pitch to the space
+ *   the HUD leaves (`moveTo`).
+ * - `orbit`, `rail` belong to later modes (M4/M5); until those tasks define them they use the
+ *   `overview` pose.
  *
  * Reduced motion: preset changes snap instead of tweening, the parallax drift is off and `shake`
  * does nothing.
@@ -69,6 +72,15 @@ export function presetPose(name: PresetName, box: THREE.Box3, target: Vec3): Cam
   }
   const center = box.isEmpty() ? new THREE.Vector3() : box.getCenter(new THREE.Vector3());
   const size = box.isEmpty() ? new THREE.Vector3(16, 16, 16) : box.getSize(new THREE.Vector3());
+  if (name === "lane") {
+    return {
+      target: { x: target.x, y: target.y, z: target.z },
+      yaw: 0,
+      pitch: THREE.MathUtils.degToRad(28),
+      distance: Math.max(24, size.z * 0.95),
+      fov: 38,
+    };
+  }
   const fov = 35;
   // Fit the footprint's bounding circle, with the height counted at half weight.
   const radius = Math.hypot(size.x, size.z) / 2 + size.y * 0.25;

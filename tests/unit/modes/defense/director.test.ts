@@ -106,6 +106,17 @@ const classCount = (d: number, cls: string, seed: number): number =>
     .nextWave()
     .mobs.filter((m) => MOBS.find((x) => x.id === m.mobId)?.speedClass === cls).length;
 
+/** A perfect wave that took `activeMs`. */
+const tookMs = (activeMs: number): WaveFeedback => feedback({ accuracy: 1, activeMs });
+/** The first step a director takes after a perfect wave. */
+const stepOf = (over: Partial<DirectorOptions>): number => {
+  const director = createDirector(options(over));
+  const before = director.difficulty;
+  const wave = director.nextWave();
+  director.observe(feedback({ accuracy: 1, wordsDone: wave.mobs.length }));
+  return director.difficulty / before - 1;
+};
+
 const arbFeedback = fc.record({
   accuracy: fc.oneof(fc.double({ min: -0.5, max: 1.5, noNaN: true }), fc.constant(Number.NaN)),
   reachedBase: fc.oneof(fc.integer({ min: -3, max: 30 }), fc.constant(Number.NaN)),
@@ -263,26 +274,18 @@ describe("controller", () => {
 
   it("calm mode: a wave that took much longer than planned holds or eases the pace", () => {
     const calm = initialControllerState(1, { fine: true });
-    const f = (activeMs: number): WaveFeedback => feedback({ accuracy: 1, activeMs });
     const plan = { plannedMs: 10_000 };
-    expect(controllerStep(calm, f(10_000), true, plan).d).toBeGreaterThan(1);
-    expect(controllerStep(calm, f(10_000 * C.calmSlow + 500), true, plan).d).toBeCloseTo(1);
-    expect(controllerStep(calm, f(10_000 * C.calmVerySlow + 500), true, plan).d).toBeCloseTo(
+    expect(controllerStep(calm, tookMs(10_000), true, plan).d).toBeGreaterThan(1);
+    expect(controllerStep(calm, tookMs(10_000 * C.calmSlow + 500), true, plan).d).toBeCloseTo(1);
+    expect(controllerStep(calm, tookMs(10_000 * C.calmVerySlow + 500), true, plan).d).toBeCloseTo(
       1 - C.fineMaxStepDown,
     );
     // Outside calm mode time is not a signal (mobs at the base are), and no plan means no signal.
-    expect(controllerStep(calm, f(60_000), false, plan).d).toBeGreaterThan(1);
-    expect(controllerStep(calm, f(60_000), true).d).toBeGreaterThan(1);
+    expect(controllerStep(calm, tookMs(60_000), false, plan).d).toBeGreaterThan(1);
+    expect(controllerStep(calm, tookMs(60_000), true).d).toBeGreaterThan(1);
   });
 
   it("starts in fine mode with a baseline or a resumed night, and searches for a new profile", () => {
-    const stepOf = (over: Partial<DirectorOptions>): number => {
-      const director = createDirector(options(over));
-      const before = director.difficulty;
-      const wave = director.nextWave();
-      director.observe(feedback({ accuracy: 1, wordsDone: wave.mobs.length }));
-      return director.difficulty / before - 1;
-    };
     expect(stepOf({})).toBeCloseTo(C.fineMaxStepUp);
     expect(stepOf({ startDifficulty: 1.2 })).toBeCloseTo(C.fineMaxStepUp);
     expect(stepOf({ baselineNetWpm: null, startDifficulty: 1.2 })).toBeCloseTo(C.fineMaxStepUp);

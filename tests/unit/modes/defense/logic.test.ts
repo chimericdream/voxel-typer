@@ -1,0 +1,528 @@
+/**
+ * Night Defense's pure rules (task M4-04): the night's length, lanes, mob motion, the shield, the
+ * wave's score, the word plates' layout (they never overlap) and the camera framing.
+ */
+import * as fc from "fast-check";
+import * as THREE from "three";
+import { describe, expect, it } from "vitest";
+import { arenaLayout } from "../../../../src/content/worldgen/defense-arena";
+import {
+  BAND_LANES,
+  DEFAULT_WAVES,
+  FIELD_FRONT,
+  FIELD_HEADROOM,
+  PLATE_GAP,
+  QUEUE_GAP,
+  SHIELD_SEGMENTS,
+  WAVES_MAX,
+  WAVES_MIN,
+  baselineAccuracy,
+  bonkShield,
+  emptyTally,
+  fitLaneView,
+  laneSlot,
+  layoutPlates,
+  lockedWpm,
+  nextKeyFor,
+  nightProgress,
+  nightWaves,
+  priorityOf,
+  projectLane,
+  stepMobs,
+  waveAnnouncement,
+  waveFeedback,
+} from "../../../../src/modes/defense/logic";
+import type {
+  Box,
+  FieldMob,
+  PlateBounds,
+  PlatePlace,
+  PlateWish,
+} from "../../../../src/modes/defense/logic";
+import { isInZone, pureZoneGlobs } from "../../../../tools/check-boundaries";
+import type { AgeBand } from "../../../../src/types/core";
+
+const BANDS: readonly AgeBand[] = ["sprout", "miner", "builder"];
+
+const mob = (over: Partial<FieldMob> = {}): FieldMob => ({
+  id: "m",
+  mobId: "slimeling",
+  slot: 0,
+  word: "sad",
+  speed: 0.1,
+  p: 0,
+  state: "walking",
+  ...over,
+});
+
+/** One past session, as the profile's history keeps it. */
+const run = (mode: "mine" | "defense" | "practice", accuracy: number) => ({ mode, accuracy });
+/** One mob of a wave. */
+const waveMob = (mobId: string) => ({
+  id: "x",
+  mobId,
+  lane: 0,
+  spawnAtMs: 0,
+  speed: 0.1,
+  word: "a",
+});
+
+const touching = (a: PlatePlace, b: PlatePlace, gap: number): boolean =>
+  a.left < b.left + b.width + gap - 1e-6 &&
+  b.left < a.left + a.width + gap - 1e-6 &&
+  a.top < b.top + b.height + gap - 1e-6 &&
+  b.top < a.top + a.height + gap - 1e-6;
+
+describe("purity", () => {
+  it("is a pure zone", () => {
+    expect(isInZone("src/modes/defense/logic.ts", pureZoneGlobs())).toBe(true);
+  });
+});
+
+describe("the night", () => {
+  it("has 2 to 5 waves, from the lesson's length", () => {
+    expect(nightWaves(null, "miner")).toBe(DEFAULT_WAVES);
+    for (const band of BANDS) {
+      // The shipped Defense lessons are 75–90 chars: a three-wave night for every band.
+      for (const chars of [75, 90]) expect(nightWaves({ length: { chars } }, band)).toBe(3);
+      expect(nightWaves({ length: { chars: 1 } }, band)).toBe(WAVES_MIN);
+      expect(nightWaves({ length: { chars: 5000 } }, band)).toBe(WAVES_MAX);
+      expect(nightWaves({ length: { targets: 24 }, bandScale: { [band]: 1 } }, band)).toBe(3);
+      expect(nightWaves({ length: { seconds: 90 } }, band)).toBeGreaterThanOrEqual(WAVES_MIN);
+      expect(nightWaves({ length: { seconds: Number.NaN } }, band)).toBe(DEFAULT_WAVES);
+    }
+    // A timed lesson is the same amount of time for every band.
+    expect(nightWaves({ length: { seconds: 90 } }, "sprout")).toBe(3);
+    expect(nightWaves({ length: { seconds: 180 } }, "builder")).toBe(5);
+  });
+
+  it("reports progress as waves done plus the share of the current wave", () => {
+    expect(nightProgress(0, 3, 0, 6)).toBe(0);
+    expect(nightProgress(1, 3, 3, 6)).toBeCloseTo(0.5);
+    expect(nightProgress(3, 3, 0, 0)).toBe(1);
+    expect(nightProgress(9, 3, 9, 1)).toBe(1);
+    expect(nightProgress(1, 0, 0, 0)).toBe(0);
+  });
+});
+
+describe("lanes", () => {
+  it("builds 3 lanes for Sprouts, 4 for Miners and 5 for Builders", () => {
+    expect(BAND_LANES).toEqual({ sprout: 3, miner: 4, builder: 5 });
+  });
+
+  it("spreads a wave's lanes over the arena's, outer lanes first", () => {
+    expect([0, 1].map((l) => laneSlot(l, 2, 3))).toEqual([0, 2]);
+    expect([0, 1, 2].map((l) => laneSlot(l, 3, 3))).toEqual([0, 1, 2]);
+    expect([0, 1, 2].map((l) => laneSlot(l, 3, 4))).toEqual([0, 2, 3]);
+    expect([0, 1, 2, 3].map((l) => laneSlot(l, 4, 5))).toEqual([0, 1, 3, 4]);
+    expect(laneSlot(0, 1, 3)).toBe(1);
+    // Out-of-range input still lands on a real lane.
+    for (const lane of [-3, 0, 7, Number.NaN])
+      for (const used of [0, 2, 9]) {
+        const slot = laneSlot(lane, used, 4);
+        expect(slot).toBeGreaterThanOrEqual(0);
+        expect(slot).toBeLessThan(4);
+      }
+  });
+
+  it("gives each lane of a wave its own slot", () => {
+    for (let built = 1; built <= 5; built++)
+      for (let used = 1; used <= built; used++) {
+        const slots = Array.from({ length: used }, (_, l) => laneSlot(l, used, built));
+        expect(new Set(slots).size).toBe(used);
+      }
+  });
+});
+
+describe("mobs", () => {
+  it("walk at their speed and arrive at the base once", () => {
+    const a = mob({ id: "a", speed: 0.5 });
+    const b = mob({ id: "b", speed: 0.1 });
+    expect(stepMobs([a, b], 1000, { calm: false, waitP: 0.85 })).toEqual([]);
+    expect(a.p).toBeCloseTo(0.5);
+    expect(b.p).toBeCloseTo(0.1);
+    const arrived = stepMobs([a, b], 1000, { calm: false, waitP: 0.85 });
+    expect(arrived).toEqual([a]);
+    expect(a.p).toBe(1);
+    // A mob on its way out doesn't move and doesn't arrive again.
+    a.state = "bonking";
+    expect(stepMobs([a, b], 60_000, { calm: false, waitP: 0.85 })).toEqual([b]);
+  });
+
+  it("ignores bad frame times", () => {
+    const a = mob({ speed: 0.5 });
+    for (const dt of [Number.NaN, -500, Number.POSITIVE_INFINITY])
+      stepMobs([a], dt, { calm: false, waitP: 0.85 });
+    expect(a.p).toBe(0);
+  });
+
+  it("calm mode: nobody reaches the base; mobs queue at the waiting line", () => {
+    // `a` set out first.
+    const lane = [
+      mob({ id: "a", speed: 0.5, p: 0.2 }),
+      mob({ id: "b", speed: 0.5, p: 0 }),
+      mob({ id: "c", speed: 0.5, slot: 1 }),
+    ];
+    for (let i = 0; i < 400; i++)
+      expect(stepMobs(lane, 50, { calm: true, waitP: 0.85 })).toEqual([]);
+    expect(lane[0]).toMatchObject({ p: 0.85, state: "waiting" });
+    expect(lane[1]?.p).toBeCloseTo(0.85 - QUEUE_GAP);
+    expect(lane[1]?.state).toBe("waiting");
+    // The other lane has its own line.
+    expect(lane[2]).toMatchObject({ p: 0.85, state: "waiting" });
+    // When the first is typed away and gone, the next walks up.
+    const rest = lane.slice(1);
+    stepMobs(rest, 16, { calm: true, waitP: 0.85 });
+    expect(rest[0]?.state).toBe("walking");
+    for (let i = 0; i < 100; i++) stepMobs(rest, 50, { calm: true, waitP: 0.85 });
+    expect(rest[0]).toMatchObject({ p: 0.85, state: "waiting" });
+  });
+
+  it("calm mode: a mob never moves back, and never passes the line (property)", () => {
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.record({
+            slot: fc.integer({ min: 0, max: 2 }),
+            speed: fc.double({ min: 0.02, max: 0.4, noNaN: true }),
+            p: fc.double({ min: 0, max: 0.85, noNaN: true }),
+          }),
+          { minLength: 1, maxLength: 10 },
+        ),
+        fc.array(fc.integer({ min: 0, max: 400 }), { minLength: 1, maxLength: 40 }),
+        (specs, steps) => {
+          const mobs = specs.map((s, i) => mob({ id: `m${i}`, ...s }));
+          for (const dt of steps) {
+            const before = mobs.map((m) => m.p);
+            expect(stepMobs(mobs, dt, { calm: true, waitP: 0.85 })).toEqual([]);
+            mobs.forEach((m, i) => {
+              expect(m.p).toBeGreaterThanOrEqual(before[i] ?? 0);
+              expect(m.p).toBeLessThanOrEqual(0.85 + 1e-9);
+            });
+          }
+        },
+      ),
+      { seed: 4404, numRuns: 200 },
+    );
+  });
+
+  it("prefers the mob nearest the base, and hints at its first letter", () => {
+    expect(priorityOf({ p: 0.9 })).toBeLessThan(priorityOf({ p: 0.2 }));
+    const far = mob({ id: "far", word: "jam", p: 0.2 });
+    const near = mob({ id: "near", word: "sad", p: 0.7 });
+    const leaving = mob({ id: "out", word: "fig", p: 0.95, state: "popping" });
+    expect(nextKeyFor(null, [far, near, leaving])).toBe("s");
+    expect(nextKeyFor(null, [leaving])).toBeNull();
+    expect(nextKeyFor(null, [])).toBeNull();
+    const active = {
+      id: "far",
+      text: "jam",
+      typed: 1,
+      marks: ["ok" as const, "pending" as const, "pending" as const],
+      locked: true,
+      complete: false,
+    };
+    expect(nextKeyFor(active, [far, near])).toBe("a");
+  });
+});
+
+describe("the shield", () => {
+  it("loses one segment a bonk, stops at zero, and says when it emptied", () => {
+    let shield = SHIELD_SEGMENTS;
+    const emptied: boolean[] = [];
+    for (let i = 0; i < SHIELD_SEGMENTS + 4; i++) {
+      const hit = bonkShield(shield);
+      expect(hit.shield).toBe(Math.max(0, shield - 1));
+      emptied.push(hit.emptied);
+      shield = hit.shield;
+    }
+    expect(shield).toBe(0);
+    // Exactly one bonk empties it: the banner shows once.
+    expect(emptied.filter(Boolean)).toHaveLength(1);
+    expect(emptied[SHIELD_SEGMENTS - 1]).toBe(true);
+  });
+
+  it("never goes under zero or over full, whatever it is given (property)", () => {
+    fc.assert(
+      fc.property(fc.oneof(fc.double({ noNaN: true }), fc.integer()), (v) => {
+        const hit = bonkShield(v);
+        expect(hit.shield).toBeGreaterThanOrEqual(0);
+        expect(hit.shield).toBeLessThanOrEqual(SHIELD_SEGMENTS);
+      }),
+      { seed: 4405 },
+    );
+  });
+});
+
+describe("scoring a wave", () => {
+  it("gives the director the wave's own accuracy and counts", () => {
+    const t = emptyTally();
+    expect(waveFeedback(t)).toEqual({ accuracy: 1, reachedBase: 0, wordsDone: 0, activeMs: 0 });
+    Object.assign(t, { keystrokes: 20, correct: 18, wordsDone: 4, reachedBase: 2, activeMs: 9000 });
+    expect(waveFeedback(t)).toEqual({
+      accuracy: 0.9,
+      reachedBase: 2,
+      wordsDone: 4,
+      activeMs: 9000,
+    });
+  });
+
+  it("takes the baseline accuracy from Mine-like sessions only", () => {
+    expect(baselineAccuracy([])).toBeNull();
+    expect(baselineAccuracy([run("mine", 0.9), run("mine", 0.92)])).toBeNull();
+    // Nights don't count: their accuracy is under the pace's pressure.
+    expect(
+      baselineAccuracy([run("defense", 0.5), run("defense", 0.5), run("defense", 0.5)]),
+    ).toBeNull();
+    expect(
+      baselineAccuracy([
+        run("mine", 0.9),
+        run("defense", 0.5),
+        run("practice", 0.96),
+        run("mine", 0.94),
+      ]),
+    ).toBeCloseTo(0.94);
+  });
+
+  it("measures speed on the words themselves, not on the waiting", () => {
+    expect(lockedWpm([])).toBe(0);
+    // A 5-letter word in 2.4 s: 4 gaps of 600 ms, which is 20 WPM.
+    expect(lockedWpm([{ chars: 5, durationMs: 2400 }])).toBeCloseTo(20);
+    // Single letters and zero-time words tell nothing.
+    expect(lockedWpm([{ chars: 1, durationMs: 0 }])).toBe(0);
+    expect(
+      lockedWpm([
+        { chars: 5, durationMs: 2400 },
+        { chars: 1, durationMs: 0 },
+      ]),
+    ).toBeCloseTo(20);
+  });
+
+  it("names the wave's mob when there is one kind, and says friends otherwise", () => {
+    expect(waveAnnouncement({ mobs: [waveMob("slimeling"), waveMob("slimeling")] })).toEqual({
+      mobId: "slimeling",
+      count: 2,
+    });
+    expect(waveAnnouncement({ mobs: [waveMob("slimeling"), waveMob("cave-bat")] })).toEqual({
+      mobId: null,
+      count: 2,
+    });
+    expect(waveAnnouncement({ mobs: [] })).toEqual({ mobId: null, count: 0 });
+  });
+});
+
+describe("word plates", () => {
+  const bounds: PlateBounds = { left: 0, top: 80, right: 1280, bottom: 360 };
+
+  const arbWish = fc.record({
+    x: fc.double({ min: -50, max: 1330, noNaN: true }),
+    y: fc.double({ min: 40, max: 400, noNaN: true }),
+    width: fc.double({ min: 30, max: 220, noNaN: true }),
+    height: fc.double({ min: 20, max: 44, noNaN: true }),
+    order: fc.integer({ min: -1, max: 30 }),
+  });
+
+  it("never overlap, on random positions (property)", () => {
+    fc.assert(
+      fc.property(fc.array(arbWish, { minLength: 0, maxLength: 24 }), (raw) => {
+        const wishes: PlateWish[] = raw.map((w, i) => ({ id: `p${i}`, ...w }));
+        const placed = layoutPlates(wishes, bounds);
+        expect(placed).toHaveLength(wishes.length);
+        expect(new Set(placed.map((p) => p.id)).size).toBe(wishes.length);
+        for (let i = 0; i < placed.length; i++)
+          for (let j = i + 1; j < placed.length; j++) {
+            const a = placed[i];
+            const b = placed[j];
+            if (a && b) expect(touching(a, b, PLATE_GAP), `${a.id} over ${b.id}`).toBe(false);
+          }
+        // Every plate keeps its size and stays between the side edges.
+        for (const p of placed) {
+          const w = wishes.find((x) => x.id === p.id);
+          expect(p.width).toBe(w?.width);
+          expect(p.height).toBe(w?.height);
+          expect(p.left).toBeGreaterThanOrEqual(bounds.left - 1e-9);
+          expect(p.left + p.width).toBeLessThanOrEqual(bounds.right + 1e-9);
+        }
+      }),
+      { seed: 4406, numRuns: 500 },
+    );
+  });
+
+  it("never overlap when every mob stands on the same spot (property)", () => {
+    fc.assert(
+      fc.property(fc.integer({ min: 2, max: 18 }), fc.integer({ min: 0, max: 1280 }), (n, x) => {
+        const wishes: PlateWish[] = Array.from({ length: n }, (_, i) => ({
+          id: `p${i}`,
+          x,
+          y: 300,
+          width: 90,
+          height: 30,
+          order: i,
+        }));
+        const placed = layoutPlates(wishes, bounds);
+        for (let i = 0; i < placed.length; i++)
+          for (let j = i + 1; j < placed.length; j++) {
+            const a = placed[i];
+            const b = placed[j];
+            if (a && b) expect(touching(a, b, PLATE_GAP)).toBe(false);
+          }
+      }),
+      { seed: 4407, numRuns: 100 },
+    );
+  });
+
+  it("stay inside the bounds while there is room, and only nudge up or down", () => {
+    const wishes: PlateWish[] = [
+      { id: "a", x: 400, y: 300, width: 80, height: 30, order: 0 },
+      { id: "b", x: 420, y: 305, width: 80, height: 30, order: 1 },
+      { id: "c", x: 440, y: 310, width: 80, height: 30, order: 2 },
+      { id: "far", x: 900, y: 200, width: 80, height: 30, order: 3 },
+    ];
+    const placed = new Map(layoutPlates(wishes, bounds).map((p) => [p.id, p]));
+    // The first keeps its wish: its bottom middle on the point.
+    expect(placed.get("a")).toMatchObject({ left: 360, top: 270 });
+    // The others keep their x and move straight up, one on top of the other.
+    expect(placed.get("b")).toMatchObject({ left: 380, top: 270 - PLATE_GAP - 30 });
+    expect(placed.get("c")).toMatchObject({ left: 400, top: 270 - 2 * (PLATE_GAP + 30) });
+    // A plate with nothing near it doesn't move at all.
+    expect(placed.get("far")).toMatchObject({ left: 860, top: 170 });
+    for (const p of placed.values()) {
+      expect(p.top).toBeGreaterThanOrEqual(bounds.top);
+      expect(p.top + p.height).toBeLessThanOrEqual(bounds.bottom);
+    }
+  });
+
+  it("goes down when there is no room above", () => {
+    const top: PlateWish[] = [
+      { id: "a", x: 400, y: 100, width: 80, height: 30, order: 0 },
+      { id: "b", x: 410, y: 100, width: 80, height: 30, order: 1 },
+    ];
+    const placed = new Map(layoutPlates(top, bounds).map((p) => [p.id, p]));
+    expect(placed.get("a")?.top).toBe(bounds.top);
+    expect(placed.get("b")?.top).toBe(bounds.top + 30 + PLATE_GAP);
+  });
+
+  it("places the locked plate first, so it moves least", () => {
+    const wishes: PlateWish[] = [
+      { id: "first", x: 400, y: 300, width: 80, height: 30, order: 0 },
+      { id: "locked", x: 410, y: 300, width: 96, height: 36, order: -1 },
+    ];
+    const placed = new Map(layoutPlates(wishes, bounds).map((p) => [p.id, p]));
+    expect(placed.get("locked")?.top).toBe(264);
+    expect(placed.get("first")?.top).toBeLessThan(264);
+  });
+
+  it("drops plates it can't draw and is stable for the same input", () => {
+    const wishes: PlateWish[] = [
+      { id: "ok", x: 200, y: 200, width: 60, height: 24, order: 0 },
+      { id: "zero", x: 200, y: 200, width: 0, height: 24, order: 1 },
+      { id: "nan", x: Number.NaN, y: 200, width: 60, height: 24, order: 2 },
+    ];
+    expect(layoutPlates(wishes, bounds).map((p) => p.id)).toEqual(["ok"]);
+    expect(layoutPlates(wishes, bounds)).toEqual(layoutPlates(wishes.toReversed(), bounds));
+  });
+});
+
+describe("framing the field", () => {
+  const canvas = { width: 1280, height: 720 };
+  /** The open stage of the real HUD at 1280×720 (M2-14): under the top row, above the keys. */
+  const STAGES: Record<AgeBand, Box> = {
+    // Keyboard and hands: 364 px.
+    sprout: { left: 16, top: 110, width: 1248, height: 230 },
+    // Keyboard only: 228 px.
+    miner: { left: 16, top: 110, width: 1248, height: 370 },
+    // No keyboard.
+    builder: { left: 16, top: 110, width: 1248, height: 590 },
+  };
+
+  it("projects a point the way three.js does", () => {
+    const view = {
+      target: { x: 24, y: 5, z: 21.5 },
+      pitch: (28 * Math.PI) / 180,
+      distance: 40,
+      fov: 38,
+    };
+    const camera = new THREE.PerspectiveCamera(view.fov, canvas.width / canvas.height, 0.1, 500);
+    camera.position.set(
+      view.target.x,
+      view.target.y + view.distance * Math.sin(view.pitch),
+      view.target.z + view.distance * Math.cos(view.pitch),
+    );
+    camera.lookAt(view.target.x, view.target.y, view.target.z);
+    camera.updateMatrixWorld();
+    for (const p of [
+      { x: 24, y: 5, z: 21.5 },
+      { x: 10, y: 5, z: 9.5 },
+      { x: 38, y: 9, z: 33.5 },
+      { x: 24, y: 7, z: 40 },
+    ]) {
+      const ndc = new THREE.Vector3(p.x, p.y, p.z).project(camera);
+      const mine = projectLane(p, view, canvas);
+      expect(mine.x).toBeCloseTo(((ndc.x + 1) / 2) * canvas.width, 3);
+      expect(mine.y).toBeCloseTo(((1 - ndc.y) / 2) * canvas.height, 3);
+      expect(mine.z).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps the whole field inside the space the HUD leaves, for every band", () => {
+    for (const band of BANDS) {
+      const field = arenaLayout(BAND_LANES[band]);
+      const box = STAGES[band];
+      const fit = fitLaneView(field, canvas, box);
+      const half = field.width / 2;
+      const corners = [-1, 1].flatMap((side) => [
+        { x: field.center.x + side * half, y: field.groundY, z: field.baseZ + FIELD_FRONT },
+        { x: field.center.x + side * half, y: field.groundY + FIELD_HEADROOM, z: field.farZ },
+        { x: field.center.x + side * half, y: field.groundY, z: field.farZ },
+      ]);
+      for (const c of corners) {
+        const s = projectLane(c, fit, canvas);
+        const x = s.x + fit.shiftX;
+        const y = s.y + fit.shiftY;
+        expect(x, `${band} x`).toBeGreaterThanOrEqual(box.left - 1);
+        expect(x, `${band} x`).toBeLessThanOrEqual(box.left + box.width + 1);
+        expect(y, `${band} y`).toBeGreaterThanOrEqual(box.top - 1);
+        expect(y, `${band} y`).toBeLessThanOrEqual(box.top + box.height + 1);
+      }
+      // The lanes are spread over a good part of the box, not a speck in the middle.
+      const base = projectLane(
+        { x: field.center.x, y: field.groundY, z: field.baseZ },
+        fit,
+        canvas,
+      );
+      const far = projectLane({ x: field.center.x, y: field.groundY, z: field.farZ }, fit, canvas);
+      expect(base.y - far.y, band).toBeGreaterThan(box.height * 0.35);
+    }
+  });
+
+  it("draws a mob at least 30 px tall at the base, even in a Sprout's narrow stage", () => {
+    for (const band of BANDS) {
+      const field = arenaLayout(BAND_LANES[band]);
+      const fit = fitLaneView(field, canvas, STAGES[band]);
+      const at = (y: number, z: number): number =>
+        projectLane({ x: field.center.x, y, z }, fit, canvas).y;
+      // A mob is about 1.75 blocks tall (a 16-px model at 1.75×).
+      const nearPx = at(field.groundY, field.baseZ) - at(field.groundY + 1.75, field.baseZ);
+      const farPx = at(field.groundY, field.farZ) - at(field.groundY + 1.75, field.farZ);
+      expect(nearPx, band).toBeGreaterThanOrEqual(30);
+      expect(farPx, band).toBeGreaterThanOrEqual(18);
+    }
+  });
+
+  it("uses the whole canvas when the HUD isn't there, and survives a tiny box", () => {
+    const field = arenaLayout(3);
+    const whole = fitLaneView(field, canvas, null);
+    expect(whole.distance).toBeGreaterThan(5);
+    expect(Number.isFinite(whole.shiftX) && Number.isFinite(whole.shiftY)).toBe(true);
+    const tiny = fitLaneView(
+      field,
+      { width: 0, height: 0 },
+      { left: 0, top: 0, width: 0, height: 0 },
+    );
+    expect(Number.isFinite(tiny.distance)).toBe(true);
+    // A flat box gets a lower camera than a tall one.
+    const flat = fitLaneView(field, canvas, { left: 0, top: 100, width: 1280, height: 200 });
+    const tall = fitLaneView(field, canvas, { left: 0, top: 100, width: 1280, height: 600 });
+    expect(flat.pitch).toBeLessThan(tall.pitch);
+  });
+});

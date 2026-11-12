@@ -149,6 +149,8 @@ export const lessons: Lesson[] = [
   // Review: every word so far, Meadow's included.
   lesson({
     order: 8,
+    // A night at the camp (M4-04): the same words, on visitors walking the lanes.
+    mode: "defense",
     titleKey: "lessonsBirch.birch08",
     newKeys: [],
     reviewKeys: TOP_KEYS.slice(0, 6),
