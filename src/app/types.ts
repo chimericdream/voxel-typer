@@ -10,6 +10,7 @@ import type { ModeResult } from "@/modes/types";
 import type { Profile } from "@/save/schema";
 import type { SaveStore } from "@/save/store";
 import type { Route } from "./routes";
+import type { AppScene } from "./scene-host";
 
 /** A screen's key handler. Return true when the screen used the input. */
 export type ScreenInputHandler = (i: TypedInput | ControlInput) => boolean;
@@ -52,6 +53,12 @@ export interface AppApi {
   readonly audio: AudioApi;
   /** `__vt.ready()` also waits for this promise (screens that load assets). */
   whenReady(p: Promise<unknown>): void;
+  /**
+   * The app's one shared 3D scene, made on first use (M3-04). The canvas is shown on the `play`
+   * and `map` routes. A screen that draws in it adds its own objects and removes them when it
+   * unmounts; it never disposes the scene. Rejects when there is no WebGL.
+   */
+  scene(): Promise<AppScene>;
   /** Keys typed in the last lesson when `?record=1` is on, else null. */
   recording(): KeyInput[] | null;
 }

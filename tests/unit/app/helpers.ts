@@ -86,6 +86,7 @@ export function fakeScene(): FakeScene {
       setDrift(on) {
         scene.drift = on;
       },
+      moveTo: () => undefined,
     },
     fx: { burst: () => undefined, hitStop: () => undefined, floatText: () => undefined },
     requestRender: () => undefined,

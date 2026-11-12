@@ -10,7 +10,7 @@ import { t } from "@/i18n";
 import { Button } from "@/ui/kit/Button";
 import { Panel } from "@/ui/kit/Panel";
 import { Toast } from "@/ui/kit/Toast";
-import { ComingSoon, nextLessonFor } from "@/ui/screens/ComingSoon";
+import { ComingSoon } from "@/ui/screens/ComingSoon";
 import { Hud } from "@/ui/hud/Hud";
 import { Pause } from "@/ui/screens/Pause";
 import styles from "./App.module.css";
@@ -24,17 +24,12 @@ import type { ScreenProps } from "./types";
 function Soon({ shell }: { shell: Shell }) {
   const { api } = shell;
   const id = api.route().id;
-  const profile = api.profile();
-  const lesson = id === "map" && profile ? nextLessonFor(profile, api.lessons) : null;
-  const toMap = id !== "map" && profile !== null;
+  const toMap = id !== "map" && api.profile() !== null;
   return (
     <ComingSoon
       onBack={api.canGoBack() ? () => api.back() : null}
       onMap={toMap ? () => api.navigate({ id: "map" }) : null}
       onStart={toMap || id === "splash" ? null : () => api.navigate({ id: "splash" })}
-      next={
-        lesson ? { lesson, go: () => api.navigate({ id: "lessonIntro", lesson: lesson.id }) } : null
-      }
     />
   );
 }
