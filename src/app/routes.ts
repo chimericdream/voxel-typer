@@ -28,11 +28,15 @@ export const ROUTE_IDS = [
   "settings",
   "parent",
   "privacy",
+  "placement",
 ] as const;
 
 export type RouteId = (typeof ROUTE_IDS)[number];
 
-/** A place in the app. `lesson` is set for `lessonIntro`, `play` and `results`. */
+/**
+ * A place in the app. `lesson` is set for `lessonIntro`, `play` and `results`. On `placement`
+ * it is set (to `"placement"`) once the test is done, for the "you start here" view.
+ */
 export interface Route {
   id: RouteId;
   lesson?: LessonId;
@@ -61,4 +65,5 @@ export const screens: Partial<Record<RouteId, ScreenLoader>> = {
   results: () => import("@/ui/screens/Results"),
   privacy: () => import("@/ui/screens/Privacy"),
   map: () => import("@/ui/screens/WorldMap"),
+  placement: () => import("@/ui/screens/Placement"),
 };

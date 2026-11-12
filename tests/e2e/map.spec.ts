@@ -203,6 +203,109 @@ async function settle(page: Page): Promise<void> {
   });
 }
 
+interface Box {
+  name: string;
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+/** The on-screen boxes of the island labels, the heading and the corner button. */
+async function labelBoxes(page: Page): Promise<{ labels: Box[]; fixed: Box[] }> {
+  return page.evaluate(() => {
+    // oxlint-disable-next-line unicorn/consistent-function-scoping -- reason: this runs in the page, so it can't use helpers from the test's scope
+    const box = (el: Element, name: string) => {
+      const r = el.getBoundingClientRect();
+      return { name, left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+    };
+    const labels = [...document.querySelectorAll("#app [data-spot] button")].map((el) => {
+      // The "Go here next!" tag sticks out above the button.
+      const tag = el.querySelector("[data-tag]");
+      const b = box(el, el.closest("[data-spot]")?.getAttribute("data-spot") ?? "?");
+      if (tag) b.top = Math.min(b.top, tag.getBoundingClientRect().top);
+      return b;
+    });
+    const fixed = [
+      ...document.querySelectorAll(
+        "#app header > h1, #app header > p, #app header > output:not(:empty)",
+      ),
+    ]
+      .map((el) => box(el, "heading"))
+      .concat(
+        [...document.querySelectorAll("#app header ~ div button")].map((el) => box(el, "corner")),
+      );
+    return { labels, fixed };
+  });
+}
+
+/** Problems with the label layout: a label off screen, or two boxes overlapping. */
+function layoutProblems(
+  { labels, fixed }: { labels: Box[]; fixed: Box[] },
+  width: number,
+  height: number,
+): string[] {
+  // The focus ring reaches 7 px outside a button; keep it on screen too.
+  const ring = 7;
+  const out: string[] = [];
+  const crosses = (a: Box, b: Box): boolean =>
+    a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+  for (const [i, a] of labels.entries()) {
+    if (a.left < ring || a.top < ring || a.right > width - ring || a.bottom > height - ring) {
+      out.push(`${a.name} is clipped: ${JSON.stringify(a)}`);
+    }
+    for (const b of labels.slice(i + 1))
+      if (crosses(a, b)) out.push(`${a.name} overlaps ${b.name}`);
+    for (const f of fixed) if (crosses(a, f)) out.push(`${a.name} overlaps the ${f.name}`);
+  }
+  return out;
+}
+
+test.describe("labels fit at large text", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+  });
+
+  for (const [width, height] of [
+    [1024, 720],
+    [1280, 720],
+  ] as const) {
+    for (const scale of [1.5, 2]) {
+      for (const profile of ["fresh-sprout", "veteran-builder"] as const) {
+        test(`${width}×${height}, text scale ${scale}, ${profile}: no label clipped or overlapping`, async ({
+          page,
+        }) => {
+          await page.setViewportSize({ width, height });
+          const errors = await openMap(page, profile, "&freeze=1");
+          await expect(island(page, "Meadow Home")).toBeFocused();
+          await page.evaluate((s) => {
+            document.documentElement.style.setProperty("--text-scale", String(s));
+          }, scale);
+          await settle(page);
+          await expect
+            .poll(async () => layoutProblems(await labelBoxes(page), width, height), {
+              timeout: 10_000,
+            })
+            .toEqual([]);
+          // The focused label is drawn on top: its middle is its own.
+          for (const name of ["Meadow Home", "Crystal Caverns", "Sparkstone Factory"]) {
+            const button = island(page, name);
+            if ((await button.getAttribute("aria-disabled")) === "true") continue;
+            await button.focus();
+            const mine = await button.evaluate((el) => {
+              const r = el.getBoundingClientRect();
+              const hit = document.elementFromPoint(r.left + 4, r.top + r.height / 2);
+              return hit !== null && el.contains(hit);
+            });
+            expect(mine, name).toBe(true);
+          }
+          expect(errors).toEqual([]);
+        });
+      }
+    }
+  }
+});
+
 test.describe("baselines", () => {
   test.use({ colorScheme: "light" });
 

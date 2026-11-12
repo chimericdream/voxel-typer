@@ -25,7 +25,11 @@ export default {
     labelEmpty: "{name}. New lessons are coming soon.",
     labelLocked: "{name}. In the clouds for now. Finish {need} to get here.",
     labelLockedFirst: "{name}. In the clouds for now.",
-    count: "{done} of {total}",
+    // Shown on the label: "0 of 6 done". The star count shows only once there are stars.
+    count: "{done} of {total} done",
+    // Said and shown after clicking an island that is still in the clouds. Never "Locked!".
+    notYet: "Finish {need} to open this island!",
+    notYetFirst: "This island is still in the clouds. Come back soon!",
     soon: "Coming soon",
     next: "Go here next!",
     list: "Islands",
