@@ -7,7 +7,8 @@
  *   parent gate;
  * - the profiles stored in the second context equal the first's (one fixture carries M3-10's
  *   optional `found`, one doesn't), and the damaged one was listed as
- *   left out. Axe is clean on the check and on the summary.
+ *   left out. Axe is clean on the check and on the summary;
+ * - the same file again: replacing one player offers "Download a save file first" (review N2).
  */
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -178,11 +179,11 @@ test("export from one browser, import into a fresh one: the profiles are equal",
   await ready(b);
   await b.getByRole("button", { name: "Grown-ups: load a save file" }).click();
   await expectScreen(b, "settings");
-  await b.getByRole("button", { name: "Load a save file" }).click();
+  await b.getByRole("button", { name: "Load a save file", exact: true }).click();
   await passGate(b);
   const [chooser] = await Promise.all([
     b.waitForEvent("filechooser"),
-    b.getByRole("button", { name: "Load a save file" }).click(),
+    b.getByRole("button", { name: "Load a save file", exact: true }).click(),
   ]);
   await chooser.setFiles(file);
   const review = b.locator("[data-import-review]");
@@ -207,6 +208,34 @@ test("export from one browser, import into a fresh one: the profiles are equal",
   for (const name of ["Basil", "Juniper", "Captain Quill"]) {
     await expect(b.getByRole("button", { name: new RegExp(name) })).toBeVisible();
   }
+
+  // The same file again: every player is a conflict. Replacing one offers a backup first.
+  await b.getByRole("button", { name: /Juniper/ }).click();
+  await expectScreen(b, "map");
+  await b.getByRole("button", { name: "Settings", exact: true }).click();
+  await expectScreen(b, "settings");
+  await b.getByRole("tab", { name: "Grown-ups" }).click();
+  await passGate(b);
+  const [again] = await Promise.all([
+    b.waitForEvent("filechooser"),
+    b.getByRole("button", { name: "Load a save file", exact: true }).click(),
+  ]);
+  await again.setFiles(file);
+  await expect(review.locator("[data-row='conflict']")).toHaveCount(3);
+  await expect(b.locator("[data-backup]")).toHaveCount(0);
+  const juniper = review.locator("[data-row='conflict']").filter({ hasText: "Juniper" });
+  await juniper.getByRole("radio", { name: "Use the file's copy" }).check();
+  await expect(juniper.locator("[data-wins]")).toContainText("can't be brought back");
+  await axeWhenStill(b, "import: check with a replace");
+  const [backup] = await Promise.all([
+    b.waitForEvent("download"),
+    b.getByRole("button", { name: "Download a save file first" }).click(),
+  ]);
+  expect(backup.suggestedFilename()).toMatch(/^voxel-typer-\d{4}-\d{2}-\d{2}\.json$/);
+  await expect(b.locator("[data-backup]")).toContainText("Saved 3 players");
+  await b.getByRole("button", { name: "Load players" }).click();
+  await expect(result).toContainText("Added 0, updated 1, not loaded 2.");
+  expect(await profiles(b)).toEqual(expected);
   expect(errorsB).toEqual([]);
   await to.close();
 });

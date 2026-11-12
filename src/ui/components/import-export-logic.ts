@@ -6,7 +6,9 @@
  *
  * The data-loss rules:
  * - A profile already on this device (same id) is never written over unless a grown-up picked
- *   "Use the file's copy" for it. The default is to keep this device's.
+ *   "Use the file's copy" for it. The default is to keep this device's. That replace is final:
+ *   the next save drops `:prev`, so the screen offers a backup download first.
+ * - One id is written at most once per import: a repeat in the file becomes a copy.
  * - A profile a newer game wrote can't be replaced (the store refuses it too).
  * - A file profile whose island can't be opened never replaces one whose island can.
  * - New profiles fill the free slots of the 8 in file order; the rest are skipped, with a reason.
@@ -72,7 +74,9 @@ export function planImport(
   return entries.map((e): PlanRow => {
     if (!e.ok) return { index: e.index, kind: "bad", reason: e.reason, detail: e.detail };
     const p = e.profile;
-    // The same id twice in one file: the later one is a new copy, never a replacement.
+    // The same id twice in one file: the later one is only ever a new copy ("keep both"), never
+    // a replacement. Two replacements of one id would write over this device's copy and then
+    // over its `:prev`, and nothing of it would be left (review N1). `resolveImport` checks too.
     const repeat = seen.has(p.id);
     seen.add(p.id);
     if (repeat || !device.ids.has(p.id) || p.id.includes(":")) {
@@ -101,7 +105,10 @@ export type SkipReason =
   | "full"
   | "newer"
   | "invalid"
-  /** "Use the file's copy" was picked but isn't allowed (newer device copy or a bad island). */
+  /**
+   * "Use the file's copy" was picked but isn't allowed: a newer device copy, a bad island, or
+   * this import already writes that id.
+   */
   | "notAllowed";
 
 export type ImportStep =
@@ -124,6 +131,8 @@ export function resolveImport(
   const ids = new Set(device.ids);
   const names = new Set([...device.profiles.values()].map((p) => p.name));
   const steps: ImportStep[] = [];
+  /** Ids this import writes. A second write of one id is refused (review N1). */
+  const written = new Set<string>();
 
   const freshId = (): string => {
     for (;;) {
@@ -140,6 +149,7 @@ export function resolveImport(
     const profile = renamed ? { ...p, id: freshId(), name: suffixedName(p.name, names) } : p;
     free--;
     ids.add(profile.id);
+    written.add(profile.id);
     names.add(profile.name);
     steps.push(
       renamed ? { index, kind: "add", profile, copyOf: p.name } : { index, kind: "add", profile },
@@ -155,7 +165,12 @@ export function resolveImport(
       const pick = choices.get(row.index) ?? row.choices[0] ?? "keepDevice";
       if (pick === "keepBoth") {
         add(row.index, row.profile, true);
-      } else if (pick === "useFile" && row.choices.includes("useFile")) {
+      } else if (
+        pick === "useFile" &&
+        row.choices.includes("useFile") &&
+        !written.has(row.profile.id)
+      ) {
+        written.add(row.profile.id);
         steps.push({
           index: row.index,
           kind: "replace",

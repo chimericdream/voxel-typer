@@ -226,7 +226,8 @@ export function ImportExport(props: ImportExportProps) {
               {t("importexport.export.button")}
             </Button>
           </span>
-          <ExportMessage state={exp} />
+          {/* While the check is open, the export message shows by its backup button instead. */}
+          {imp.kind === "review" ? null : <ExportMessage state={exp} />}
         </div>
       ) : null}
 
@@ -284,6 +285,9 @@ export function ImportExport(props: ImportExportProps) {
             }}
             onGo={() => void apply(imp.rows, imp.device, imp.choices)}
             onCancel={() => setImp({ kind: "idle" })}
+            onBackup={() => void doExport()}
+            exportState={exp}
+            busy={busy}
           />
         ) : null}
 
@@ -333,6 +337,10 @@ function Review(props: {
   onChoose: (index: number, c: Choice) => void;
   onGo: () => void;
   onCancel: () => void;
+  /** Downloads a save file of this device first (the export). */
+  onBackup: () => void;
+  exportState: ExportState;
+  busy: boolean;
 }) {
   const { rows, device, choices, file } = props.state;
   const root = useRef<HTMLDivElement>(null);
@@ -340,6 +348,9 @@ function Review(props: {
   useEffect(() => root.current?.focus(), []);
   const preview = resolveImport(rows, choices, device, previewIds());
   const stepOf = (index: number): ImportStep | undefined => preview.find((s) => s.index === index);
+  // A replace of a readable player is final (`:prev` goes with the next save, review N2), so
+  // offer a backup of this device first. A damaged copy has nothing to back up.
+  const replacesPlayer = preview.some((st) => st.kind === "replace" && st.previousName !== null);
   return (
     <div
       ref={root}
@@ -365,6 +376,17 @@ function Review(props: {
           </li>
         ))}
       </ul>
+      {replacesPlayer ? (
+        <div class={styles.lines} data-backup="">
+          <p class={styles.wins}>{t("importexport.import.backupNote")}</p>
+          <span data-nav="">
+            <Button disabled={props.busy} onClick={props.onBackup}>
+              {t("importexport.import.backup")}
+            </Button>
+          </span>
+          <ExportMessage state={props.exportState} />
+        </div>
+      ) : null}
       <div class={styles.actions}>
         <span data-nav="">
           <Button variant="primary" onClick={props.onGo}>
@@ -446,7 +468,11 @@ function RowView(props: {
         })}
         {mineAt !== null && fileAt > mineAt ? <> {t("importexport.import.newerTag")}</> : null}
       </p>
-      {row.fileIslandOk ? null : <p class={styles.muted}>{t("importexport.import.islandBad")}</p>}
+      {row.fileIslandOk ? null : (
+        <p class={styles.muted} data-island-bad="">
+          {t("importexport.import.islandBad", { name })}
+        </p>
+      )}
       <fieldset class={styles.choice} data-choice={row.index}>
         <legend class={styles.legend}>{t("importexport.import.choiceLegend", { name })}</legend>
         <div class={styles.options}>

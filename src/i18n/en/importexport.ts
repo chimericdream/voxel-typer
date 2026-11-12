@@ -60,13 +60,17 @@ export default {
     },
     wins: {
       keepDevice: "{name} on this device stays as it is. The file's copy isn't loaded.",
-      useFile: "The file's copy of {name} replaces the one on this device.",
+      useFile:
+        "The file's copy of {name} replaces the one on this device. {name}'s progress on this device can't be brought back after that.",
       useFileLost: "The file's copy of {name} replaces the damaged one.",
       keepBoth: "Both stay. The file's copy is added as {copy}.",
       keepBothFull: "There's no room for a copy: a device holds 8 players.",
     },
     islandBad:
-      "The island in the file's copy can't be opened, so it won't replace the island on this device.",
+      "The island in the file's copy can't be opened, so the file's copy can't replace {name} on this device. You can keep this device's copy, or keep both.",
+    backupNote:
+      "Replacing a player can't be undone. To keep a copy of this device's players, download a save file first.",
+    backup: "Download a save file first",
     go: "Load players",
     cancel: "Not now",
     busy: "Loading players…",

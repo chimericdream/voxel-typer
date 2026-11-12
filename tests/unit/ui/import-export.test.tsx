@@ -201,6 +201,45 @@ describe("resolveImport", () => {
   });
 });
 
+describe("one id is written at most once (review N1)", () => {
+  const mine = fixture("meadow-done-miner");
+  const v2 = { ...mine, sessionCounter: 101 };
+  const v3 = { ...mine, sessionCounter: 202 };
+
+  it("a repeat of a device id in the file is only a copy, even if both ask to replace", () => {
+    const d = device([mine]);
+    const rows = rowsFor(d, v2, v3);
+    // The repeat is never offered "Use the file's copy".
+    expect(rows.map((r) => r.kind)).toEqual(["conflict", "add"]);
+    const both = new Map([
+      [0, "useFile"],
+      [1, "useFile"],
+    ] as const);
+    const steps = resolveImport(rows, both, d, counter());
+    expect(steps[0]).toEqual({ index: 0, kind: "replace", profile: v2, previousName: mine.name });
+    expect(steps[1]).toMatchObject({ index: 1, kind: "add", copyOf: mine.name });
+    expect(steps[1]?.kind === "add" && steps[1].profile.id).not.toBe(mine.id);
+    const writesOfMine = steps.filter(
+      (st) => (st.kind === "add" || st.kind === "replace") && st.profile.id === mine.id,
+    );
+    expect(writesOfMine).toHaveLength(1);
+  });
+
+  it("resolveImport refuses a second replace of one id on its own, too", () => {
+    const d = device([mine]);
+    const [first] = rowsFor(d, v2);
+    const [second] = rowsFor(d, v3);
+    const rows: PlanRow[] = [only(first), { ...only(second), index: 1 }];
+    const both = new Map([
+      [0, "useFile"],
+      [1, "useFile"],
+    ] as const);
+    const steps = resolveImport(rows, both, d, counter());
+    expect(steps.map((st) => st.kind)).toEqual(["replace", "skip"]);
+    expect(steps[1]).toMatchObject({ reason: "notAllowed" });
+  });
+});
+
 describe("helpers", () => {
   it("file name uses the local date", () => {
     const at = new Date(2026, 0, 5, 23, 59).getTime();
@@ -412,6 +451,60 @@ describe("ImportExport: import", () => {
     expect(s.map.get(`${mine.id}:prev`)).toBe(JSON.stringify(mine));
   });
 
+  it("the same id twice in the file: the device's copy stays in :prev, the repeat is a copy", async () => {
+    const mine = fixture("meadow-done-miner");
+    const v2 = { ...mine, sessionCounter: 101 };
+    const v3 = { ...mine, sessionCounter: 202 };
+    const s = await setup({ profiles: [mine] });
+    await pick(s, fileOf([v2, v3]));
+    expect(s.root.querySelectorAll("input[value='useFile']")).toHaveLength(1);
+    await choose(s, 0, "useFile");
+    await click(s, t("importexport.import.go"));
+    expect(outcomes(s)).toEqual(["updated", "added"]);
+    expect(await s.h.store.load(mine.id)).toEqual(v2);
+    expect(s.map.get(`${mine.id}:prev`)).toBe(JSON.stringify(mine));
+  });
+
+  it("a replace offers a backup download first, and says it can't be brought back", async () => {
+    const mine = fixture("meadow-done-miner");
+    const theirs = { ...mine, sessionCounter: mine.sessionCounter + 5 };
+    const s = await setup({ profiles: [mine], canExport: false });
+    await pick(s, fileOf([theirs]));
+    // The default (keep this device's) and "keep both" replace nothing: no backup offer.
+    expect(s.root.querySelector("[data-backup]")).toBeNull();
+    await choose(s, 0, "keepBoth");
+    expect(s.root.querySelector("[data-backup]")).toBeNull();
+    await choose(s, 0, "useFile");
+    expect(text(s.root.querySelector("[data-wins]"))).toContain("can't be brought back");
+    const backup = s.root.querySelector("[data-backup]");
+    expect(text(backup)).toContain(t("importexport.import.backupNote"));
+    // It is offered even where the export section is hidden, and it comes before Load players.
+    const labels = [...s.root.querySelectorAll("[data-import-review] button")].map((b) => text(b));
+    expect(labels.indexOf(t("importexport.import.backup"))).toBeLessThan(
+      labels.indexOf(t("importexport.import.go")),
+    );
+    await click(s, t("importexport.import.backup"));
+    expect(s.downloads).toHaveLength(1);
+    const read = await readExportFile(only(s.downloads[0]).blob);
+    // The backup holds this device's copy, from before the import.
+    expect(read.ok && read.entries.map((e) => e.ok && e.profile)).toEqual([mine]);
+    expect(text(backup)).toContain(
+      t("importexport.export.done", { count: 1, file: exportFileName(NOW) }),
+    );
+    // The check is still open; the grown-up can now load.
+    await click(s, t("importexport.import.go"));
+    expect(outcomes(s)).toEqual(["updated"]);
+  });
+
+  it("repairing a damaged slot has nothing to back up: no backup offer", async () => {
+    const a = fixture("fresh-sprout");
+    const s = await setup();
+    s.map.set(a.id, "{broken");
+    await pick(s, fileOf([a]));
+    await choose(s, 0, "useFile");
+    expect(s.root.querySelector("[data-backup]")).toBeNull();
+  });
+
   it("keep both: the file's copy arrives under a new id and name", async () => {
     const mine = fixture("meadow-done-miner");
     const s = await setup({ profiles: [mine] });
@@ -463,7 +556,9 @@ describe("ImportExport: import", () => {
     const mine = withIsland(fixture("meadow-done-miner"));
     const s = await setup({ profiles: [mine] });
     await pick(s, fileOf([badIsland(mine)]));
-    expect(text(s.root)).toContain(t("importexport.import.islandBad"));
+    expect(text(s.root.querySelector("[data-island-bad]"))).toBe(
+      t("importexport.import.islandBad", { name: mine.name }),
+    );
     expect(s.root.querySelector("input[value='useFile']")).toBeNull();
     await click(s, t("importexport.import.go"));
     expect(await s.h.store.load(mine.id)).toEqual(mine);
