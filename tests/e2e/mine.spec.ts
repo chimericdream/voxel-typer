@@ -5,78 +5,12 @@
  */
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-
-interface State {
-  screen: string;
-  calls: number;
-  /** The active target, or null before the world is ready and after the last block. */
-  text: string | null;
-  typed: number;
-  /** The key the session wants next, or null. */
-  next: string | null;
-  stars: number;
-  lootTotal: number;
-  correct: number;
-  errors: number;
-  done: number;
-}
-
-/** Reads `window.__vt` in the page and returns plain values. */
-async function state(page: Page): Promise<State> {
-  return page.evaluate(() => {
-    // oxlint-disable-next-line unicorn/consistent-function-scoping -- reason: this runs in the page; page.evaluate sends only the function it is given
-    const get = (o: unknown, k: string): unknown =>
-      typeof o === "object" && o !== null ? Reflect.get(o, k) : undefined;
-    const call = (o: unknown, k: string): unknown => {
-      const fn = get(o, k);
-      return typeof fn === "function" ? Reflect.apply(fn, o, []) : undefined;
-    };
-    const hooks: unknown = Reflect.get(window, "__vt");
-    const a = get(call(hooks, "session"), "active");
-    const text = typeof get(a, "text") === "string" ? String(get(a, "text")) : null;
-    const typed = Number(get(a, "typed") ?? 0);
-    const marks = get(a, "marks");
-    const chars = text === null ? [] : Array.from(text);
-    const next =
-      text === null
-        ? null
-        : typed < chars.length
-          ? (chars[typed] ?? null)
-          : Array.isArray(marks) && marks.length > chars.length
-            ? " "
-            : null;
-    const result = call(hooks, "lastResult");
-    const summary = get(result, "summary");
-    const loot = get(result, "loot");
-    let lootTotal = 0;
-    if (typeof loot === "object" && loot !== null) {
-      for (const n of Object.values(loot)) lootTotal += Number(n);
-    }
-    return {
-      screen: String(call(hooks, "screen")),
-      calls: Number(call(hooks, "drawCalls") ?? 0),
-      text,
-      typed,
-      next,
-      stars: Number(get(result, "stars") ?? 0),
-      lootTotal,
-      correct: Number(get(summary, "correct") ?? 0),
-      errors: Number(get(summary, "errors") ?? 0),
-      done: Number(get(summary, "targetsCompleted") ?? 0),
-    };
-  });
-}
+import { collectErrors, nextKey, state, waitForLesson } from "./helpers/vt";
 
 async function start(page: Page, query: string): Promise<string[]> {
-  const errors: string[] = [];
-  page.on("pageerror", (err) => errors.push(err.message));
-  page.on("console", (msg) => {
-    if (msg.type() === "error") errors.push(msg.text());
-  });
+  const errors = collectErrors(page);
   await page.goto(`/?${query}&nosave=1`);
-  await expect(page.locator("#app")).toHaveAttribute("data-ready", "1");
-  // The session is null until the meadow is on the stage; keys before that are dropped.
-  await expect.poll(async () => (await state(page)).text, { timeout: 30_000 }).not.toBeNull();
+  await waitForLesson(page);
   return errors;
 }
 
@@ -89,7 +23,8 @@ test("meadow-01 plays to Results inside the draw-call budget", async ({ page }) 
   // A wrong key: nothing is lost, and the kind banner shows.
   const before = await state(page);
   await page.keyboard.press("q");
-  await expect(page.getByText("Almost! Try that key again")).toBeVisible();
+  // The banner is a Toast, so the same words are in the live region (#vt-announcer) outside #app.
+  await expect(page.locator("#app").getByText("Almost! Try that key again")).toBeVisible();
   expect(await state(page)).toMatchObject({ typed: before.typed, text: before.text });
 
   let typed = 0;
@@ -125,7 +60,7 @@ test("meadow-05: a word chips, breaks on its space, and the loot lands in the ho
   const hotbar = page.getByRole("group", { name: /./ }).first();
   await expect(hotbar.getByRole("img")).toHaveCount(0);
   for (let i = 0; i < first.length + 1; i++) {
-    const key = (await state(page)).next;
+    const key = await nextKey(page);
     if (key === null) break;
     await page.keyboard.press(key === " " ? "Space" : key);
     await page.waitForTimeout(80);
@@ -134,7 +69,8 @@ test("meadow-05: a word chips, breaks on its space, and the loot lands in the ho
   const after = await state(page);
   expect(after.text).not.toBeNull();
   expect(after.typed).toBe(0);
-  await expect(hotbar.getByRole("img")).not.toHaveCount(0);
+  // The slot fills when the loot's flight lands, on frame time: slow on CI's SwiftShader (M2-15).
+  await expect(hotbar.getByRole("img")).not.toHaveCount(0, { timeout: 30_000 });
   expect(after.calls).toBeLessThanOrEqual(150);
   expect(errors).toEqual([]);
 });
@@ -149,7 +85,7 @@ for (const [name, query, width] of [
     await page.setViewportSize({ width, height: 720 });
     await start(page, `${query}&screen=play&lesson=meadow-01&seed=1&freeze=1`);
     // The first break makes a "+1" label right above the block: it marks where the block is.
-    const key = (await state(page)).next;
+    const key = await nextKey(page);
     await page.waitForTimeout(600);
     await page.keyboard.press(key ?? "f");
     const label = page
