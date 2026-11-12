@@ -28,8 +28,9 @@ export async function expectScreen(page: Page, id: string, timeout = 15_000): Pr
 }
 
 /**
- * Splash → any key → New player → type the name → Enter → the map's "Play" offer → Enter →
- * lesson intro. The keyboard only: no clicks. Runs axe on each screen when `axe` is set.
+ * Splash → any key → New player → type the name → Enter → the world map (Meadow Home has the
+ * cursor) → Enter → its lesson path (lesson 1 has the cursor) → Enter → lesson intro. The keyboard
+ * only: no clicks. Runs axe on each screen when `axe` is set.
  */
 export async function newPlayerToIntro(
   page: Page,
@@ -57,10 +58,12 @@ export async function newPlayerToIntro(
   await expect(field).toHaveValue(name);
   await page.keyboard.press("Enter");
 
-  // The map is M3-04; until then its panel offers the next lesson, with focus on that button.
+  // The world map (M3-04): the island to play next has the cursor, and so does its next lesson.
   await expectScreen(page, "map");
-  const play = page.getByRole("button", { name: /^Play: / });
-  await expect(play).toBeFocused();
+  await expect(page.getByRole("button", { name: /^Meadow Home/ })).toBeFocused();
+  if (opts.axe === true) await expectNoAxeViolations(page, "world map");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("button", { name: /^Lesson 1: / })).toBeFocused();
   await page.keyboard.press("Enter");
   await expectScreen(page, "lessonIntro");
   await expect(page.getByRole("button", { name: "Start" })).toBeFocused();

@@ -115,8 +115,6 @@ export default {
   comingSoon: {
     title: "Coming soon!",
     body: "We are still building this part of the world. Come back soon!",
-    mapBody: "The world map is coming soon. You can still play your next lesson!",
-    next: "Play: {title}",
     back: "Go back",
     map: "Back to the map",
     start: "Back to the start",

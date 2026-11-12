@@ -126,6 +126,37 @@ describe("camera rig", () => {
     expect(r.pose()).toEqual(presetPose("mine", BOX, { x: 24.5, y: 6.5, z: 42.5 }));
   });
 
+  it("moveTo glides to a free pose and then goes idle; the next preset moves on from it", () => {
+    const { rig: r, camera } = rig();
+    const free = { target: { x: 5, y: 2, z: -30 }, yaw: 0.3, pitch: 0.4, distance: 90, fov: 35 };
+    r.moveTo(free, { durationMs: 320 });
+    const busy = run(r.system, 30);
+    expect(busy.slice(0, 19).every(Boolean)).toBe(true);
+    expect(busy.slice(20).some(Boolean)).toBe(false);
+    expect(r.pose()).toEqual(free);
+    expect(r.current).toBe("overview");
+    expect(camera.position.distanceTo(new THREE.Vector3(5, 2, -30))).toBeCloseTo(90, 4);
+    // The caller's pose object is copied, never kept.
+    free.target.x = 99;
+    expect(r.pose().target.x).toBe(5);
+    r.preset("overview", { durationMs: 0 });
+    expect(r.pose()).toEqual(presetPose("overview", BOX, { x: 24.5, y: 6.5, z: 42.5 }));
+  });
+
+  it("moveTo snaps by default and under reduced motion", () => {
+    const free = { target: { x: 1, y: 2, z: 3 }, yaw: 0, pitch: 0.2, distance: 40, fov: 35 };
+    const a = rig();
+    const wakes = a.wakes();
+    a.rig.moveTo(free);
+    expect(a.rig.pose()).toEqual(free);
+    expect(a.wakes()).toBe(wakes + 1);
+    expect(run(a.rig.system, 2)).toEqual([false, false]);
+    const b = rig(true);
+    b.rig.moveTo(free, { durationMs: 500 });
+    expect(b.rig.pose()).toEqual(free);
+    expect(run(b.rig.system, 2)).toEqual([false, false]);
+  });
+
   it("reduced motion makes a setTarget glide a snap", () => {
     const { rig: r } = rig(true);
     r.preset("mine", { durationMs: 0 });
