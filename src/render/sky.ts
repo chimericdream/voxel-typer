@@ -36,8 +36,12 @@ import type { EnvironmentContext, EnvironmentController } from "./scene";
 export interface SkyOptions {
   /** `?freeze`: no cloud drift, no cross-fade, and `t01` pinned to {@link DEFAULT_T01}. */
   frozen?: boolean;
-  /** Cloud drift on at start. Default true (still off under `frozen` and reduced motion). */
-  drift?: boolean;
+  /**
+   * Cloud drift on at start. Default true (still off under `frozen` and reduced motion). A
+   * function is read every frame, so the clouds follow another switch (the app passes the camera
+   * rig's `drifting`), until `setDrift` sets a fixed value.
+   */
+  drift?: boolean | (() => boolean);
   /** Cross-fade length for `set()`. Default 2000 ms. */
   lerpMs?: Ms;
   /** Cloud layout seed. Default 7. */
@@ -282,7 +286,7 @@ export function createSkyEnvironment(
     const frozen = opts.frozen ?? false;
     const lerpMs = opts.lerpMs ?? DEFAULT_LERP_MS;
     const envFor = opts.envFor ?? biomeEnv;
-    let driftOn = opts.drift ?? true;
+    let driftOn: boolean | (() => boolean) = opts.drift ?? true;
 
     const cur = makeMix();
     const from = makeMix();
@@ -383,7 +387,8 @@ export function createSkyEnvironment(
       });
     };
 
-    const isDrifting = (): boolean => driftOn && !frozen && !ctx.reducedMotion();
+    const isDrifting = (): boolean =>
+      (typeof driftOn === "function" ? driftOn() : driftOn) && !frozen && !ctx.reducedMotion();
 
     const controller: SkyController = {
       set(env: { biome: BiomeId; timeOfDay: TimeOfDay; t01?: number }) {

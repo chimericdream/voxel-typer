@@ -310,6 +310,21 @@ describe("sky controller", () => {
     expect(sky.system?.(100, 400)).toBe(true);
   });
 
+  it("drift given as a function is read every frame (the app follows the camera, M2-13 N8)", () => {
+    let on = false;
+    const { sky } = setup({ drift: () => on });
+    sky.set({ biome: "meadow", timeOfDay: "day" });
+    expect(sky.system?.(100, 100)).toBe(false);
+    on = true;
+    expect(sky.drifting).toBe(true);
+    expect(sky.system?.(100, 200)).toBe(true);
+    on = false;
+    expect(sky.system?.(100, 300)).toBe(false);
+    // setDrift pins a fixed value again.
+    sky.setDrift(true);
+    expect(sky.system?.(100, 400)).toBe(true);
+  });
+
   it("reduced motion: discs jump to their new place while colors still fade", () => {
     const { sky, setReduced } = setup({ drift: false });
     sky.set({ biome: "meadow", timeOfDay: "day", t01: 0 });

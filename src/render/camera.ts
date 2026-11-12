@@ -147,6 +147,8 @@ export interface CameraRigCore extends CameraRig {
    */
   setTarget(at: Vec3, opts?: { durationMs?: Ms }): void;
   setDrift(on: boolean): void;
+  /** True while the parallax drift moves the camera: drift on and no reduced motion. */
+  readonly drifting: boolean;
   readonly current: PresetName;
   /** The base pose (without drift and shake). */
   pose(): Readonly<CameraPose>;
@@ -273,6 +275,9 @@ export function createCameraRig(
     setDrift(on) {
       drift = on;
       opts.wake();
+    },
+    get drifting() {
+      return driftOn();
     },
     get current() {
       return current;
