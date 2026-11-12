@@ -312,10 +312,12 @@ export function createSkyEnvironment(
     dome.name = "sky-dome";
     dome.renderOrder = -100;
     dome.frustumCulled = false;
-    // Follow the camera so the sky never ends.
+    // Follow the camera so the sky never ends. The dome draws first (renderOrder −100), so the
+    // fog it sets for this camera holds for the whole frame (`fog` and `focus` are made below).
     dome.onBeforeRender = (_r, _s, camera) => {
       dome.position.copy(camera.position);
       dome.updateMatrixWorld();
+      fog.density = fogFor(cur.fogDensity, camera.position.distanceTo(focus));
     };
 
     // Sun and moon.
@@ -342,12 +344,6 @@ export function createSkyEnvironment(
     clouds.mesh.onBeforeRender = () => clouds.place(focus, focus.y * 2);
 
     const fog = new THREE.FogExp2(0xffffff, 0);
-    // The dome draws first (renderOrder −100), so the fog it sets here holds for the whole frame.
-    const follow = dome.onBeforeRender;
-    dome.onBeforeRender = (...args) => {
-      follow(...args);
-      fog.density = fogFor(cur.fogDensity, args[2].position.distanceTo(focus));
-    };
     ctx.scene.background = null;
     ctx.scene.fog = fog;
     ctx.scene.add(dome, sunDisc, moonDisc, clouds.mesh);

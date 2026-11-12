@@ -218,6 +218,9 @@ describe("clouds", () => {
   });
 });
 
+/** How much FogExp2 hides a block `dist` away, for a camera `d` from the diorama's middle. */
+const haze = (d: number, dist: number): number => 1 - Math.exp(-((fogFor(0.0042, d) * dist) ** 2));
+
 describe("sky controller", () => {
   it("adds the dome, discs, clouds and horizon-colored fog; the first set snaps", () => {
     const { scene, lights, sky } = setup({ drift: false });
@@ -353,8 +356,6 @@ describe("sky controller", () => {
     expect(fogFor(0.004, 0)).toBeCloseTo(0.004 * FOG_BOOST, 9);
     // A far block in the Mine view (about 50 away) is hazed by a fifth or more; the overview's
     // nearest edge (about 80 away from a camera 120 out) by under a tenth.
-    const haze = (d: number, dist: number): number =>
-      1 - Math.exp(-((fogFor(0.0042, d) * dist) ** 2));
     expect(haze(22, 50)).toBeGreaterThan(0.2);
     expect(haze(120, 80)).toBeLessThan(0.1);
   });
@@ -364,8 +365,10 @@ describe("sky controller", () => {
     sky.set({ biome: "meadow", timeOfDay: "day" });
     const camera = new THREE.PerspectiveCamera();
     camera.position.set(0, 400, 0);
-    const call = sky.dome.onBeforeRender as (...a: unknown[]) => void;
-    call(null, scene, camera, null, null, null);
+    // The renderer, geometry, material and group arguments go unused, so the test passes none.
+    const hook: unknown = Reflect.get(sky.dome, "onBeforeRender");
+    if (typeof hook !== "function") throw new Error("no dome hook");
+    Reflect.apply(hook, sky.dome, [null, scene, camera]);
     const fog = scene.fog;
     if (!(fog instanceof THREE.FogExp2)) throw new Error("no fog");
     expect(fog.density).toBeLessThan(MEADOW_ENV.times.day.fogDensity * FOG_BOOST);
