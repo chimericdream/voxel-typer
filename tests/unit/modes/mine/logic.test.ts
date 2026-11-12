@@ -45,6 +45,7 @@ import {
   seamLength,
   settleDrops,
   slotOf,
+  NO_SLOT,
   stageFrame,
   stepFlights,
   veinOnBreak,
@@ -266,10 +267,18 @@ describe("loot fly queue", () => {
     expect(slotOf(q.seen, "new-thing")).toBe(2);
   });
 
-  it("wraps to the first slot after nine different blocks", () => {
+  it("keeps the first nine kinds in their slots and gives later kinds none (N1)", () => {
     const seen = Array.from({ length: FLY_SLOTS }, (_, i) => `b${i}`);
     expect(slotOf(seen, "b8")).toBe(8);
-    expect(slotOf(seen, "tenth")).toBe(0);
+    expect(slotOf(seen, "tenth")).toBe(NO_SLOT);
+    let q = emptyFlyQueue();
+    for (let i = 0; i < 14; i++) q = enqueueDrops(q, [drop(`k${i}`)], i * 10, true).queue;
+    q = enqueueDrops(q, [drop("k0"), drop("k12")], 500).queue;
+    expect(q.flights.map((f) => f.slot)).toEqual([0, NO_SLOT]);
+    // No slot ever goes to a second kind.
+    expect(q.seen.slice(0, FLY_SLOTS).map((b) => slotOf(q.seen, b))).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7, 8,
+    ]);
   });
 
   it("staggers the drops of one block and lands them in order", () => {

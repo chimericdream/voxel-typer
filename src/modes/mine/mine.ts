@@ -37,6 +37,7 @@ import { HOTBAR_SLICE, reportWrongKey } from "@/ui/hud/bridge";
 import type { HotbarItem, HotbarSlice } from "@/ui/hud/bridge";
 import type { ModeContext, ModeInstance } from "../types";
 import {
+  NO_SLOT,
   BANNER_SHOW_MS,
   EST_WPM,
   TARGET_LATENCY,
@@ -92,7 +93,7 @@ const LOOT_TABLES: Partial<Record<BiomeId, LootTable>> = { meadow: meadowLoot };
 
 /** What Mine publishes for the HUD in `HudState.custom` (contracts §10). */
 export interface MineHudSlice {
-  /** Blocks found so far, in the order first found: the hotbar's slots (index mod 9). */
+  /** Blocks found so far, in the order first found. The first nine fill the hotbar's slots. */
   loot: { block: BlockId; count: number }[];
   /** True while the block on the stage is an ore-vein bonus. */
   vein: boolean;
@@ -231,7 +232,7 @@ export function create(ctx: ModeContext): MineInstance {
     hud.set({ banner: key === null ? null : { key, tone } });
   };
 
-  /** Hotbar slots: a block's slot is the order it was first found in, wrapping after 9. */
+  /** Hotbar slots: the first nine kinds found, in that order; they never change kind. */
   const slots: (HotbarItem | null)[] = [];
   /**
    * Publishes the loot to the HUD. `custom` slices are compared by identity (M2-14), so this is
@@ -298,13 +299,18 @@ export function create(ctx: ModeContext): MineInstance {
     else found.push({ block: f.block, count: f.count });
     const count = row?.count ?? f.count;
     const def = blockById.get(f.block);
+    audio.sfx("pop", { gain: 0.4 });
+    if (f.slot === NO_SLOT) {
+      // A tenth kind or later: counted in the loot (Results lists it), but no slot is taken over.
+      publishCustom();
+      return;
+    }
     while (slots.length <= f.slot) slots.push(null);
     slots[f.slot] = {
       label: t("mine.slot", { name: def ? t(def.nameKey) : f.block, count }),
       count,
       icon: fly?.icon(f.block) ?? "",
     };
-    audio.sfx("pop", { gain: 0.4 });
     publishCustom();
   };
 

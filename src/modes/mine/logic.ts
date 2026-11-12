@@ -188,7 +188,7 @@ export interface Flight {
   readonly block: BlockId;
   readonly count: number;
   readonly rarity: Rarity;
-  /** Hotbar slot it lands in, 0–8. */
+  /** Hotbar slot it lands in, 0–8, or {@link NO_SLOT} for a kind found after the first nine. */
   readonly slot: number;
   readonly startMs: Ms;
   readonly durationMs: Ms;
@@ -197,16 +197,25 @@ export interface Flight {
 export interface FlyQueue {
   readonly flights: readonly Flight[];
   readonly nextId: number;
-  /** Blocks in the order they were first found. A block's slot is its index here, mod 9. */
+  /** Blocks in the order they were first found. The first nine own slots 0–8 (see {@link slotOf}). */
   readonly seen: readonly BlockId[];
 }
 
 export const emptyFlyQueue = (): FlyQueue => ({ flights: [], nextId: 1, seen: [] });
 
-/** The hotbar slot of a block: the order it was first found in, wrapping after 9. */
+/** The slot of a kind that has none: it was found after the hotbar filled up. */
+export const NO_SLOT = -1;
+
+/**
+ * The hotbar slot of a block: the order it was first found in. The first nine kinds keep their
+ * slots for the whole lesson, and a later kind gets {@link NO_SLOT} (M2-13 review N1). A slot never
+ * changes kind, because a child sees a stack that turns into another block as loot taken away.
+ * Kinds without a slot still count, and Results lists every kind found.
+ */
 export function slotOf(seen: readonly BlockId[], block: BlockId): number {
   const i = seen.indexOf(block);
-  return (i === -1 ? seen.length : i) % FLY_SLOTS;
+  const at = i === -1 ? seen.length : i;
+  return at < FLY_SLOTS ? at : NO_SLOT;
 }
 
 /**
