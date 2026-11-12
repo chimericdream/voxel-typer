@@ -179,5 +179,57 @@ Field legend: see the top of `tasks-m0-m1.md`.
 - **Acceptance:**
   - [ ] Before and after screenshots of each affected screen in the handoff; baselines refreshed.
 
+### M3-FIX-3 Placement test follow-ups (before Birch lessons ship)
+- **Size/Tier:** S / B · **Review:** required (pedagogy)
+- **Depends on:** M3-05; must merge before any non-Meadow lesson ships (M3-03)
+- **Owns:** `src/engine/placement.ts`, `src/engine/placement-driver.ts`, `src/modes/placement/*`,
+  `src/app/progress.ts` (`applyPlacement`), `tools/sim-placement.ts`, their tests
+- **Spec:** from the M3-05 review (PR #154, review 5870060807).
+  - **N1, rung key coverage:** a rung opens without really checking its new keys. In its first
+    8 blocks only 41 % (top row) and 28 % (bottom row) use a new key. Make each rung's blocks
+    cover its new keys before the 8-of-10 rule can open the next one.
+  - **N2, the digits rung:** the whole-test WPM and accuracy average drags fast typists down.
+    After the capitals rung they spend about 60 s on digits, so climbing higher lowers their
+    score. Score each gate on the blocks typed at or below that biome's rung, or give the sim
+    slower digits and Shift.
+  - **N4, re-offering the test:** after a reload, or Pause → Quit mid-test, the test is never
+    offered again. Offer it once more on the next visit.
+  - **N5, a missing test:** stats from real lessons must win over the test's estimate.
+  - **N6–N9, small fixes:**
+    - a repeated `plays === 0` check (use `isTestedOut`);
+    - the Sprout timer default has no test;
+    - the 30 s floor is elapsed time, not active typing (fix the docs or the code);
+    - the copy suggestions in the review.
+- **Acceptance:**
+  - [ ] Sim results documented again, with slower digits and Shift for the sim typists.
+  - [ ] Pedagogy review passes.
+
+### M3-FIX-4 Map labels and accessibility follow-ups
+- **Size/Tier:** S / B · **Review:** required (a11y)
+- **Depends on:** M3-FIX-1, M3-07; before the M3-08 text-size slider ships
+- **Owns:** `src/ui/screens/map-logic.ts`, `src/ui/screens/WorldMap.tsx`, the map e2e, plus the
+  small a11y files named below
+- **Spec:**
+  - **Map** (M3-FIX-1 review 5870192563):
+    - **N1:** the last step of `layoutLabels` (map-logic.ts:297) never re-checks earlier labels
+      and never keeps a moved label inside the bottom of the window. At 1024×600, text scale 2,
+      veteran player, "meadow" overlaps "sparkstone" and "shore" overlaps "mines". Fix the solver
+      and add that case to the e2e.
+    - **N2:** the e2e must assert `data-mode="3d"`, so it can't pass on the flat fallback.
+    - **N3:** typed letters should also clear the locked-island note.
+    - **N4:** a second click on the same locked island restarts the note and announces it again.
+  - **Accessibility** (M3-07 review 5870141189):
+    - In Windows Contrast themes, typed and pending letters look the same; add a `GrayText` rule.
+    - The HUD banner should ask the flash guard.
+    - The shared flash guard resets on a clock from a different source.
+    - The reduced-motion e2e must fail on the old code: tell shake apart from camera drift, and
+      add an OS-setting change mid-game.
+    - Toasts and announcements need separate live regions, so neither overwrites the other.
+    - Results should read the motion setting live.
+    - The `KeyCap` kit should default to `--font-body`.
+    - Test the "Hear it again" hint at text scale 2.
+- **Acceptance:**
+  - [ ] Each item fixed, or listed with a reason; a11y review passes.
+
 ### M3-GATE
 `PLAN.md` Phase 3 acceptance (curriculum doc generated, sim plausibility, axe clean). Owner gets the word-list review dump (👤, can be deferred to M6-08 by the owner's choice). Tag `m3`.
