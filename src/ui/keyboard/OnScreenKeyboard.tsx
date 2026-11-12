@@ -9,6 +9,7 @@
  * only the outline. Sizes follow `--text-scale` but never overflow the container.
  */
 import { useEffect, useRef, useState } from "preact/hooks";
+import { allowFlash } from "@/a11y/flashes";
 import type { LayoutDef } from "@/content/layouts/types";
 import { t } from "@/i18n";
 import { KeyCap } from "@/ui/kit/KeyCap";
@@ -96,7 +97,8 @@ function useWobble(
     if (code === null) return;
     const fed = feedWobble(gateRef.current, code, now());
     gateRef.current = fed.gate;
-    if (!fed.wobble) return;
+    // The outline blinks on: the page-wide flash guard has the last word (≤ 3 a second).
+    if (!fed.wobble || !allowFlash(now())) return;
     setWobble(code);
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {

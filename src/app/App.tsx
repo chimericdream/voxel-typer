@@ -3,8 +3,10 @@
  * footer disclaimer. The shared canvas lives outside Preact (see `main.ts`), so screens never
  * remount it.
  */
+import type { ReadonlySignal } from "@preact/signals";
 import type { ComponentType } from "preact";
 import { useEffect, useState } from "preact/hooks";
+import { fingerLabelsOn, hearAgainKey, hearAgainShown } from "@/a11y/options";
 import { EN_US, layoutById } from "@/content/layouts";
 import { t } from "@/i18n";
 import { Button } from "@/ui/kit/Button";
@@ -59,7 +61,7 @@ function ScreenView({ shell, route }: { shell: Shell; route: Route }) {
   return <Screen app={shell.api} route={route} />;
 }
 
-function PlayView({ shell }: { shell: Shell }) {
+function PlayView({ shell, localVoice }: { shell: Shell; localVoice: boolean }) {
   const status = shell.playStatus.value;
   if (status === "failed") return <Soon shell={shell} />;
   if (status === "loading") {
@@ -82,6 +84,10 @@ function PlayView({ shell }: { shell: Shell }) {
           settings={profile.settings}
           band={profile.ageBand}
           layout={layoutById(profile.settings.layout) ?? EN_US}
+          labels={fingerLabelsOn(profile.settings, profile.ageBand)}
+          hearAgainKey={
+            hearAgainShown(profile.settings, localVoice) ? hearAgainKey(profile.ageBand) : null
+          }
         />
       ) : null}
       {status === "running" ? null : (
@@ -112,13 +118,20 @@ function Notices({ shell }: { shell: Shell }) {
   );
 }
 
-export function App({ shell }: { shell: Shell }) {
+export interface AppProps {
+  shell: Shell;
+  /** True while the device has an English voice of its own (`src/a11y/voice.ts`). */
+  localVoice?: ReadonlySignal<boolean>;
+}
+
+export function App({ shell, localVoice }: AppProps) {
   const route = shell.route.value;
+  const voice = localVoice?.value ?? false;
   return (
     <div class={styles.app} data-route={route.id}>
       <main class={styles.main}>
         {route.id === "play" ? (
-          <PlayView shell={shell} />
+          <PlayView shell={shell} localVoice={voice} />
         ) : (
           <ScreenView key={route.id} shell={shell} route={route} />
         )}

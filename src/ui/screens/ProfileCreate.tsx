@@ -106,7 +106,8 @@ export default function ProfileCreate({ app }: ScreenProps) {
       setProblem("saveFailed");
       return;
     }
-    app.navigate({ id: "map" }, { replace: true });
+    // A new player gets the placement test first; it has a clear Skip (M3-05).
+    app.navigate({ id: "placement" }, { replace: true });
   };
 
   const count = Array.from(name).length;

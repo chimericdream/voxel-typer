@@ -29,6 +29,19 @@ export interface VtTestHooks {
  */
 export interface VtDevHooks extends VtTestHooks {
   drawCalls(): number | null;
+  /**
+   * The scene camera's world position and rotation (quaternion) as last written, null before the
+   * scene exists. For reduced-motion checks: no shake, no drift (M3-07).
+   */
+  camera(): {
+    x: number;
+    y: number;
+    z: number;
+    qx: number;
+    qy: number;
+    qz: number;
+    qw: number;
+  } | null;
 }
 
 /** The global the hooks live on. Never present in a production build. */

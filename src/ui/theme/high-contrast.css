@@ -1,0 +1,48 @@
+/*
+ * High contrast extras (task M3-07, PLAN.md §4.6).
+ *
+ * The colors live in the `contrast` theme (themes.ts), where every text pair is checked at 4.5:1
+ * and every UI pair at 3:1. This sheet adds what colors can't do: a thicker focus ring, solid
+ * underlines on links, and the cues that must survive the OS's own forced colors (Windows
+ * "Contrast themes"), where the bevel images and finger-zone colors are dropped.
+ *
+ * Kit classes are CSS-module hashed, so these rules use the kit's data attributes and roles.
+ */
+:root[data-theme="contrast"] {
+  --focus-w: 5px;
+  --focus-halo-w: 3px;
+}
+
+:root[data-theme="contrast"] a[href] {
+  text-decoration: underline solid;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 0.15em;
+}
+
+@media (forced-colors: active) {
+  /* Buttons and switches keep a visible edge without their bevel image. */
+  button,
+  [role="switch"],
+  [role="tab"] {
+    border-color: ButtonText;
+  }
+
+  /* Focus: the system highlight, always. */
+  :focus-visible {
+    outline: var(--focus-w) solid Highlight !important;
+    outline-offset: 2px;
+  }
+
+  /* The next key and the next letter: a ring in the system highlight, not a tint. */
+  [data-next] {
+    outline: 3px solid Highlight;
+    outline-offset: 1px;
+  }
+
+  /* A selected tab or slot. */
+  [aria-selected="true"],
+  [aria-current="true"],
+  [aria-checked="true"] {
+    outline: 3px solid Highlight;
+  }
+}

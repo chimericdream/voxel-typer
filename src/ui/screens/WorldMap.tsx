@@ -11,7 +11,7 @@
  * Keyboard: the arrow keys (or Tab) move between the open islands, Enter goes in, the arrows then
  * move along the lesson path, Enter plays, and Escape comes back out.
  */
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { AppApi, ScreenProps } from "@/app/types";
 import type { Lesson } from "@/content/lessons/types";
 import { t } from "@/i18n";
@@ -21,8 +21,17 @@ import type { BiomeId } from "@/types/core";
 import { Button } from "@/ui/kit/Button";
 import { Panel } from "@/ui/kit/Panel";
 import { BiomePath, MiniStars } from "./BiomePath";
-import { islandInfos, islandLabel, lessonNodes, practiceCamp, startIsland } from "./map-logic";
-import type { IslandInfo } from "./map-logic";
+import {
+  LABEL_LAYOUT,
+  islandInfos,
+  islandLabel,
+  layoutLabels,
+  lessonNodes,
+  notYetLine,
+  practiceCamp,
+  startIsland,
+} from "./map-logic";
+import type { IslandInfo, KeepOut, LabelBox } from "./map-logic";
 import { arrowStep, focusOnControl, moveFocus, prefersReducedMotion, useScreenInput } from "./nav";
 import screen from "./screen.module.css";
 import styles from "./WorldMap.module.css";
@@ -49,6 +58,30 @@ function takeReturn(profile: Profile): BiomeId | null {
 
 type Mode = "loading" | "3d" | "flat";
 
+/** How long the "not yet" line stays after clicking an island in the clouds. */
+const NOTE_MS = 4000;
+
+/** A short sideways shake, like a gentle "not yet". Skipped under reduced motion. */
+const WOBBLE: Keyframe[] = [
+  { translate: "0 0" },
+  { translate: "-5px 0" },
+  { translate: "5px 0" },
+  { translate: "-3px 0" },
+  { translate: "0 0" },
+];
+const WOBBLE_MS = 380;
+
+/** `el`'s box in the pixels of `within` (a rect from `getBoundingClientRect`). */
+function boxIn(el: Element, within: DOMRect): KeepOut {
+  const r = el.getBoundingClientRect();
+  return {
+    left: r.left - within.left,
+    top: r.top - within.top,
+    right: r.right - within.left,
+    bottom: r.bottom - within.top,
+  };
+}
+
 function NoPlayer({ app }: { app: AppApi }) {
   const actions = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -72,10 +105,13 @@ function IslandButton({
   info,
   onEnter,
   onSelect,
+  onLocked,
 }: {
   info: IslandInfo;
   onEnter: () => void;
   onSelect: () => void;
+  /** A click on an island that is still in the clouds. */
+  onLocked: (button: HTMLElement) => void;
 }) {
   return (
     <button
@@ -86,8 +122,9 @@ function IslandButton({
       data-next={info.unlocked && info.next ? "1" : undefined}
       aria-disabled={info.unlocked ? undefined : "true"}
       tabIndex={info.unlocked ? 0 : -1}
-      onClick={() => {
+      onClick={(e) => {
         if (info.unlocked) onEnter();
+        else onLocked(e.currentTarget);
       }}
       onFocus={onSelect}
       onKeyDown={(e) => {
@@ -100,11 +137,12 @@ function IslandButton({
         {islandLabel(info)}
       </span>
       {info.unlocked && info.next ? (
-        <span class={styles.nextTag} aria-hidden="true">
+        <span class={styles.nextTag} aria-hidden="true" data-tag="">
           {t("map.island.next")}
         </span>
       ) : null}
       <span class={styles.islandName} aria-hidden="true">
+        {info.unlocked ? null : <CloudIcon />}
         {info.name}
       </span>
       {info.unlocked ? (
@@ -113,16 +151,28 @@ function IslandButton({
             t("map.island.soon")
           ) : (
             <>
-              <span class={styles.islandStars}>
-                <MiniStars value={info.stars > 0 ? 1 : 0} count={1} />
-                {info.stars}
-              </span>
+              {/* Words first ("0 of 6 done"); the star count shows only once there are stars. */}
               <span>{t("map.island.count", { done: info.done, total: info.total })}</span>
+              {info.stars > 0 ? (
+                <span class={styles.islandStars}>
+                  <MiniStars value={1} count={1} />
+                  {info.stars}
+                </span>
+              ) : null}
             </>
           )}
         </span>
       ) : null}
     </button>
+  );
+}
+
+/** A small blocky cloud, on the label of an island that is still in the clouds. */
+function CloudIcon() {
+  return (
+    <svg class={styles.cloud} viewBox="0 0 12 8" aria-hidden="true" focusable="false">
+      <path d="M3 2h2V1h3v1h1v1h1v1h1v3H1V5h1V3h1z" />
+    </svg>
   );
 }
 
@@ -134,23 +184,65 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
   const list = useRef<HTMLUListElement>(null);
   const view = useRef<WorldMapView | null>(null);
   const selectedRef = useRef<BiomeId | null>(open ?? startIsland(infos));
-  const openAtStart = useRef(open);
+  // Read when the 3D view is (re)built, so a rebuild starts where the player is now.
+  const openRef = useRef(open);
+  const profileRef = useRef(profile);
+  useLayoutEffect(() => {
+    openRef.current = open;
+    profileRef.current = profile;
+  });
   const path = useRef<HTMLDivElement>(null);
+  const top = useRef<HTMLElement>(null);
+  const corner = useRef<HTMLDivElement>(null);
+  const [note, setNote] = useState<string | null>(null);
+  // The 3D view uses only these from the profile. A new profile object for the same player with
+  // the same open islands (a settings save, say) must not rebuild it.
+  const unlockedKey = profile.progress.unlockedBiomes.toSorted().join(",");
 
   // The 3D islands. Without a scene (no WebGL, or in tests) the buttons are laid out flat.
   useEffect(() => {
     let live = true;
     let made: WorldMapView | null = null;
+    // Each label hangs under its island, then is nudged so they all stay inside the window and
+    // clear of each other and of the heading (`layoutLabels`).
     const place = (): void => {
       const ul = list.current;
-      if (made === null || ul === null) return;
+      if (made === null || ul === null || ul.hidden) return;
+      const width = ul.clientWidth;
+      const height = ul.clientHeight;
+      if (width === 0 || height === 0) return;
+      const { margin, gap } = LABEL_LAYOUT;
+      // Three labels side by side always fit: a long name wraps instead.
+      ul.style.setProperty("--label-max", `${Math.floor((width - 2 * margin - 2 * gap) / 3)}px`);
+      const spots: HTMLElement[] = [];
+      const boxes: LabelBox[] = [];
       for (const [biome, at] of made.anchors()) {
         const spot = ul.querySelector<HTMLElement>(`[data-spot="${biome}"]`);
-        if (!spot) continue;
-        spot.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px)`;
-        spot.dataset["placed"] = "1";
+        const button = spot?.querySelector<HTMLElement>("button");
+        if (!spot || !button) continue;
+        const tag = button.querySelector<HTMLElement>("[data-tag]");
+        spots.push(spot);
+        boxes.push({
+          x: at.x,
+          y: at.y,
+          w: button.offsetWidth,
+          h: button.offsetHeight,
+          above: tag ? Math.max(0, -tag.offsetTop) : 0,
+        });
       }
+      const frame = ul.getBoundingClientRect();
+      const keepOut = [top.current, corner.current].flatMap((el) =>
+        el === null ? [] : [boxIn(el, frame)],
+      );
+      layoutLabels(boxes, { width, height }, keepOut).forEach((at, i) => {
+        const spot = spots[i];
+        if (!spot) return;
+        spot.style.transform = `translate(${at.left}px, ${at.top}px)`;
+        spot.dataset["placed"] = "1";
+      });
     };
+    // Labels change size when the fonts arrive or the text size changes: place them again.
+    const sizes = typeof ResizeObserver === "function" ? new ResizeObserver(() => place()) : null;
     const loading = Promise.all([app.scene(), import("@/render/map/view")])
       .then(([scene, map]) => {
         const three = scene.three;
@@ -170,16 +262,20 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
             onFrame: (fn) => scene.onFrame(fn),
           },
           {
-            unlocked: new Set(profile.progress.unlockedBiomes),
+            unlocked: new Set(profileRef.current.progress.unlockedBiomes),
             viewport: () => ({ width: canvas.clientWidth, height: canvas.clientHeight }),
-            reducedMotion: () => prefersReducedMotion(profile.settings.reducedMotion),
-            start: openAtStart.current,
+            reducedMotion: () => prefersReducedMotion(profileRef.current.settings.reducedMotion),
+            start: openRef.current,
           },
         );
         view.current = made;
         made.onMove(place);
         made.select(selectedRef.current);
         setMode("3d");
+        if (sizes !== null) {
+          for (const el of list.current?.querySelectorAll("button") ?? []) sizes.observe(el);
+          if (top.current) sizes.observe(top.current);
+        }
       })
       .catch(() => {
         if (live) setMode("flat");
@@ -190,12 +286,13 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
     return () => {
       live = false;
       window.removeEventListener("resize", onResize);
+      sizes?.disconnect();
       view.current = null;
       made?.dispose();
     };
-    // Built once per visit: the screen remounts on every route change, with the profile as it
-    // is then.
-  }, [app, profile]);
+    // Built once per visit (the screen remounts on every route change), and again only when the
+    // player or their open islands change.
+  }, [app, profile.id, unlockedKey]);
 
   const focusIsland = (biome: BiomeId | null): void => {
     const el = list.current;
@@ -225,6 +322,23 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
     app.audio.sfx("whoosh");
   };
 
+  // A click on an island still in the clouds: a little shake and a kind line, never "locked".
+  const nudge = (info: IslandInfo, button: HTMLElement): void => {
+    setNote(notYetLine(info));
+    app.audio.sfx("pop", { gain: 0.5 });
+    const still = prefersReducedMotion(profile.settings.reducedMotion);
+    if (!still && typeof button.animate === "function") {
+      button.animate(WOBBLE, { duration: WOBBLE_MS, easing: "ease-in-out" });
+    }
+  };
+
+  useEffect(() => {
+    const id = note === null ? null : setTimeout(() => setNote(null), NOTE_MS);
+    return () => {
+      if (id !== null) clearTimeout(id);
+    };
+  }, [note]);
+
   const leave = (): void => {
     setOpen(null);
     view.current?.show(null);
@@ -242,6 +356,7 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
 
   useScreenInput(app, (i) => {
     if (i.kind !== "control") return false;
+    setNote(null);
     if (i.action === "back") {
       // Out of a path first; from the whole map, back to "Who is playing?". The app's own history
       // would lead to the lesson just played, which is not where a child expects Escape to go.
@@ -263,9 +378,13 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
 
   return (
     <div class={styles.map} ref={root} data-mode={mode} data-open={open ?? undefined}>
-      <header class={styles.top}>
+      <header class={styles.top} ref={top}>
         <h1 class={styles.title}>{t("map.title")}</h1>
         {open === null ? <p class={styles.hint}>{t("map.hint")}</p> : null}
+        {/* Always in the page, so a screen reader hears the line when it appears. */}
+        <output class={styles.note} data-note="">
+          {open === null ? note : null}
+        </output>
       </header>
       <ul
         class={styles.islands}
@@ -279,12 +398,13 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
               info={info}
               onEnter={() => enter(info.biome)}
               onSelect={() => select(info.biome)}
+              onLocked={(button) => nudge(info, button)}
             />
           </li>
         ))}
       </ul>
       {openInfo === null ? (
-        <div class={styles.corner}>
+        <div class={styles.corner} ref={corner}>
           <span data-nav="">
             <Button onClick={() => app.navigate({ id: "profiles" })}>{t("map.players")}</Button>
           </span>
