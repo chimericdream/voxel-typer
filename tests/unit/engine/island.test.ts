@@ -122,12 +122,12 @@ describe("starter plot", () => {
 });
 
 describe("footprint and expansions", () => {
-  it("grows 8 cells a ring, 24 to 48, and clamps", () => {
-    expect(MAX_EXPANSIONS).toBe(3);
+  it("grows 4 cells a ring, 24 to 48, and clamps", () => {
+    expect(MAX_EXPANSIONS).toBe(6);
     expect(footprint(0)).toEqual({ x0: 12, x1: 36, z0: 12, z1: 36 });
-    expect(footprint(1)).toEqual({ x0: 8, x1: 40, z0: 8, z1: 40 });
-    expect(footprint(3)).toEqual({ x0: 0, x1: 48, z0: 0, z1: 48 });
-    expect(footprint(9)).toEqual(footprint(3));
+    expect(footprint(1)).toEqual({ x0: 10, x1: 38, z0: 10, z1: 38 });
+    expect(footprint(6)).toEqual({ x0: 0, x1: 48, z0: 0, z1: 48 });
+    expect(footprint(9)).toEqual(footprint(6));
     expect(footprint(-2)).toEqual(footprint(0));
   });
 
@@ -170,13 +170,13 @@ describe("footprint and expansions", () => {
   it("is deterministic, stops at the full grid and fills it", () => {
     const a = open();
     const b = open();
-    for (const biome of ["meadow", "birch", "shore"] as const) {
+    for (const biome of ["birch", "shore", "frosty", "mines", "marsh", "caverns"] as const) {
       expect(a.expand(biome)).toBe(true);
       b.expand(biome);
     }
     expect(a.grid.data).toEqual(b.grid.data);
-    expect(a.expand("frosty")).toBe(false);
-    expect(a.expansions).toBe(3);
+    expect(a.expand("sparkstone")).toBe(false);
+    expect(a.expansions).toBe(6);
     for (let z = 0; z < 48; z++)
       for (let x = 0; x < 48; x++) expect(a.grid.get(x, 0, z)).not.toBe(0);
   });
@@ -394,6 +394,12 @@ describe("undo", () => {
     while (e.undo()) n++;
     expect(n).toBe(UNDO_LIMIT);
     expect(e.inventory()["oak-planks"]).toBe(50);
+    // The newest 50 were kept: the first 10 placements are still there after undoing everything.
+    for (let i = 0; i < 60; i++) {
+      const cell = e.grid.get(13 + (i % 20), 20, 13 + Math.floor(i / 20));
+      if (i < 10) expect(cell, `step ${i}`).not.toBe(0);
+      else expect(cell, `step ${i}`).toBe(0);
+    }
   });
 
   it("is not saved: a reopened island has no undo steps", () => {
@@ -421,10 +427,10 @@ describe("save", () => {
   });
 
   it("keeps an over-range expansion count as saved", () => {
-    const e = open({}, { ...STARTER, expansions: 7 });
-    expect(e.footprint).toEqual(footprint(3));
+    const e = open({}, { ...STARTER, expansions: 9 });
+    expect(e.footprint).toEqual(footprint(6));
     expect(e.expand("meadow")).toBe(false);
-    expect(e.save(T0).expansions).toBe(7);
+    expect(e.save(T0).expansions).toBe(9);
   });
 
   it("refuses a grid of the wrong size or a malformed one", () => {

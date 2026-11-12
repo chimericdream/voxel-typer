@@ -9,7 +9,8 @@
  * grid is air. Kids build anywhere above the unlocked footprint, up to the top of the grid.
  *
  * **Expansions.** Each expansion adds a ring {@link RING_WIDTH} cells wide on every side (the
- * footprint grows by 8 each way): 24 → 32 → 40 → 48, so {@link MAX_EXPANSIONS} is 3. A ring gets
+ * footprint grows by 4 each way): 24 → 28 → … → 48, so {@link MAX_EXPANSIONS} is 6, one per core
+ * biome after the Meadow (M4-06 review; Sparkstone and Sky Citadel give other rewards). A ring gets
  * the starter terrain of the biome passed to {@link IslandEditor.expand}; ground heights come from
  * one noise field over the whole grid, so a ring meets the plot without a step.
  *
@@ -48,7 +49,7 @@ export const ISLAND_MAX = { sx: 48, sy: 32, sz: 48 } as const;
 /** The starter plot: its footprint, and the height its terrain stays under. */
 export const PLOT_SIZE = { sx: 24, sy: 16, sz: 24 } as const;
 /** Cells an expansion adds on each side of the footprint. */
-export const RING_WIDTH = 4;
+export const RING_WIDTH = 2;
 /** Expansions until the footprint fills the grid. */
 export const MAX_EXPANSIONS = (ISLAND_MAX.sx - PLOT_SIZE.sx) / (2 * RING_WIDTH);
 /** Undo steps kept. Never saved. */
@@ -456,7 +457,12 @@ export function openIsland(opts: {
   profileId: string;
 }): IslandEditor {
   const { blocks } = opts;
-  const grid = VoxelGrid.fromJSON(opts.island.grid);
+  const saved = opts.island.grid;
+  // Check the size before decoding, so a hostile save can't make the decoder allocate first.
+  if (saved.sx !== ISLAND_MAX.sx || saved.sy !== ISLAND_MAX.sy || saved.sz !== ISLAND_MAX.sz) {
+    throw new RangeError(`island: grid is ${saved.sx}×${saved.sy}×${saved.sz}, expected 48×32×48`);
+  }
+  const grid = VoxelGrid.fromJSON(saved);
   if (grid.sx !== ISLAND_MAX.sx || grid.sy !== ISLAND_MAX.sy || grid.sz !== ISLAND_MAX.sz) {
     throw new RangeError(`island: grid is ${grid.sx}×${grid.sy}×${grid.sz}, expected 48×32×48`);
   }
