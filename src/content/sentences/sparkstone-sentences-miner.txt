@@ -1,0 +1,22 @@
+# Sparkstone sentences for the miner band: capitals, digits, punctuation and Sparkstone symbols. Authored for Voxel Typer (M5-05); see wordlists/SOURCES.md.
+# tags: band=miner reading=grade4 kind=sentences case=mixed keys=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,?!'";-_():@#/=+* biome=sparkstone theme=story
+The Sparkstone Factory runs on gears, belts and happy robots.
+Each robot has a name tag, like Bolt-7 or Gizmo-12.
+Sofia typed light_on() and every lamp in the hall lit up.
+The sign says #crates: 24, so we stacked 24 crates.
+Hiro set cart_speed = 3 so the cart would roll slowly.
+The belt moves boxes from Station A to Station B.
+Robot Tinker-5 likes to hum while it sorts the cogs.
+Jamal added 6 + 4 gears and got 10 gears in all.
+Imani wrote bake(bread) on the panel, and the oven beeped.
+The factory clock reads 12:00, so it's time for lunch.
+Mateo fixed pipe_7 with a wrench and a smile.
+Every gear has a number (1, 2, 3 and so on).
+Nadia drew a plan: gear-A turns gear-B, and gear-B turns gear-C.
+When we walk in, the robots run wave_hello() and beep.
+Lucia counted 8 * 3 = 24 sprockets on the shelf.
+A label on the tube says water/juice, so we filled it with juice.
+Quinn pressed the green button, and the belt began to move.
+The factory's motto is: build, fix and share!
+Farah set lamps = 9 and the hall glowed gold.
+Wei asked Robot Sparky-3, "Can you help me lift this crate?"

@@ -1,0 +1,61 @@
+# Title Case place names and signs for Builders in the Deep Mines. Authored for Voxel Typer (M5-05); see SOURCES.md.
+# tags: band=builder reading=grade6+ kind=phrases case=mixed biome=mines theme=mines
+Glowhollow Junction
+Pebbleton Station
+Copperbend Crossing
+Brightvein Tunnel
+Stonereach Lookout
+Quartzvale Market
+Lanternwell Square
+Gemwater Springs
+Ironbrook Bridge
+Crystalmere Lake
+Mossglen Workshop
+Shimmerpool Steps
+Silverdeep Depot
+Glimmerford Road
+Tinkerton Toolshed
+The Stalactite Room
+Stalagmite Garden
+Fossil Gallery
+Limestone Archway
+Sandstone Stairs
+Marble Fountain
+Basalt Columns
+Magnetite Corner
+Underground Railway
+Wheelbarrow Lane
+Prospector Pass
+Surveyor Station
+Cartographer Hall
+Engineer Workshop
+Gemcutter Studio
+Stonemason Street
+Woodcarver Way
+Lanternmaker Lane
+Goldsmith Gallery
+Silversmith Square
+Moonstone Grotto
+Sunstone Terrace
+Cornerstone Hall
+Pathfinder Point
+Treasure Map Room
+Crossroads Signpost
+Waypoint Seven
+Storeroom Number Four
+The Brilliant Beacon
+The Glittering Vault
+Wednesday Morning Shift
+First Day of September
+Gabriel and Valeria
+Beatriz and Kalani
+Xavier and Olivia
+Ingrid and Rashid
+Soraya and Paolo
+Tatiana and Dmitri
+Brightstone Bakery
+Discovery Museum
+Adventure Awaits Here
+Mysterious Map Corner
+Wonderful Workbench
+The Great Gem Fair

@@ -34,9 +34,11 @@ hen
 
 - **One item per line**, exactly as the player types it. No spaces at the start or end of a line,
   and never two spaces in a row.
-- Lines starting with `#` are comments. Blank lines are skipped. **Comments ship to players with
-  the list**, so the validator checks them against the blocklist too. Never name a left-out word in
-  a comment; list it in `SOURCES.md` instead.
+- Lines starting with `#` are comments. Write them as `# text`, with a space. An item can't start
+  with `#` (`#gems: 3` would be dropped as a comment); the validator flags `#` with no space after
+  it. Blank lines are skipped. **Comments ship to players with the list**, so the validator checks
+  them against the blocklist too. Never name a left-out word in a comment; list it in `SOURCES.md`
+  instead.
 - `# tags:` lines hold `name=value` pairs separated by spaces. They go before the first item.
 - Items are **lowercase** unless the list has `case=mixed`.
 - Plain ASCII only: no accents (`café`), curly quotes (`’`), dashes (`—`) or emoji. Type `'` and `"`
@@ -59,14 +61,42 @@ Any other tag name is an error, which catches typos like `bnad=sprout`.
 
 ## What the validator checks
 
-| Check      | Rule                                                                                                                                     |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Characters | `words`: letters only. `phrases`: letters, space, `'`. `sentences`: letters, digits, space and `. , ! ? ' " : ; -`. Never non-ASCII.     |
-| Length     | Words: `sprout` and `all` 1–5 letters, `miner` 1–8, `builder` 1–14. Phrases: at most 30 chars. Sentences: at most 90 chars.              |
-| Duplicates | No item twice in one list, or in two lists with the same `band` (compared ignoring case).                                                |
-| Blocklist  | No item or comment may contain a word from `blocklist.txt`, in any common form (see below). Trademark and IP terms are reported as such. |
-| Tags       | `band` and `reading` present, every tag known and valid. The character and blocklist checks run even when the tags are broken.           |
-| Registry   | Every `.txt` here (except `blocklist.txt`) is in `POOL_IDS`, and every id in `POOL_IDS` has a file.                                      |
+| Check      | Rule                                                                                                                                                                                                                                  |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Characters | `words`: letters only. `phrases`: letters, digits, space, `'`. `sentences`: letters, digits, space and `. , ! ? ' " : ; -`. In `biome=sparkstone` lists, phrases and sentences may also use `- _ ( ) : @ # / = + *`. Never non-ASCII. |
+| Length     | Words: `sprout` and `all` 1–5 letters, `miner` 1–8, `builder` 1–14. Phrases: at most 30 chars. Sentences: `sprout` and `all` at most 40 chars, `miner` 70, `builder` 90.                                                              |
+| Biome keys | A list tagged `biome=<id>` uses only the keys taught up to that biome, and its `keys` tag lists no more (table below).                                                                                                                |
+| Repetition | No 4-word run appears more than 5 times across all `kind=sentences` lists, so the sentences don't lean on one template.                                                                                                               |
+| Duplicates | No item twice in one list, or in two lists with the same `band` (compared ignoring case).                                                                                                                                             |
+| Blocklist  | No item or comment may contain a word from `blocklist.txt`, in any common form (see below). Trademark and IP terms are reported as such.                                                                                              |
+| Tags       | `band` and `reading` present, every tag known and valid. The character and blocklist checks run even when the tags are broken.                                                                                                        |
+| Registry   | Every `.txt` here and in `../sentences/` (except `blocklist.txt`) is in `POOL_IDS`, and every id in `POOL_IDS` has a file.                                                                                                            |
+
+## Keys by biome
+
+Each biome adds keys to the ones before it. A list tagged with a biome may only use these
+(space is always fine). The validator's `BIOME_NEW_KEYS` is the source of truth.
+
+| Biome           | Adds                       |
+| --------------- | -------------------------- |
+| Meadow          | `a s d f j k l ; g h`      |
+| Birch Forest    | `e i r u t y o w q p`      |
+| Sandy Shore     | `c n v m b x z`            |
+| Frosty Peaks    | nothing new (every letter) |
+| Deep Mines      | capitals (Shift)           |
+| Mushroom Marsh  | digits `0-9`               |
+| Crystal Caverns | `. , ? ! ' "` and `/`      |
+| Sparkstone      | `- _ ( ) : @ # / = + *`    |
+| Sky Citadel     | nothing new                |
+
+Sparkstone Factory is a side branch, so Sky Citadel lists don't get its symbols. The apostrophe
+comes in Crystal Caverns, so lists for earlier biomes have no contractions.
+
+## Sentence lists
+
+Sentence lists (`kind=sentences`) live in `src/content/sentences/<biome>-sentences-<band>.txt`, in
+the same format. They are registered in `pools.ts` like every other pool, and the validator reads
+both folders as one set. Each one has a `keys` tag and a `biome` tag; its band sets its length.
 
 ## The blocklist
 

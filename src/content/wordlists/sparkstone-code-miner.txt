@@ -1,0 +1,31 @@
+# Code-ish strings for Sparkstone Factory: names, labels and tiny sums. Authored for Voxel Typer (M5-05); see SOURCES.md.
+# tags: band=miner reading=grade4 kind=phrases case=mixed biome=sparkstone theme=code
+light_on()
+mine-cart-3
+total #blocks: 12
+gears = 4
+lamp_on = yes
+cart_speed = 5
+open(gate)
+bake(bread)
+plant(seeds)
+spin_gear()
+ring_bell()
+water_plants()
+gems * 2
+lit #lanterns: 9
+belt-2-fast
+pipe_12
+valve(open)
+(3 + 4) * 2
+10 / 2 = 5
+gear-A
+gear-B
+robot_wave()
+day/night
+cart @ station 7
+seeds: 24
+blocks + bricks
+total = 6 + 9
+lamp-row-4
+mix(paint)

@@ -1,0 +1,32 @@
+# Short Crystal Caverns phrases with an apostrophe. Authored for Voxel Typer (M5-05); see SOURCES.md.
+# tags: band=sprout reading=grade2 kind=phrases case=mixed biome=caverns theme=caverns
+it's a gem
+it's pink
+I'm here
+I'm in a cave
+we're up
+let's go
+let's look
+let's dig
+don't forget
+can't wait
+you're kind
+he's glad
+she's fast
+that's fun
+that's big
+the bat's wing
+the crab's shell
+Mia's lamp
+Ben's map
+Rosa's hat
+Leo's cup
+Uma's gem
+Omar's cart
+the cave's roof
+a pup's nose
+it's my turn
+we're a team
+I'm so happy
+let's sing
+that's a prism

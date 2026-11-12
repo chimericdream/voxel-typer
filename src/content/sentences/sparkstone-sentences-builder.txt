@@ -1,0 +1,42 @@
+# Sparkstone sentences for the builder band: capitals, digits, punctuation and Sparkstone symbols. Authored for Voxel Typer (M5-05); see wordlists/SOURCES.md.
+# tags: band=builder reading=grade6+ kind=sentences case=mixed keys=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,?!'";-_():@#/=+* biome=sparkstone theme=story
+The Sparkstone Factory is full of copper pipes, glowing panels and humming machines.
+Every machine has a friendly label, like mixer-3 or polisher_12.
+Valeria typed open_gate(2) and the copper doors slid apart with a soft hum.
+The big board shows #robots: 48 and #robots_happy: 48, so everyone is doing fine.
+Gabriel learned that the = sign means "is the same as" in a factory recipe.
+Recipe 7 says flour + water + salt = dough, so the bakery robot mixed all three.
+The conveyor belt speed is set to (2 + 3) * 2, which equals 10.
+Kalani wrote plant_row(5) on the panel, and five seedlings popped into the soil.
+Each robot is named after a gear size, such as Cog-8, Cog-16 and Cog-32.
+Xavier saw that the panel said water: low, so he refilled the jug from the pump.
+Olivia's favorite machine is paint_wall(), which paints a mural one block at a time.
+The sign on the door says Welcome @ Sparkstone, and the robots wave as we walk in.
+Underscores join words into one name, like big_gear or lamp_post.
+Hyphens join words too, as in mine-cart-3 or blue-pipe-9.
+Parentheses hold extra details (like this) inside a sentence.
+An asterisk (*) can mean times, so 4 * 5 = 20.
+The / sign can mean or, as in yes/no, on/off and day/night.
+The # sign on a label means number, as in #crates: 12.
+Ingrid set timer: 30 and the oven baked 30 golden rolls.
+Rashid built a tiny robot named Beep_Boop that sweeps the floor and hums.
+Soraya typed sort(gems) and the machine lined them up from red to violet.
+When the panel shows gears_turning: 64, the whole factory sings like a music box.
+Paolo asked Robot Gizmo-9, "Which lever lifts the bridge?" It beeped twice and pointed.
+The factory has 3 floors: parts on floor 1, building on floor 2 and testing on floor 3.
+Tatiana loves the test room, where new gadgets get to try their very first spin.
+A new robot named Sprocket-1 rolled off the line and said, "Hello, friends!"
+Dmitri set lights = on for the night crew so the robots could see their work.
+Every hour the clock robot rings a bell: ding (1), ding (2), ding (3).
+Hiro's job was to check that pipe_1 through pipe_9 were all closed tight.
+Imani wrote fix(squeak) on a sticky note and stuck it on a noisy wheel.
+The gift shop sells copper key rings shaped like gears for 5 coins each.
+Jamal asked, "Why is the factory called Sparkstone?" The guide smiled.
+"Because our machines run on sparkstone crystals," she said, "and they never run out."
+Lucia measured a gear with a ruler: 12 cm across and 2 cm thick.
+The robots' favorite song is tick-tock-tick, which they hum in perfect time.
+Mateo built a marble run with 12 ramps, 4 loops and a bell at the end.
+Nadia typed greet(Moss_Golem) and the screen showed a golem waving hello.
+A note on the wall says: tidy_up() before you go home!
+Before we left, Robot Bolt-7 gave us a copper badge with #friend on it.
+We waved goodbye to Sparkstone and set off for the Sky Citadel.

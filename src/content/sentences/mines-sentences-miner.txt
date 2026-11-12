@@ -1,0 +1,37 @@
+# Mines sentences for the miner band: capitals, no digits or punctuation. Authored for Voxel Typer (M5-05); see wordlists/SOURCES.md.
+# tags: band=miner reading=grade4 kind=sentences case=mixed keys=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ biome=mines theme=story
+Sofia rides the mine cart down Lantern Lane
+The Big Lantern on Home Island needs a new crystal
+Hiro found a green gem near Copper Creek
+On Monday the miners meet at Silver Rail Station
+Jamal and Lucia took the long tunnel to Echo Hall
+A friendly mole popped up and waved at Imani
+The cart rolled past Quartz Corner and into Shimmer Hall
+Mateo keeps his maps in a basket by the door
+Nadia drew a map of every tunnel in the Deep Mines
+Grandpa Eli showed us how to fix a squeaky wheel
+The lamps along the track glow a soft yellow
+Farah stacked the coal blocks in neat rows
+In April we go to the Great Gem Fair
+Quinn counts the carts as they roll by
+Every Friday Wei brings warm muffins to the mine
+The Cave Bat sleeps upside down and smiles at us
+Carlos and Elena built a bridge over the stream
+We found a glittering geode at the bottom of the ladder
+The Moss Golem helps carry heavy crates to the depot
+Yusuf likes to ring the bell when the cart arrives
+Zainab has a helmet with a bright blue lamp
+The tunnel to Glow Cave is lit with tiny crystals
+On Sunday the whole mine takes a rest
+Our cart is called Rusty and it never goes too fast
+Tomas and Amara traded a ruby for a bag of apples
+The miners sing a happy song as they work
+Rafael painted a sign that says Welcome to the Deep Mines
+A Slimeling bounced along the rails behind our cart
+We sent a crystal up to Home Island in a basket
+The Big Lantern glows a little brighter tonight
+Aunt Mei has a lamp shop on Pebble Path
+In October the mines hold a lantern parade
+Dev and Tess found a fossil shaped like a shell
+The old wagon road leads back to Birch Forest
+Ezra wrote his name in the Gem Hall guest book

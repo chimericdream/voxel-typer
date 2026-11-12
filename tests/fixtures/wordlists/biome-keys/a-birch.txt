@@ -1,0 +1,4 @@
+# Birch keys only; c is a Shore key.
+# tags: band=miner reading=grade4 keys=asdfghjkl;eirutyowqpz biome=birch
+tide
+rice

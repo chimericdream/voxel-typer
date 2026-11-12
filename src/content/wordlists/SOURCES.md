@@ -132,3 +132,60 @@ typeable with them. The targets (Sprout 60, Miner 120, Builder 200) can't be met
 and aren't. Meadow gets more items from phrases instead: `meadow-phrases.txt` (29) and
 `meadow-gh-phrases.txt` (35). Longer home-row words (`salads`, `flasks`, `alfalfa`) are too few
 to be worth a Builder list.
+
+## M5-05 lists: Deep Mines, Mushroom Marsh, Crystal Caverns, Sparkstone, Sky Citadel, sentences
+
+Every list below was **authored for Voxel Typer (M5-05)**: ordinary English dictionary words, given
+names, and phrases and sentences written by hand for this game. Nothing was copied from a
+published or commercial list. Word lists are sorted; phrase and sentence lists keep the order they
+were written in.
+
+- **`mines-*.txt`** (`case=mixed`): every item starts with a capital, for Shift practice. Given names
+  from many cultures, days and months, and original place names for the voxel world
+  (`Glowhollow`, `Pebbleton`, `Copperbend`, `Lanternwell`). The phrase lists are Title Case names
+  of places and signs (`Lantern Lane`, `Glowhollow Junction`).
+- **`marsh-*.txt`**: marsh words (mushrooms, frogs, ponds) and number words. The phrase lists put
+  numbers in context ("5 red mushrooms", "Room 12"). `marsh-drills.txt` (`band=all`) is digit groups
+  for number-row drills. Phrases may now hold digits (validator change in M5-05).
+- **`caverns-*.txt`**: cave and crystal words, and phrases with an apostrophe (contractions and
+  possessives), which Crystal Caverns teaches.
+- **`sparkstone-*.txt`**: factory words. **`sparkstone-code-*.txt`**: short "code-ish" strings that
+  read as plain English (`light_on()`, `#blocks: 12`, `mine-cart-3`, `bake(bread)`). They avoid
+  real programming idioms, anything that looks like a real command, file path, web address or
+  email address, and the words "variable", "program" and "hashtag".
+- **`citadel-*.txt`**: sky and castle words and calm "mastery" phrases ("accuracy before speed").
+- **`src/content/sentences/<biome>-sentences-<band>.txt`**: 600 sentences, written in batches of
+  about 50 and each batch re-read for safety, reading level and variety. A light story runs
+  through them: the Big Lantern on Home Island has grown dim, and friends gather a crystal from
+  each biome to light it again, helped by friendly original creatures (the Frost Pup, a Moss Golem,
+  a Slimeling, cave bats, crystal crabs, a sky owl named Zephyr, Sparkstone's robots). Each list
+  uses only its biome's keys: Frosty has no capitals or punctuation, Deep Mines adds capitals,
+  the marsh digits, Crystal Caverns and Sky Citadel punctuation, Sparkstone its symbols.
+
+| Biome      | Sprout | Miner | Builder |
+| ---------- | ------ | ----- | ------- |
+| Frosty     | -      | 30    | 40      |
+| Deep Mines | 25     | 35    | 40      |
+| Marsh      | 25     | 35    | 40      |
+| Caverns    | 30     | 45    | 55      |
+| Sparkstone | 10     | 20    | 40      |
+| Citadel    | 25     | 45    | 60      |
+
+**Left out on purpose** (beyond the blocklist):
+
+- Slang or adult senses: `plump` (a body word), `shady`, `shroom`, `croak` (slang for dying),
+  `stool`, `nuts`, `screw`, and `hung`/`hangs` in sentences.
+- Product, IP and franchise names: `minecart` as one word (a game's item name; we write "mine cart"),
+  `glowstone` (a game's block name), `piston`, `switch` (a console name), `sprite` (a drink), and
+  the owl was not named `Nimbus` (a famous fictional broom). Given names that belong to famous
+  characters or assistants are left out: Alexa, Siri, Cortana, Bing, Elsa, Luca, Milo, Finn, Zane.
+  Boss names stay out of content, because they live only in i18n and may be renamed.
+- Violence, fear and sadness: `tank`, `zap`, `shadow`, `shout`, `sharp`, `battlement`, and any
+  fire or explosion word. The `expl...` family is left out entirely (the M6-08 owner decision), so
+  sentences say "travel" or "look" instead of "explore".
+- Drinking: no word or pair of words that reads as alcohol (no flasks, glasses of anything, or
+  toasts).
+- Pressure words: no "seconds left", "hurry" or "wrong". Sentences talk about care, rhythm, rest
+  and trying again.
+- `knob`, `slash` and `hash` are blocklisted, so the Sparkstone sentences call them "the / sign" and
+  "the # sign".

@@ -1,0 +1,4 @@
+# Sky Citadel comes after Sparkstone in the order, but Sparkstone is a side branch.
+# tags: band=builder reading=grade6+ kind=phrases case=mixed biome=citadel
+big_gear
+the tower's flag
