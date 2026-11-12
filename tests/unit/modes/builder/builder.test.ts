@@ -685,7 +685,8 @@ describe("builder: saving", () => {
 
 describe("builder: an island that won't open", () => {
   it("shows the calm note, builds nothing and never writes", async () => {
-    // The veteran fixture's island is 16×8×16: not the 48×32×48 grid, so it can't be opened.
+    // The veteran fixture's island is 16×8×16, not the 48×32×48 grid (and its run-length data is
+    // `[2048, 0]`, a count of 0), so it can't be opened.
     expect(veteran.island?.grid).toMatchObject({ sx: 16, sy: 8, sz: 16 });
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const v = await visit(veteran);

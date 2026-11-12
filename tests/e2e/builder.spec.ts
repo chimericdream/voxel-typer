@@ -34,14 +34,14 @@ async function profile(page: Page): Promise<Saved> {
   return p;
 }
 
-/** The block num in cell (x, y, z) of a saved grid: run-length pairs of [count, value]. */
+/** The block num in cell (x, y, z) of a saved grid: run-length pairs of [block num, count]. */
 function cell(p: Saved, x: number, y: number, z: number): number {
   const grid = p.island?.grid;
   if (!grid) throw new Error("no island saved");
   let left = x + grid.sx * (z + grid.sz * y);
   for (let i = 0; i + 1 < grid.rle.length; i += 2) {
-    const run = grid.rle[i] ?? 0;
-    if (left < run) return grid.rle[i + 1] ?? 0;
+    const run = grid.rle[i + 1] ?? 0;
+    if (left < run) return grid.rle[i] ?? 0;
     left -= run;
   }
   throw new Error("cell is outside the grid");

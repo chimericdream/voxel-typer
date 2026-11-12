@@ -76,6 +76,17 @@
   gap: var(--sp-2);
 }
 
+/*
+ * Four buttons (My Island came with M4-07) stay on one row in a narrow window at large text, so
+ * the corner takes no more of the map than three did and the island labels keep their room.
+ */
+@media (max-width: 1100px) {
+  .corner button {
+    min-width: 0;
+    font-size: min(calc(var(--fs-md) * var(--text-scale)), 2.6vw);
+  }
+}
+
 .map[data-mode="flat"] .corner {
   position: static;
 }

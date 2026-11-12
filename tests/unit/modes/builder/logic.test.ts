@@ -255,7 +255,7 @@ describe("nav keys", () => {
 describe("what Builder tells the play host", () => {
   const miner = fixture("meadow-done-miner");
   const island = {
-    grid: { sx: 48, sy: 32, sz: 48, rle: [73728, 0] },
+    grid: { sx: 48, sy: 32, sz: 48, rle: [0, 73728] },
     expansions: 0,
     lastEdited: 5,
   };
@@ -282,7 +282,7 @@ describe("what Builder tells the play host", () => {
       { island, inventory: { dirt: 1.5 } },
       { island, inventory: { dirt: "2" } },
       { island: { ...island, grid: { ...island.grid, rle: "x" } }, inventory: {} },
-      { island: { ...island, grid: { ...island.grid, rle: [1, -2] } }, inventory: {} },
+      { island: { ...island, grid: { ...island.grid, rle: [-2, 1] } }, inventory: {} },
       { island: { ...island, expansions: "1" }, inventory: {} },
       { island: { grid: null, expansions: 0, lastEdited: 0 }, inventory: {} },
     ];
