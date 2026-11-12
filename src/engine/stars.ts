@@ -9,10 +9,21 @@
  *            if fewer than 3, wpmRelative is ignored
  * ```
  *
+ * With a `band` the accuracy bars depend on the age band (decision 80, contracts §6). `target` is
+ * `lesson.targets.accuracy`:
+ *
+ * | Band    | 2nd star: accuracy ≥     | 3rd star: accuracy ≥ | 3rd star speed check |
+ * | ------- | ------------------------ | -------------------- | -------------------- |
+ * | sprout  | max(0.85, target − 0.05) | 0.90                 | none                 |
+ * | miner   | max(0.88, target − 0.02) | 0.93                 | as above             |
+ * | builder | max(0.90, target)        | 0.95                 | as above             |
+ *
+ * No band means the rules above, which are Builder's.
+ *
  * Speed only ever counts relative to the learner's own baseline.
  */
 import type { Lesson } from "@/content/lessons/types";
-import type { GameModeId } from "@/types/core";
+import type { AgeBand, GameModeId } from "@/types/core";
 import { median } from "./stats";
 import type { SessionSummary } from "./stats";
 
@@ -34,6 +45,35 @@ export const THIRD_STAR_ACCURACY = 0.95;
  * 22.000000000000004) never costs a star.
  */
 const SPEED_EPSILON = 1e-9;
+/**
+ * Slack on the accuracy checks, so `target − 0.05` (0.9 − 0.05 is 0.8500000000000001) never puts
+ * the bar above the accuracy it names.
+ */
+const ACCURACY_EPSILON = 1e-9;
+
+/** The star bars of one age band (contracts §6). */
+export interface BandStarRule {
+  /** The second star's floor, whatever the lesson's target. */
+  secondFloor: number;
+  /** How far below the lesson's accuracy target the second star's bar may sit. */
+  secondSlack: number;
+  /** The third star's accuracy floor. */
+  third: number;
+  /** Whether the third star also needs the speed goal. */
+  speedCheck: boolean;
+}
+
+/** The star bars per age band (decision 80). Builder's are the rules with no band. */
+export const BAND_STAR_RULES: Readonly<Record<AgeBand, BandStarRule>> = {
+  sprout: { secondFloor: 0.85, secondSlack: 0.05, third: 0.9, speedCheck: false },
+  miner: { secondFloor: 0.88, secondSlack: 0.02, third: 0.93, speedCheck: true },
+  builder: {
+    secondFloor: SECOND_STAR_ACCURACY,
+    secondSlack: 0,
+    third: THIRD_STAR_ACCURACY,
+    speedCheck: true,
+  },
+};
 
 /**
  * The learner's baseline net WPM: the median `netWpm` of the newest 10 summaries in `mine`,
@@ -62,18 +102,23 @@ export interface StarInput {
   targets: Lesson["targets"];
   /** From {@link baselineNetWpm}, over the history before this play. `null`: no baseline yet. */
   baseline: number | null;
+  /** The learner's age band. Missing: Builder's bars, the rules from before bands. */
+  band?: AgeBand;
 }
 
 /** The star rating of one play of a lesson, by the rules above. */
 export function computeStars(input: StarInput): StarCount {
-  const { completed, accuracy, netWpm, targets, baseline } = input;
+  const { completed, accuracy, netWpm, targets, baseline, band } = input;
   if (!completed) return 0;
-  const second = accuracy >= Math.max(SECOND_STAR_ACCURACY, targets.accuracy);
+  const rule = BAND_STAR_RULES[band ?? "builder"];
+  const secondBar = Math.max(rule.secondFloor, targets.accuracy - rule.secondSlack);
+  const second = accuracy >= secondBar - ACCURACY_EPSILON;
   const fastEnough =
+    !rule.speedCheck ||
     targets.wpmRelative === undefined ||
     baseline === null ||
     netWpm >= baseline * targets.wpmRelative - SPEED_EPSILON;
-  const third = accuracy >= THIRD_STAR_ACCURACY && fastEnough;
+  const third = accuracy >= rule.third - ACCURACY_EPSILON && fastEnough;
   if (second && third) return 3;
   if (second || third) return 2;
   return 1;
