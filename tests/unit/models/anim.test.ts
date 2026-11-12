@@ -428,3 +428,148 @@ describe("Animator", () => {
     });
   });
 });
+
+// Review N3, N7 and N8 (PR #157): bad timing input, reduced motion switched on mid-loop, and
+// replaying anims.
+
+describe("Animator: bad timing input is safe", () => {
+  for (const speed of [0, -1, -0.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+    it(`speed ${speed} on a one-shot jumps to its end, fires onEnd once and goes still`, () => {
+      const onEnd = vi.fn();
+      const a = new Animator(compileRig(twoAnims()));
+      a.play("a", { fadeMs: 0, speed, onEnd });
+      a.update(16);
+      expect(posX(a)).toBe(10);
+      expect(onEnd).toHaveBeenCalledTimes(1);
+      expect(a.animating).toBe(false);
+      a.update(16);
+      expect(onEnd).toHaveBeenCalledTimes(1);
+    });
+
+    it(`speed ${speed} on a loop holds its first frame and goes still`, () => {
+      const a = new Animator(compileRig(twoAnims()));
+      a.play("b", { fadeMs: 0, speed });
+      for (let i = 0; i < 5; i++) a.update(37);
+      expect(a.timeMs).toBe(0);
+      expect(posX(a)).toBe(0);
+      expect(a.animating).toBe(false);
+    });
+  }
+
+  it("speed changed to 0 on the running loop snaps it to its first frame", () => {
+    const a = new Animator(compileRig(twoAnims()));
+    a.play("b", { fadeMs: 0 });
+    a.update(50);
+    expect(posX(a)).toBeCloseTo(-5, 5);
+    a.play("b", { speed: 0 });
+    expect(a.animating).toBe(true);
+    a.update(16);
+    expect(posX(a)).toBe(0);
+    expect(a.animating).toBe(false);
+  });
+
+  it("a negative speed never shows a pose outside a loop's keys", () => {
+    // A loop whose first and last keys differ, so a negative time would extrapolate.
+    const def = oneBox({
+      ramp: {
+        durationMs: 200,
+        loop: true,
+        tracks: [
+          {
+            part: "box",
+            prop: "pos",
+            keys: [
+              { t: 20, v: [2, 0, 0] },
+              { t: 180, v: [8, 0, 0] },
+            ],
+          },
+        ],
+      },
+    });
+    const a = new Animator(compileRig(def));
+    a.play("ramp", { fadeMs: 0, speed: -1 });
+    for (let i = 0; i < 40; i++) {
+      a.update(23);
+      expect(posX(a)).toBeGreaterThanOrEqual(2);
+      expect(posX(a)).toBeLessThanOrEqual(8);
+      expect(a.timeMs).toBeGreaterThanOrEqual(0);
+      expect(a.timeMs).toBeLessThan(200);
+    }
+  });
+
+  for (const dt of [Number.NaN, -16, Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY]) {
+    it(`a dtMs of ${dt} counts as 0 for time and fades`, () => {
+      const a = new Animator(compileRig(twoAnims()));
+      a.play("a", { fadeMs: 0 });
+      a.update(30);
+      a.update(dt);
+      expect(a.timeMs).toBe(30);
+      expect(posX(a)).toBeCloseTo(3, 5);
+      a.play("b", { fadeMs: 100 });
+      a.update(dt);
+      expect(Number.isFinite(posX(a))).toBe(true);
+      expect(posX(a)).toBeCloseTo(3, 5);
+      a.update(50);
+      expect(Number.isFinite(posX(a))).toBe(true);
+    });
+  }
+
+  for (const fadeMs of [Number.NaN, -50, Number.POSITIVE_INFINITY]) {
+    it(`a fadeMs of ${fadeMs} snaps`, () => {
+      const a = new Animator(compileRig(twoAnims()));
+      a.play("a", { fadeMs: 0 });
+      a.update(100);
+      a.play("b", { fadeMs });
+      a.update(50);
+      expect(posX(a)).toBeCloseTo(-5, 5);
+    });
+  }
+});
+
+describe("Animator: reduced motion switched on mid-loop", () => {
+  it("snaps the loop to its first frame on the next update, then goes still", () => {
+    let reduced = false;
+    const a = new Animator(compileRig(twoAnims()), { reducedMotion: () => reduced });
+    a.play("b", { fadeMs: 0 });
+    a.update(70);
+    expect(posX(a)).toBeCloseTo(-7, 5);
+    reduced = true;
+    expect(a.animating).toBe(true); // one more update to reach the first frame
+    a.update(16);
+    expect(posX(a)).toBe(0);
+    expect(a.timeMs).toBe(0);
+    expect(a.animating).toBe(false);
+  });
+});
+
+describe("Animator: playing again", () => {
+  it("restarts a one-shot that has already ended (a second hit), and fires its new onEnd", () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const a = new Animator(compileRig(twoAnims()));
+    a.play("a", { fadeMs: 0, onEnd: first });
+    a.update(200);
+    expect(a.animating).toBe(false);
+    expect(a.play("a", { fadeMs: 0, onEnd: second })).toBe(true);
+    expect(a.timeMs).toBe(0);
+    expect(a.animating).toBe(true);
+    a.update(50);
+    expect(posX(a)).toBeCloseTo(5, 5);
+    a.update(50);
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
+  it("playing the running anim applies a new loop option without restarting", () => {
+    const onEnd = vi.fn();
+    const a = new Animator(compileRig(twoAnims()));
+    a.play("b", { fadeMs: 0 });
+    a.update(150);
+    a.play("b", { loop: false, onEnd });
+    expect(a.timeMs).toBe(150);
+    a.update(100);
+    expect(posX(a)).toBe(0);
+    expect(onEnd).toHaveBeenCalledTimes(1);
+    expect(a.animating).toBe(false);
+  });
+});

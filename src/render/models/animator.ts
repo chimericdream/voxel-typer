@@ -6,9 +6,14 @@
  * - A looping anim wraps; a clamped one holds its last pose and then fires `onEnd` once.
  * - Switching anims crossfades for {@link CROSSFADE_MS}: the pose at the moment of the switch
  *   blends linearly into the new anim, which already runs during the fade.
- * - **Reduced motion:** while `reducedMotion()` is true, a *looping* anim (idle, walk, …) holds
- *   its first frame and stops asking for frames. One-shot anims (hit, defeat) still play, since
- *   they carry feedback and their `onEnd` drives game logic.
+ * - **Reduced motion:** while `reducedMotion()` is true, a *looping* anim (idle, walk, …) snaps to
+ *   its first frame (also when the setting turns on mid-loop) and stops asking for frames.
+ *   One-shot anims (hit, defeat) still play, since they carry feedback and their `onEnd` drives
+ *   game logic.
+ * - **Bad timing input is safe:** a `dtMs` that is negative, NaN or infinite counts as 0. A `speed`
+ *   that isn't a positive finite number means "no playback": a looping anim holds its first frame
+ *   (like reduced motion) and a one-shot jumps to its end pose and fires `onEnd`, so nothing waits
+ *   forever and the loop can idle.
  */
 import type { Ms } from "@/types/core";
 import { restPose, samplePose, writeRest } from "./rig";
@@ -20,11 +25,17 @@ export const CROSSFADE_MS: Ms = 120;
 export interface PlayOptions {
   /** Overrides the anim's own `loop` flag. */
   loop?: boolean;
-  /** Blend time from the current pose. Default {@link CROSSFADE_MS}; 0 snaps. */
+  /** Blend time from the current pose. Default {@link CROSSFADE_MS}; 0 (or a bad value) snaps. */
   fadeMs?: Ms;
-  /** Playback rate. Default 1. */
+  /**
+   * Playback rate. Default 1. Zero, negative or non-finite means no playback: a loop holds its
+   * first frame, a one-shot jumps to its end (and fires `onEnd`).
+   */
   speed?: number;
-  /** Start again from 0 even if this anim is already playing. Default false. */
+  /**
+   * Start again from 0 even if this anim is already playing. Default false. A one-shot that has
+   * already ended always starts again.
+   */
   restart?: boolean;
   /**
    * Called once when a clamped (non-looping) anim reaches its end. Not called for a looping anim,
@@ -71,7 +82,7 @@ export class Animator {
     return this.anim?.name ?? null;
   }
 
-  /** Time into the current anim (ms), before looping wraps it. */
+  /** Time into the current anim (ms). A loop's time wraps into [0, durationMs). */
   get timeMs(): Ms {
     return this.time;
   }
@@ -83,27 +94,32 @@ export class Animator {
   get animating(): boolean {
     if (this.pending || this.fadeLeft > 0) return true;
     if (!this.anim || this.ended) return false;
-    return !(this.loop && this.reducedMotion());
+    // A held loop needs one more update if it isn't on its first frame yet (reduced motion
+    // switched on mid-loop), then it is still.
+    if (this.loop && this.holding()) return this.time !== 0;
+    return true;
   }
 
   /**
    * Starts `name`. Returns false (and changes nothing) for an anim the model doesn't have, so a
    * mode asking a pet for `hit` it lacks never crashes the game. Playing the anim that is already
-   * running only updates `onEnd`, unless `restart` is set.
+   * running keeps its time and only applies the given `onEnd`, `speed` and `loop`, unless
+   * `restart` is set.
    */
   play(name: string, opts: PlayOptions = {}): boolean {
     const anim = this.rig.anims.get(name);
     if (!anim) return false;
     if (this.anim === anim && !opts.restart && !this.ended) {
       if (opts.onEnd) this.onEnd = opts.onEnd;
-      if (opts.speed !== undefined) this.speed = opts.speed;
+      if (opts.speed !== undefined) this.speed = safeSpeed(opts.speed);
+      if (opts.loop !== undefined) this.loop = opts.loop;
       return true;
     }
     this.startFade(opts.fadeMs ?? CROSSFADE_MS);
     this.anim = anim;
     this.time = 0;
     this.loop = opts.loop ?? anim.loop;
-    this.speed = opts.speed ?? 1;
+    this.speed = safeSpeed(opts.speed ?? 1);
     this.ended = false;
     this.onEnd = opts.onEnd ?? null;
     return true;
@@ -121,16 +137,18 @@ export class Animator {
   update(dtMs: Ms): boolean {
     if (!this.animating) return false;
     this.pending = false;
-    const dt = Math.max(0, dtMs);
+    const dt = Number.isFinite(dtMs) && dtMs > 0 ? dtMs : 0;
     let finished = false;
     const anim = this.anim;
     if (anim) {
-      if (this.loop && this.reducedMotion()) {
+      if (this.loop && this.holding()) {
         this.time = 0;
       } else if (!this.ended) {
-        this.time += dt * this.speed;
+        // speed 0 marks "no playback": a one-shot goes straight to its end.
+        this.time = this.speed > 0 ? this.time + dt * this.speed : anim.durationMs;
         if (this.loop) {
-          this.time %= anim.durationMs;
+          const d = anim.durationMs;
+          this.time = ((this.time % d) + d) % d;
         } else if (this.time >= anim.durationMs) {
           this.time = anim.durationMs;
           this.ended = true;
@@ -162,9 +180,14 @@ export class Animator {
     return true;
   }
 
+  /** True when a looping anim should sit still on its first frame. */
+  private holding(): boolean {
+    return this.speed <= 0 || this.reducedMotion();
+  }
+
   private startFade(fadeMs: Ms): void {
     this.pending = true;
-    if (fadeMs > 0) {
+    if (Number.isFinite(fadeMs) && fadeMs > 0) {
       this.from.set(this.pose);
       this.fadeMs = fadeMs;
       this.fadeLeft = fadeMs;
@@ -172,4 +195,9 @@ export class Animator {
       this.fadeLeft = 0;
     }
   }
+}
+
+/** A playback rate, or 0 for "no playback" when `speed` isn't a positive finite number. */
+function safeSpeed(speed: number): number {
+  return Number.isFinite(speed) && speed > 0 ? speed : 0;
 }

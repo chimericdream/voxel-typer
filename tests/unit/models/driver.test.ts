@@ -141,3 +141,65 @@ describe("createModelDriver", () => {
     expect(h.pending()).toBe(0);
   });
 });
+
+describe("createModelDriver: disposed models (review N5)", () => {
+  it("drops a model as soon as it is disposed, so waves of mobs don't pile up", () => {
+    const h = harness();
+    const driver = createModelDriver(h.loop);
+    for (let wave = 0; wave < 20; wave++) {
+      const walker = buildModel(critter(), null);
+      const herd = buildModelInstanced(critter(), 4);
+      const mobs = [walker, buildModel(critter(), null), herd];
+      for (const mob of mobs) driver.add(mob);
+      walker.play("walk");
+      herd.setVisible(1, true);
+      herd.play(1, "hit");
+      h.pump(5);
+      expect(driver.size).toBe(3);
+      for (const mob of mobs) mob.dispose();
+      expect(driver.size).toBe(0);
+    }
+    expect(h.pump()).toBeLessThanOrEqual(1);
+    expect(h.pending()).toBe(0);
+  });
+
+  it("a disposed model's remove function is harmless, and adding twice doesn't double it", () => {
+    const h = harness();
+    const driver = createModelDriver(h.loop);
+    const m = buildModel(critter(), null);
+    const remove = driver.add(m);
+    driver.add(m);
+    expect(driver.size).toBe(1);
+    m.dispose();
+    remove();
+    expect(driver.size).toBe(0);
+  });
+
+  it("a hidden instance that is still playing lets the loop idle", () => {
+    const h = harness();
+    const driver = createModelDriver(h.loop);
+    const herd = buildModelInstanced(critter(), 3);
+    driver.add(herd);
+    herd.setVisible(0, true);
+    herd.play(0, "walk");
+    expect(h.pump(50)).toBe(50);
+    herd.setVisible(0, false);
+    expect(h.pump()).toBeLessThanOrEqual(2);
+    expect(h.pending()).toBe(0);
+    expect(herd.current(0)).toBe("walk");
+  });
+
+  it("turning reduced motion on mid-walk snaps the legs to the first frame, then the loop idles", () => {
+    const h = harness();
+    const driver = createModelDriver(h.loop);
+    let reduced = false;
+    const m = buildModel(critter(), null, { reducedMotion: () => reduced });
+    driver.add(m);
+    m.play("walk", { fadeMs: 0 });
+    h.pump(7); // mid-stride
+    reduced = true;
+    expect(h.pump()).toBeLessThanOrEqual(2);
+    expect(h.pending()).toBe(0);
+    expect(m.part("leg-fl")?.rotation.x).toBeCloseTo((25 * Math.PI) / 180, 6);
+  });
+});

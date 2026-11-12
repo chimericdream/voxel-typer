@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 import { tileUv } from "../../../src/render/atlas/build";
 import { buildModel, buildModelInstanced } from "../../../src/render/models/build";
-import { NO_ATLAS_COLOR } from "../../../src/render/models/geometry";
+import { NO_ATLAS_COLOR, patchModelShader } from "../../../src/render/models/geometry";
 import { MODEL_UNIT } from "../../../src/render/models/rig";
 import type { VoxelModel } from "../../../src/render/models/types";
 import { critter, drawCalls, fakeAtlas, oneBox } from "./helpers";
@@ -383,5 +383,321 @@ describe("buildModelInstanced", () => {
     const herd = buildModelInstanced(oneBox(), 2);
     expect(() => herd.place(2, { x: 0, y: 0, z: 0 })).toThrow(RangeError);
     expect(() => herd.play(-1, "idle")).toThrow(RangeError);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Review B1 (PR #157): geometry, UVs, GPU uploads and the shader patch, each pinned so the
+// mutation it targets fails a test.
+
+/** A model whose pivots are off-centre on every axis, and tiled parts with odd and wide sizes. */
+function lopsided(): VoxelModel {
+  return {
+    id: "lopsided",
+    parts: [
+      { name: "trunk", size: [6, 5, 8], pivot: [1, 2, 3], offset: [0, 0, 0], color: "#336699" },
+      {
+        name: "patch",
+        parent: "trunk",
+        size: [5, 3, 7],
+        pivot: [4, 0.5, 6],
+        offset: [1, 2, 3],
+        tile: { blockId: "grass", face: "side" },
+      },
+      {
+        name: "slab",
+        parent: "trunk",
+        size: [20, 1, 16],
+        pivot: [0, 0, 0],
+        offset: [0, 5, 0],
+        tile: { blockId: "grass", face: "top" },
+      },
+    ],
+    anims: {},
+  };
+}
+
+describe("part boxes sit around their pivots on all three axes", () => {
+  const models: [string, VoxelModel][] = [
+    ["box-critter", critter()],
+    ["lopsided", lopsided()],
+  ];
+  for (const [label, def] of models) {
+    it(`${label}: every part spans [-pivot, size - pivot] in model pixels`, () => {
+      const m = buildModel(def, fakeAtlas());
+      for (const part of def.parts) {
+        const geometry = m.part(part.name)?.geometry;
+        if (!geometry) throw new Error(part.name);
+        geometry.computeBoundingBox();
+        const box = geometry.boundingBox;
+        if (!box) throw new Error("bbox");
+        expectVec(box.min, -part.pivot[0] * U, -part.pivot[1] * U, -part.pivot[2] * U);
+        expectVec(
+          box.max,
+          (part.size[0] - part.pivot[0]) * U,
+          (part.size[1] - part.pivot[1]) * U,
+          (part.size[2] - part.pivot[2]) * U,
+        );
+      }
+    });
+  }
+});
+
+interface FaceTexels {
+  uAxis: number;
+  vAxis: number;
+  u: number[];
+  v: number[];
+}
+
+/**
+ * For each of the 6 faces of `mesh`: which axis its u and v run along (found from the vertex
+ * positions, not from the code under test) and the texel span they show inside the tile.
+ */
+function faceTexels(mesh: THREE.Mesh): FaceTexels[] {
+  const [u0, v0, u1, v1] = tileUv(128, 3);
+  const pos = mesh.geometry.getAttribute("position");
+  const uv = mesh.geometry.getAttribute("uv");
+  const faces: FaceTexels[] = [];
+  for (let f = 0; f < 6; f++) {
+    const idx = [0, 1, 2, 3].map((k) => f * 4 + k);
+    // Two corners with the same `other` uv and a different `coord` uv: the position axis that
+    // differs between them is the one `coord` runs along.
+    const axisOf = (coord: (i: number) => number, other: (i: number) => number): number => {
+      for (const i of idx) {
+        for (const j of idx) {
+          if (Math.abs(other(i) - other(j)) < 1e-9 && Math.abs(coord(i) - coord(j)) > 1e-9) {
+            const d = [
+              pos.getX(i) - pos.getX(j),
+              pos.getY(i) - pos.getY(j),
+              pos.getZ(i) - pos.getZ(j),
+            ];
+            return d.findIndex((x) => Math.abs(x) > 1e-9);
+          }
+        }
+      }
+      throw new Error(`face ${f}: no axis`);
+    };
+    faces.push({
+      uAxis: axisOf(
+        (i) => uv.getX(i),
+        (i) => uv.getY(i),
+      ),
+      vAxis: axisOf(
+        (i) => uv.getY(i),
+        (i) => uv.getX(i),
+      ),
+      u: span(idx.map((i) => toTexel(uv.getX(i), u0, u1))),
+      v: span(idx.map((i) => toTexel(uv.getY(i), v0, v1))),
+    });
+  }
+  return faces;
+}
+
+/** The texel span a face `px` pixels long should show: whole texels, centred, or the whole tile. */
+function wantSpan(px: number): number[] {
+  if (px >= 16) return [0, 16];
+  const start = Math.floor((16 - px) / 2);
+  return [start, start + px];
+}
+
+describe("tiled faces: one texel per pixel, centred on whole texels, on the right axes", () => {
+  const cases: [string, VoxelModel, string][] = [
+    ["the 4×2×4 tuft", critter(), "tuft"],
+    ["an odd 5×3×7 patch", lopsided(), "patch"],
+    ["a 20×1×16 slab (wider than a tile)", lopsided(), "slab"],
+  ];
+  for (const [label, def, name] of cases) {
+    it(label, () => {
+      const m = buildModel(def, fakeAtlas());
+      const mesh = m.part(name);
+      const size = def.parts.find((p) => p.name === name)?.size;
+      if (!mesh || !size) throw new Error(name);
+      const faces = faceTexels(mesh);
+      // Every face runs along two different axes, and together the faces cover all three.
+      expect(new Set(faces.flatMap((f) => [f.uAxis, f.vAxis]))).toEqual(new Set([0, 1, 2]));
+      for (const face of faces) {
+        expect(face.uAxis).not.toBe(face.vAxis);
+        const u = face.u.map((x) => Math.round(x * 1000) / 1000);
+        const v = face.v.map((x) => Math.round(x * 1000) / 1000);
+        expect(u).toEqual(wantSpan(size[face.uAxis] ?? Number.NaN));
+        expect(v).toEqual(wantSpan(size[face.vAxis] ?? Number.NaN));
+      }
+    });
+  }
+});
+
+describe("instanced GPU uploads", () => {
+  it("bumps instanceMatrix.version when an update moves an instance, and not when nothing moved", () => {
+    const herd = buildModelInstanced(critter(), 3);
+    const body = herd.part("body");
+    const leg = herd.part("leg-fl");
+    if (!body || !leg) throw new Error("parts");
+    const v0 = body.instanceMatrix.version;
+    herd.place(0, { x: 1, y: 0, z: 2 });
+    herd.setVisible(0, true);
+    herd.update(16);
+    const v1 = body.instanceMatrix.version;
+    expect(v1).toBeGreaterThan(v0);
+    herd.update(16); // nothing changed
+    expect(body.instanceMatrix.version).toBe(v1);
+    const legBefore = leg.instanceMatrix.version;
+    herd.play(0, "walk", { fadeMs: 0 });
+    herd.update(16); // animation alone also uploads
+    expect(leg.instanceMatrix.version).toBeGreaterThan(legBefore);
+  });
+
+  it("bumps instanceColor.version on setTint", () => {
+    const herd = buildModelInstanced(critter(), 3);
+    const head = herd.part("head");
+    const before = head?.instanceColor?.version ?? Number.NaN;
+    herd.setTint(2, "#ffaa00");
+    expect(head?.instanceColor?.version).toBeGreaterThan(before);
+  });
+});
+
+/** Runs the model material's own onBeforeCompile hook on a copy of three's Lambert shader. */
+function patchedLambert(): { vertexShader: string; fragmentShader: string } {
+  const material = buildModel(critter(), fakeAtlas()).part("body")?.material;
+  if (!(material instanceof THREE.MeshLambertMaterial)) throw new Error("material");
+  // The hook is patchModelShader itself, which only reads and writes the two shader strings.
+  const hook: unknown = Reflect.get(material, "onBeforeCompile");
+  expect(hook).toBe(patchModelShader);
+  const shader = {
+    vertexShader: THREE.ShaderLib.lambert.vertexShader,
+    fragmentShader: THREE.ShaderLib.lambert.fragmentShader,
+  };
+  patchModelShader(shader);
+  return shader;
+}
+
+const toTexel = (x: number, a: number, b: number): number => ((x - a) / (b - a)) * 16;
+const span = (vals: number[]): number[] => [Math.min(...vals), Math.max(...vals)];
+
+describe("the shader patch", () => {
+  it("declares and passes vVtTex, and weights the atlas texel by it instead of three's map_fragment", () => {
+    const { vertexShader, fragmentShader } = patchedLambert();
+    expect(vertexShader).toContain("attribute float vtTex;");
+    expect(vertexShader).toContain("varying float vVtTex;");
+    expect(vertexShader).toMatch(/#include <uv_vertex>\s*vVtTex = vtTex;/);
+    expect(fragmentShader).toContain("varying float vVtTex;");
+    expect(fragmentShader).toContain(
+      "diffuseColor *= mix( vec4( 1.0 ), sampledDiffuseColor, vVtTex );",
+    );
+    // three's own chunk (diffuseColor *= sampledDiffuseColor for every fragment) is gone.
+    expect(fragmentShader).not.toContain("#include <map_fragment>");
+    expect(fragmentShader).not.toMatch(/diffuseColor \*= sampledDiffuseColor/);
+    // Declared before use: the varying comes before main() in both stages.
+    for (const src of [vertexShader, fragmentShader]) {
+      expect(src.indexOf("varying float vVtTex;")).toBeLessThan(src.indexOf("void main()"));
+    }
+  });
+
+  it("throws, naming the anchor, when three.js no longer has a chunk it patches", () => {
+    for (const anchor of [
+      "#include <uv_pars_vertex>",
+      "#include <uv_vertex>",
+      "#include <uv_pars_fragment>",
+      "#include <map_fragment>",
+    ]) {
+      const shader = {
+        vertexShader: THREE.ShaderLib.lambert.vertexShader.replace(anchor, ""),
+        fragmentShader: THREE.ShaderLib.lambert.fragmentShader.replace(anchor, ""),
+      };
+      expect(() => patchModelShader(shader), anchor).toThrow(anchor);
+    }
+    const twice = {
+      vertexShader: `${THREE.ShaderLib.lambert.vertexShader}\n#include <uv_vertex>`,
+      fragmentShader: THREE.ShaderLib.lambert.fragmentShader,
+    };
+    expect(() => patchModelShader(twice)).toThrow(/exactly once/);
+  });
+
+  it("a model of flat colours only gets a plain material with no patch and no map", () => {
+    const material = buildModel(arm(), fakeAtlas()).part("upper")?.material;
+    if (!(material instanceof THREE.MeshLambertMaterial)) throw new Error("material");
+    expect(material.map).toBe(null);
+    expect(material.customProgramCacheKey()).not.toBe("vt-model-tex");
+  });
+});
+
+describe("hidden instances", () => {
+  it("don't advance, don't keep the herd animating, and resume when shown", () => {
+    const herd = buildModelInstanced(critter(), 4);
+    herd.setVisible(1, true);
+    herd.play(1, "walk", { fadeMs: 0 });
+    herd.update(50);
+    expect(herd.animating).toBe(true);
+    const leg = herd.part("leg-fl");
+    if (!leg) throw new Error("leg");
+    const before = new THREE.Matrix4();
+    leg.getMatrixAt(1, before);
+    herd.setVisible(1, false);
+    herd.update(0); // writes the zero matrix
+    expect(herd.animating).toBe(false);
+    const version = leg.instanceMatrix.version;
+    for (let i = 0; i < 10; i++) herd.update(16);
+    expect(leg.instanceMatrix.version).toBe(version);
+    herd.setVisible(1, true);
+    herd.update(0);
+    const after = new THREE.Matrix4();
+    leg.getMatrixAt(1, after);
+    expect(after.equals(before)).toBe(true); // paused at the same point of the walk
+    expect(herd.animating).toBe(true);
+  });
+
+  it("draw only up to the last visible instance", () => {
+    const herd = buildModelInstanced(critter(), 10);
+    const parts = critter().parts.length;
+    expect(drawCalls(herd.root)).toBe(0);
+    herd.setVisible(3, true);
+    expect(herd.part("body")?.count).toBe(4);
+    expect(drawCalls(herd.root)).toBe(parts);
+    herd.setVisible(7, true);
+    herd.setVisible(3, false);
+    expect(herd.part("body")?.count).toBe(8);
+    herd.setVisible(7, false);
+    expect(herd.part("body")?.count).toBe(0);
+    expect(drawCalls(herd.root)).toBe(0);
+  });
+
+  it("setTint after dispose does nothing", () => {
+    const herd = buildModelInstanced(critter(), 2);
+    const head = herd.part("head");
+    const version = head?.instanceColor?.version;
+    herd.dispose();
+    herd.setTint(0, "#ff0000");
+    expect(head?.instanceColor?.version).toBe(version);
+    const single = buildModel(critter(), null);
+    const material = single.part("body")?.material;
+    if (!(material instanceof THREE.MeshLambertMaterial)) throw new Error("material");
+    single.dispose();
+    single.setTint("#ff0000");
+    expect(material.color.getHexString()).toBe("ffffff");
+  });
+});
+
+describe("facing: +z is the front", () => {
+  it("the critter's head is at +z, and yaw = atan2(dx, dz) turns it toward (dx, dz), as Object3D.lookAt does", () => {
+    const def = critter();
+    const single = buildModel(def, null);
+    expect(worldPos(single.part("head") ?? single.root).z).toBeGreaterThan(0);
+    const target = new THREE.Vector3(3, 0, -4);
+    const herd = buildModelInstanced(def, 1);
+    herd.place(0, { x: 0, y: 0, z: 0 }, Math.atan2(target.x, target.z));
+    herd.setVisible(0, true);
+    herd.update(0);
+    const m = new THREE.Matrix4();
+    herd.part("head")?.getMatrixAt(0, m);
+    const head = new THREE.Vector3().setFromMatrixPosition(m);
+    const dir = new THREE.Vector2(head.x, head.z).normalize();
+    expect(dir.x).toBeCloseTo(0.6, 5);
+    expect(dir.y).toBeCloseTo(-0.8, 5);
+    // The same front three's own lookAt gives a non-camera object (its local +z).
+    const probe = new THREE.Object3D();
+    probe.lookAt(target);
+    const front = probe.getWorldDirection(new THREE.Vector3());
+    expect(front.x).toBeCloseTo(0.6, 5);
+    expect(front.z).toBeCloseTo(-0.8, 5);
   });
 });

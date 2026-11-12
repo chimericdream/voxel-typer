@@ -32,12 +32,20 @@ export interface ModelOptions {
   reducedMotion?: () => boolean;
 }
 
+/** What a model tells the driver it is bound to. */
+export interface DriverLink {
+  /** Something changed while the loop may be idle (`play`, `stop`, `setTint`, …). */
+  wake(): void;
+  /** The model was disposed; the driver drops it. */
+  disposed(): void;
+}
+
 /** Something the model driver can run: it updates while `animating` and wakes the loop on play. */
 export interface Animatable {
   update(dtMs: Ms): void;
   readonly animating: boolean;
-  /** The driver passes the loop's `wake`; `play` calls it. Null unbinds. */
-  bindWake(wake: (() => void) | null): void;
+  /** The driver binds itself here. Null unbinds. */
+  bindDriver(link: DriverLink | null): void;
 }
 
 /** One built model (contracts.md §8.4: `{ root, play, update, setTint, dispose }`). */
@@ -66,7 +74,10 @@ export interface InstancedModelHandle extends Animatable {
   readonly count: number;
   /** Puts instance `i` at `at` (world units, feet on `at.y`), turned `yaw` radians about y. */
   place(i: number, at: Vec3, yaw?: number, scale?: number): void;
-  /** Instances start hidden; `place` doesn't show them. A hidden instance draws nothing visible. */
+  /**
+   * Instances start hidden; `place` doesn't show them. A hidden instance draws nothing, and its
+   * anim is paused (it doesn't advance or keep the loop awake) until it is shown again.
+   */
   setVisible(i: number, visible: boolean): void;
   isVisible(i: number): boolean;
   play(i: number, anim: string, opts?: PlayOptions): boolean;
@@ -138,20 +149,20 @@ export function buildModel(
   };
   pose();
 
-  let wake: (() => void) | null = null;
+  let link: DriverLink | null = null;
   let disposed = false;
   return {
     root,
     play(anim, playOpts) {
       if (disposed) return false;
       const ok = animator.play(anim, playOpts);
-      if (ok) wake?.();
+      if (ok) link?.wake();
       return ok;
     },
     stop(stopOpts) {
       if (disposed) return;
       animator.stop(stopOpts);
-      wake?.();
+      link?.wake();
     },
     update(dtMs) {
       if (!disposed && animator.update(dtMs)) pose();
@@ -162,18 +173,21 @@ export function buildModel(
     get current() {
       return animator.current;
     },
-    bindWake(fn) {
-      wake = fn;
+    bindDriver(next) {
+      link = next;
     },
     setTint(color) {
+      if (disposed) return;
       material.color.copy(color === null ? WHITE : new THREE.Color(color));
-      wake?.();
+      link?.wake();
     },
     part: (name) => byName.get(name),
     dispose() {
       if (disposed) return;
       disposed = true;
-      wake = null;
+      const bound = link;
+      link = null;
+      bound?.disposed();
       root.removeFromParent();
       for (const mesh of meshes) mesh.geometry.dispose();
       material.dispose();
@@ -209,6 +223,7 @@ export function buildModelInstanced(
     mesh.receiveShadow = true;
     // Allocate the colour buffer up front so a later tint doesn't recompile the program.
     for (let i = 0; i < count; i++) mesh.setColorAt(i, WHITE);
+    mesh.count = 0; // every instance starts hidden
     root.add(mesh);
     return mesh;
   });
@@ -250,13 +265,14 @@ export function buildModelInstanced(
     }
   };
 
-  let wake: (() => void) | null = null;
+  let link: DriverLink | null = null;
   let disposed = false;
 
   const flush = (dtMs: Ms): void => {
     let any = false;
     for (let i = 0; i < count; i++) {
-      const moved = animators[i]?.update(dtMs) ?? false;
+      // A hidden instance's anim is paused: it doesn't advance and its zero matrix is already set.
+      const moved = visible[i] ? (animators[i]?.update(dtMs) ?? false) : false;
       if (moved || dirty[i]) {
         dirty[i] = false;
         writeInstance(i);
@@ -269,7 +285,7 @@ export function buildModelInstanced(
 
   const touch = (i: number): void => {
     dirty[i] = true;
-    wake?.();
+    link?.wake();
   };
 
   return {
@@ -288,6 +304,9 @@ export function buildModelInstanced(
       check(i);
       if (visible[i] === show) return;
       visible[i] = show;
+      // Draw only up to the last visible instance, so hidden tail slots cost no vertex work.
+      const drawn = visible.lastIndexOf(true) + 1;
+      for (const mesh of meshes) mesh.count = drawn;
       touch(i);
     },
     isVisible(i) {
@@ -298,14 +317,14 @@ export function buildModelInstanced(
       check(i);
       if (disposed) return false;
       const ok = animators[i]?.play(anim, playOpts) ?? false;
-      if (ok) wake?.();
+      if (ok) link?.wake();
       return ok;
     },
     stop(i, stopOpts) {
       check(i);
       if (disposed) return;
       animators[i]?.stop(stopOpts);
-      wake?.();
+      link?.wake();
     },
     current(i) {
       check(i);
@@ -315,25 +334,30 @@ export function buildModelInstanced(
       if (!disposed) flush(dtMs);
     },
     get animating() {
-      return !disposed && (dirty.includes(true) || animators.some((a) => a.animating));
+      return (
+        !disposed && (dirty.includes(true) || animators.some((a, i) => visible[i] && a.animating))
+      );
     },
-    bindWake(fn) {
-      wake = fn;
+    bindDriver(next) {
+      link = next;
     },
     setTint(i, tint) {
       check(i);
+      if (disposed) return;
       color.copy(tint === null ? WHITE : new THREE.Color(tint));
       for (const mesh of meshes) {
         mesh.setColorAt(i, color);
         if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
       }
-      wake?.();
+      link?.wake();
     },
     part: (name) => byName.get(name),
     dispose() {
       if (disposed) return;
       disposed = true;
-      wake = null;
+      const bound = link;
+      link = null;
+      bound?.disposed();
       root.removeFromParent();
       for (const mesh of meshes) {
         mesh.geometry.dispose();

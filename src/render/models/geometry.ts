@@ -8,7 +8,9 @@
  * and tiled parts still needs only one program and one material.
  *
  * **Texel density:** a face shows one atlas texel per model pixel, so a 4×6 face shows the middle
- * 4×6 texels of its tile and doesn't stretch it. Faces over 16 pixels stretch the whole tile.
+ * 4×6 texels of its tile and doesn't stretch it. The crop starts on a whole texel
+ * (`floor((16 - n) / 2)`), so an odd size such as 5 shows texels 5–9 and never half a texel.
+ * Faces over 16 pixels stretch the whole tile.
  */
 import * as THREE from "three";
 import type { BlockId } from "@/types/core";
@@ -69,13 +71,13 @@ export function partGeometry(part: ModelPart, atlas: ModelAtlas | null): THREE.B
     const uv = geometry.getAttribute("uv");
     for (let face = 0; face < 6; face++) {
       const dims = FACE_DIMS[face] ?? [0, 1];
-      const fu = Math.min((part.size[dims[0]] ?? 0) / TILE_SIZE, 1);
-      const fv = Math.min((part.size[dims[1]] ?? 0) / TILE_SIZE, 1);
+      const [su, lu] = cropSpan(part.size[dims[0]] ?? 0);
+      const [sv, lv] = cropSpan(part.size[dims[1]] ?? 0);
       for (let k = 0; k < 4; k++) {
         const i = face * 4 + k;
         // BoxGeometry gives each face corner a 0/1 uv; crop to the face's middle texels.
-        const a = 0.5 + (uv.getX(i) - 0.5) * fu;
-        const b = 0.5 + (uv.getY(i) - 0.5) * fv;
+        const a = su + uv.getX(i) * lu;
+        const b = sv + uv.getY(i) * lv;
         uv.setXY(i, u0 + (u1 - u0) * a, v0 + (v1 - v0) * b);
       }
     }
@@ -83,9 +85,74 @@ export function partGeometry(part: ModelPart, atlas: ModelAtlas | null): THREE.B
   return geometry;
 }
 
+/**
+ * The part of a tile (as fractions: start and length) that a face `px` model pixels long shows:
+ * the middle `px` texels, starting on a whole texel; the whole tile from 16 px up.
+ */
+export function cropSpan(px: number): [start: number, length: number] {
+  if (!(px < TILE_SIZE)) return [0, 1];
+  return [Math.floor((TILE_SIZE - px) / 2) / TILE_SIZE, px / TILE_SIZE];
+}
+
 /** True if any part of the model would sample the atlas. */
 export function needsAtlas(parts: readonly ModelPart[], atlas: ModelAtlas | null): boolean {
   return atlas !== null && parts.some((p) => p.tile !== undefined);
+}
+
+/** One edit of the shader patch: `anchor` must occur exactly once and is replaced by `code`. */
+interface ShaderEdit {
+  stage: "vertexShader" | "fragmentShader";
+  anchor: string;
+  code: string;
+}
+
+const SHADER_EDITS: readonly ShaderEdit[] = [
+  {
+    stage: "vertexShader",
+    anchor: "#include <uv_pars_vertex>",
+    code: "#include <uv_pars_vertex>\nattribute float vtTex;\nvarying float vVtTex;",
+  },
+  {
+    stage: "vertexShader",
+    anchor: "#include <uv_vertex>",
+    code: "#include <uv_vertex>\n\tvVtTex = vtTex;",
+  },
+  {
+    stage: "fragmentShader",
+    anchor: "#include <uv_pars_fragment>",
+    code: "#include <uv_pars_fragment>\nvarying float vVtTex;",
+  },
+  {
+    // three's own map_fragment multiplies by the texel unconditionally; ours weights it by vtTex.
+    // (Its DECODE_VIDEO_TEXTURE branch is dropped: the atlas is never a video.)
+    stage: "fragmentShader",
+    anchor: "#include <map_fragment>",
+    code: [
+      "#ifdef USE_MAP",
+      "\tvec4 sampledDiffuseColor = texture2D( map, vMapUv );",
+      "\tdiffuseColor *= mix( vec4( 1.0 ), sampledDiffuseColor, vVtTex );",
+      "#endif",
+    ].join("\n"),
+  },
+];
+
+/**
+ * Applies the `vtTex` patch to a Lambert shader. Throws, naming the anchor, if three.js has
+ * renamed or split a chunk it relies on, so an upgrade fails loudly instead of letting flat parts
+ * sample the atlas.
+ */
+export function patchModelShader(shader: { vertexShader: string; fragmentShader: string }): void {
+  for (const { stage, anchor, code } of SHADER_EDITS) {
+    const src = shader[stage];
+    const at = src.indexOf(anchor);
+    if (at < 0 || src.includes(anchor, at + anchor.length)) {
+      throw new Error(
+        `voxel model shader patch: "${anchor}" must occur exactly once in the ${stage} ` +
+          "(three.js changed its shader chunks; update SHADER_EDITS in src/render/models/geometry.ts)",
+      );
+    }
+    shader[stage] = src.slice(0, at) + code + src.slice(at + anchor.length);
+  }
 }
 
 /**
@@ -97,25 +164,8 @@ export function modelMaterial(map: THREE.Texture | null): THREE.MeshLambertMater
   material.name = "voxel-model";
   if (!map) return material;
   material.map = map;
-  material.onBeforeCompile = (shader) => {
-    shader.vertexShader = shader.vertexShader
-      .replace(
-        "#include <uv_pars_vertex>",
-        "#include <uv_pars_vertex>\nattribute float vtTex;\nvarying float vVtTex;",
-      )
-      .replace("#include <uv_vertex>", "#include <uv_vertex>\n\tvVtTex = vtTex;");
-    shader.fragmentShader = shader.fragmentShader
-      .replace("#include <uv_pars_fragment>", "#include <uv_pars_fragment>\nvarying float vVtTex;")
-      .replace(
-        "#include <map_fragment>",
-        [
-          "#ifdef USE_MAP",
-          "\tvec4 sampledDiffuseColor = texture2D( map, vMapUv );",
-          "\tdiffuseColor *= mix( vec4( 1.0 ), sampledDiffuseColor, vVtTex );",
-          "#endif",
-        ].join("\n"),
-      );
-  };
+  // The hook is the patch itself (it only reads the two shader strings), so tests can check it.
+  material.onBeforeCompile = patchModelShader;
   material.customProgramCacheKey = () => PROGRAM_KEY;
   return material;
 }
