@@ -76,7 +76,9 @@ export interface InstancedModelHandle extends Animatable {
   place(i: number, at: Vec3, yaw?: number, scale?: number): void;
   /**
    * Instances start hidden; `place` doesn't show them. A hidden instance draws nothing, and its
-   * anim is paused (it doesn't advance or keep the loop awake) until it is shown again.
+   * anim is paused (it doesn't advance or keep the loop awake) until it is shown again. Showing an
+   * instance ends any crossfade it was in, and a `play` before the next `update` doesn't fade, so
+   * a pooled mob appears in its new anim's pose at once (never growing in from a `defeat`).
    */
   setVisible(i: number, visible: boolean): void;
   isVisible(i: number): boolean;
@@ -232,6 +234,8 @@ export function buildModelInstanced(
   const places = Array.from({ length: count }, () => new THREE.Matrix4());
   const visible = Array.from({ length: count }, () => false);
   const dirty = Array.from({ length: count }, () => true);
+  // Shown since the last update: a `play` now snaps instead of fading from the hidden pose.
+  const fresh = Array.from({ length: count }, () => false);
   // Reused per update.
   const world = rig.parts.map(() => new THREE.Matrix4());
   const local = new THREE.Matrix4();
@@ -273,6 +277,7 @@ export function buildModelInstanced(
     for (let i = 0; i < count; i++) {
       // A hidden instance's anim is paused: it doesn't advance and its zero matrix is already set.
       const moved = visible[i] ? (animators[i]?.update(dtMs) ?? false) : false;
+      fresh[i] = false;
       if (moved || dirty[i]) {
         dirty[i] = false;
         writeInstance(i);
@@ -304,6 +309,11 @@ export function buildModelInstanced(
       check(i);
       if (visible[i] === show) return;
       visible[i] = show;
+      // A pooled instance shown again starts from its current anim, not from the pose it was
+      // hidden in (a finished `defeat` ends at scale 0, and fading out of that grows the mob in).
+      // `fresh` covers the other order (show, then play in the same frame): that play snaps too.
+      if (show) animators[i]?.snap();
+      fresh[i] = show;
       // Draw only up to the last visible instance, so hidden tail slots cost no vertex work.
       const drawn = visible.lastIndexOf(true) + 1;
       for (const mesh of meshes) mesh.count = drawn;
@@ -316,7 +326,8 @@ export function buildModelInstanced(
     play(i, anim, playOpts) {
       check(i);
       if (disposed) return false;
-      const ok = animators[i]?.play(anim, playOpts) ?? false;
+      const effective = fresh[i] ? { ...playOpts, fadeMs: 0 } : playOpts;
+      const ok = animators[i]?.play(anim, effective) ?? false;
       if (ok) link?.wake();
       return ok;
     },

@@ -17,7 +17,9 @@ import { defaultSettings } from "@/save/settings";
 import type { Settings } from "@/save/settings";
 import { NewerSaveError } from "@/save/store";
 import type { SaveStore } from "@/save/store";
-import type { GameModeId } from "@/types/core";
+import type { AchievementDef } from "@/engine/achievements";
+import type { AchievementId, GameModeId } from "@/types/core";
+import { createAchievementTracker } from "./achievements";
 import { createBreakReminder } from "./break-reminder";
 import type { Clock } from "./clock";
 import type { HudStore } from "./hud";
@@ -56,6 +58,8 @@ export interface ShellDeps {
   /** A profile to start with (`?profile=` fixtures). Set before the first route is entered, so a
    * deep link straight into `play` finds it. */
   initialProfile?: Profile | null;
+  /** The device's offset from UTC in minutes (`Date#getTimezoneOffset`). Default: the real one. */
+  tzOffsetMin?(): number;
 }
 
 /** A kind message for the family, shown as a toast. */
@@ -70,6 +74,8 @@ export interface Shell {
   readonly profile: ReadonlySignal<Profile | null>;
   readonly playStatus: ReadonlySignal<PlayStatus>;
   readonly notices: ReadonlySignal<readonly Notice[]>;
+  /** Badges earned and not yet shown, oldest first (M3-10). The toast shows the first. */
+  readonly badgeToasts: ReadonlySignal<readonly AchievementId[]>;
   readonly play: PlayHost;
   /** The HUD bridge modes write to; the play view draws it (M2-14). */
   readonly hud: HudStore;
@@ -77,6 +83,10 @@ export interface Shell {
   /** For `SaveStoreOptions.onProblem`. */
   onSaveProblem(p: SaveProblem): void;
   dismissNotice(id: number): void;
+  /** The first badge toast has been shown. */
+  nextBadgeToast(): void;
+  /** Queues toasts for newly earned badges (the tracker calls this; tests may too). */
+  queueBadges(ids: readonly AchievementId[]): void;
   /** Pause → "Back to the map". */
   quitPlay(): void;
   /** Resolves once everything the current screen asked to wait for has settled. */
@@ -102,6 +112,10 @@ export function createShell(deps: ShellDeps): Shell {
   const profile = signal<Profile | null>(null);
   const playStatus = signal<PlayStatus>("idle");
   const notices = signal<readonly Notice[]>([]);
+  const badgeToasts = signal<readonly AchievementId[]>([]);
+  const queueBadges = (ids: readonly AchievementId[]): void => {
+    if (ids.length > 0) badgeToasts.value = [...badgeToasts.value, ...ids];
+  };
   const handlers: ScreenInputHandler[] = [];
   const pending = new Set<Promise<unknown>>();
   /** Profiles a newer build owns: never written again this session. */
@@ -125,6 +139,15 @@ export function createShell(deps: ShellDeps): Shell {
     void tracked.then(() => pending.delete(tracked));
   };
 
+  // Loaded on the side: the badge list pulls in the block registry, which the first screen
+  // doesn't need. A lesson takes far longer than this load.
+  let badgeDefs: readonly AchievementDef[] = [];
+  whenReady(
+    import("@/content/achievements").then((m) => {
+      badgeDefs = m.achievements;
+    }),
+  );
+
   const applySettings = (s: Readonly<Settings>): void => {
     deps.applySettings(s);
     applyAudioSettings(deps.audio, s);
@@ -132,6 +155,8 @@ export function createShell(deps: ShellDeps): Shell {
 
   const setProfile = (p: Profile | null): void => {
     const before = profile.value;
+    // Badge toasts belong to the player who earned them (M3-10 re-review N3).
+    if (before?.id !== p?.id) badgeToasts.value = [];
     profile.value = p;
     if (p === null) applySettings(deviceSettings());
     else if (before?.settings !== p.settings) applySettings(p.settings);
@@ -183,6 +208,18 @@ export function createShell(deps: ShellDeps): Shell {
     away: () => deps.away?.() ?? false,
     record: deps.record,
     reminder: createBreakReminder(),
+    currentProfile: () => profile.value,
+    achievements: createAchievementTracker({
+      defs: () => badgeDefs,
+      lessons: deps.lessons,
+      clock: deps.clock,
+      tzOffsetMin: () => deps.tzOffsetMin?.() ?? new Date().getTimezoneOffset(),
+      schedule(fn, ms) {
+        const id = setTimeout(fn, ms);
+        return () => clearTimeout(id);
+      },
+      onUnlock: (ids) => queueBadges(ids),
+    }),
     saveProfile,
     lessons: deps.lessons,
     onStatus(s) {
@@ -231,7 +268,9 @@ export function createShell(deps: ShellDeps): Shell {
   const back = (): void => {
     const prev = history.pop();
     if (route.value.id === "play" && play.status() !== "finished") play.quit();
-    route.value = prev ?? { id: "splash" };
+    // A fresh object, so screens that key on the route (the badge toast's settle wait) see a new
+    // arrival even when going back to a route object seen before (M3-10 re-review N1).
+    route.value = prev === undefined ? { id: "splash" } : { ...prev };
     enter(route.value);
   };
 
@@ -285,6 +324,7 @@ export function createShell(deps: ShellDeps): Shell {
     profile,
     playStatus,
     notices,
+    badgeToasts,
     play,
     hud: deps.hud,
     router,
@@ -292,6 +332,10 @@ export function createShell(deps: ShellDeps): Shell {
       if (p.kind === "newerVersion" && p.profileId !== null) readOnly.add(p.profileId);
       if (p.kind === "unreadable" && p.profileId !== null) damaged.add(p.profileId);
       notify(p.kind);
+    },
+    queueBadges,
+    nextBadgeToast() {
+      badgeToasts.value = badgeToasts.value.slice(1);
     },
     dismissNotice(id) {
       notices.value = notices.value.filter((n) => n.id !== id);

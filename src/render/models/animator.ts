@@ -133,6 +133,16 @@ export class Animator {
     this.onEnd = null;
   }
 
+  /**
+   * Ends any crossfade at once: the next `update` writes the current anim's pose (or the rest pose
+   * when stopped) with no blend from the old one. Used when a pooled instance is shown again, so a
+   * mob reused after `defeat` doesn't grow in from that anim's scale-0 end pose.
+   */
+  snap(): void {
+    this.fadeLeft = 0;
+    this.pending = true;
+  }
+
   /** Advances time by `dtMs` and writes {@link pose}. Returns true if the pose may have changed. */
   update(dtMs: Ms): boolean {
     if (!this.animating) return false;

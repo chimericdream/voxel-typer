@@ -21,6 +21,7 @@ import settings from "./settings";
 import lessonsBirch from "./lessons-birch";
 import lessonsShore from "./lessons-shore";
 import lessonsFrosty from "./lessons-frosty";
+import achievements from "./achievements";
 
 const en = {
   common,
@@ -39,6 +40,7 @@ const en = {
   lessonsBirch,
   lessonsShore,
   lessonsFrosty,
+  achievements,
 } as const;
 
 export default en;

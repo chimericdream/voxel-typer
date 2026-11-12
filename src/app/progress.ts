@@ -6,9 +6,10 @@
  */
 import type { Lesson } from "@/content/lessons/types";
 import { estimatePlacement } from "@/engine/placement";
-import type { PlacementEstimate } from "@/engine/placement";
+import type { PlacementEstimate, RungScore } from "@/engine/placement";
+import { foundBlocks } from "@/engine/achievements";
 import { foldSummaryIntoBigramStats, foldSummaryIntoKeyStats } from "@/engine/stats";
-import { PLACEMENT_TIER_EXTRA } from "@/modes/placement/lesson";
+import { PLACEMENT_RUNGS_EXTRA, PLACEMENT_TIER_EXTRA } from "@/modes/placement/lesson";
 import type { ModeResult } from "@/modes/types";
 import type { Profile, StoredSummary } from "@/save/schema";
 import { BIOME_ORDER } from "@/types/core";
@@ -84,6 +85,8 @@ export function applyResult(
     keyStats: foldSummaryIntoKeyStats(profile.keyStats, summary, sessionIndex),
     bigramStats: foldSummaryIntoBigramStats(profile.bigramStats, summary, sessionIndex),
     inventory: addLoot(profile.inventory, result.loot),
+    // Lifetime finds: only lesson and placement loot, never island digging (decision 99).
+    found: addLoot(foundBlocks(profile), result.loot),
     history: [...profile.history, storedSummary(result, at)],
   };
 }
@@ -98,6 +101,29 @@ export function placementTierOf(result: Pick<ModeResult, "extra">): number {
   return typeof raw === "number" && Number.isInteger(raw) && raw >= 0 ? raw : 0;
 }
 
+const isCount = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v) && v >= 0;
+
+function isRungScore(v: unknown): v is RungScore {
+  if (typeof v !== "object" || v === null) return false;
+  const r: Record<string, unknown> = { ...v };
+  return (
+    isCount(r["tier"]) &&
+    Number.isInteger(r["tier"]) &&
+    isCount(r["ms"]) &&
+    isCount(r["keystrokes"]) &&
+    isCount(r["correct"])
+  );
+}
+
+/**
+ * The per-rung scores of a placement result (`ModeResult.extra.placementRungs`, M3-FIX-3 N2).
+ * Anything malformed is left out, so those rungs are judged on the whole test.
+ */
+export function placementRungsOf(result: Pick<ModeResult, "extra">): RungScore[] {
+  const raw = result.extra?.[PLACEMENT_RUNGS_EXTRA];
+  return Array.isArray(raw) ? raw.filter(isRungScore) : [];
+}
+
 /** The estimate of a placement result for a profile (pure; the Placement screen reuses it). */
 export function placementEstimateOf(
   profile: Readonly<Profile>,
@@ -107,6 +133,7 @@ export function placementEstimateOf(
     band: profile.ageBand,
     tierReached: placementTierOf(result),
     sessionIndex: profile.sessionCounter + 1,
+    rungs: placementRungsOf(result),
   });
 }
 
@@ -139,6 +166,28 @@ export const testedOut = (at: EpochMs): Profile["progress"]["lessons"][string] =
 
 /** True for a lesson record the placement test filled in ({@link testedOut}). */
 export const isTestedOut = (rec: { plays: number }): boolean => rec.plays === 0;
+
+/**
+ * Whether to offer the placement test now (M3-FIX-3 N4): the player has not settled where to
+ * start and has played nothing yet. A test quit mid-way, or lost to a reload, leaves both so, and
+ * the next visit offers it again. That offer settles the start ({@link settleAtMeadow}) as it is
+ * shown, so it is offered once more at most and never nags.
+ */
+export const shouldOfferPlacement = (profile: Readonly<Profile>): boolean =>
+  profile.progress.placement === undefined && profile.sessionCounter === 0;
+
+/**
+ * The profile with its start settled at the Meadow without a test: Skip, or the one repeat offer
+ * (M3-FIX-3 N4). A test finished afterwards replaces it ({@link applyPlacement}). An already
+ * settled start is kept.
+ */
+export function settleAtMeadow(profile: Readonly<Profile>, at: EpochMs): Profile {
+  if (profile.progress.placement !== undefined) return { ...profile };
+  return {
+    ...profile,
+    progress: { ...profile.progress, placement: { doneAt: at, startBiome: "meadow" } },
+  };
+}
 
 /**
  * The profile after a placement test (PLAN.md §3.2.8, contracts §6 "Unlocks"). Like
@@ -184,6 +233,8 @@ export function applyPlacement(
     keyStats: { ...estimate.keyBaseline, ...profile.keyStats },
     bigramStats: foldSummaryIntoBigramStats(profile.bigramStats, result.summary, sessionIndex),
     inventory: addLoot(profile.inventory, result.loot),
+    // Lifetime finds: only lesson and placement loot, never island digging (decision 99).
+    found: addLoot(foundBlocks(profile), result.loot),
     history: [...profile.history, storedSummary(result, at)],
   };
 }

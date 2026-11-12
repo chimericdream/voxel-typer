@@ -259,7 +259,7 @@ describe("World map", () => {
     expect(s.route()).toEqual({ id: "lessonIntro", lesson: "meadow-01" });
   });
 
-  it("the arrows move between open islands only, then to the last button, and wrap", async () => {
+  it("the arrows move between open islands only, then to the corner buttons, and wrap", async () => {
     const s = await openMap(fixture("meadow-done-miner"));
     const meadow = island(s.root, "meadow");
     const birch = island(s.root, "birch");
@@ -271,14 +271,18 @@ describe("World map", () => {
     expect(active()).toBe(birch);
     await s.press("ArrowDown");
     expect(text(active())).toBe(t("map.players"));
-    // M3-08: Settings sits after Players in the corner.
+    // The corner: Players, My Badges (M3-10), Settings (M3-08).
+    await s.press("ArrowRight");
+    expect(text(active())).toBe(t("achievements.title"));
     await s.press("ArrowRight");
     expect(text(active())).toBe(t("settings.title"));
     await s.press("ArrowRight");
     expect(active()).toBe(meadow);
     await s.press("ArrowLeft");
     expect(text(active())).toBe(t("settings.title"));
-    await s.press("ArrowUp");
+    await s.press("ArrowLeft");
+    expect(text(active())).toBe(t("achievements.title"));
+    await s.press("ArrowLeft");
     expect(text(active())).toBe(t("map.players"));
     await s.press("ArrowUp");
     expect(active()).toBe(birch);

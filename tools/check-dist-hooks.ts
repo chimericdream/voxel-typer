@@ -15,8 +15,11 @@ import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-/** Strings that must never ship. */
-export const FORBIDDEN: readonly string[] = ["__vt", "tests/fixtures"];
+/**
+ * Strings that must never ship: the game's test hook, the fixture path, and the Model Lab's page
+ * hook (M4-02: lab.html is an e2e-build page only).
+ */
+export const FORBIDDEN: readonly string[] = ["__vt", "tests/fixtures", "vtLab"];
 
 const TEXT_FILES = "**/*.{js,mjs,css,html,json,map,txt,webmanifest}";
 

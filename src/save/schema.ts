@@ -48,6 +48,13 @@ export interface Profile {
   keyStats: Record<string, KeyStat>;
   bigramStats: Record<string, KeyStat>;
   inventory: Record<BlockId, number>;
+  /**
+   * Blocks ever found in play (lesson and placement-test loot), per id. Never lowered by building
+   * or digging, and island digging never adds to it. Added 2026-11-12 (M3-10, additive): a save
+   * without it is read as a copy of `inventory`, which was exact while only loot reached the
+   * inventory (`foundBlocks` in `src/engine/achievements.ts`).
+   */
+  found?: Record<BlockId, number>;
   island: {
     grid: ReturnType<VoxelGrid["toJSON"]>;
     expansions: number;
@@ -295,47 +302,50 @@ const weeklyCheck: Check = shape({
   avgAccuracy: num(0, 1),
 });
 
-const profileCheck: Check = shape({
-  id: str(1, 64),
-  name: notBlank(str(1, NAME_MAX)),
-  ageBand: oneOf(AGE_BANDS),
-  avatar: shape({ skin: str(1, 64) }, { hat: str(), pickaxe: str(), cape: str(), pet: str() }),
-  createdAt: num(0),
-  settings: settingsCheck,
-  progress: shape(
-    {
-      lessons: recordOf(
-        shape({
-          bestStars: int(0, 3),
-          bestNetWpm: num(0),
-          bestAccuracy: num(0, 1),
-          plays: int(),
-          lastPlayed: num(0),
-        }),
-      ),
-      unlockedBiomes: arrayOf(oneOf(BIOMES), true),
-    },
-    { placement: shape({ doneAt: num(0), startBiome: oneOf(BIOMES) }) },
-  ),
-  sessionCounter: int(),
-  // Keyed by one expected char, and by a 2-char string.
-  keyStats: recordOf(keyStatCheck, 1),
-  bigramStats: recordOf(keyStatCheck, 2),
-  inventory: recordOf(int()),
-  island: nullable(
-    shape({
-      grid: shape({ sx: int(1), sy: int(1), sz: int(1), rle: arrayOf(int()) }),
-      expansions: int(),
-      lastEdited: num(0),
-    }),
-  ),
-  cosmetics: shape({ unlocked: arrayOf(str()) }),
-  achievements: recordOf(num(0)),
-  daily: shape({ streakDates: arrayOf(date) }, { lastDone: date }),
-  history: arrayOf(storedSummaryCheck),
-  weekly: arrayOf(weeklyCheck),
-  schemaVersion: int(1),
-});
+const profileCheck: Check = shape(
+  {
+    id: str(1, 64),
+    name: notBlank(str(1, NAME_MAX)),
+    ageBand: oneOf(AGE_BANDS),
+    avatar: shape({ skin: str(1, 64) }, { hat: str(), pickaxe: str(), cape: str(), pet: str() }),
+    createdAt: num(0),
+    settings: settingsCheck,
+    progress: shape(
+      {
+        lessons: recordOf(
+          shape({
+            bestStars: int(0, 3),
+            bestNetWpm: num(0),
+            bestAccuracy: num(0, 1),
+            plays: int(),
+            lastPlayed: num(0),
+          }),
+        ),
+        unlockedBiomes: arrayOf(oneOf(BIOMES), true),
+      },
+      { placement: shape({ doneAt: num(0), startBiome: oneOf(BIOMES) }) },
+    ),
+    sessionCounter: int(),
+    // Keyed by one expected char, and by a 2-char string.
+    keyStats: recordOf(keyStatCheck, 1),
+    bigramStats: recordOf(keyStatCheck, 2),
+    inventory: recordOf(int()),
+    island: nullable(
+      shape({
+        grid: shape({ sx: int(1), sy: int(1), sz: int(1), rle: arrayOf(int()) }),
+        expansions: int(),
+        lastEdited: num(0),
+      }),
+    ),
+    cosmetics: shape({ unlocked: arrayOf(str()) }),
+    achievements: recordOf(num(0)),
+    daily: shape({ streakDates: arrayOf(date) }, { lastDone: date }),
+    history: arrayOf(storedSummaryCheck),
+    weekly: arrayOf(weeklyCheck),
+    schemaVersion: int(1),
+  },
+  { found: recordOf(int()) },
+);
 
 /**
  * Why `v` is not a valid current-version {@link Profile}, as `"<path>: <what>"`, or null when it

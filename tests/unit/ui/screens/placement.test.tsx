@@ -31,13 +31,29 @@ describe("Placement", () => {
     expect(buttonByText(s.root, t("placement.skip"))).not.toBeNull();
   });
 
-  it("Skip goes to the map and records nothing", async () => {
+  it("Skip goes to the map and only settles the start at the Meadow", async () => {
     const p = fixture("fresh-sprout");
     const s = await open({ initial: { id: "placement" }, initialProfile: p });
     buttonByText(s.root, t("placement.skip"))?.focus();
     await s.press("Enter");
     expect(s.route()).toEqual({ id: "map" });
-    expect(s.shell.profile.value?.progress).toEqual(p.progress);
+    // Nothing unlocks or is tested out; the start is settled, so a reload doesn't ask again (N4).
+    expect(s.shell.profile.value?.progress).toEqual({
+      ...p.progress,
+      placement: { doneAt: expect.any(Number), startBiome: "meadow" },
+    });
+    expect(s.shell.profile.value?.sessionCounter).toBe(p.sessionCounter);
+  });
+
+  it("Skip keeps a start that was already settled", async () => {
+    const p = fixture("fresh-sprout");
+    const settled = {
+      ...p,
+      progress: { ...p.progress, placement: { doneAt: 5, startBiome: "meadow" as const } },
+    };
+    const s = await open({ initial: { id: "placement" }, initialProfile: settled });
+    await s.press("Escape");
+    expect(s.shell.profile.value?.progress.placement).toEqual({ doneAt: 5, startBiome: "meadow" });
   });
 
   it("Escape skips too", async () => {
