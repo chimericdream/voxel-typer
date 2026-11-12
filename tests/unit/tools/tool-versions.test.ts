@@ -1,7 +1,7 @@
 /** Proves tools/check-tool-versions.ts catches a Node pin that drifts between mise.toml and .nvmrc. */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { checkPins, miseNodeVersion } from "../../tools/check-tool-versions";
+import { checkPins, miseNodeVersion } from "../../../tools/check-tool-versions";
 
 const toml = (node: string): string => `min_version = "2025.1.0"\n\n[tools]\nnode = "${node}"\n`;
 

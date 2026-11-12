@@ -23,7 +23,8 @@ These promises come from `PLAN.md` §1 and §6.7.
 ## Running it
 
 The repo pins its Node version (and with it npm) in [`mise.toml`](mise.toml). With
-[mise](https://mise.jdx.dev) installed:
+[mise](https://mise.jdx.dev) installed and activated in your shell (`mise activate`, or its shims on
+`PATH`, so plain `node` and `npm` use the pinned versions):
 
 ```sh
 mise trust && mise install   # once per clone: installs the pinned Node and npm
