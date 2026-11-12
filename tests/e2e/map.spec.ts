@@ -134,7 +134,9 @@ test("keyboard only: map → island → lesson → play → results → map, wit
   const second = page.getByRole("button", { name: /^Lesson 2: / });
   await expect(second).toHaveAccessibleName("Lesson 2: Hello, D and K. Play this one next!");
   await expect(second).toBeFocused();
-  await expect(page.locator("#app").getByText("1 of 6 lessons done")).toBeVisible();
+  await expect(
+    page.locator("#app").getByText("1 of 6 lessons done", { exact: true }),
+  ).toBeVisible();
 
   // Escape: back out to the whole map, then the island button says the same.
   await page.keyboard.press("Escape");
