@@ -58,6 +58,22 @@
       "color": "#f8f7f3"
     },
     {
+      "name": "pupil-left",
+      "parent": "eye-left",
+      "size": [1, 1, 1],
+      "pivot": [0.5, 0, 0.5],
+      "offset": [0.5, 0, 1],
+      "color": "#26282f"
+    },
+    {
+      "name": "pupil-right",
+      "parent": "eye-right",
+      "size": [1, 1, 1],
+      "pivot": [0.5, 0, 0.5],
+      "offset": [-0.5, 0, 1],
+      "color": "#26282f"
+    },
+    {
       "name": "stalk",
       "parent": "body",
       "size": [1, 4, 1],
