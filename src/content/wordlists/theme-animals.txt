@@ -1,6 +1,6 @@
 # Theme words (animals) for every band, authored for Voxel Typer. Provenance: SOURCES.md.
 # Short words of 1-5 letters, so Sprouts can read them too.
-# tags: band=all reading=cvc kind=words theme=animals
+# tags: band=all reading=grade2 kind=words theme=animals
 ant
 bear
 bee
@@ -15,6 +15,7 @@ crow
 cub
 deer
 dog
+dove
 duck
 eel
 elk
@@ -51,6 +52,5 @@ swan
 tiger
 toad
 whale
-wren
 yak
 zebra

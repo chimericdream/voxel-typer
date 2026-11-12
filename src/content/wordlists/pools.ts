@@ -91,6 +91,9 @@ export const POOL_IDS = [
   "citadel-sentences-sprout",
   "citadel-sentences-miner",
   "citadel-sentences-builder",
+  "birch-phrases-sprout",
+  "shore-phrases-sprout",
+  "frosty-phrases-sprout",
 ] as const;
 
 export type PoolId = (typeof POOL_IDS)[number];
