@@ -16,8 +16,9 @@ test("Meadow lessons 1–6 back to back on one scene", async ({ page }) => {
   await page.addInitScript(() => {
     const seen = new WeakSet<HTMLCanvasElement>();
     let count = 0;
-    const real = HTMLCanvasElement.prototype.getContext;
+    const real: unknown = Reflect.get(HTMLCanvasElement.prototype, "getContext");
     const patched = function (this: HTMLCanvasElement, ...args: unknown[]): unknown {
+      if (typeof real !== "function") return null;
       const ctx: unknown = Reflect.apply(real, this, args);
       const kind = String(args[0]);
       if (ctx !== null && kind.startsWith("webgl") && !seen.has(this)) {
@@ -40,18 +41,7 @@ test("Meadow lessons 1–6 back to back on one scene", async ({ page }) => {
     await expectScreen(page, "lessonIntro");
     const played = await playFromIntro(page, { wpm: 45, errorRate: 0.03, seed: 10 + i });
     const end = await state(page);
-    const lessonId = await page.evaluate(() => {
-      const hooks: unknown = Reflect.get(window, "__vt");
-      const fn: unknown =
-        typeof hooks === "object" && hooks !== null ? Reflect.get(hooks, "lastResult") : null;
-      const result: unknown = typeof fn === "function" ? Reflect.apply(fn, hooks, []) : null;
-      const summary: unknown =
-        typeof result === "object" && result !== null ? Reflect.get(result, "summary") : null;
-      return typeof summary === "object" && summary !== null
-        ? String(Reflect.get(summary, "lessonId"))
-        : null;
-    });
-    expect(lessonId).toBe(id);
+    expect(end.lessonId).toBe(id);
     expect(end.correct).toBe(played.keys);
     expect(end.stars).toBeGreaterThanOrEqual(1);
     stars.push(end.stars);

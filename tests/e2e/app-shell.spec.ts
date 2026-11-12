@@ -23,7 +23,7 @@ test("splash: friendly panel, disclaimer footer, test hooks", async ({ page }) =
   page.on("console", (msg) => {
     if (msg.type() === "error") errors.push(msg.text());
   });
-  await page.goto("/");
+  await page.goto("/", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#app")).toHaveAttribute("data-ready", "1");
   await vt(page, "ready");
   await expect(page.locator("footer")).toHaveText(NOT_AFFILIATED);
@@ -40,12 +40,12 @@ test("splash: friendly panel, disclaimer footer, test hooks", async ({ page }) =
 });
 
 test("deep links, fixture profiles, and the footer on privacy only", async ({ page }) => {
-  await page.goto("/?profile=fresh-sprout&screen=privacy");
+  await page.goto("/?profile=fresh-sprout&screen=privacy", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#app")).toHaveAttribute("data-ready", "1");
   await expect(page.locator("footer")).toHaveText(NOT_AFFILIATED);
   expect(await vt(page, "profile")).toMatchObject({ name: "Pip", ageBand: "sprout" });
 
-  await page.goto("/?screen=map");
+  await page.goto("/?screen=map", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#app")).toHaveAttribute("data-ready", "1");
   expect(await vt(page, "screen")).toBe("map");
   await expect(page.locator("footer")).toHaveCount(0);

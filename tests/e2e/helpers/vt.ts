@@ -20,6 +20,7 @@ export interface VtState {
   /** Active time of the live session (paused time is not counted). */
   elapsedMs: number;
   /** From `lastResult()`. */
+  lessonId: string | null;
   stars: number;
   lootTotal: number;
   correct: number;
@@ -70,6 +71,8 @@ export async function state(page: Page): Promise<VtState> {
       next,
       paused: get(session, "paused") === true,
       elapsedMs: Number(get(session, "elapsedMs") ?? 0),
+      lessonId:
+        typeof get(summary, "lessonId") === "string" ? String(get(summary, "lessonId")) : null,
       stars: Number(get(result, "stars") ?? 0),
       lootTotal,
       correct: Number(get(summary, "correct") ?? 0),

@@ -99,11 +99,13 @@ export interface ProfileView {
   sessionCounter: number;
 }
 
+function get(o: unknown, k: string): unknown {
+  return typeof o === "object" && o !== null ? Reflect.get(o, k) : undefined;
+}
+
 export async function profileView(page: Page): Promise<ProfileView | null> {
   const p: unknown = await vt(page, "profile");
   if (typeof p !== "object" || p === null) return null;
-  const get = (o: unknown, k: string): unknown =>
-    typeof o === "object" && o !== null ? Reflect.get(o, k) : undefined;
   const stars: Record<string, number> = {};
   const lessons = get(get(p, "progress"), "lessons");
   if (typeof lessons === "object" && lessons !== null) {

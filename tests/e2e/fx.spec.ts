@@ -31,6 +31,8 @@ const frames = (page: Page, n: number): Promise<void> =>
   }, n);
 
 test("a block break draws particles and float text, then the loop idles", async ({ page }) => {
+  // About 75 frames of software rendering: CI's SwiftShader took 9–11 s (M2-15).
+  test.slow();
   const errors = await open(page, "seed=1&freeze=1&preset=mine&fx=1");
   const before = await page.evaluate(() => {
     const s: Hooks = window.vtScene;
@@ -78,7 +80,7 @@ test("a block break draws particles and float text, then the loop idles", async 
           const s: Hooks = window.vtScene;
           return s ? s.handle.loop.scheduled : true;
         }),
-      { timeout: 10_000 },
+      { timeout: 45_000 },
     )
     .toBe(false);
   const after = await page.evaluate(() => {
