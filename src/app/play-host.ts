@@ -70,6 +70,11 @@ export interface PlayHostDeps {
   lessons?: readonly Lesson[];
   /** Achievements (M3-10): told when each lesson starts, finishes or is left. Optional. */
   achievements?: AchievementTracker;
+  /**
+   * The app's profile as it is now. A lesson left early adds its badges to this one, not to the
+   * copy taken when the lesson started, so a change made during the lesson isn't saved over.
+   */
+  currentProfile?(): Profile | null;
   /** Called on every status change. */
   onStatus(status: PlayStatus): void;
   /** Called once per finished lesson, after the profile is updated and the save attempted. */
@@ -167,7 +172,10 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
     r.ach = null;
     if (ach !== null && !r.finished) {
       const kept = ach.abandon();
-      if (Object.keys(kept).length > 0) void deps.saveProfile(withUnlocks(r.profile, kept));
+      if (Object.keys(kept).length > 0) {
+        const now = deps.currentProfile?.() ?? null;
+        void deps.saveProfile(withUnlocks(now?.id === r.profile.id ? now : r.profile, kept));
+      }
     }
     stopFrames(r);
     r.unBus?.();

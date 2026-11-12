@@ -12,7 +12,7 @@ import type { MessageKey } from "@/i18n";
 import type { Lesson } from "@/content/lessons/types";
 import type { ModeResult } from "@/modes/types";
 import type { Profile } from "@/save/schema";
-import type { AchievementId, BlockId, EpochMs, Ms } from "@/types/core";
+import type { AchievementId, AgeBand, BlockId, EpochMs, Ms } from "@/types/core";
 import type { EngineEvent } from "./types";
 
 /** What a badge shows: a block from the registry, or a cosmetic id. */
@@ -55,6 +55,8 @@ export interface AchievementDef {
   id: AchievementId;
   nameKey: MessageKey;
   descKey: MessageKey;
+  /** Numbers for the description, when they depend on the age band (`{count}`). */
+  descParams?: (band: AgeBand) => Record<string, number>;
   icon: AchievementIcon;
   /** Shown as a surprise until earned. */
   hidden?: boolean;
@@ -165,6 +167,16 @@ export function newlyUnlocked(
     if (def.check(ctx)) out.push(def.id);
   }
   return out;
+}
+
+/**
+ * Blocks the player has ever found in play (`Profile.found`). A save from before the field existed
+ * reads as a copy of its inventory: until the island editor, only loot ever reached it.
+ */
+export function foundBlocks(
+  profile: Pick<Profile, "found" | "inventory">,
+): Record<BlockId, number> {
+  return { ...(profile.found ?? profile.inventory) };
 }
 
 /** The profile with `unlocks` added. An earlier unlock time always wins; nothing re-locks. */

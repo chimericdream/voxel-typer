@@ -10,8 +10,8 @@ import type { BiomeId } from "@/types/core";
 export const LESSONS_FOR_TEN = 10;
 export const PLAYS_FOR_PRACTICE = 3;
 export const PLAY_DAYS = 3;
-/** Early Bird: a session that starts from 5 am up to (not including) 9 am, local time. */
-export const EARLY_FROM_HOUR = 5;
+/** Early Bird: a session that starts from 6 am up to (not including) 9 am, local time. */
+export const EARLY_FROM_HOUR = 6;
 export const EARLY_TO_HOUR = 9;
 
 const played = (ctx: AchievementContext) =>

@@ -25,10 +25,13 @@
   opacity: 0.55;
 }
 
-/* Top right, clear of the screen's own buttons and of the save notices (top centre). */
+/*
+ * Top right, below the row of buttons the World Map keeps in that corner (Players, My Badges,
+ * Settings), and clear of the save notices (top centre).
+ */
 .toastWrap {
   position: fixed;
-  top: var(--sp-4);
+  top: calc(var(--sp-5) + 4rem * var(--text-scale));
   right: var(--sp-4);
   display: flex;
   justify-content: flex-end;

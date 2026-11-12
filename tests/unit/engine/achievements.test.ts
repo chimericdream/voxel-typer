@@ -10,6 +10,7 @@ import {
   CLEAN_GAP_CAP_MS,
   createEventAggregator,
   emptyAggregates,
+  foundBlocks,
   localDayNumber,
   localHour,
   newlyUnlocked,
@@ -29,6 +30,27 @@ import type { ModeResult } from "../../../src/modes/types";
 import type { Profile, StoredSummary } from "../../../src/save/schema";
 import type { BiomeId } from "../../../src/types/core";
 import { fixture, result, summary } from "../app/helpers";
+import { lessons } from "../../../src/content/lessons";
+import type { Lesson } from "../../../src/content/lessons/types";
+import { wordPools } from "../../../src/content/wordlists/pools";
+import {
+  CLEAN_WORDS,
+  HOME_ROW_KEYS,
+  STREAK_LONG,
+  STREAK_SHORT,
+} from "../../../src/content/achievements/typing";
+import { keyWeights } from "../../../src/engine/adaptive";
+import { generateTargets } from "../../../src/engine/generator";
+import { createRng } from "../../../src/engine/rng";
+import {
+  allowedKeys,
+  blockTargets,
+  EST_WPM,
+  lengthPlan,
+  poolsFor,
+  TARGET_LATENCY,
+} from "../../../src/modes/mine/logic";
+import type { AgeBand } from "../../../src/types/core";
 
 const SEED = 31;
 const RUNS = 200;
@@ -158,25 +180,26 @@ const cases: Record<string, { yes: () => AchievementContext; no: () => Achieveme
     yes: () => ctx("fresh-sprout", { events: aggregate(word("w", 0, 3)) }),
     no: () => ctx("fresh-sprout", { events: aggregate(word("w", 0, 2)) }),
   },
-  "neat-ten": {
+  // Typing counts depend on the band; pinky-weak is a Miner (8 words, streaks 25 and 40).
+  "neat-words": {
     yes: () =>
-      ctx("fresh-sprout", {
-        events: aggregate(Array.from({ length: 10 }, (_, i) => word(`w${i}`, i * 2000, 4)).flat()),
+      ctx("pinky-weak", {
+        events: aggregate(Array.from({ length: 8 }, (_, i) => word(`w${i}`, i * 2000, 4)).flat()),
       }),
     no: () =>
-      ctx("fresh-sprout", {
+      ctx("pinky-weak", {
         events: aggregate(
-          Array.from({ length: 10 }, (_, i) => word(`w${i}`, i * 2000, 4, i === 5 ? 1 : 0)).flat(),
+          Array.from({ length: 8 }, (_, i) => word(`w${i}`, i * 2000, 4, i === 5 ? 1 : 0)).flat(),
         ),
       }),
   },
   "steady-hands": {
-    yes: () => ctx("fresh-sprout", { events: { longestStreak: 25 } }),
-    no: () => ctx("fresh-sprout", { events: { longestStreak: 24 } }),
+    yes: () => ctx("pinky-weak", { events: { longestStreak: 25 } }),
+    no: () => ctx("pinky-weak", { events: { longestStreak: 24 } }),
   },
-  "hundred-hop": {
-    yes: () => ctx("fresh-sprout", { events: { longestStreak: 100 } }),
-    no: () => ctx("fresh-sprout", { events: { longestStreak: 99 } }),
+  "long-hop": {
+    yes: () => ctx("pinky-weak", { events: { longestStreak: 40 } }),
+    no: () => ctx("pinky-weak", { events: { longestStreak: 39 } }),
   },
   "clean-minute": {
     // A slow, steady typist: one key every 2 s for a minute.
@@ -354,8 +377,8 @@ describe("rules in detail", () => {
     );
   });
 
-  it("Early Bird runs from 5 am up to 9 am, local time, and needs a finished session", () => {
-    expect([4.99, 5, 8.99, 9, 20].map((h) => byId("early-bird").check(earlyAt(h)))).toEqual([
+  it("Early Bird runs from 6 am up to 9 am, local time, and needs a finished session", () => {
+    expect([5.99, 6, 8.99, 9, 20].map((h) => byId("early-bird").check(earlyAt(h)))).toEqual([
       false,
       true,
       true,
@@ -415,7 +438,7 @@ describe("framework", () => {
   });
 
   it("newlyUnlocked skips earned ones and, with liveOnly, the session-end ones", () => {
-    const c = ctx("meadow-done-miner", { events: { longestStreak: 30 } });
+    const c = ctx("meadow-done-miner", { events: { longestStreak: 30 } }); // Miner: 25 but not 40
     const all = newlyUnlocked(achievements, c);
     expect(all).toContain("first-lesson");
     expect(all).toContain("steady-hands");
@@ -522,5 +545,152 @@ describe("framework", () => {
       }),
       { seed: SEED, numRuns: RUNS },
     );
+  });
+});
+
+describe("band-aware counts, Home Row Hero and lifetime finds", () => {
+  const bands = ["sprout", "miner", "builder"] as const;
+  const asBand = (band: (typeof bands)[number], events: Partial<EventAggregates>) =>
+    ctx("fresh-sprout", { profile: { ageBand: band }, events });
+
+  it.each(bands)(
+    "%s: each count unlocks at its number and not one below, and the copy says it",
+    (band) => {
+      const rows = [
+        ["steady-hands", STREAK_SHORT[band], (n: number) => ({ longestStreak: n })],
+        ["long-hop", STREAK_LONG[band], (n: number) => ({ longestStreak: n })],
+        [
+          "neat-words",
+          CLEAN_WORDS[band],
+          (n: number) => ({ bestCleanWordRun: n, wordsCompleted: n }),
+        ],
+      ] as const;
+      for (const [id, n, events] of rows) {
+        expect(byId(id).check(asBand(band, events(n))), `${id} at ${n}`).toBe(true);
+        expect(byId(id).check(asBand(band, events(n - 1))), `${id} at ${n - 1}`).toBe(false);
+        const def = byId(id);
+        const desc = t(def.descKey, def.descParams?.(band));
+        expect(desc).toContain(String(n));
+        expect(desc).not.toMatch(/right keys/);
+      }
+    },
+  );
+
+  it("Home Row Hero asks only that each of the 8 keys was pressed right once", () => {
+    const sloppy = Object.fromEntries(
+      HOME_ROW_KEYS.map((k) => [k, { attempts: 10, errors: 8, latencies: [] }]),
+    );
+    const c = (perKey: typeof sloppy) =>
+      ctx("pinky-weak", { result: result({ summary: summary({ perKey }) }) });
+    // 20 % right is still "using" every key.
+    expect(byId("home-row-hero").check(c(sloppy))).toBe(true);
+    // A key pressed but never right isn't used yet.
+    expect(
+      byId("home-row-hero").check(c({ ...sloppy, k: { attempts: 3, errors: 3, latencies: [] } })),
+    ).toBe(false);
+  });
+
+  it("collect badges count lifetime finds, not what the inventory holds now", () => {
+    const dug = { grass: 40, dirt: 40, stone: 10, "oak-log": 5, "oak-leaves": 5, "red-blooms": 1 };
+    // Digging the island filled the inventory, but nothing was found in play.
+    const digger = ctx("fresh-sprout", { profile: { inventory: dug, found: { dirt: 2 } } });
+    expect(byId("collector").check(digger)).toBe(false);
+    expect(byId("hundred-blocks").check(digger)).toBe(false);
+    // Building spent every block, but 100 were found over time.
+    const builder = ctx("fresh-sprout", {
+      profile: {
+        inventory: {},
+        found: { dirt: 60, cobble: 30, "oak-planks": 5, glass: 3, brick: 2 },
+      },
+    });
+    expect(byId("collector").check(builder)).toBe(true);
+    expect(byId("hundred-blocks").check(builder)).toBe(true);
+    // A save from before `found` reads as a copy of the inventory.
+    expect(foundBlocks({ inventory: { dirt: 3 } })).toEqual({ dirt: 3 });
+    expect(foundBlocks({ inventory: { dirt: 3 }, found: {} })).toEqual({});
+  });
+});
+
+/** Keys a perfect run of `lesson` for `band` types, target by target (Mine's own plan). */
+function perfectRun(lesson: Lesson, band: AgeBand, seed: number): EngineEvent[] {
+  const allowed = allowedKeys(lessons, lesson);
+  const size = lengthPlan(lesson, band, { calm: false, estWpm: EST_WPM[band] });
+  const targets = blockTargets(
+    generateTargets(
+      {
+        kind: lesson.kind,
+        allowed,
+        weights: keyWeights({
+          allowed,
+          focus: lesson.newKeys,
+          stats: {},
+          sessionIndex: 0,
+          targetLatencyMs: TARGET_LATENCY[band],
+        }),
+        pools: poolsFor(lesson, band, wordPools),
+        length: size.length,
+        capitalize: "none",
+      },
+      createRng(seed).fork("targets"),
+    ),
+  );
+  // A careful typist: one key every 2 s (each gap counts toward Calm Minute up to 5 s).
+  const out: EngineEvent[] = [];
+  let now = 0;
+  let streak = 0;
+  for (const target of targets) {
+    [...target.text].forEach((char, index) => {
+      now += 2000;
+      streak += 1;
+      out.push({ type: "correct", t: now, targetId: target.id, index, char, latencyMs: null });
+      out.push({ type: "streak", t: now, length: streak });
+    });
+    out.push({
+      type: "targetComplete",
+      t: now,
+      targetId: target.id,
+      accuracy: 1,
+      durationMs: 0,
+      errors: 0,
+    });
+  }
+  return out;
+}
+
+describe("every badge can be earned in the lessons that ship today", () => {
+  const live = achievements.filter((a) => a.live === true);
+  const bands: AgeBand[] = ["sprout", "miner", "builder"];
+
+  it.each(bands)(
+    "%s: each live badge unlocks from a perfect run of some shipped lesson",
+    (band) => {
+      const reached = new Set<string>();
+      for (const lesson of lessons) {
+        for (let seed = 1; seed <= 5; seed++) {
+          const c = ctx("fresh-sprout", {
+            profile: { ageBand: band },
+            events: aggregate(perfectRun(lesson, band, seed)),
+          });
+          for (const def of live) if (def.check(c)) reached.add(def.id);
+        }
+      }
+      expect([...reached].toSorted(byName)).toEqual(live.map((a) => a.id).toSorted(byName));
+    },
+  );
+
+  it("the other badges read lifetime data or one lesson's summary that today's lessons can give", () => {
+    // Home Row Hero: some shipped lesson reviews all 8 home row keys.
+    expect(
+      lessons.some((l) => HOME_ROW_KEYS.every((k) => allowedKeys(lessons, l).includes(k))),
+    ).toBe(true);
+    // Not One Slip: for every band, some lesson has 5 or more targets.
+    for (const band of bands) {
+      const most = Math.max(
+        ...lessons.map(
+          (l) => perfectRun(l, band, 1).filter((e) => e.type === "targetComplete").length,
+        ),
+      );
+      expect(most, band).toBeGreaterThanOrEqual(5);
+    }
   });
 });

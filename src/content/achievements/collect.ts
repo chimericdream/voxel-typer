@@ -1,8 +1,13 @@
 /**
  * Collecting achievements (task M3-10). Pure data. Loot rarity follows streak and accuracy, never
  * speed (contracts §18), so every one of these is open to a slow typist.
+ *
+ * They count blocks ever *found* in play (`Profile.found`), never the current inventory: digging
+ * up the starter island refunds blocks and building spends them (decision 99), so neither may earn
+ * or cost a badge.
  */
 import type { AchievementContext, AchievementDef } from "@/engine/achievements";
+import { foundBlocks } from "@/engine/achievements";
 import { blocks } from "@/content/blocks";
 
 export const BLOCKS_FOR_HUNDRED = 100;
@@ -16,13 +21,16 @@ const RARE: ReadonlySet<string> = new Set(
   blocks.filter((b) => b.rarity === "rare" || b.rarity === "epic").map((b) => b.id),
 );
 
-/** Blocks the player holds now, or found in the session just played. */
+/** Lifetime finds. At the end of a session the profile already counts that session's loot. */
+const finds = (ctx: AchievementContext): Record<string, number> => foundBlocks(ctx.profile);
+
+/** Ever found in play, or found in the session just played. */
 function has(ctx: AchievementContext, id: string): boolean {
-  return (ctx.profile.inventory[id] ?? 0) > 0 || (ctx.result?.loot[id] ?? 0) > 0;
+  return (finds(ctx)[id] ?? 0) > 0 || (ctx.result?.loot[id] ?? 0) > 0;
 }
 
-const held = (ctx: AchievementContext): string[] =>
-  Object.entries(ctx.profile.inventory)
+const kinds = (ctx: AchievementContext): string[] =>
+  Object.entries(finds(ctx))
     .filter(([, n]) => n > 0)
     .map(([id]) => id);
 
@@ -60,7 +68,7 @@ export const achievements: AchievementDef[] = [
     nameKey: "achievements.collector.name",
     descKey: "achievements.collector.desc",
     icon: { block: "blue-wool" },
-    check: (ctx) => held(ctx).length >= KINDS_FOR_COLLECTOR,
+    check: (ctx) => kinds(ctx).length >= KINDS_FOR_COLLECTOR,
   },
   {
     id: "hundred-blocks",
@@ -68,7 +76,6 @@ export const achievements: AchievementDef[] = [
     descKey: "achievements.hundredBlocks.desc",
     icon: { block: "stone" },
     check: (ctx) =>
-      Object.values(ctx.profile.inventory).reduce((n, c) => n + Math.max(0, c), 0) >=
-      BLOCKS_FOR_HUNDRED,
+      Object.values(finds(ctx)).reduce((n, c) => n + Math.max(0, c), 0) >= BLOCKS_FOR_HUNDRED,
   },
 ];

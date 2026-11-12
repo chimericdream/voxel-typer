@@ -11,6 +11,7 @@ import type { ScreenProps } from "@/app/types";
 import { achievements } from "@/content/achievements";
 import type { AchievementDef } from "@/engine/achievements";
 import { t } from "@/i18n";
+import type { AgeBand } from "@/types/core";
 import { BadgeIcon } from "@/ui/components/BadgeIcon";
 import { Button } from "@/ui/kit/Button";
 import screen from "./screen.module.css";
@@ -20,18 +21,21 @@ import styles from "./Achievements.module.css";
 export function badgeView(
   def: AchievementDef,
   earned: boolean,
+  band: AgeBand,
 ): { name: string; desc: string; state: string } {
   const secret = def.hidden === true && !earned;
   return {
     name: t(secret ? "achievements.hiddenName" : def.nameKey),
-    desc: t(secret ? "achievements.hiddenDesc" : def.descKey),
+    desc: secret ? t("achievements.hiddenDesc") : t(def.descKey, def.descParams?.(band)),
     state: t(earned ? "achievements.got" : "achievements.notYet"),
   };
 }
 
 export default function Achievements({ app }: ScreenProps) {
   const actions = useRef<HTMLDivElement>(null);
-  const unlocked = app.profile()?.achievements ?? {};
+  const profile = app.profile();
+  const unlocked = profile?.achievements ?? {};
+  const band = profile?.ageBand ?? "miner";
   const got = achievements.filter((a) => unlocked[a.id] !== undefined).length;
 
   useEffect(() => {
@@ -52,7 +56,7 @@ export default function Achievements({ app }: ScreenProps) {
         <ul class={styles.grid}>
           {achievements.map((def) => {
             const earned = unlocked[def.id] !== undefined;
-            const view = badgeView(def, earned);
+            const view = badgeView(def, earned, band);
             return (
               <li
                 key={def.id}

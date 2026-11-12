@@ -7,6 +7,7 @@
 import type { Lesson } from "@/content/lessons/types";
 import { estimatePlacement } from "@/engine/placement";
 import type { PlacementEstimate, RungScore } from "@/engine/placement";
+import { foundBlocks } from "@/engine/achievements";
 import { foldSummaryIntoBigramStats, foldSummaryIntoKeyStats } from "@/engine/stats";
 import { PLACEMENT_RUNGS_EXTRA, PLACEMENT_TIER_EXTRA } from "@/modes/placement/lesson";
 import type { ModeResult } from "@/modes/types";
@@ -84,6 +85,8 @@ export function applyResult(
     keyStats: foldSummaryIntoKeyStats(profile.keyStats, summary, sessionIndex),
     bigramStats: foldSummaryIntoBigramStats(profile.bigramStats, summary, sessionIndex),
     inventory: addLoot(profile.inventory, result.loot),
+    // Lifetime finds: only lesson and placement loot, never island digging (decision 99).
+    found: addLoot(foundBlocks(profile), result.loot),
     history: [...profile.history, storedSummary(result, at)],
   };
 }
@@ -230,6 +233,8 @@ export function applyPlacement(
     keyStats: { ...estimate.keyBaseline, ...profile.keyStats },
     bigramStats: foldSummaryIntoBigramStats(profile.bigramStats, result.summary, sessionIndex),
     inventory: addLoot(profile.inventory, result.loot),
+    // Lifetime finds: only lesson and placement loot, never island digging (decision 99).
+    found: addLoot(foundBlocks(profile), result.loot),
     history: [...profile.history, storedSummary(result, at)],
   };
 }

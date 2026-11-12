@@ -120,17 +120,30 @@ function Notices({ shell }: { shell: Shell }) {
 }
 
 /**
- * Badge toasts (M3-10) wait while a lesson is on: they show on Results or the next menu. A pause
- * is a modal dialog, which makes the rest of the page inert, so a toast there would be hidden
- * from screen readers; they wait through a pause too.
+ * How long a screen must have been shown before a badge toast opens on it (M3-10 review B1). The
+ * route announcer reads the new screen's name (and on Results the stars) as soon as the route
+ * changes, through the page's one live region. A toast that announced itself at the same moment
+ * would wipe that message, or be wiped by it, so the toast waits until it has been read.
+ */
+export const BADGE_SETTLE_MS = 1500;
+
+/**
+ * Badge toasts (M3-10) never open on the `play` route, whatever the lesson's status: they wait for
+ * Results or the next menu, and then for {@link BADGE_SETTLE_MS} on it. A pause is a modal dialog
+ * (the rest of the page is inert), so they wait through a pause too.
  */
 function Badges({ shell }: { shell: Shell }) {
   const onShown = useCallback(() => shell.nextBadgeToast(), [shell]);
   const queue = shell.badgeToasts.value;
-  const status = shell.playStatus.value;
-  const inLesson =
-    shell.route.value.id === "play" &&
-    (status === "running" || status === "paused" || status === "break");
+  const route = shell.route.value;
+  const onPlay = route.id === "play";
+  // Each new route starts unsettled; the timer settles it.
+  const [settledOn, setSettledOn] = useState<typeof route | null>(null);
+  useEffect(() => {
+    if (onPlay) return undefined;
+    const timer = setTimeout(() => setSettledOn(route), BADGE_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [route, onPlay]);
   // Loaded with the first badge: it draws block icons, which the first screen doesn't need.
   const [View, setView] = useState<ComponentType<AchievementToastProps> | null>(null);
   const want = queue.length > 0;
@@ -139,7 +152,7 @@ function Badges({ shell }: { shell: Shell }) {
     void import("@/ui/components/AchievementToast").then((m) => setView(() => m.AchievementToast));
   }, [want, View]);
   if (View === null) return null;
-  return <View queue={queue} open={!inLesson} onShown={onShown} />;
+  return <View queue={queue} open={!onPlay && settledOn === route} onShown={onShown} />;
 }
 
 export interface AppProps {

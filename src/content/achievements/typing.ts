@@ -4,16 +4,33 @@
  */
 import type { AchievementDef } from "@/engine/achievements";
 import { fingerFor, layoutById, EN_US } from "@/content/layouts";
+import type { AgeBand } from "@/types/core";
 
 /** The home row's eight finger keys on the shipped layouts (en-US and en-GB agree). */
 export const HOME_ROW_KEYS = ["a", "s", "d", "f", "j", "k", "l", ";"] as const;
-/** "Most of them right" for Home Row Hero: Sprout's 2-star bar (decision 80). */
-export const HOME_ROW_ACCURACY = 0.85;
 export const PINKY_PRESSES = 50;
 export const CLEAN_MINUTE_MS = 60_000;
-export const CLEAN_WORDS = 10;
-export const STREAK_SHORT = 25;
-export const STREAK_LONG = 100;
+
+/**
+ * Counts that depend on the age band, so each badge can be earned in the lessons that ship today
+ * (shorter for Sprouts: their lessons are about 0.6× as long). A unit test plays every shipped
+ * lesson perfectly, for each band, and checks each count is reached.
+ */
+export const STREAK_SHORT: Readonly<Record<AgeBand, number>> = {
+  sprout: 15,
+  miner: 25,
+  builder: 25,
+};
+export const STREAK_LONG: Readonly<Record<AgeBand, number>> = {
+  sprout: 25,
+  miner: 40,
+  builder: 50,
+};
+export const CLEAN_WORDS: Readonly<Record<AgeBand, number>> = { sprout: 5, miner: 8, builder: 10 };
+
+const count = (table: Readonly<Record<AgeBand, number>>) => (band: AgeBand) => ({
+  count: table[band],
+});
 
 export const achievements: AchievementDef[] = [
   {
@@ -25,28 +42,31 @@ export const achievements: AchievementDef[] = [
     check: (ctx) => ctx.events.wordsCompleted >= 1,
   },
   {
-    id: "neat-ten",
-    nameKey: "achievements.neatTen.name",
-    descKey: "achievements.neatTen.desc",
+    id: "neat-words",
+    nameKey: "achievements.neatWords.name",
+    descKey: "achievements.neatWords.desc",
+    descParams: count(CLEAN_WORDS),
     icon: { block: "brick" },
     live: true,
-    check: (ctx) => ctx.events.bestCleanWordRun >= CLEAN_WORDS,
+    check: (ctx) => ctx.events.bestCleanWordRun >= CLEAN_WORDS[ctx.profile.ageBand],
   },
   {
     id: "steady-hands",
     nameKey: "achievements.steadyHands.name",
     descKey: "achievements.steadyHands.desc",
+    descParams: count(STREAK_SHORT),
     icon: { block: "cobble" },
     live: true,
-    check: (ctx) => ctx.events.longestStreak >= STREAK_SHORT,
+    check: (ctx) => ctx.events.longestStreak >= STREAK_SHORT[ctx.profile.ageBand],
   },
   {
-    id: "hundred-hop",
-    nameKey: "achievements.hundredHop.name",
-    descKey: "achievements.hundredHop.desc",
+    id: "long-hop",
+    nameKey: "achievements.longHop.name",
+    descKey: "achievements.longHop.desc",
+    descParams: count(STREAK_LONG),
     icon: { block: "lantern" },
     live: true,
-    check: (ctx) => ctx.events.longestStreak >= STREAK_LONG,
+    check: (ctx) => ctx.events.longestStreak >= STREAK_LONG[ctx.profile.ageBand],
   },
   {
     id: "clean-minute",
@@ -73,18 +93,15 @@ export const achievements: AchievementDef[] = [
     nameKey: "achievements.homeRowHero.name",
     descKey: "achievements.homeRowHero.desc",
     icon: { block: "grass" },
+    // "Use" means each of the 8 keys was pressed right at least once in the lesson. No accuracy
+    // bar: the card says nothing about one.
     check: (ctx) => {
       const perKey = ctx.result?.summary.perKey;
       if (perKey === undefined) return false;
-      let attempts = 0;
-      let errors = 0;
-      for (const k of HOME_ROW_KEYS) {
+      return HOME_ROW_KEYS.every((k) => {
         const agg = perKey[k];
-        if (agg === undefined || agg.attempts === 0) return false;
-        attempts += agg.attempts;
-        errors += agg.errors;
-      }
-      return (attempts - errors) / attempts >= HOME_ROW_ACCURACY;
+        return agg !== undefined && agg.attempts - agg.errors >= 1;
+      });
     },
   },
   {

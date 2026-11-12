@@ -15,9 +15,13 @@ import { createPlayHost } from "../../../src/app/play-host";
 import { applyResult } from "../../../src/app/progress";
 import { achievements } from "../../../src/content/achievements";
 import type { EngineEvent } from "../../../src/engine/types";
+import { isProfile } from "../../../src/save/schema";
 import type { Profile } from "../../../src/save/schema";
 import type { AchievementId } from "../../../src/types/core";
 import { fakeMode, fakeScene, fixture, flush, lesson, result, summary } from "./helpers";
+
+/** A new player in the Miner band (badge counts depend on the band). */
+const freshMiner = (): Profile => ({ ...fixture("fresh-sprout"), ageBand: "miner" });
 
 /** A manual timer queue. */
 function timers() {
@@ -65,7 +69,7 @@ describe("achievement tracker", () => {
     const bus = createEmitter<GameEvents>();
     const seen: string[] = [];
     bus.on("achievement", (e) => seen.push(e.id));
-    s.tracker.begin({ profile: fixture("fresh-sprout"), lesson: lesson(), bus });
+    s.tracker.begin({ profile: freshMiner(), lesson: lesson(), bus });
     for (const e of streakTo(30)) bus.emit("engine", e);
     // Streak events alone never schedule a check: they come with every key.
     expect(s.clock.pending()).toBe(0);
@@ -82,7 +86,7 @@ describe("achievement tracker", () => {
   it("finish adds the live unlocks and the session-end ones, each reported once", () => {
     const s = setup();
     const bus = createEmitter<GameEvents>();
-    const start = fixture("fresh-sprout");
+    const start = freshMiner();
     const run = s.tracker.begin({ profile: start, lesson: lesson(), bus });
     for (const e of streakTo(26)) bus.emit("engine", e);
     bus.emit("engine", { type: "paused", t: 30 });
@@ -103,7 +107,7 @@ describe("achievement tracker", () => {
   it("the placement test is not a lesson: lesson badges wait for real lessons", () => {
     const s = setup();
     const placement = lesson({ id: "placement", mode: "placement" });
-    const start = fixture("fresh-sprout");
+    const start = freshMiner();
     const run = s.tracker.begin({ profile: start, lesson: placement, bus: createEmitter() });
     const r = result({
       summary: summary({ mode: "placement", errors: 0, targetsCompleted: 10 }),
@@ -120,7 +124,7 @@ describe("achievement tracker", () => {
   it("abandon hands back live unlocks only", () => {
     const s = setup();
     const bus = createEmitter<GameEvents>();
-    const run = s.tracker.begin({ profile: fixture("fresh-sprout"), lesson: lesson(), bus });
+    const run = s.tracker.begin({ profile: freshMiner(), lesson: lesson(), bus });
     for (const e of streakTo(25)) bus.emit("engine", e);
     bus.emit("engine", { type: "paused", t: 30 });
     s.clock.advance(LIVE_CHECK_DEBOUNCE_MS);
@@ -129,7 +133,7 @@ describe("achievement tracker", () => {
 
   it("before the definitions load nothing unlocks", () => {
     const s = setup({ defs: () => [] });
-    const start = fixture("fresh-sprout");
+    const start = freshMiner();
     const run = s.tracker.begin({ profile: start, lesson: lesson(), bus: createEmitter() });
     expect(run.finish(start, result()).achievements).toEqual({});
     expect(s.unlocked).toEqual([]);
@@ -145,7 +149,7 @@ describe("achievement tracker", () => {
   });
 });
 
-function host() {
+function host(current: () => Profile | null = () => null) {
   const scene = fakeScene();
   const mode = fakeMode();
   const saves: Profile[] = [];
@@ -162,6 +166,7 @@ function host() {
     frozen: false,
     record: false,
     reminder: createBreakReminder(),
+    currentProfile: current,
     achievements: createAchievementTracker({
       defs: () => achievements,
       lessons: [lesson()],
@@ -183,7 +188,7 @@ function host() {
 describe("play host with achievements", () => {
   it("saves the unlocks with the finished lesson", async () => {
     const s = host();
-    await s.h.start({ lesson: lesson(), profile: fixture("fresh-sprout") });
+    await s.h.start({ lesson: lesson(), profile: freshMiner() });
     s.mode.ctx().finish(result());
     await flush();
     expect(s.saves).toHaveLength(1);
@@ -193,7 +198,7 @@ describe("play host with achievements", () => {
 
   it("a lesson left early keeps the badges it already earned, and saves once", async () => {
     const s = host();
-    await s.h.start({ lesson: lesson(), profile: fixture("fresh-sprout") });
+    await s.h.start({ lesson: lesson(), profile: freshMiner() });
     const bus = s.mode.ctx().bus;
     for (const e of streakTo(25)) bus.emit("engine", e);
     bus.emit("engine", { type: "paused", t: 40 });
@@ -202,13 +207,62 @@ describe("play host with achievements", () => {
     expect(s.saves).toHaveLength(1);
     expect(s.saves[0]?.achievements).toEqual({ "steady-hands": 4242 });
     // Nothing else about the profile changed: the lesson wasn't finished.
-    expect(s.saves[0]?.sessionCounter).toBe(fixture("fresh-sprout").sessionCounter);
+    expect(s.saves[0]?.sessionCounter).toBe(freshMiner().sessionCounter);
   });
 
   it("leaving with nothing earned saves nothing", async () => {
     const s = host();
-    await s.h.start({ lesson: lesson(), profile: fixture("fresh-sprout") });
+    await s.h.start({ lesson: lesson(), profile: freshMiner() });
     s.h.quit();
     expect(s.saves).toEqual([]);
+  });
+
+  it("a lesson left early adds its badges to the profile as it is now, not as it was (N7)", async () => {
+    const start = freshMiner();
+    // Something changed the profile during the lesson (say, a setting from a future pause menu).
+    const changed: Profile = { ...start, settings: { ...start.settings, textScale: 1.75 } };
+    const s = host(() => changed);
+    await s.h.start({ lesson: lesson(), profile: start });
+    const bus = s.mode.ctx().bus;
+    for (const e of streakTo(25)) bus.emit("engine", e);
+    bus.emit("engine", { type: "paused", t: 40 });
+    s.t.advance(LIVE_CHECK_DEBOUNCE_MS);
+    s.h.quit();
+    expect(s.saves).toHaveLength(1);
+    expect(s.saves[0]?.settings.textScale).toBe(1.75);
+    expect(s.saves[0]?.achievements).toEqual({ "steady-hands": 4242 });
+  });
+
+  it("falls back to the start profile when the app has switched to another player", async () => {
+    const start = freshMiner();
+    const s = host(() => ({ ...start, id: "someone-else" }));
+    await s.h.start({ lesson: lesson(), profile: start });
+    const bus = s.mode.ctx().bus;
+    for (const e of streakTo(25)) bus.emit("engine", e);
+    bus.emit("engine", { type: "paused", t: 40 });
+    s.t.advance(LIVE_CHECK_DEBOUNCE_MS);
+    s.h.quit();
+    expect(s.saves[0]?.id).toBe(start.id);
+  });
+});
+
+describe("lifetime finds (Profile.found)", () => {
+  it("lesson loot adds to found; an old save seeds it from the inventory", () => {
+    const old = { ...freshMiner(), inventory: { dirt: 4 } };
+    const once = applyResult(old, lesson(), result({ loot: { dirt: 2, "char-ore": 1 } }), 1);
+    expect(once.found).toEqual({ dirt: 6, "char-ore": 1 });
+    expect(once.inventory).toEqual({ dirt: 6, "char-ore": 1 });
+    // Building spends the inventory; found never goes down.
+    const built = { ...once, inventory: {} };
+    const twice = applyResult(built, lesson(), result({ loot: { dirt: 1 } }), 2);
+    expect(twice.found).toEqual({ dirt: 7, "char-ore": 1 });
+    expect(twice.inventory).toEqual({ dirt: 1 });
+  });
+
+  it("the save validator accepts found as optional, and rejects a mistyped one", () => {
+    const p = freshMiner();
+    expect(isProfile(p)).toBe(true);
+    expect(isProfile({ ...p, found: { dirt: 3 } })).toBe(true);
+    expect(isProfile({ ...p, found: { dirt: "3" } })).toBe(false);
   });
 });

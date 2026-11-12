@@ -85,6 +85,8 @@ export interface Shell {
   dismissNotice(id: number): void;
   /** The first badge toast has been shown. */
   nextBadgeToast(): void;
+  /** Queues toasts for newly earned badges (the tracker calls this; tests may too). */
+  queueBadges(ids: readonly AchievementId[]): void;
   /** Pause → "Back to the map". */
   quitPlay(): void;
   /** Resolves once everything the current screen asked to wait for has settled. */
@@ -111,6 +113,9 @@ export function createShell(deps: ShellDeps): Shell {
   const playStatus = signal<PlayStatus>("idle");
   const notices = signal<readonly Notice[]>([]);
   const badgeToasts = signal<readonly AchievementId[]>([]);
+  const queueBadges = (ids: readonly AchievementId[]): void => {
+    if (ids.length > 0) badgeToasts.value = [...badgeToasts.value, ...ids];
+  };
   const handlers: ScreenInputHandler[] = [];
   const pending = new Set<Promise<unknown>>();
   /** Profiles a newer build owns: never written again this session. */
@@ -201,6 +206,7 @@ export function createShell(deps: ShellDeps): Shell {
     away: () => deps.away?.() ?? false,
     record: deps.record,
     reminder: createBreakReminder(),
+    currentProfile: () => profile.value,
     achievements: createAchievementTracker({
       defs: () => badgeDefs,
       lessons: deps.lessons,
@@ -210,9 +216,7 @@ export function createShell(deps: ShellDeps): Shell {
         const id = setTimeout(fn, ms);
         return () => clearTimeout(id);
       },
-      onUnlock(ids) {
-        badgeToasts.value = [...badgeToasts.value, ...ids];
-      },
+      onUnlock: (ids) => queueBadges(ids),
     }),
     saveProfile,
     lessons: deps.lessons,
@@ -325,6 +329,7 @@ export function createShell(deps: ShellDeps): Shell {
       if (p.kind === "unreadable" && p.profileId !== null) damaged.add(p.profileId);
       notify(p.kind);
     },
+    queueBadges,
     nextBadgeToast() {
       badgeToasts.value = badgeToasts.value.slice(1);
     },
