@@ -114,6 +114,7 @@ Waves are a schedule hint. The real rule is "dependencies merged" plus rules 2�
 | M2-14 | HUD | M/B | M2-07, M2-09, M2-10 | todo |
 | M2-15 | ⛩ Slice E2E + baselines | M/B | M2-11, M2-13, M2-14 | todo |
 | M2-16 | Playtest kit | S/C | M2-11 | todo |
+| M2-FIX-2 | Slice polish from the M2 reviews | M/B | M2-13 | todo |
 | M2-GATE | **Go/no-go** | — | all M2 | todo |
 | M3-01 | Curriculum validator + doc gen | S/B | M1-06, M2-12 | todo |
 | M3-02 | Word lists biomes 1–4 | L/A | M1-10 | todo |

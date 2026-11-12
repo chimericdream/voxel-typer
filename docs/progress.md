@@ -31,27 +31,28 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 - [x] **M1-12** i18n runtime (S/B) — merged (PR #105)
 - [x] **M1-13** Voxel grid and mesher (M/A) — merged (PR #109)
 - [x] **M1-14** Palette, recipes, atlas (M/A) — merged (PR #113)
-- [ ] **M1-FIX-1** Blocklist precision follow-up (S/B) — todo
+- [x] **M1-FIX-1** Blocklist precision follow-up (S/B) — merged (PR #121)
 - [x] **M1-GATE** Gate — passed 2026-11-11, tag `m1`
 
 ## M2: Vertical slice: Mine mode on Meadow (go/no-go)
 
-- [ ] **M2-01** Render core (M/A) — running
-- [ ] **M2-02** Sky, clouds, day/night (M/A) — todo
-- [ ] **M2-03** Meadow diorama (M/A) — todo
-- [ ] **M2-04** Block registry v1 + loot (M/B) — running
-- [ ] **M2-05** FX (M/A) — todo
-- [ ] **M2-06** Audio synth and SFX (M/A) — todo
-- [ ] **M2-07** Voxel UI kit (M/A) — todo
-- [ ] **M2-08** Fonts and typography (S/B) — todo
-- [ ] **M2-09** On-screen keyboard + hands (M/B) — todo
-- [ ] **M2-10** App shell, routing, hooks (M/A) — todo
-- [ ] **M2-11** Screens v1 (M/B) — todo
-- [ ] **M2-12** Meadow lessons 1–6 (S/A) — todo
-- [ ] **M2-13** ✦ ⛩ Mine mode (L/A) — todo
-- [ ] **M2-14** HUD (M/B) — todo
-- [ ] **M2-15** ⛩ Slice E2E + baselines (M/B) — todo
-- [ ] **M2-16** Playtest kit (S/C) — todo
+- [x] **M2-01** Render core (M/A) — merged (PR #122)
+- [x] **M2-02** Sky, clouds, day/night (M/A) — merged (PR #131)
+- [x] **M2-03** Meadow diorama (M/A) — merged (PR #132)
+- [x] **M2-04** Block registry v1 + loot (M/B) — merged (PR #118; gem ore recolored in #124)
+- [x] **M2-05** FX (M/A) — merged (PR #130)
+- [x] **M2-06** Audio synth and SFX (M/A) — merged (PR #125)
+- [x] **M2-07** Voxel UI kit (M/A) — merged (PR #123)
+- [x] **M2-08** Fonts and typography (S/B) — merged (PR #126)
+- [x] **M2-09** On-screen keyboard + hands (M/B) — merged (PR #133)
+- [x] **M2-10** App shell, routing, hooks (M/A) — merged (PR #129)
+- [x] **M2-11** Screens v1 (M/B) — merged (PR #134, includes the rem double-scaling fix)
+- [x] **M2-12** Meadow lessons 1–6 (S/A) — merged (PR #127)
+- [ ] **M2-13** ✦ ⛩ Mine mode (L/A) — running
+- [x] **M2-14** HUD (M/B) — merged (PR #137)
+- [ ] **M2-15** ⛩ Slice E2E + baselines (M/B) — todo (needs M2-13)
+- [ ] **M2-16** Playtest kit (S/C) — running
+- [ ] **M2-FIX-2** Slice polish from the M2 reviews (M/B) — todo
 - [ ] **M2-GATE** Go/no-go — todo
 
 ## M3: Curriculum, adaptation, meta screens
