@@ -85,8 +85,8 @@ describe("generateDiorama", () => {
   it("is deterministic: same seed, identical grid (hash pinned)", () => {
     expect(gridHash(generateDiorama("meadow", 1))).toBe(gridHash(generateDiorama("meadow", 1)));
     // Pinned. A change here means every Meadow looks different; update it on purpose only.
-    expect(gridHash(meadow(1))).toBe("f7baf421");
-    expect(gridHash(meadow(42))).toBe("1db61b91");
+    expect(gridHash(meadow(1))).toBe("6080a2e0");
+    expect(gridHash(meadow(42))).toBe("51605bb8");
   });
 
   it("differs between seeds", () => {
@@ -105,6 +105,44 @@ describe("generateDiorama", () => {
     }
     expect(R.flowers.some((f) => used.has(numOf(f)))).toBe(true);
     expect(used.has(numOf(R.rock)) || used.has(numOf(R.mossyRock))).toBe(true);
+  });
+
+  it("keeps the fence out past the sides of the Mine view, and behind the target (M2-FIX-2)", () => {
+    const { target } = dioramaStage("meadow");
+    const rail = numOf(R.rail);
+    for (let seed = 1; seed <= 10; seed++) {
+      const g = meadow(seed);
+      let rails = 0;
+      for (let z = 0; z < g.sz; z++) {
+        for (let y = 0; y < g.sy; y++) {
+          for (let x = 0; x < g.sx; x++) {
+            if (g.get(x, y, z) !== rail) continue;
+            rails++;
+            expect(Math.abs(x - target.x), `seed ${seed}`).toBeGreaterThanOrEqual(13);
+            expect(z, `seed ${seed}`).toBeLessThanOrEqual(target.z - 5);
+          }
+        }
+      }
+      expect(rails, `seed ${seed}`).toBeGreaterThan(0);
+    }
+  });
+
+  it("puts flowers on the front lawn's corners (M2-FIX-2)", () => {
+    const { clear, target } = dioramaStage("meadow");
+    const flowers = new Set(R.flowers.map(numOf));
+    for (let seed = 1; seed <= 10; seed++) {
+      const g = meadow(seed);
+      let front = 0;
+      for (let z = target.z - 4; z < g.sz; z++) {
+        for (let y = 0; y < g.sy; y++) {
+          for (let x = 0; x < g.sx; x++) {
+            if (x > clear.x0 - 6 && x < clear.x1 + 6) continue;
+            if (flowers.has(g.get(x, y, z))) front++;
+          }
+        }
+      }
+      expect(front, `seed ${seed}`).toBeGreaterThan(0);
+    }
   });
 
   it("keeps the stage clear over a flat floor (property over 50 seeds)", () => {

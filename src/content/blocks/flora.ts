@@ -2,18 +2,18 @@
  * Flowers (deco range, nums 300–399) and wool dyed in flower colors (wool/colors range, 250–299;
  * docs/impl/contracts.md §17). Pure data.
  *
- * Flowers are small cubes, not cross-shaped billboards (M2-04 card). Until a flower painter exists
- * they reuse the `ore` recipe: colored blossom clusters on a leafy base.
+ * Flowers are small cubes, not cross-shaped billboards (M2-04 card). They have their own painters
+ * (M2-FIX-2): blossoms on a lawn from above, stems and blossoms on the sides, so a patch reads as
+ * flowers, not as a berry bush.
  */
 import type { PaletteRampId, TextureRecipe } from "@/render/atlas/recipes";
 import type { BlockDef } from "./types";
 
-const LEAVES: TextureRecipe = { kind: "custom", paint: "leaves:leaf" };
 const same = (r: TextureRecipe): BlockDef["faces"] => ({ top: r, side: r, bottom: r });
 const blossoms = (ramp: PaletteRampId): BlockDef["faces"] => ({
-  top: { kind: "ore", base: LEAVES, ore: ramp, density: 0.6 },
-  side: { kind: "ore", base: LEAVES, ore: ramp, density: 0.3 },
-  bottom: LEAVES,
+  top: { kind: "custom", paint: `flowers-top:${ramp}` },
+  side: { kind: "custom", paint: `flowers-side:${ramp}` },
+  bottom: { kind: "noise", ramp: "dirt", scale: 4, contrast: 0.5 },
 });
 
 export const blocks: BlockDef[] = [

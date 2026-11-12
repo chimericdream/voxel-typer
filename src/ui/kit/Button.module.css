@@ -49,12 +49,12 @@
   transform: translateY(calc(var(--bevel-unit) * -0.5));
 }
 
-.button:active:not(:disabled),
+.button:active:not([aria-disabled="true"]),
 .button[data-pressed] {
   border-image-source: var(--bevel-down);
 }
 
-.button:active:not(:disabled) .content,
+.button:active:not([aria-disabled="true"]) .content,
 .button[data-pressed] .content {
   transform: translateY(var(--bevel-unit));
 }
@@ -65,12 +65,16 @@
   box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
 }
 
-/* Disabled: hatched and greyed, so it reads as unavailable by pattern, not color alone. */
-.button:disabled {
+/*
+ * Disabled: hatched and greyed, so it reads as unavailable by pattern, not color alone. It uses
+ * `aria-disabled`, not `disabled`, so it stays in the tab order and a keyboard-only child still
+ * finds "Locked" (M2-07 review N7).
+ */
+.button[aria-disabled="true"] {
   cursor: not-allowed;
   filter: saturate(0.3);
 }
-.button:disabled::after {
+.button[aria-disabled="true"]::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -83,7 +87,7 @@
 }
 
 @media (hover: hover) {
-  .button:hover:not(:disabled) {
+  .button:hover:not([aria-disabled="true"]) {
     filter: brightness(1.06);
   }
 }

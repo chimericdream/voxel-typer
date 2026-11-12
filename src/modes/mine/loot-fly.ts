@@ -11,7 +11,7 @@
 import type { Atlas } from "@/render/atlas/build";
 import { tileRect } from "@/render/atlas/build";
 import type { BlockId, Ms } from "@/types/core";
-import { FLY_MAX, flightPose } from "./logic";
+import { FLY_MAX, NO_SLOT, flightPose } from "./logic";
 import type { Flight } from "./logic";
 
 /** Icon edge in CSS pixels, before `--text-scale`. */
@@ -112,15 +112,27 @@ export function createLootFly(opts: LootFlyOptions): LootFly {
     return made;
   };
 
-  /** The landing point: the center of the flight's hotbar slot, or the bottom middle. */
+  /**
+   * The landing point: the center of the flight's hotbar slot, or the bottom middle. A kind with no
+   * slot (found after the first nine) flies to just past the hotbar's right end and shrinks away.
+   */
   const aim = (s: Sprite, slot: number): void => {
     const view = doc.defaultView;
     const w = view?.innerWidth ?? opts.canvas.clientWidth;
     const h = view?.innerHeight ?? opts.canvas.clientHeight;
     s.toX = w / 2;
     s.toY = h - 48;
-    const cell = doc.querySelector(HOTBAR_SELECTOR)?.children.item(slot);
-    const box = cell?.getBoundingClientRect();
+    const bar = doc.querySelector(HOTBAR_SELECTOR);
+    if (slot === NO_SLOT) {
+      const end = bar?.getBoundingClientRect();
+      if (end && end.width > 0) {
+        s.toX = end.right + end.height / 2;
+        s.toY = end.top + end.height / 2;
+      }
+      s.aimed = true;
+      return;
+    }
+    const box = bar?.children.item(slot)?.getBoundingClientRect();
     if (box && box.width > 0) {
       s.toX = box.left + box.width / 2;
       s.toY = box.top + box.height / 2;

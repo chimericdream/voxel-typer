@@ -131,6 +131,8 @@ test("setEnvironment cross-fades over about 2 s, then idles", async ({ page }) =
   expect(result?.end).toEqual({ fading: false, scheduled: false });
   // At least about 2 s (frame time can only run slower than the wall clock, never faster).
   expect(result?.elapsed).toBeGreaterThanOrEqual(1900);
+  // And not much more: a fade 10× too long would fail even on SwiftShader (M2-02 review N3).
+  expect(result?.elapsed).toBeLessThan(15_000);
   // The light rig ends on the night values exactly.
   expect(result?.sunIntensity).toBeCloseTo(result?.lightState ?? -1, 5);
   expect(errors).toEqual([]);

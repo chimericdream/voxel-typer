@@ -11,7 +11,6 @@
 import type { Clock } from "@/app/clock";
 import { createRng } from "@/engine/rng";
 import type { SceneCore } from "@/render/scene";
-import type { SkyController } from "@/render/sky";
 import type { CameraRig, SceneHandle } from "@/render/types";
 import type { QualityLevel } from "@/types/core";
 
@@ -69,9 +68,11 @@ export const renderCoreFactory: SceneFactory = async (canvas, opts) => {
       import("@/render/fx"),
     ]);
   const frozen = opts.frozen ?? false;
-  // Clouds start still; they drift only with the camera, during live play (see `setDrift` below).
-  const skyFactory = createSkyEnvironment({ frozen, drift: false });
-  let sky: SkyController | null = null;
+  // One switch for all ambient motion: play-host turns the camera's drift on only during live play,
+  // and the clouds read it every frame, so the loop idles in menus, on pause and under `?freeze`.
+  // The camera wakes the loop when drift turns on, and the sky's next frame sees it (M2-13 N8).
+  let rig: { readonly drifting: boolean } | null = null;
+  const skyFactory = createSkyEnvironment({ frozen, drift: () => rig?.drifting ?? false });
   const core: SceneCore = createSceneHandle(canvas, {
     blocks,
     seed: opts.seed,
@@ -79,10 +80,7 @@ export const renderCoreFactory: SceneFactory = async (canvas, opts) => {
     reducedMotion: opts.reducedMotion,
     clock: opts.clock,
     waterMotion: !frozen,
-    createEnvironment: (ctx) => {
-      sky = skyFactory(ctx);
-      return sky;
-    },
+    createEnvironment: skyFactory,
     createFx: (ctx) =>
       createFx(ctx, {
         rng: createRng(opts.seed).fork("fx"),
@@ -90,14 +88,7 @@ export const renderCoreFactory: SceneFactory = async (canvas, opts) => {
         groundY: (at) => groundUnder(core.grid(), at),
       }),
   });
-  // One switch for all ambient motion: play-host turns drift on only during live play, and the
-  // clouds follow it, so the loop idles in menus, on pause and under `?freeze`.
-  const camera = core.camera;
-  const setCameraDrift = camera.setDrift.bind(camera);
-  camera.setDrift = (on) => {
-    setCameraDrift(on);
-    sky?.setDrift(on);
-  };
+  rig = core.camera;
   return core;
 };
 

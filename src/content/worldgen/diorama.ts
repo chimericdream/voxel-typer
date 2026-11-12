@@ -115,6 +115,12 @@ const STAGE_BACK = 4;
 const STAGE_FROM_FRONT = 14;
 /** Flat ground reaches this far past the clear volume before the terrain starts to blend in. */
 const STAGE_FLAT_MARGIN = 2;
+/** The fence stands this many cells past the side of the clear volume. */
+const FENCE_OUT = 8;
+/** The fence ends this many cells behind the target, out past the edge of the Mine view. */
+const FENCE_BACK = 5;
+/** Flower patches on each front corner of the lawn, so the overview's front isn't bare. */
+const FRONT_PATCHES = 2;
 /** Width of the blend from the flat stage ground to the noise terrain. */
 const STAGE_BLEND = 6;
 
@@ -352,8 +358,9 @@ export function generateDiorama(
   // 5b. Fence: beside the stage, parallel to the camera's view, with a gap where the path crosses.
   const fenceRng = rng.fork("fence");
   const fenceLen = fenceRng.int(recipe.fence.length[0], recipe.fence.length[1]);
-  const fenceX = stage.target.x + (fenceRng.next() < 0.5 ? -1 : 1) * (STAGE_HALF_WIDTH + 3);
-  const fenceZ0 = stage.target.z - 2 - fenceLen;
+  // Far enough out that no post stands in the left or right third of the Mine view (M2-03 N5).
+  const fenceX = stage.target.x + (fenceRng.next() < 0.5 ? -1 : 1) * (STAGE_HALF_WIDTH + FENCE_OUT);
+  const fenceZ0 = stage.target.z - FENCE_BACK - fenceLen;
   place(fence(fenceLen, "z", { post: num(B.post), rail: num(B.rail) }), fenceX, fenceZ0);
 
   // 5c. Scatter: trees, flower patches and rocks at Poisson-disk points.
@@ -407,6 +414,20 @@ export function generateDiorama(
     } else if (choice === 2) {
       place(rockCluster(rocks, tplRng), x, z);
       stones++;
+    }
+  }
+
+  // 5d. The front lawn: a few flower patches on each corner, well clear of the stage and the
+  // Mine camera's view (M2-03 review N2). Their own rng fork, so the scatter above is unchanged.
+  const frontRng = rng.fork("front");
+  for (const corner of [-1, 1] as const) {
+    for (let i = 0; i < FRONT_PATCHES; i++) {
+      const x =
+        corner < 0 ? frontRng.int(3, stage.clear.x0 - 6) : frontRng.int(stage.clear.x1 + 6, sx - 4);
+      const z = frontRng.int(stage.target.z - 4, sz - 3);
+      const tplRng = frontRng.fork(`front:${corner}:${i}`);
+      if (kind[idx(x, z)] !== LAND || nearFence(x, z)) continue;
+      place(flowerPatch(flowers, tplRng), x, z);
     }
   }
   return g;

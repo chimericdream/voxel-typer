@@ -29,6 +29,7 @@ import { Slot } from "../../../src/ui/kit/Slot";
 import { Stars } from "../../../src/ui/kit/Stars";
 import { Tabs } from "../../../src/ui/kit/Tabs";
 import { Toast } from "../../../src/ui/kit/Toast";
+import { FIRST_ANNOUNCE_MS } from "../../../src/ui/kit/announce";
 import { Toggle } from "../../../src/ui/kit/Toggle";
 import {
   FOCUS_BACKDROPS,
@@ -92,6 +93,14 @@ describe("WCAG contrast", () => {
         const ring = worstContrast(theme.ink.focus, colorOf(theme, bg));
         const halo = worstContrast(theme.ink.focusHalo, colorOf(theme, bg));
         expect(Math.max(ring, halo)).toBeGreaterThanOrEqual(3);
+      });
+
+      it("the selected-slot outline shows on the slot outline and hotbar strip it touches", () => {
+        // The outline sits between the slot's own outline and the strip, both `--c-slot-outline`
+        // (M2-07 review N1: the old check used the slot face, which it doesn't touch).
+        expect(
+          worstContrast(theme.ink.selected, theme.surfaces.slot.outline),
+        ).toBeGreaterThanOrEqual(3);
       });
 
       it("text plates are semi-opaque, never clear", () => {
@@ -363,6 +372,28 @@ describe("Button", () => {
     expect(key(b, "keydown", "Enter", { repeat: true }).defaultPrevented).toBe(true);
   });
 
+  it("disabled stays focusable but does nothing, and blocks a form submit (M2-07 N7)", () => {
+    const onClick = vi.fn();
+    const onSubmit = vi.fn((e: Event) => e.preventDefault());
+    mount(
+      <form onSubmit={onSubmit}>
+        <Button type="submit" disabled onClick={onClick}>
+          Locked
+        </Button>
+      </form>,
+    );
+    const b = $("button");
+    expect(b.hasAttribute("disabled")).toBe(false);
+    expect(b.getAttribute("aria-disabled")).toBe("true");
+    b.focus();
+    expect(document.activeElement).toBe(b);
+    key(b, "keydown", "Enter");
+    expect(b.dataset["pressed"]).toBeUndefined();
+    click(b);
+    expect(onClick).not.toHaveBeenCalled();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("takes a label for icon-only content, and a variant", () => {
     mount(
       <Button label="Play" variant="primary">
@@ -453,12 +484,30 @@ describe("ProgressBar", () => {
 });
 
 describe("Toast", () => {
-  it("is a polite status message", () => {
-    mount(<Toast tone="cheer">Nice!</Toast>);
-    const out = $("output");
-    expect(out.getAttribute("aria-live")).toBe("polite");
-    expect(out.dataset["tone"]).toBe("cheer");
-    expect(out.textContent).toContain("Nice!");
+  it("is a status message read out through one persistent live region (M2-07 N5)", () => {
+    vi.useFakeTimers();
+    try {
+      document.getElementById("vt-announcer")?.remove();
+      mount(<Toast tone="cheer">Nice!</Toast>);
+      const out = $("output");
+      // The toast itself isn't live: a region that mounts with its text is often not announced.
+      expect(out.getAttribute("aria-live")).toBe("off");
+      expect(out.dataset["tone"]).toBe("cheer");
+      expect(out.textContent).toContain("Nice!");
+      const region = document.getElementById("vt-announcer");
+      expect(region?.getAttribute("aria-live")).toBe("polite");
+      // Created empty, filled a moment later, so even the first message is read.
+      expect(region?.textContent).toBe("");
+      vi.advanceTimersByTime(FIRST_ANNOUNCE_MS);
+      expect(region?.textContent).toBe("Nice!");
+      // A second toast reuses the same region.
+      mount(<Toast>Again</Toast>);
+      vi.advanceTimersByTime(FIRST_ANNOUNCE_MS);
+      expect(document.querySelectorAll("#vt-announcer")).toHaveLength(1);
+      expect(region?.textContent).toBe("Again");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

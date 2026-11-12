@@ -20,7 +20,8 @@
 }
 
 .track {
-  --h: calc(2.25rem * var(--text-scale));
+  /* Tall enough that the knob's face holds its ✓ or ✕ inside the bevel at scale 1 (M2-07 N4). */
+  --h: calc(2.25rem * var(--text-scale) + var(--bevel-w) + var(--bevel-unit));
 
   position: relative;
   display: inline-block;

@@ -777,6 +777,87 @@ const pebbles: CustomPainter = (palette, rng, arg) => {
 };
 
 /**
+ * The middle of a blossom: gold, or orange on a yellow flower so the middle still shows.
+ * Both ramps are wool, which never shifts by biome.
+ */
+function blossomEye(palette: Palette, petals: PaletteRampId): Rgb {
+  return rampAt(ramp(palette, petals === "wool-yellow" ? "wool-orange" : "wool-yellow"), 3);
+}
+
+/** One five-pixel blossom (a plus) with a lit top-left petal and a dark bottom-right one. */
+function blossom(
+  px: Uint8ClampedArray,
+  x: number,
+  y: number,
+  petals: readonly Rgb[],
+  eye: Rgb,
+): void {
+  const top = petals.length - 1;
+  put(px, x, y - 1, rampAt(petals, top));
+  put(px, x - 1, y, rampAt(petals, top - 1));
+  put(px, x + 1, y, rampAt(petals, top - 1));
+  put(px, x, y + 1, rampAt(petals, Math.max(0, top - 2)));
+  put(px, x, y, eye);
+}
+
+/**
+ * A flower bed seen from above (M2-FIX-2): a lawn of grass with four blossoms on a jittered 2×2
+ * grid, each with a leaf beside it. Its own look, so flower patches stop reading as berry bushes.
+ */
+const flowersTop: CustomPainter = (palette, rng, arg) => {
+  const petals = ramp(palette, need(arg, "flowers-top"));
+  const grass = rampNamed(palette, "grass");
+  const bed = field(rng.fork("bed"), 3);
+  const px = blank();
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      put(px, x, y, rampAt(grass, 1 + Math.round(fieldAt(bed, x, y) * 0.5)));
+    }
+  }
+  const eye = blossomEye(palette, need(arg, "flowers-top"));
+  for (let gy = 0; gy < 2; gy++) {
+    for (let gx = 0; gx < 2; gx++) {
+      const x = gx * 8 + rng.int(2, 5);
+      const y = gy * 8 + rng.int(2, 5);
+      const side = rng.int(0, 1) === 0 ? -1 : 1;
+      put(px, x + side * 2, y + 1, rampAt(grass, 0));
+      put(px, x + side * 2, y + 2, rampAt(grass, 0));
+      blossom(px, x, y, petals, eye);
+    }
+  }
+  return px;
+};
+
+/**
+ * A flower bed from the side: grass and stems below, blossoms along the top rows, so a patch reads
+ * as flowers standing on a lawn, not as specks on a bush.
+ */
+const flowersSide: CustomPainter = (palette, rng, arg) => {
+  const petals = ramp(palette, need(arg, "flowers-side"));
+  const grass = rampNamed(palette, "grass");
+  const bed = field(rng.fork("bed"), 3);
+  const px = blank();
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      // Darker toward the ground, lighter up in the leaves.
+      const low = y > 10 ? 1 : 0;
+      put(px, x, y, rampAt(grass, Math.max(0, 1 + Math.round(fieldAt(bed, x, y) * 0.5) - low)));
+    }
+  }
+  const eye = blossomEye(palette, need(arg, "flowers-side"));
+  const heads = 4;
+  for (let h = 0; h < heads; h++) {
+    const x = h * 4 + rng.int(1, 2);
+    const y = rng.int(2, 6);
+    for (let sy = y + 2; sy < N; sy++) put(px, x, sy, rampAt(grass, 0));
+    // A leaf on the stem, on alternate sides.
+    put(px, x + (h % 2 === 0 ? 1 : -1), y + rng.int(4, 6), rampAt(grass, 3));
+    blossom(px, x, y, petals, eye);
+  }
+  return px;
+};
+
+/**
  * Painters for `{ kind: 'custom', paint }` recipes. `paint` is `'<name>'` or `'<name>:<rampId>'`:
  *
  * | name | ramp | paints |
@@ -793,6 +874,8 @@ const pebbles: CustomPainter = (palette, rng, arg) => {
  * | `ripple` | water | bands and glints, alpha 205 |
  * | `leaves` | leaf | leaf clusters |
  * | `pebbles` | stone | rounded stones |
+ * | `flowers-top` | petal color, plus `grass` and wool | flower bed from above |
+ * | `flowers-side` | petal color, plus `grass` and wool | stems and blossoms |
  */
 export const CUSTOM_PAINTERS: Readonly<Record<string, CustomPainter>> = {
   missing,
@@ -807,6 +890,8 @@ export const CUSTOM_PAINTERS: Readonly<Record<string, CustomPainter>> = {
   ripple,
   leaves,
   pebbles,
+  "flowers-top": flowersTop,
+  "flowers-side": flowersSide,
 };
 
 /** Runs the custom painter named by `paint` (`'<name>'` or `'<name>:<rampId>'`). */

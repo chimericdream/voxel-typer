@@ -104,7 +104,9 @@ describe("camera rig", () => {
       return camera.position.clone();
     };
     expect(at(1000).equals(at(9000))).toBe(true);
+    expect(r.drifting).toBe(false);
     r.setDrift(true);
+    expect(r.drifting).toBe(true);
     expect(r.system(16, 10_000)).toBe(true);
   });
 

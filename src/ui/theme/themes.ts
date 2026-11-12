@@ -63,6 +63,8 @@ export const INK_IDS = [
   /** Filled progress blocks, lit hotbar slots and stars. */
   "accent",
   "accentEdge",
+  /** The edge of an empty (not yet earned) star, on a panel. */
+  "starEmptyEdge",
   /** Focus ring: a thick `focus` ring around a thin `focusHalo` ring, so it shows on any color. */
   "focus",
   "focusHalo",
@@ -108,13 +110,14 @@ const DAY: Theme = {
     // Parchment-and-oak panels.
     panel: {
       outline: p("oak-bark", 1),
-      shadow: p("birch", 1),
+      // A darker shadow edge than birch, so panels read as raised blocks, not flat cards (M2-07).
+      shadow: p("oak", 2),
       face: p("birch", 4),
       highlight: p("wool-white", 4),
     },
     button: {
       outline: p("oak-bark", 1),
-      shadow: p("sand", 0),
+      shadow: p("oak", 3),
       face: p("sand", 3),
       highlight: p("wool-white", 4),
     },
@@ -125,10 +128,11 @@ const DAY: Theme = {
       highlight: p("grass", 3),
     },
     slot: {
+      // Dark oak, not neutral grey: a grey 9-slot strip echoes another game's hotbar (M2-07 N8).
       outline: p("oak-bark", 1),
-      shadow: p("slate", 1),
-      face: p("stone", 1),
-      highlight: p("stone", 3),
+      shadow: p("oak-bark", 0),
+      face: p("oak-bark", 3),
+      highlight: p("oak-bark", 4),
     },
     keycap: {
       outline: p("stone", 0),
@@ -138,7 +142,8 @@ const DAY: Theme = {
     },
     toastInfo: {
       outline: p("oak-bark", 1),
-      shadow: p("birch", 1),
+      // A darker shadow edge than birch, so panels read as raised blocks, not flat cards (M2-07).
+      shadow: p("oak", 2),
       face: p("birch", 4),
       highlight: p("wool-white", 4),
     },
@@ -171,6 +176,7 @@ const DAY: Theme = {
     badgeText: WHITE,
     accent: p("ore-amber", 3),
     accentEdge: p("ore-amber", 0),
+    starEmptyEdge: p("oak-bark", 2),
     focus: p("wool-blue", 0),
     focusHalo: WHITE,
     selected: p("ore-amber", 4),
@@ -192,7 +198,8 @@ const NIGHT: Theme = {
       outline: p("wool-black", 0),
       shadow: p("slate", 0),
       face: p("slate", 2),
-      highlight: p("slate", 4),
+      // Moonlit edge, clearly lighter than the face.
+      highlight: p("ore-moon", 2),
     },
     button: {
       outline: p("wool-black", 0),
@@ -222,7 +229,8 @@ const NIGHT: Theme = {
       outline: p("wool-black", 0),
       shadow: p("slate", 0),
       face: p("slate", 2),
-      highlight: p("slate", 4),
+      // Moonlit edge, clearly lighter than the face.
+      highlight: p("ore-moon", 2),
     },
     toastCheer: {
       outline: p("wool-black", 0),
@@ -253,6 +261,8 @@ const NIGHT: Theme = {
     badgeText: WHITE,
     accent: p("spark", 3),
     accentEdge: p("spark", 0),
+    // The spark edge vanished on the slate panel (1.2:1, M2-07 review N2); empty stars use snow.
+    starEmptyEdge: p("snow", 1),
     focus: p("spark", 4),
     focusHalo: BLACK,
     selected: p("spark", 4),
@@ -283,7 +293,8 @@ const CONTRAST: Theme = {
     bg: BLACK,
     bgText: WHITE,
     text: WHITE,
-    textMuted: WHITE,
+    // Grey, not white, so typed and still-to-type letters differ by more than the cursor (M2-14).
+    textMuted: p("stone", 4),
     plate: "rgba(0, 0, 0, 0.9)",
     plateText: WHITE,
     buttonText: WHITE,
@@ -295,9 +306,12 @@ const CONTRAST: Theme = {
     badgeText: BLACK,
     accent: p("wool-cyan", 4),
     accentEdge: WHITE,
+    starEmptyEdge: WHITE,
     focus: p("spark", 4),
     focusHalo: BLACK,
-    selected: p("wool-cyan", 4),
+    // Mid blue: at least 3:1 on both the white slot outline and strip it sits between and on the
+    // black faces and plates. Cyan was 1.9:1 on the white (M2-07 review N1).
+    selected: p("wool-blue", 4),
     zonePinky: p("wool-pink", 4),
     zoneRing: p("wool-cyan", 4),
     zoneMiddle: p("wool-lime", 4),
@@ -350,6 +364,8 @@ export const UI_PAIRS: readonly (readonly [a: ColorToken, b: ColorToken])[] = [
   // keyboard's text plate) and `keycapText` inside (on the zone faces, checked as TEXT_PAIRS).
   ["selected", "plate"],
   ["selected", "keycapText"],
+  // Stars (M2-07 review N2): an empty star's edge on the panel it sits on.
+  ["starEmptyEdge", "panel"],
 ];
 
 /** Surfaces a focused control can sit on (the focus ring is drawn outside the control). */

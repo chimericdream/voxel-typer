@@ -19,6 +19,7 @@
  * Reduced motion (read on every call): no hit-stop, at most 6 particles that drift down without
  * bouncing, float text fades in place. Shake is already a no-op on the rig.
  */
+import type { Texture } from "three";
 import type { Rng } from "@/engine/rng";
 import type { Ms } from "@/types/core";
 import { tileUv } from "../atlas/build";
@@ -65,11 +66,22 @@ export function createFx(ctx: FxContext, opts: FxOptions): FxCore {
   const texts = createFloatTextLayer(ctx.canvas, ctx.camera);
   let holdLeft: Ms = 0;
   let disposed = false;
+  /** The atlas texture the live chips were cut from. */
+  let chipTexture: Texture | null = null;
 
   const system = (dtMs: Ms): boolean => {
     // Particles hold still during a hit-stop; float text keeps going.
     const holding = holdLeft > 0;
     holdLeft = Math.max(0, holdLeft - dtMs);
+    // A new atlas (a biome change) while chips are alive: drop them rather than keep drawing the
+    // old texture, which the scene has disposed and would upload again (M2-05 review N4). Their
+    // UVs point into the old atlas, so they couldn't simply switch over.
+    if (pool.alive > 0 && (ctx.atlas()?.texture ?? null) !== chipTexture) {
+      pool.clear();
+      particles.sync(pool);
+      chipTexture = null;
+      particles.setTexture(null);
+    }
     const hadParticles = pool.alive > 0;
     pool.step(holding ? 0 : dtMs);
     if (hadParticles) particles.sync(pool);
@@ -82,7 +94,8 @@ export function createFx(ctx: FxContext, opts: FxOptions): FxCore {
     burst(at, { blockId, count, speed }) {
       if (disposed) return;
       const atlas = ctx.atlas();
-      particles.setTexture(atlas?.texture ?? null);
+      chipTexture = atlas?.texture ?? null;
+      particles.setTexture(chipTexture);
       const uv = atlas ? tileUv(atlas.canvas.width, atlas.tileOf(blockId, "side")) : NO_TILE;
       const spawned = pool.spawn(
         {

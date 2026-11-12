@@ -15,6 +15,10 @@ export interface ButtonProps {
   /** `primary` for the one main action on a screen. */
   variant?: "primary" | "secondary";
   size?: "md" | "lg";
+  /**
+   * Shown hatched and does nothing, but stays focusable (`aria-disabled`, not `disabled`), so a
+   * keyboard-only child can still reach it and hear that it's there (M2-07 review N7).
+   */
   disabled?: boolean;
   type?: "button" | "submit";
   /** Accessible name, needed only when the visible content isn't text. Pass `t()` output. */
@@ -42,14 +46,21 @@ export function Button({
       data-variant={variant}
       data-size={size}
       data-pressed={pressed ? "1" : undefined}
-      disabled={disabled}
+      aria-disabled={disabled ? "true" : undefined}
       aria-label={label}
-      onClick={onClick}
+      onClick={(e) => {
+        // A disabled submit button must not submit its form either.
+        if (disabled) {
+          e.preventDefault();
+          return;
+        }
+        onClick?.();
+      }}
       onKeyDown={(e) => {
         // A held Enter auto-repeats and would fire onClick on every repeat (PLAN §4.6: tolerate
         // key-repeat). Only the first press clicks. Space already clicks once, on keyup.
         if (e.repeat && e.key === "Enter") e.preventDefault();
-        if (PRESS_KEYS.has(e.key)) setPressed(true);
+        if (PRESS_KEYS.has(e.key) && !disabled) setPressed(true);
       }}
       onKeyUp={(e) => {
         if (PRESS_KEYS.has(e.key)) setPressed(false);
