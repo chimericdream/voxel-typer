@@ -236,3 +236,35 @@
 
   --keyboard-max-unit: calc((100cqh - var(--kb-fixed)) / var(--kb-units));
 }
+
+/* "Hear it again" (M3-07): a small key cap and its label on a plate, in the top row. */
+.hear {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-1) var(--sp-3);
+  background: var(--c-plate);
+  color: var(--c-plate-text);
+  font-family: var(--font-body);
+  font-size: min(calc(18px * var(--text-scale)), 5dvh);
+  font-weight: 700;
+  line-height: 1.2;
+  box-shadow: 0 0 0 var(--bevel-unit) rgb(0 0 0 / 0.35);
+}
+
+.hearKey {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6em;
+  height: 1.6em;
+  box-sizing: border-box;
+  padding: 0 0.3em;
+  border: var(--bevel-unit) solid var(--c-keycap-outline);
+  background: var(--c-keycap);
+  color: var(--c-keycap-text);
+  font-family: var(--font-body);
+  font-weight: 700;
+}

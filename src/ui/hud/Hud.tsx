@@ -134,13 +134,37 @@ export function HudKeyboard({ fields, layout, hands, labels }: HudKeyboardProps)
   );
 }
 
+/**
+ * "Hear it again" (M3-07): the key that reads the word aloud again, beside a short label. The shell
+ * shows it only while read-aloud is on and the device has an English voice (decision 69).
+ */
+export function HudHearAgain({ keyGlyph }: { keyGlyph: string }) {
+  return (
+    <p class={styles.hear}>
+      <kbd class={styles.hearKey}>{keyGlyph}</kbd>
+      <span>{t("a11y.hearAgain")}</span>
+    </p>
+  );
+}
+
 export interface HudProps extends Fields {
   settings: Pick<Settings, "calmMode" | "showKeyboard" | "showHands">;
   band: AgeBand;
   layout: LayoutDef;
+  /** Finger labels on every key (M3-07 setting). Default: on for Sprout only (M2-14). */
+  labels?: boolean;
+  /** The "hear it again" key to show, or null to hide the hint (no voice, or read-aloud off). */
+  hearAgainKey?: string | null;
 }
 
-export function Hud({ fields, settings, band, layout }: HudProps) {
+export function Hud({
+  fields,
+  settings,
+  band,
+  layout,
+  labels = band === "sprout",
+  hearAgainKey = null,
+}: HudProps) {
   const keyboard = settings.showKeyboard;
   const hands = keyboard && settings.showHands;
   return (
@@ -153,6 +177,7 @@ export function Hud({ fields, settings, band, layout }: HudProps) {
         <HudProgress fields={fields} />
         <HudCombo fields={fields} />
         {timerHidden(band, settings) ? null : <HudTimer fields={fields} />}
+        {hearAgainKey === null ? null : <HudHearAgain keyGlyph={hearAgainKey} />}
       </div>
       <HudWord fields={fields} />
       {/* `data-hud` marks the open stage and the keyboard, so a mode can frame its scene around them. */}
@@ -163,8 +188,8 @@ export function Hud({ fields, settings, band, layout }: HudProps) {
       </div>
       {keyboard ? (
         <div class={styles.keyboard} data-hud="keyboard">
-          {/* Finger labels on every key for Sprout (M2-09 N3): a keyboard-only child never hovers. */}
-          <HudKeyboard fields={fields} layout={layout} hands={hands} labels={band === "sprout"} />
+          {/* Finger labels on every key (M2-09 N3): a keyboard-only child never hovers. */}
+          <HudKeyboard fields={fields} layout={layout} hands={hands} labels={labels} />
         </div>
       ) : null}
     </div>

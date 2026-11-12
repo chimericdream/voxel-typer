@@ -141,7 +141,9 @@ function classify(e: KeyboardEvent, t: Ms, ctx: InputCtx): TypedInput | ControlI
  * Turns a DOM key event into a typed or control input, by the rules above. `null` means "ignore
  * this event". In play it also calls `e.preventDefault()` for every `typed` result and for Space,
  * `'`, `/`, Backspace and Tab (repeats included, so a held key never scrolls the page or opens
- * quick-find), except during IME composition.
+ * quick-find), except during IME composition. A plain F1, which is "hear again", is prevented
+ * everywhere, menus and repeats included: its default opens the browser's help page in a new tab,
+ * taking a child out of the game (M3-07 review B1).
  */
 export function normalizeKeyEvent(
   e: KeyboardEvent,
@@ -149,6 +151,7 @@ export function normalizeKeyEvent(
   ctx: InputCtx,
 ): TypedInput | ControlInput | null {
   const out = classify(e, t, ctx);
+  if (e.key === "F1" && !e.ctrlKey && !e.metaKey && !e.altKey) e.preventDefault();
   if (ctx.inPlay && !e.isComposing) {
     const guarded = PLAY_GUARDED.has(printable(e.key) ?? e.key);
     if (guarded || out?.kind === "typed") e.preventDefault();

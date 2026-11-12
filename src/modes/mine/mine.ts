@@ -11,6 +11,7 @@
  * hit-stop and stops while paused. Input times (`KeyInput.t`, `pause(t)`) are the real clock and
  * are only ever given to the typing session and the wrong-key gate.
  */
+import { reducedMotion } from "@/a11y/motion";
 import { blocks } from "@/content/blocks";
 import type { BlockDef } from "@/content/blocks/types";
 import { lessons } from "@/content/lessons";
@@ -148,9 +149,9 @@ interface CurrentBlock {
   vein: boolean;
 }
 
+/** The profile's setting against the OS, live (the app's one motion flag, M3-07). */
 function reducedMotionOf(setting: boolean | "system"): boolean {
-  if (setting !== "system") return setting;
-  return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return reducedMotion(setting);
 }
 
 function bodyFont(): string {
