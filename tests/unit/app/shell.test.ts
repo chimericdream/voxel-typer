@@ -214,4 +214,33 @@ describe("app shell", () => {
     expect(await s.shell.api.saveProfile(p)).toBe(false);
     expect(save).toHaveBeenCalledTimes(1);
   });
+
+  it("damagedProfiles and removeProfile (M3-09): a damaged profile holds a slot until removed", async () => {
+    const s = setup();
+    const p = fixture("fresh-sprout");
+    await s.store.save(p);
+    s.shell.onSaveProblem({ profileId: "lost-1", kind: "unreadable", message: "m" });
+    s.shell.onSaveProblem({ profileId: null, kind: "unreadable", message: "m" });
+    expect([...s.shell.api.damagedProfiles()]).toEqual(["lost-1"]);
+    expect(await s.shell.api.removeProfile("lost-1")).toBe(true);
+    expect(s.shell.api.damagedProfiles().size).toBe(0);
+
+    s.shell.api.setProfile(p);
+    expect(await s.shell.api.removeProfile(p.id)).toBe(true);
+    expect(s.shell.api.profile()).toBeNull();
+    expect(await s.store.listProfiles()).toEqual([]);
+
+    // A newer build owns this one: never removed here.
+    s.shell.onSaveProblem({ profileId: "newer", kind: "newerVersion", message: "m" });
+    const remove = vi.spyOn(s.store, "remove");
+    expect(await s.shell.api.removeProfile("newer")).toBe(false);
+    expect(remove).not.toHaveBeenCalled();
+
+    // A storage failure is a kind notice, not a crash.
+    remove.mockRejectedValueOnce(new Error("disk"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    expect(await s.shell.api.removeProfile("x")).toBe(false);
+    expect(s.shell.notices.value.map((n) => n.kind)).toContain("storageError");
+    warn.mockRestore();
+  });
 });

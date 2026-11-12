@@ -106,6 +106,8 @@ export function createShell(deps: ShellDeps): Shell {
   const pending = new Set<Promise<unknown>>();
   /** Profiles a newer build owns: never written again this session. */
   const readOnly = new Set<string>();
+  /** Profiles the store could not read at all: they hold a slot until removed (M3-09). */
+  const damaged = new Set<string>();
   let noticeId = 0;
 
   const notify = (kind: SaveProblemKind): void => {
@@ -152,6 +154,20 @@ export function createShell(deps: ShellDeps): Shell {
       }
       return false;
     }
+  };
+
+  const removeProfile = async (id: string): Promise<boolean> => {
+    if (readOnly.has(id)) return false;
+    try {
+      await deps.store.remove(id);
+    } catch (err) {
+      console.warn("[app] remove failed", err);
+      notify("storageError");
+      return false;
+    }
+    damaged.delete(id);
+    if (profile.value?.id === id) setProfile(null);
+    return true;
   };
 
   const lessonById = (id: string): Lesson | null => deps.lessons.find((l) => l.id === id) ?? null;
@@ -241,6 +257,8 @@ export function createShell(deps: ShellDeps): Shell {
     setProfile,
     saveProfile,
     readOnlyProfiles: () => readOnly,
+    damagedProfiles: () => damaged,
+    removeProfile,
     lessons: deps.lessons,
     lesson: lessonById,
     lastResult: () => play.lastResult(),
@@ -272,6 +290,7 @@ export function createShell(deps: ShellDeps): Shell {
     router,
     onSaveProblem(p) {
       if (p.kind === "newerVersion" && p.profileId !== null) readOnly.add(p.profileId);
+      if (p.kind === "unreadable" && p.profileId !== null) damaged.add(p.profileId);
       notify(p.kind);
     },
     dismissNotice(id) {

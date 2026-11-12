@@ -37,7 +37,7 @@ function screenName(id: RouteId): string | null {
     case "splash":
       return t("screens.splash.press");
     case "profiles":
-      return t("screens.profiles.title");
+      return t("profiles.title");
     case "profileCreate":
       return t("screens.profileCreate.title");
     case "map":
