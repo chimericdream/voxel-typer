@@ -24,6 +24,7 @@ import { BUILDER_LESSON } from "../../../../src/modes/builder/lesson";
 import type { ModeContext, ModeResult } from "../../../../src/modes/types";
 import { VoxelGrid } from "../../../../src/render/mesher/voxel-grid";
 import type { Profile } from "../../../../src/save/schema";
+import { createMemoryStore } from "../../../../src/save/store";
 import { fakeScene, fixture, flush } from "../../app/helpers";
 
 const lookup = islandBlocks(blocks);
@@ -231,6 +232,10 @@ describe("builder: the card's sequence", () => {
     expect(saved(p).get(START.x + 2, START.y, START.z)).toBe(0);
     expect(p.inventory).toEqual({ "oak-planks": 11, cobble: 30 });
     expect(p.island?.expansions).toBe(0);
+    // The save store accepts the profile as written (its validator runs on every save).
+    const store = createMemoryStore();
+    await store.save(p);
+    expect(await store.load(p.id)).toEqual(p);
     // The island's blocks plus the bag are what they were: one plank moved.
     const fresh = VoxelGrid.fromJSON(createIsland(miner.id, lookup, 0).grid);
     expect(countBlocks(saved(p), lookup)).toEqual({
@@ -307,6 +312,8 @@ describe("builder: putting and digging", () => {
     v.type("  ");
     expect(v.grid().get(START.x, START.y + 1, START.z)).toBe(0);
     expect(v.hud().hint?.key).toBe("builder.hint.noneLeft");
+    // The block in hand keeps its slot, showing 0.
+    expect(v.hud().palette).toEqual([{ block: "brick", name: "Brick", word: "brick", count: 0 }]);
     // Still listed at 0, so the bag screen knows the kind.
     v.play.quit();
     await flush();
@@ -721,13 +728,13 @@ describe("builder: an island that won't open", () => {
   });
 });
 
-describe("builder: blueprints (the M4-08 hook)", () => {
-  const hut = (): BuilderBlueprint => {
-    const grid = new VoxelGrid(3, 1, 3);
-    for (let x = 0; x < 3; x++) for (let z = 0; z < 3; z++) grid.set(x, 0, z, num("oak-planks"));
-    return { typedName: "hut", nameKey: "builder.title", grid };
-  };
+const hut = (): BuilderBlueprint => {
+  const grid = new VoxelGrid(3, 1, 3);
+  for (let x = 0; x < 3; x++) for (let z = 0; z < 3; z++) grid.set(x, 0, z, num("oak-planks"));
+  return { typedName: "hut", nameKey: "builder.title", grid };
+};
 
+describe("builder: blueprints (the M4-08 hook)", () => {
   it("stamps centered on the cursor, pays for it, and undoes as one step", async () => {
     const v = await visit(miner, { blueprints: [hut()] });
     v.type("hut");
@@ -765,6 +772,7 @@ describe("builder: blueprints (the M4-08 hook)", () => {
 describe("builder: the registered mode", () => {
   it("is found as `builder` and loads the real create", async () => {
     expect(mode.id).toBe("builder");
-    expect((await mode.load()).create).toBe(create);
+    const loaded = await mode.load();
+    expect(Object.is(Reflect.get(loaded, "create"), create)).toBe(true);
   });
 });

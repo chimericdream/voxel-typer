@@ -2,7 +2,7 @@
  * Builder's command line (task M4-07): the parser table (prefix ambiguity, numbers, unknown
  * words) and the key-by-key reducer, over the real block registry.
  */
-import fc from "fast-check";
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { blocks } from "../../../../src/content/blocks";
 import {
@@ -78,8 +78,9 @@ describe("vocabulary", () => {
   });
 });
 
+const arm = (block: string): Command => ({ kind: "arm", block });
+
 describe("parseLine: the table", () => {
-  const arm = (block: string): Command => ({ kind: "arm", block });
   const table: [text: string, expected: object][] = [
     ["", { kind: "empty" }],
     // Whole words that nothing longer starts with run by themselves.
@@ -260,7 +261,7 @@ describe("typeKey", () => {
   it("every feedback is a hint key in the builder namespace (seed 4707)", () => {
     fc.assert(
       fc.property(
-        fc.string({ maxLength: 10, unit: fc.constantFrom(..."abdeglnoprstuw 0123x") }),
+        fc.string({ maxLength: 10, unit: fc.constantFrom(...Array.from("abdeglnoprstuw 0123x")) }),
         (s) => {
           for (const h of type(s).hints) expect(h.key.startsWith("builder.hint.")).toBe(true);
         },
@@ -272,7 +273,7 @@ describe("typeKey", () => {
   it("the line is always the start of something the parser knows (seed 4707)", () => {
     fc.assert(
       fc.property(
-        fc.string({ maxLength: 14, unit: fc.constantFrom(..."abdeiklnoprstuw 12x") }),
+        fc.string({ maxLength: 14, unit: fc.constantFrom(...Array.from("abdeiklnoprstuw 12x")) }),
         (s) => {
           expect(parseLine(type(s).state.text, miner).kind).not.toBe("unknown");
         },

@@ -230,7 +230,7 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
   // --- HUD ---
 
   const publish = (): void => {
-    shown = steadyPalette(shown, inventory, placeableIds);
+    shown = steadyPalette(shown, inventory, placeableIds, undefined, armed);
     const palette: PaletteItem[] = shown.map((block) => ({
       block,
       name: nameOf(block),

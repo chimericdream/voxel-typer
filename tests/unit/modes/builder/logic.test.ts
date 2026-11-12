@@ -1,5 +1,5 @@
 /** Builder's cursor, camera and palette rules, and what it tells the play host to save (M4-07). */
-import fc from "fast-check";
+import * as fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { footprint } from "../../../../src/engine/island";
 import { DIRECTIONS } from "../../../../src/modes/builder/commands";
@@ -109,6 +109,9 @@ describe("where put and dig land", () => {
   });
 });
 
+const dot = (a: readonly number[], b: readonly number[]): number =>
+  (a[0] ?? 0) * (b[0] ?? 0) + (a[1] ?? 0) * (b[1] ?? 0);
+
 describe("camera", () => {
   it("in view 0 away is north and right is east; each turn to the right shifts them", () => {
     expect((["away", "right", "near", "left"] as const).map((a) => arrowDirection(a, 0))).toEqual([
@@ -130,8 +133,6 @@ describe("camera", () => {
       const { yaw } = cameraPose({ x: 0, y: 0, z: 0 }, view, 2);
       const look = [-Math.sin(yaw), -Math.cos(yaw)] as const;
       const right = [Math.cos(yaw), -Math.sin(yaw)] as const;
-      const dot = (a: readonly number[], b: readonly number[]): number =>
-        (a[0] ?? 0) * (b[0] ?? 0) + (a[1] ?? 0) * (b[1] ?? 0);
       const dirOf = (arrow: "away" | "right" | "near" | "left"): readonly number[] => {
         const d = arrowDirection(arrow, view);
         return d === "up" || d === "down" ? [0, 0] : step[d];
@@ -192,6 +193,8 @@ describe("palette", () => {
       "clay",
     ]);
     expect(steadyPalette([], { dirt: 1, cobble: 30 }, order, 1)).toEqual(["cobble"]);
+    // The block in hand keeps its slot when it runs out.
+    expect(steadyPalette(shown, { dirt: 0, cobble: 30, sand: 5 }, order, 6, "dirt")).toEqual(shown);
   });
 });
 
@@ -211,17 +214,16 @@ describe("redraw bookkeeping", () => {
   });
 });
 
+const event = (key: string, over: object = {}) => ({
+  key,
+  ctrlKey: false,
+  metaKey: false,
+  altKey: false,
+  defaultPrevented: false,
+  preventDefault: () => undefined,
+  ...over,
+});
 describe("nav keys", () => {
-  const event = (key: string, over: object = {}) => ({
-    key,
-    ctrlKey: false,
-    metaKey: false,
-    altKey: false,
-    defaultPrevented: false,
-    preventDefault: () => undefined,
-    ...over,
-  });
-
   it("maps the arrows and the Page keys, and nothing else", () => {
     expect(
       ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "PageUp", "PageDown"].map((k) =>

@@ -194,15 +194,17 @@ export function mostOwned(
 /**
  * Keeps the palette steady while a child builds: blocks already shown stay in their slots while
  * they are still owned, and a free slot is filled by the most-owned block not yet shown. Without
- * this every `put` could reshuffle the slots under the child's eyes.
+ * this every `put` could reshuffle the slots under the child's eyes. The block in hand (`held`)
+ * keeps its slot even at 0, so the child sees what ran out.
  */
 export function steadyPalette(
   shown: readonly BlockId[],
   inventory: Readonly<Record<BlockId, number>>,
   placeable: readonly BlockId[],
   n: number = PALETTE_SIZE,
+  held: BlockId | null = null,
 ): BlockId[] {
-  const kept = shown.filter((id) => (inventory[id] ?? 0) > 0).slice(0, n);
+  const kept = shown.filter((id) => id === held || (inventory[id] ?? 0) > 0).slice(0, n);
   const rest = mostOwned(inventory, placeable, placeable.length).filter((id) => !kept.includes(id));
   return [...kept, ...rest].slice(0, n);
 }
