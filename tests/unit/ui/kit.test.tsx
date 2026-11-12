@@ -372,6 +372,28 @@ describe("Button", () => {
     expect(key(b, "keydown", "Enter", { repeat: true }).defaultPrevented).toBe(true);
   });
 
+  it("disabled stays focusable but does nothing, and blocks a form submit (M2-07 N7)", () => {
+    const onClick = vi.fn();
+    const onSubmit = vi.fn((e: Event) => e.preventDefault());
+    mount(
+      <form onSubmit={onSubmit}>
+        <Button type="submit" disabled onClick={onClick}>
+          Locked
+        </Button>
+      </form>,
+    );
+    const b = $("button");
+    expect(b.hasAttribute("disabled")).toBe(false);
+    expect(b.getAttribute("aria-disabled")).toBe("true");
+    b.focus();
+    expect(document.activeElement).toBe(b);
+    key(b, "keydown", "Enter");
+    expect(b.dataset["pressed"]).toBeUndefined();
+    click(b);
+    expect(onClick).not.toHaveBeenCalled();
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
   it("takes a label for icon-only content, and a variant", () => {
     mount(
       <Button label="Play" variant="primary">
