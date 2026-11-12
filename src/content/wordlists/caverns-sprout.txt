@@ -15,7 +15,6 @@ dim
 dome
 domes
 echo
-geode
 glass
 gleam
 glowy
@@ -36,7 +35,6 @@ pearl
 pink
 pool
 pools
-prism
 sheen
 slope
 spark

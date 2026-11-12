@@ -35,7 +35,7 @@ Batch 12 of 144 bricks
 Recipe 3 needs 2 cups
 Stall 58 sells pears
 Dewdrop 1 of 1000
-Station 17 at 9 30
+Station 17 at 9
 Fern patch 6
 Lot 410 by the willows
 Bench 75 on the boardwalk

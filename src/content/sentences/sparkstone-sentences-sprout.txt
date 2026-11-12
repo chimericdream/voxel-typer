@@ -6,7 +6,7 @@ Ben has cart-1 and cart-2.
 2 + 2 = 4 gears.
 The robot says beep (hi)!
 Type go() to start the belt.
-The pipe-4 valve is open.
+The pipe-4 door is open.
 3 * 2 = 6 cogs.
 The robot Bolt-7 waves!
 The sign says #gems: 5.

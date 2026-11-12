@@ -14,9 +14,7 @@ drops
 fern
 ferns
 frogs
-frond
 gnat
-heron
 marsh
 minus
 moss

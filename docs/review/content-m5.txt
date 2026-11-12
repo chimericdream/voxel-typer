@@ -558,7 +558,7 @@ mines-phrases-builder	Sandstone Stairs
 mines-phrases-builder	Marble Fountain
 mines-phrases-builder	Basalt Columns
 mines-phrases-builder	Magnetite Corner
-mines-phrases-builder	Underground Railway
+mines-phrases-builder	Deep Mine Line
 mines-phrases-builder	Wheelbarrow Lane
 mines-phrases-builder	Prospector Pass
 mines-phrases-builder	Surveyor Station
@@ -608,9 +608,7 @@ marsh-sprout	drops
 marsh-sprout	fern
 marsh-sprout	ferns
 marsh-sprout	frogs
-marsh-sprout	frond
 marsh-sprout	gnat
-marsh-sprout	heron
 marsh-sprout	marsh
 marsh-sprout	minus
 marsh-sprout	moss
@@ -1039,7 +1037,7 @@ marsh-phrases-builder	Batch 12 of 144 bricks
 marsh-phrases-builder	Recipe 3 needs 2 cups
 marsh-phrases-builder	Stall 58 sells pears
 marsh-phrases-builder	Dewdrop 1 of 1000
-marsh-phrases-builder	Station 17 at 9 30
+marsh-phrases-builder	Station 17 at 9
 marsh-phrases-builder	Fern patch 6
 marsh-phrases-builder	Lot 410 by the willows
 marsh-phrases-builder	Bench 75 on the boardwalk
@@ -1058,7 +1056,6 @@ caverns-sprout	dim
 caverns-sprout	dome
 caverns-sprout	domes
 caverns-sprout	echo
-caverns-sprout	geode
 caverns-sprout	glass
 caverns-sprout	gleam
 caverns-sprout	glowy
@@ -1079,7 +1076,6 @@ caverns-sprout	pearl
 caverns-sprout	pink
 caverns-sprout	pool
 caverns-sprout	pools
-caverns-sprout	prism
 caverns-sprout	sheen
 caverns-sprout	slope
 caverns-sprout	spark
@@ -1318,7 +1314,7 @@ caverns-phrases-sprout	it's my turn
 caverns-phrases-sprout	we're a team
 caverns-phrases-sprout	I'm so happy
 caverns-phrases-sprout	let's sing
-caverns-phrases-sprout	that's a prism
+caverns-phrases-sprout	that's a gem
 caverns-phrases-miner	it's a crystal geode
 caverns-phrases-miner	the glowworm's light
 caverns-phrases-miner	the lantern's glow
@@ -1384,7 +1380,6 @@ sparkstone-sprout	belt
 sparkstone-sprout	belts
 sparkstone-sprout	blink
 sparkstone-sprout	bolt
-sparkstone-sprout	chute
 sparkstone-sprout	clank
 sparkstone-sprout	clink
 sparkstone-sprout	cog
@@ -1428,7 +1423,6 @@ sparkstone-sprout	tool
 sparkstone-sprout	tools
 sparkstone-sprout	tube
 sparkstone-sprout	tubes
-sparkstone-sprout	valve
 sparkstone-sprout	vent
 sparkstone-sprout	vents
 sparkstone-sprout	wheel
@@ -1756,7 +1750,6 @@ sparkstone-code-builder	greet(friend)
 sparkstone-code-builder	start_conveyor()
 sparkstone-code-builder	smile_count = 100
 citadel-sprout	airy
-citadel-sprout	aloft
 citadel-sprout	bells
 citadel-sprout	climb
 citadel-sprout	comet
@@ -1785,7 +1778,6 @@ citadel-sprout	mast
 citadel-sprout	masts
 citadel-sprout	orbit
 citadel-sprout	perch
-citadel-sprout	plume
 citadel-sprout	puffs
 citadel-sprout	ramp
 citadel-sprout	ramps
@@ -1793,7 +1785,6 @@ citadel-sprout	ray
 citadel-sprout	rays
 citadel-sprout	roost
 citadel-sprout	soar
-citadel-sprout	spire
 citadel-sprout	stair
 citadel-sprout	swift
 citadel-sprout	swoop
@@ -2108,7 +2099,7 @@ frosty-sentences-builder	a quiet hush settles over the forest when the first sno
 frosty-sentences-builder	the arctic fox changes its coat from brown in summer to white in winter
 frosty-sentences-builder	our team rolled three giant snowballs and stacked them into a friendly snow giant
 frosty-sentences-builder	the wind whistled over the ridge but we were warm inside our cozy tent
-frosty-sentences-builder	icicles hung from the roof like a row of shining glass flutes
+frosty-sentences-builder	icicles lined the edge of the roof like a row of shining crystals
 frosty-sentences-builder	we took turns pulling the sled so that everyone could have a rest
 frosty-sentences-builder	the hot spring steamed in the cold air and the yaks gathered around it to stay warm
 frosty-sentences-builder	a tiny wren hopped along the fence looking for seeds in the snow
@@ -2181,7 +2172,7 @@ mines-sentences-miner	Ezra wrote his name in the Gem Hall guest book
 mines-sentences-builder	The Big Lantern on Home Island has grown dim and we need crystals from every biome
 mines-sentences-builder	Our first stop is the Deep Mines where the miners have dug tunnels for many years
 mines-sentences-builder	Valeria checks the Brightvein Tunnel map before the cart leaves Pebbleton Station
-mines-sentences-builder	The Underground Railway connects Glowhollow Junction with Copperbend Crossing
+mines-sentences-builder	The Deep Mine Line connects Glowhollow Junction with Copperbend Crossing
 mines-sentences-builder	Gabriel is a geologist who studies the layers of limestone and sandstone
 mines-sentences-builder	Every Wednesday the Stonemason Street workshop teaches kids how to carve tiles
 mines-sentences-builder	Beatriz and Kalani measured the tallest stalagmite in the Stalactite Room
@@ -2290,7 +2281,7 @@ marsh-sentences-builder	Beatriz timed a dragonfly and it flew 10 meters in about
 marsh-sentences-builder	The Lily Pond Library has 1200 books and 15 cozy reading nooks
 marsh-sentences-builder	Kalani and Xavier paddled 4 kilometers from Hut 31 to the Fern Patch
 marsh-sentences-builder	A salamander has 4 toes on each front foot and 5 toes on each back foot
-marsh-sentences-builder	The marsh train leaves Station 17 at 9 30 and reaches Station 18 at 9 45
+marsh-sentences-builder	The marsh train leaves Station 17 at 9 and reaches Station 18 at 10
 marsh-sentences-builder	Olivia sorted 64 mushrooms into 8 baskets with 8 in each basket
 marsh-sentences-builder	If you multiply 6 by 7 you get 42 and if you add 6 and 7 you get 13
 marsh-sentences-builder	Ingrid measured the rain and found that 12 millimeters fell overnight
@@ -2454,7 +2445,7 @@ sparkstone-sentences-sprout	Ben has cart-1 and cart-2.
 sparkstone-sentences-sprout	2 + 2 = 4 gears.
 sparkstone-sentences-sprout	The robot says beep (hi)!
 sparkstone-sentences-sprout	Type go() to start the belt.
-sparkstone-sentences-sprout	The pipe-4 valve is open.
+sparkstone-sentences-sprout	The pipe-4 door is open.
 sparkstone-sentences-sprout	3 * 2 = 6 cogs.
 sparkstone-sentences-sprout	The robot Bolt-7 waves!
 sparkstone-sentences-sprout	The sign says #gems: 5.

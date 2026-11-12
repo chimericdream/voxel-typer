@@ -1,7 +1,6 @@
 # Sky Citadel words for Sprouts. Authored for Voxel Typer (M5-05); see SOURCES.md.
 # tags: band=sprout reading=grade2 kind=words biome=citadel theme=sky
 airy
-aloft
 bells
 climb
 comet
@@ -30,7 +29,6 @@ mast
 masts
 orbit
 perch
-plume
 puffs
 ramp
 ramps
@@ -38,7 +36,6 @@ ray
 rays
 roost
 soar
-spire
 stair
 swift
 swoop
