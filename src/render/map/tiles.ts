@@ -2,8 +2,9 @@
  * The world map's texture atlas (task M3-04). No DOM and no three.js here, so it runs in Node.
  *
  * Each island is painted from its own biome's palette (`paletteFor`), with the shared texture
- * recipes. A locked island gets washed-out copies of its tiles: mostly gray, a little pale and
- * blue, like something seen through mist. All tiles of all nine islands share one small atlas,
+ * recipes. A locked island gets washed-out copies of its tiles: grayer, paler and a little blue,
+ * like something seen through mist, but with enough of its own colors left that a child can tell
+ * the snowy island from the mushroom one (M3-04 review N4). All tiles of all nine islands share one small atlas,
  * so the whole map uses one texture.
  */
 import { ISLAND_KINDS } from "@/content/worldgen/islands";
@@ -38,8 +39,8 @@ export interface MapTiles {
 }
 
 /** How far a locked island's colors move toward gray, and toward the mist color. */
-export const WASH_GRAY = 0.82;
-export const WASH_MIST = 0.5;
+export const WASH_GRAY = 0.55;
+export const WASH_MIST = 0.35;
 const MIST = [203, 212, 224] as const;
 
 /** A washed-out copy of a tile, for locked islands. */

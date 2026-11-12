@@ -15,10 +15,13 @@ import en from "../../../src/i18n/en";
 import type { Profile } from "../../../src/save/schema";
 import { BiomePath } from "../../../src/ui/screens/BiomePath";
 import {
+  LABEL_LAYOUT,
   islandInfos,
   islandLabel,
+  layoutLabels,
   lessonNodes,
   nodeLabel,
+  notYetLine,
   opensAfter,
   practiceCamp,
   recommendedLesson,
@@ -152,6 +155,20 @@ describe("map logic", () => {
     ]);
   });
 
+  it("says which island opens a locked one, without pressure words", () => {
+    const infos = islandInfos(sprout, lessons);
+    const line = (b: string) => {
+      const info = infos.find((i) => i.biome === b);
+      if (!info) throw new Error(b);
+      return notYetLine(info);
+    };
+    expect(line("birch")).toBe("Finish Meadow Home to open this island!");
+    expect(line("sparkstone")).toBe("Finish Crystal Caverns to open this island!");
+    const first = infos[0];
+    if (!first) throw new Error("no meadow");
+    expect(notYetLine({ ...first, unlocked: false })).toBe(t("map.island.notYetFirst"));
+  });
+
   it("leaves the practice camp to M3-06: no camp is suggested yet", () => {
     expect(practiceCamp(sprout, "meadow")).toBeNull();
   });
@@ -172,10 +189,52 @@ describe("World map", () => {
     expect(birch.getAttribute("aria-disabled")).toBe("true");
     expect(birch.tabIndex).toBe(-1);
     expect(label(birch)).toContain("In the clouds for now");
-    // A locked island does nothing when clicked.
-    void act(() => birch.click());
+    // A new player sees words, not "★ 0 0 of 6": the star count waits for the first star.
+    expect(text(meadow.querySelector("[aria-hidden]:last-child"))).toBe("0 of 6 done");
+    expect(meadow.querySelector("svg")).toBeNull();
+  });
+
+  it("the meta line shows the star count once there are stars", async () => {
+    const s = await openMap(fixture("meadow-done-miner"));
+    const meta = text(island(s.root, "meadow").querySelector("[aria-hidden]:last-child"));
+    expect(meta).toBe("6 of 6 done16");
+  });
+
+  it("clicking an island in the clouds says kindly what opens it, and goes nowhere", async () => {
+    const s = await openMap(fixture("fresh-sprout"));
+    const note = () => text(s.root.querySelector("[data-note]"));
+    expect(note()).toBe("");
+    // An <output>: a polite live region, so a screen reader hears the line.
+    expect(s.root.querySelector("[data-note]")?.tagName).toBe("OUTPUT");
+    void act(() => island(s.root, "birch").click());
     await s.settle();
     expect(s.root.querySelector("h2")).toBeNull();
+    expect(s.route().id).toBe("map");
+    expect(note()).toBe("Finish Meadow Home to open this island!");
+    expect(s.audio.sfx.mock.calls).toEqual([["pop", { gain: 0.5 }]]);
+    void act(() => island(s.root, "citadel").click());
+    await s.settle();
+    expect(note()).toBe("Finish Crystal Caverns to open this island!");
+    // Any key clears it.
+    await s.press("ArrowRight");
+    expect(note()).toBe("");
+  });
+
+  it("the note goes away on its own after a few seconds", async () => {
+    const s = await openMap(fixture("fresh-sprout"));
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      void act(() => island(s.root, "shore").click());
+      expect(text(s.root.querySelector("[data-note]"))).toBe(
+        "Finish Birch Forest to open this island!",
+      );
+      void act(() => {
+        vi.advanceTimersByTime(4100);
+      });
+      expect(text(s.root.querySelector("[data-note]"))).toBe("");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keyboard only: Enter goes in, Enter on the pulsing lesson opens its intro", async () => {
@@ -359,6 +418,97 @@ describe("BiomePath", () => {
     expect(open).toHaveBeenCalledTimes(1);
     void act(() => render(null, host));
     host.remove();
+  });
+});
+
+describe("layoutLabels", () => {
+  type Box = { left: number; top: number; right: number; bottom: number };
+  const { margin, gap } = LABEL_LAYOUT;
+  const place = (
+    labels: Parameters<typeof layoutLabels>[0],
+    size: { width: number; height: number },
+    keepOut: Box[] = [],
+  ): Box[] =>
+    layoutLabels(labels, size, keepOut).map((p, i) => {
+      const l = labels[i];
+      if (!l) throw new Error("label");
+      return { left: p.left, top: p.top - l.above, right: p.left + l.w, bottom: p.top + l.h };
+    });
+  const crosses = (a: Box, b: Box, room = 0): boolean =>
+    a.left < b.right + room &&
+    b.left < a.right + room &&
+    a.top < b.bottom + room &&
+    b.top < a.bottom + room;
+  const expectClear = (
+    boxes: Box[],
+    size: { width: number; height: number },
+    keepOut: Box[] = [],
+  ) => {
+    for (const [i, a] of boxes.entries()) {
+      expect(a.left, `label ${i} left`).toBeGreaterThanOrEqual(margin - 0.5);
+      expect(a.right, `label ${i} right`).toBeLessThanOrEqual(size.width - margin + 0.5);
+      expect(a.top, `label ${i} top`).toBeGreaterThanOrEqual(margin - 0.5);
+      expect(a.bottom, `label ${i} bottom`).toBeLessThanOrEqual(size.height - margin + 0.5);
+      for (const k of keepOut) expect(crosses(a, k), `label ${i} and the heading`).toBe(false);
+      for (const [j, b] of boxes.entries()) {
+        if (j > i) expect(crosses(a, b, gap - 1), `labels ${i} and ${j}`).toBe(false);
+      }
+    }
+  };
+
+  it("leaves a label under its island when nothing is in the way", () => {
+    expect(
+      layoutLabels([{ x: 500, y: 300, w: 200, h: 60, above: 0 }], { width: 1024, height: 720 }),
+    ).toEqual([{ left: 400, top: 300 }]);
+  });
+
+  it("keeps labels inside the window", () => {
+    const size = { width: 1024, height: 720 };
+    const labels = [
+      { x: 20, y: 200, w: 270, h: 70, above: 0 },
+      { x: 1010, y: 300, w: 270, h: 70, above: 0 },
+      { x: 500, y: 700, w: 200, h: 70, above: 0 },
+      { x: 500, y: 2, w: 200, h: 70, above: 20 },
+    ];
+    expectClear(place(labels, size), size);
+  });
+
+  // The anchors of the real 3D view at 1024×720 (all islands open), and label sizes about as big
+  // as the browser draws them at text scale 2, names wrapped to fit three across.
+  const anchors1024: [number, number][] = [
+    [190, 532],
+    [512, 544],
+    [845, 528],
+    [848, 354],
+    [545, 351],
+    [228, 345],
+    [395, 218],
+    [116, 203],
+    [715, 184],
+  ];
+
+  for (const [scale, w, tall] of [
+    [1.5, 274, 78],
+    [2, 320, 104],
+  ] as const) {
+    it(`at text scale ${scale}, no two labels overlap and none leaves the window or meets the heading`, () => {
+      const size = { width: 1024, height: 720 };
+      const heading = { left: 16, top: 12, right: 700, bottom: scale === 2 ? 128 : 96 };
+      const labels = anchors1024.map(([x, y], i) => ({
+        x,
+        y,
+        w: w - (i % 3) * 40,
+        h: tall,
+        above: i === 0 ? 30 : 0,
+      }));
+      expectClear(place(labels, size, [heading]), size, [heading]);
+    });
+  }
+
+  it("moves a label below its neighbour when a row has no room left", () => {
+    const size = { width: 600, height: 720 };
+    const labels = [0, 1, 2, 3].map((i) => ({ x: 150 + i * 100, y: 200, w: 260, h: 60, above: 0 }));
+    expectClear(place(labels, size), size);
   });
 });
 
