@@ -14,10 +14,12 @@ import { EN_US } from "../../../src/content/layouts";
 import { t } from "../../../src/i18n";
 import { defaultSettings } from "../../../src/save/settings";
 import {
+  HOTBAR_SLICE,
   HUD_FIELDS,
   WRONG_KEY_SLICE,
   createHudStore,
   emptyHudState,
+  hotbarOf,
   reportWrongKey,
   wrongKeyOf,
 } from "../../../src/ui/hud/bridge";
@@ -260,6 +262,30 @@ describe("parts", () => {
     );
   });
 
+  it("fills hotbar slots from the hotbar slice (M2-13), and ignores a malformed one", () => {
+    const hud = createHudStore();
+    mount(<HudCombo fields={hud.fields} />);
+    expect(host.querySelectorAll('[role="img"]')).toHaveLength(0);
+    void act(() => {
+      hud.set({
+        custom: {
+          [HOTBAR_SLICE]: {
+            slots: [{ label: "Dirt, 3", count: 3, icon: "data:image/png;base64,AAAA" }, null],
+          },
+        },
+      });
+    });
+    const filled = host.querySelectorAll('[role="img"]');
+    expect(filled).toHaveLength(1);
+    expect(filled[0]?.getAttribute("aria-label")).toBe("Dirt, 3");
+    expect(filled[0]?.querySelector("img")?.getAttribute("src")).toContain("data:image/png");
+    expect(filled[0]?.textContent).toContain("3");
+    expect(host.querySelector('[role="group"]')?.children).toHaveLength(9);
+    expect(hotbarOf({ [HOTBAR_SLICE]: { slots: [{ label: 1 }] } })).toBeNull();
+    expect(hotbarOf({ [HOTBAR_SLICE]: "no" })).toBeNull();
+    expect(hotbarOf({})).toBeNull();
+  });
+
   it("the keyboard follows nextKey and wobbles the key of a reported wrong press", () => {
     const hud = createHudStore();
     hud.set({ nextKey: "f" });
@@ -401,6 +427,14 @@ describe("render counts at 60 Hz", () => {
       HudKeyboard: 0,
       Hud: 0,
     });
+  });
+
+  it("another custom slice doesn't re-render the hotbar, and the same hotbar slice doesn't either", () => {
+    const hud = setupHud();
+    const slice = { slots: [{ label: "Dirt, 1", count: 1, icon: "" }] };
+    void act(() => hud.set({ custom: { [HOTBAR_SLICE]: slice } }));
+    const r = frames(hud, (i) => ({ custom: { ...hud.get().custom, other: i } }));
+    expect(r["HudCombo"]).toBe(0);
   });
 
   it("another custom slice doesn't re-render the keyboard", () => {

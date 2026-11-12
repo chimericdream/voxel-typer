@@ -61,6 +61,7 @@ import {
   policyFor,
   poolsFor,
   progressOf,
+  seamLength,
   settleDrops,
   stepFlights,
   veinOnBreak,
@@ -203,6 +204,9 @@ export function create(ctx: ModeContext): MineInstance {
   let done = 0;
   let veins = createVeinSchedule(band);
   let veinCount = 0;
+  /** The kind of block being dug through, and how many more targets show it. */
+  let seamBlock: BlockId = "dirt";
+  let seamLeft = 0;
   let wrongGate = emptyWrongGate();
   let flights = emptyFlyQueue();
   /** The fly queue's clock: frame time added up, so it stops with the game. */
@@ -261,7 +265,14 @@ export function create(ctx: ModeContext): MineInstance {
     veins = taken.schedule;
     const veinBlock = taken.vein ? pickVeinBlock(table, blocks, band, streak) : null;
     const vein = veinBlock !== null;
-    const blockId = veinBlock ?? pickTargetBlock(table, blockRng);
+    if (!vein) {
+      if (seamLeft <= 0) {
+        seamBlock = pickTargetBlock(table, blockRng);
+        seamLeft = seamLength(len, blockRng);
+      }
+      seamLeft--;
+    }
+    const blockId = veinBlock ?? seamBlock;
     current = {
       id: target.id,
       len,
@@ -328,8 +339,7 @@ export function create(ctx: ModeContext): MineInstance {
       loot[d.block] = (loot[d.block] ?? 0) + d.count;
       bus.emit("loot", d);
       // Float text only on a break, never per letter (M2-05 review).
-      if (i < 2)
-        scene.fx.floatText(i === 0 ? textAt : textAt2, t("mine.got", { count: d.count }));
+      if (i < 2) scene.fx.floatText(i === 0 ? textAt : textAt2, t("mine.got", { count: d.count }));
     });
     const hasOrigin = view?.project(from) ?? false;
     const queued = enqueueDrops(flights, drops, flyNow, reduced() || !hasOrigin || fly === null);

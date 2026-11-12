@@ -13,6 +13,8 @@ import { createRng } from "../../../../src/engine/rng";
 import type { TargetView } from "../../../../src/engine/types";
 import {
   BANNER_GAP_MS,
+  BLOCK_PX_MAX,
+  BLOCK_PX_MIN,
   FLY_MAX,
   FLY_MS,
   FLY_SLOTS,
@@ -40,8 +42,10 @@ import {
   policyFor,
   poolsFor,
   progressOf,
+  seamLength,
   settleDrops,
   slotOf,
+  stageFrame,
   stepFlights,
   veinOnBreak,
   veinOnStreak,
@@ -210,6 +214,14 @@ describe("which block a target shows", () => {
     for (const p of picks) expect(common.has(p)).toBe(true);
     expect(new Set(picks).size).toBeGreaterThan(5);
     expect(run()).toEqual(picks);
+  });
+
+  it("digs through a seam: 3–5 letters or 2–3 words of the same block", () => {
+    const rng = createRng(SEED);
+    const letters = Array.from({ length: 200 }, () => seamLength(1, rng));
+    const words = Array.from({ length: 200 }, () => seamLength(5, rng));
+    expect(new Set(letters)).toEqual(new Set([3, 4, 5]));
+    expect(new Set(words)).toEqual(new Set([2, 3]));
   });
 
   it("shows a finer ore for a longer streak", () => {
@@ -548,5 +560,67 @@ describe("from a lesson to a session", () => {
     expect(poolsFor({ biome: "birch" }, "sprout", pools).map((p) => p.id)).toEqual([
       "birch-sprout",
     ]);
+  });
+});
+
+describe("where the block goes on the screen", () => {
+  const screen = { width: 1280, height: 720 };
+  // Measured in the real HUD at 1280×720 (M2-14).
+  const sprout = {
+    stage: { left: 16, top: 219, width: 1248, height: 105 },
+    keyboard: { left: 305, top: 337, width: 670, height: 383 },
+  };
+  const miner = {
+    stage: { left: 16, top: 202, width: 1248, height: 236 },
+    keyboard: { left: 253, top: 446, width: 774, height: 274 },
+  };
+
+  it("uses the plain view without a HUD", () => {
+    expect(stageFrame(screen, null, null)).toBeNull();
+    expect(stageFrame({ width: 0, height: 0 }, sprout.stage, null)).toBeNull();
+  });
+
+  it("centers the block under the word when there is no keyboard", () => {
+    const spot = stageFrame(screen, { left: 16, top: 180, width: 1248, height: 524 }, null);
+    expect(spot?.x).toBe(640);
+    expect(spot?.size).toBe(BLOCK_PX_MAX);
+    expect(spot?.y).toBeGreaterThan(180 + 76 + BLOCK_PX_MAX / 2);
+    expect((spot?.y ?? 0) + BLOCK_PX_MAX / 2).toBeLessThan(720);
+  });
+
+  it("puts the block in the column right of the keyboard when the stage is short", () => {
+    for (const hud of [sprout, miner]) {
+      const spot = stageFrame(screen, hud.stage, hud.keyboard);
+      if (!spot) throw new Error("no spot");
+      const right = hud.keyboard.left + hud.keyboard.width;
+      // Wholly inside the free column, clear of the keyboard and the screen edge.
+      expect(spot.x - spot.size / 2).toBeGreaterThanOrEqual(right);
+      expect(spot.x + spot.size / 2).toBeLessThanOrEqual(screen.width);
+      expect(spot.size).toBeGreaterThanOrEqual(BLOCK_PX_MIN);
+      expect(spot.size).toBeLessThanOrEqual(BLOCK_PX_MAX);
+      // Below the top row and the word, and with room for the arm under it.
+      expect(spot.y - spot.size / 2).toBeGreaterThanOrEqual(hud.stage.top);
+      expect(spot.y + spot.size / 2).toBeLessThan(screen.height - 120);
+    }
+  });
+
+  it("uses the middle of a tall stage even with a keyboard (a big screen)", () => {
+    const spot = stageFrame(
+      { width: 1920, height: 1080 },
+      { left: 16, top: 220, width: 1888, height: 420 },
+      { left: 560, top: 650, width: 800, height: 430 },
+    );
+    expect(spot?.x).toBe(960);
+    expect((spot?.y ?? 0) + (spot?.size ?? 0) / 2).toBeLessThanOrEqual(650);
+  });
+
+  it("falls back to the stage when the side column is too narrow", () => {
+    const spot = stageFrame(
+      { width: 760, height: 720 },
+      { left: 16, top: 219, width: 728, height: 105 },
+      { left: 45, top: 337, width: 670, height: 383 },
+    );
+    expect(spot?.x).toBe(380);
+    expect(spot?.size).toBeGreaterThanOrEqual(40);
   });
 });

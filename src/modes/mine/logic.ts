@@ -124,6 +124,15 @@ export function pickTargetBlock(table: LootTable, rng: Rng): BlockId {
 }
 
 /**
+ * How many targets in a row show the same kind of block before the next kind is picked: 3–5
+ * single letters, 2–3 words. The child digs through a seam of dirt, then one of stone, so stacks
+ * grow in the hotbar and the stage isn't a different block on every key.
+ */
+export function seamLength(len: number, rng: Rng): number {
+  return len > 1 ? rng.int(2, 3) : rng.int(3, 5);
+}
+
+/**
  * The block an ore-vein target shows: the best `ore`-tagged entry of the table that the streak
  * has unlocked (the loot thresholds of M2-04), so a longer streak shows a finer ore.
  */
