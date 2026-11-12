@@ -289,3 +289,5 @@ learners in an earlier biome.
   2. Are the `HARD_KEYS` factors (2× for digits, 1.6× for capitals) reasonable for children aged
      9–13?
   3. Should the ladder be stricter for slips? It is still 8 of the last 10, sliding.
+
+Closes #161
