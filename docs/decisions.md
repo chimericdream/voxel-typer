@@ -290,3 +290,37 @@ PRs, and the orchestrator's rulings in those PRs.
     since instrumentation slows them down. Phase 1 acceptance (`PLAN.md` §8) holds: the generator
     safety property (2000 cases, M1-06), hand-computed WPM fixtures (M1-04), deterministic replay of
     every fixture log and a byte-identical sim run for a seed (M1-07).
+67. **Delegation (2026-11-11, owner).** Workers and reviewers run on Claude only: Fable 5.2 for ✦
+    cards, Opus 5.5 for the rest. Codex and OpenCode are not used for new tasks.
+68. **Fonts (M2-08, PR #126).** Pixelify Sans from `github.com/eifetx/Pixelify-Sans@39df74a`,
+    Atkinson Hyperlegible 1.393 from `github.com/googlefonts/atkinson-hyperlegible@1cb3116`,
+    OpenDyslexic from `github.com/antijingoist/opendyslexic@1824da5`; all SIL OFL 1.1, shipped as
+    the upstream WOFF2 files byte for byte (no subsetting, so OpenDyslexic's Reserved Font Name
+    holds). **Every typing target, single letters included, uses `--font-body` (Atkinson):**
+    Pixelify mirrors b/d and p/q and nearly merges 1/l. This overrides the M2-13 and M2-14 cards'
+    "pixel font for single letters". Pixelify stays for headings and HUD chrome.
+69. **Speech stays on the device (M2-06, PR #125).** `pickVoice` accepts only `localService`
+    English voices and never falls back to the browser default; with none, `speak` does nothing.
+    On Chrome for Linux and some Chromebooks that means no read-aloud, and "hear again" is hidden.
+70. **Gem ore is rose, not teal (PR #124),** to keep clear of another game's iconic ore colour.
+71. **Rendering (M2-01, PR #122; M2-02, PR #131).** The loop idles when nothing moves; camera drift
+    is on only during live play. `dispose()` forces WebGL context loss. Day lighting is pinned by a
+    test; night stays mid-navy so the HUD stays legible. `t01` means progress through the given
+    time of day (default 0.3, pinned under `?freeze`).
+72. **Water stays the `glass` Material (M2-03, PR #132):** no `'water'` in the union, so no contract
+    change. The water wobble never wakes the loop and is off under reduced motion and `?freeze`.
+73. **App shell (M2-10, PR #129).** One scene for the whole app. `dist/` must contain no `__vt` or
+    fixture paths (`tools/check-dist-hooks.ts` runs after every build). The copy lint covers
+    `src/app/**/*.tsx`. "Hear again" reaches the mode as the `app:hearAgain` bus event.
+74. **Theme on `<html>` (M2-11, PR #134).** `:root[data-theme]` keeps `font-size: 100%` and the
+    scaled base size moves to `<body>`; otherwise every `Nrem × --text-scale` kit size scaled twice.
+75. **Kids never see a raw low score (M2-11 review, PR #134).** Results show "Good aim"/"Great aim"
+    at 70 %+ for Miner and Builder and no aim line below that; Sprout sees stars only.
+76. **HUD wrong-key channel (M2-14, PR #137).** A mode reports each engine `wrong` event with
+    `reportWrongKey(ctx.hud, got)`, which writes `HudState.custom.wrongKey`; the on-screen keyboard
+    gates repeats. One HUD message at a time; the Caps Lock hint wins over the banner.
+77. **Content safety (M3-02 PR #128, M5-05).** Besides the blocklist: no explosion words (owner
+    decides at M6-08), no drinking readings (checked across word pairs), no brand or product names.
+    Meadow's keys spell only about 45 safe words, so its pools fall short of the size targets and
+    are padded with g/h phrases, not invented words. **Owner question for M6-08:** "Alex" and
+    "Steve" are blocked as nicknames (trademark terms).
