@@ -156,8 +156,14 @@ describe("block registry", () => {
     }
   });
 
-  it("a block with see-through pixels is tagged transparent", () => {
+  it("a cube block with see-through pixels is tagged transparent", () => {
     for (const b of blocks) {
+      // A sprig's tiles are clear around the parts the mesher samples (M2-FIX-4); it is never
+      // tagged transparent, so it shares the chunk's opaque mesh.
+      if (b.shape === "sprig") {
+        expect(b.tags.includes("transparent"), b.id).toBe(false);
+        continue;
+      }
       const seeThrough = FACES.some((face) => {
         const px = paintTile(b.faces[face], BASE_PALETTE, createRng(`tile:${b.id}:${face}`));
         for (let i = 3; i < px.length; i += 4) if ((px[i] ?? 255) < 255) return true;

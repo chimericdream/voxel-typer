@@ -28,7 +28,7 @@ export async function expectScreen(page: Page, id: string, timeout = 15_000): Pr
 }
 
 /**
- * Splash → any key → New player → type the name → Enter → the world map (Meadow Home has the
+ * Splash → any key → New player → type the name → Enter → Skip the placement test → the world map (Meadow Home has the
  * cursor) → Enter → its lesson path (lesson 1 has the cursor) → Enter → lesson intro. The keyboard
  * only: no clicks. Runs axe on each screen when `axe` is set.
  */
@@ -56,6 +56,15 @@ export async function newPlayerToIntro(
     fix: "backspace",
   });
   await expect(field).toHaveValue(name);
+  await page.keyboard.press("Enter");
+
+  // A new player is offered the placement test (M3-05). "Let's dig!" has focus; Tab reaches Skip,
+  // which starts at Meadow Home.
+  await expectScreen(page, "placement");
+  await expect(page.getByRole("button", { name: "Let's dig!" })).toBeFocused();
+  if (opts.axe === true) await expectNoAxeViolations(page, "placement");
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Skip" })).toBeFocused();
   await page.keyboard.press("Enter");
 
   // The world map (M3-04): the island to play next has the cursor, and so does its next lesson.

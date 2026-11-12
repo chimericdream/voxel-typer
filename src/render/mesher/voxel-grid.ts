@@ -2,8 +2,10 @@
  * Voxel grid and chunk mesher (docs/impl/contracts.md §8.2). Pure.
  *
  * Chunk size is 16. Meshing is culled-face with per-vertex ambient occlusion (the classic
- * 3-neighbor rule) and AO-aware quad flipping. Greedy meshing is optional (M6 perf).
+ * 3-neighbor rule) and AO-aware quad flipping. Greedy meshing is optional (M6 perf). Sprig blocks
+ * (flowers, decision 82) are a few sub-voxel boxes inside their cell, in the same mesh.
  */
+import type { BlockShape } from "@/content/blocks/types";
 import type { Vec3 } from "../types";
 
 /** The id of air. Air is never meshed and never occludes. */
@@ -134,7 +136,17 @@ export interface AtlasLookup {
     face: "top" | "bottom" | "side",
   ): [u0: number, v0: number, u1: number, v1: number];
   transparent(blockNum: number): boolean;
+  /**
+   * How a block is meshed (`BlockDef.shape`, decision 82). A missing method, or a missing shape,
+   * means `cube`. Added by M2-FIX-4 (optional, additive).
+   */
+  shape?(blockNum: number): BlockShape;
 }
+
+/** How the mesher treats a block id (cached per call). */
+const OPAQUE = 1;
+const TRANSPARENT = 2;
+const SPRIG_KIND = 3;
 
 /** AO occlusion level 0–3 (0 = open, 3 = fully occluded) → vertex brightness. */
 const AO_BRIGHTNESS = [1.0, 0.8, 0.65, 0.5] as const;
@@ -170,6 +182,58 @@ const CORNERS: readonly (readonly [0 | 1, 0 | 1])[] = [
   [1, 1],
   [0, 1],
 ];
+
+/** One box of a sprig, in 16ths of a block. */
+interface SprigBox {
+  lo: V3;
+  hi: V3;
+  /** Faces left out (they touch another box or the ground), by index into {@link FACES}. */
+  skip: readonly number[];
+  /**
+   * A fixed rectangle of the side tile, `[s0, t0, s1, t1]` in 16ths (t up), for every face of the
+   * box. Without it each face shows the part of its own tile it covers, as if the whole block's
+   * face were projected onto it.
+   */
+  rect?: readonly [number, number, number, number];
+}
+
+/** Indices into {@link FACES}. */
+const PX = 0;
+const NX = 1;
+const PY = 2;
+const NY = 3;
+const PZ = 4;
+const NZ = 5;
+
+/**
+ * The sprig (M2-FIX-4): a stem 2/16 wide and 6/16 tall, a bloom 6/16 wide and 4/16 tall on top of
+ * it (10/16 overall), and two leaf nubs. Not crossed billboards (IP rule). The flower painters lay
+ * their tiles out to match: on the side tile (rows counted from the bottom) the stem is columns
+ * 7–8 of rows 0–5, the bloom columns 5–10 of rows 6–9, a leaf columns 9–11 of row 2.
+ */
+const SPRIG: readonly SprigBox[] = [
+  { lo: [7, 0, 7], hi: [9, 6, 9], skip: [PY, NY] },
+  { lo: [5, 6, 5], hi: [11, 10, 11], skip: [] },
+  { lo: [9, 2, 7], hi: [12, 3, 9], skip: [NX], rect: [9, 2, 12, 3] },
+  { lo: [4, 3, 7], hi: [7, 4, 9], skip: [PX], rect: [9, 2, 12, 3] },
+];
+
+const swapXZ = (v: V3): V3 => [v[2], v[1], v[0]];
+const turnFace = (i: number): number =>
+  i === PX ? PZ : i === NX ? NZ : i === PZ ? PX : i === NZ ? NX : i;
+
+/** The same sprig turned (x and z swapped), so a patch of flowers doesn't look stamped. */
+const SPRIG_TURNED: readonly SprigBox[] = SPRIG.map((b) => ({
+  ...b,
+  lo: swapXZ(b.lo),
+  hi: swapXZ(b.hi),
+  skip: b.skip.map(turnFace),
+}));
+
+/** Which sprig a cell gets: a fixed hash of its column, so the same grid gives the same mesh. */
+export function sprigTurned(x: number, z: number): boolean {
+  return (((Math.imul(x, 73_856_093) ^ Math.imul(z, 19_349_663)) >>> 4) & 1) === 1;
+}
 
 /** Copies `old` into the front of the larger `fresh` array and returns `fresh`. */
 function copy<T extends Float32Array | Uint32Array>(old: T, fresh: T): T {
@@ -225,6 +289,9 @@ class MeshBuilder {
  * - A face of an opaque block is meshed against air and against transparent blocks. A face of a
  *   transparent block is meshed against air and against a *different* transparent block only.
  *   Outside the grid is air.
+ * - A sprig (`atlas.shape?.(id) === "sprig"`) is air to its neighbours: it hides none of their
+ *   faces and darkens none of their AO. Its own boxes are always meshed, at full brightness, with
+ *   every vertex inside its cell. It is turned a quarter when {@link sprigTurned} says so.
  * - With `opts.ao`, each vertex counts its occluders among the 3 opaque cells beside it in the layer
  *   the face looks into (two sides and the corner; both sides ⇒ 3). Level 0–3 becomes brightness
  *   1.0/0.8/0.65/0.5 in `colors` (RGB, all three equal). Transparent blocks don't occlude. Without
@@ -249,15 +316,15 @@ export function meshChunk(
   const y1 = Math.min(sy, origin.y + size);
   const z1 = Math.min(sz, origin.z + size);
 
-  // 0 = not asked yet, 1 = opaque, 2 = transparent. Asked once per block id per call.
+  // 0 = not asked yet, then OPAQUE, TRANSPARENT or SPRIG. Asked once per block id per call.
   const kind = new Uint8Array(0x10000);
-  const isTransparent = (id: number): boolean => {
+  const kindOf = (id: number): number => {
     let k = kind[id] ?? 0;
     if (k === 0) {
-      k = atlas.transparent(id) ? 2 : 1;
+      k = atlas.shape?.(id) === "sprig" ? SPRIG_KIND : atlas.transparent(id) ? TRANSPARENT : OPAQUE;
       kind[id] = k;
     }
-    return k === 2;
+    return k;
   };
   const at = (x: number, y: number, z: number): number =>
     x < 0 || y < 0 || z < 0 || x >= sx || y >= sy || z >= sz
@@ -265,18 +332,73 @@ export function meshChunk(
       : (data[x + sx * (z + sz * y)] ?? AIR);
   const occludes = (x: number, y: number, z: number): number => {
     const id = at(x, y, z);
-    return id !== AIR && !isTransparent(id) ? 1 : 0;
+    return id !== AIR && kindOf(id) === OPAQUE ? 1 : 0;
   };
 
   const out = new MeshBuilder(Math.max(0, (x1 - x0) * (z1 - z0)) * 2);
   const ao = [0, 0, 0, 0];
+
+  /** Meshes the sprig in cell (x, y, z). Every vertex is at full brightness. */
+  const sprig = (x: number, y: number, z: number, id: number): void => {
+    const cell: V3 = [x, y, z];
+    for (const box of sprigTurned(x, z) ? SPRIG_TURNED : SPRIG) {
+      const fixed = box.rect ? atlas.uv(id, "side") : null;
+      for (let fi = 0; fi < FACES.length; fi++) {
+        const f = FACES[fi];
+        if (!f || box.skip.includes(fi)) continue;
+        out.ensure();
+        const q = out.quads;
+        const [u0, v0, u1, v1] = fixed ?? atlas.uv(id, f.face);
+        for (let c = 0; c < 4; c++) {
+          const corner = CORNERS[c] ?? [0, 0];
+          const p = q * 12 + c * 3;
+          // Unit-cube corner → box corner → where that point falls on the whole face's tile.
+          let s = 0;
+          let t = 0;
+          for (let a = 0; a < 3; a++) {
+            const unit = f.o[a]! + corner[0] * f.u[a]! + corner[1] * f.v[a]!;
+            const lo = box.lo[a]!;
+            const local = (lo + unit * (box.hi[a]! - lo)) / 16;
+            out.positions[p + a] = cell[a]! + local;
+            out.normals[p + a] = f.n[a]!;
+            out.colors[p + a] = 1;
+            s += (local - f.o[a]!) * f.u[a]!;
+            t += (local - f.o[a]!) * f.v[a]!;
+          }
+          if (box.rect) {
+            s = box.rect[corner[0] === 0 ? 0 : 2] / 16;
+            t = box.rect[corner[1] === 0 ? 1 : 3] / 16;
+          }
+          const uv = q * 8 + c * 2;
+          out.uvs[uv] = u0 + s * (u1 - u0);
+          out.uvs[uv + 1] = v0 + t * (v1 - v0);
+        }
+        // No AO, so the default diagonal (1,0)–(0,1): triangles 0-1-3 and 1-2-3.
+        const base = q * 4;
+        const i = q * 6;
+        const idx = out.indices;
+        idx[i] = base;
+        idx[i + 1] = base + 1;
+        idx[i + 2] = base + 3;
+        idx[i + 3] = base + 1;
+        idx[i + 4] = base + 2;
+        idx[i + 5] = base + 3;
+        out.quads = q + 1;
+      }
+    }
+  };
 
   for (let y = y0; y < y1; y++) {
     for (let z = z0; z < z1; z++) {
       for (let x = x0; x < x1; x++) {
         const id = data[x + sx * (z + sz * y)] ?? AIR;
         if (id === AIR) continue;
-        const selfTransparent = isTransparent(id);
+        const selfKind = kindOf(id);
+        if (selfKind === SPRIG_KIND) {
+          sprig(x, y, z, id);
+          continue;
+        }
+        const selfTransparent = selfKind === TRANSPARENT;
 
         for (const f of FACES) {
           const lx = x + f.n[0];
@@ -284,8 +406,8 @@ export function meshChunk(
           const lz = z + f.n[2];
           const nb = at(lx, ly, lz);
           if (nb !== AIR) {
-            const nbTransparent = isTransparent(nb);
-            if (!nbTransparent) continue; // nothing shows through an opaque neighbor
+            // A sprig neighbor is air here; nothing shows through an opaque one.
+            if (kindOf(nb) === OPAQUE) continue;
             if (selfTransparent && nb === id) continue; // same transparent type: merge
           }
 
