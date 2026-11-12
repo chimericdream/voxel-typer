@@ -12,4 +12,6 @@ export default {
   oreVein: "Wow! A shiny block!",
   // Floats up from a broken block: "+2 Oak Log".
   got: "+{count} {name}",
+  // The name of a filled hotbar slot, for screen readers: "Oak Log, 3".
+  slot: "{name}, {count}",
 } as const;

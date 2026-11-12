@@ -30,6 +30,8 @@ export interface LootFly {
   launch(flight: Flight, from: { x: number; y: number }): void;
   /** Places every icon for `nowMs` (the fly queue's clock). */
   frame(nowMs: Ms): void;
+  /** A 16×16 picture of a block's side as a data URI ("" before an atlas exists), cached. */
+  icon(block: BlockId): string;
   /** Drops the icon of a flight that landed. */
   land(id: number): void;
   readonly active: number;
@@ -52,6 +54,7 @@ export function createLootFly(opts: LootFlyOptions): LootFly {
   let layer: HTMLDivElement | null = null;
   const sprites: Sprite[] = [];
   let active = 0;
+  const icons = new Map<BlockId, string>();
 
   const ensureLayer = (): HTMLDivElement | null => {
     if (layer || !parent) return layer;
@@ -152,6 +155,18 @@ export function createLootFly(opts: LootFlyOptions): LootFly {
         s.el.style.display = "block";
         s.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0) translate(-50%, -50%) scale(${pose.scale.toFixed(3)})`;
       }
+    },
+    icon(block) {
+      const cached = icons.get(block);
+      if (cached !== undefined) return cached;
+      if (!opts.atlas()) return "";
+      const el = doc.createElement("canvas");
+      el.width = TILE_PX;
+      el.height = TILE_PX;
+      drawIcon(el, block);
+      const uri = el.toDataURL("image/png");
+      icons.set(block, uri);
+      return uri;
     },
     land(id) {
       const s = sprites.find((x) => x.flight?.id === id);

@@ -33,7 +33,8 @@ import type { Atlas } from "@/render/atlas/build";
 import { breakShake } from "@/render/fx/tuning";
 import type { CameraRig, SceneHandle, Vec3 } from "@/render/types";
 import type { BiomeId, BlockId, Material, Ms } from "@/types/core";
-import type { HudState } from "@/ui/hud/bridge";
+import { HOTBAR_SLICE, reportWrongKey } from "@/ui/hud/bridge";
+import type { HotbarItem, HotbarSlice } from "@/ui/hud/bridge";
 import type { ModeContext, ModeInstance } from "../types";
 import {
   BANNER_SHOW_MS,
@@ -93,11 +94,6 @@ export interface MineHudSlice {
   loot: { block: BlockId; count: number }[];
   /** True while the block on the stage is an ore-vein bonus. */
   vein: boolean;
-}
-/** The latest wrong key, for the on-screen keyboard's cue (M2-09): a new `seq` per press. */
-export interface WrongKeySlice {
-  got: string;
-  seq: number;
 }
 
 /** Mine also hands out its session's read model, for `__vt.session()` (M2-10). */
@@ -207,7 +203,6 @@ export function create(ctx: ModeContext): MineInstance {
   let veins = createVeinSchedule(band);
   let veinCount = 0;
   let wrongGate = emptyWrongGate();
-  let wrongSeq = 0;
   let flights = emptyFlyQueue();
   /** The fly queue's clock: frame time added up, so it stops with the game. */
   let flyNow: Ms = 0;
@@ -231,11 +226,16 @@ export function create(ctx: ModeContext): MineInstance {
     hud.set({ banner: key === null ? null : { key, tone } });
   };
 
-  const publishCustom = (wrong?: WrongKeySlice): void => {
+  /** Hotbar slots: a block's slot is the order it was first found in, wrapping after 9. */
+  const slots: (HotbarItem | null)[] = [];
+  /**
+   * Publishes the loot to the HUD. `custom` slices are compared by identity (M2-14), so this is
+   * called only when the loot or the block on the stage really changed.
+   */
+  const publishCustom = (): void => {
     const mine: MineHudSlice = { loot: found.map((f) => ({ ...f })), vein: current?.vein ?? false };
-    const custom: HudState["custom"] = { ...hud.get().custom, mine };
-    if (wrong) custom["wrongKey"] = wrong;
-    hud.set({ custom });
+    const hotbar: HotbarSlice = { slots: [...slots] };
+    hud.set({ custom: { ...hud.get().custom, mine, [HOTBAR_SLICE]: hotbar } });
   };
 
   const syncHud = (v: SessionView): void => {
@@ -284,6 +284,14 @@ export function create(ctx: ModeContext): MineInstance {
     const row = found.find((x) => x.block === f.block);
     if (row) row.count += f.count;
     else found.push({ block: f.block, count: f.count });
+    const count = row?.count ?? f.count;
+    const def = blockById.get(f.block);
+    while (slots.length <= f.slot) slots.push(null);
+    slots[f.slot] = {
+      label: t("mine.slot", { name: def ? t(def.nameKey) : f.block, count }),
+      count,
+      icon: fly?.icon(f.block) ?? "",
+    };
     audio.sfx("pop", { gain: 0.4 });
     publishCustom();
   };
@@ -377,7 +385,8 @@ export function create(ctx: ModeContext): MineInstance {
             view?.wobble();
           }
           if (fed.banner) setBanner("mine.almost");
-          publishCustom({ got: e.got, seq: ++wrongSeq });
+          // Every press, repeats included: the on-screen keyboard gates them itself (M2-09).
+          reportWrongKey(hud, e.got);
           break;
         }
         case "targetComplete":
