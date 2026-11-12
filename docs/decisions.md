@@ -418,3 +418,30 @@ PRs, and the orchestrator's rulings in those PRs.
 96. **Load-sensitive local tests.** With 3 workers running, the mesher benchmark (< 50 ms median)
     and the placement sim's same-report test (5 s timeout) can fail locally. Rerun them alone
     before calling it a failure. CI is the judge.
+97. **Voxel model runtime (M4-01, PR #157).**
+    - `buildModel` and `buildModelInstanced`. Instancing uses one `InstancedMesh` per part: 30 mobs
+      cost 9 draw calls, or 18 on High with shadows.
+    - A playing anim keeps the loop awake; an idle one never wakes it.
+    - A non-positive or non-finite `speed` means no playback, and a bad `dtMs` counts as 0.
+    - Hidden instances pause and cost no draw calls.
+    - The shader patch throws if a three.js anchor is missing.
+    - The units and frames are now contracts §8.4, and sizes are whole pixels.
+    - Reduced motion holds looping anims still; one-shots still play, because game logic waits on
+      `onEnd`.
+98. **Profiles and avatar (M3-09, PR #158).**
+    - Up to 8 profiles. Damaged and newer-game profiles count toward the 8.
+    - Delete removes `:prev` too, and asks the child to type the name.
+    - Rename, change group and delete go through `useGrownUpGate()`, which M3-08 replaces with the
+      real gate.
+    - The avatar is drawn once into a render target on the shared renderer and cached as a PNG per
+      skin colour.
+    - Its model data reads `VoxelModel` differently from §8.4, so M3-FIX-5 moves it onto the
+      runtime.
+99. **Island data (M4-06, PR #159).**
+    - A 48×32×48 grid with a 24×16×24 starter plot and 6 rings of 2 cells: one per core biome
+      after the Meadow. Sparkstone and Sky Citadel give other rewards.
+    - Conservation: inventory plus island blocks stays constant through every edit and undo.
+    - Starter terrain is a gift: digging it up refunds the block. So "collect N" achievements must
+      count lifetime Mine loot, not current inventory.
+    - Every M4-08 blueprint costs at least one block that only Mine loot gives.
+    - M4-07 must never replace a damaged island with a fresh one.

@@ -475,6 +475,20 @@ export interface VoxelModel {
 ```
 Stored as `<id>.model.json`, validated by a JSON schema test.
 
+**Units and frames** (decided in M4-01, PR #157; decision 97):
+
+- All lengths (`size`, `pivot`, `offset`, `pos` key values) are **model pixels**; 16 model pixels = 1 block (`MODEL_UNIT = 1/16`), the same density as a 16×16 tile.
+- `pivot` is a point in the part's own box, measured from the box's **minimum corner** (`[0,0,0]` is the −x −y −z corner, `size` the opposite one). The part rotates and scales about its pivot.
+- `offset` places the part's pivot in its parent's frame, measured **from the parent's pivot**. A root part (no `parent`) is measured from the model origin: the ground point under the creature, y = 0 at the floor, **+z the facing direction** (the front `Object3D.lookAt` gives; yaw `atan2(dx, dz)` faces `(dx, dz)`).
+- A child inherits its parent's animated transform, scale included.
+- Animation key values are **deltas from rest**; a part or property with no track stays at rest:
+  - `pos` adds pixels to `offset` (rest `[0,0,0]`);
+  - `rot` is an Euler rotation in **degrees** (rest `[0,0,0]`), applied in three.js `'XYZ'` order;
+  - `scale` is the scale factor about the pivot (rest `[1,1,1]`).
+- Key times `t` are ms from the anim start, non-decreasing, within `[0, durationMs]`. Between keys values are linear; two keys at the same time make a step. A clamped anim holds its first key before it and its last key after it; a looping anim blends from its last key back to its first across the wrap.
+- `tile` picks one atlas tile (`tileOf(blockId, face)`) for **all six faces** of the part. Each face shows one atlas texel per model pixel, centred on whole texels (start `floor((16 − n) / 2)`); sizes are whole pixels; faces of 16 px or more show the whole tile, stretched above 16.
+- Runtime (`src/render/models/`): `buildModel(def, atlas, opts)` and `buildModelInstanced(def, count, opts)`; `update(dtMs)` takes time in ms from the caller, and a `dtMs` that is negative or not finite counts as 0. A `speed` that isn't a positive finite number means no playback: a loop holds its first frame and a one-shot jumps to its end and fires `onEnd`. Instances start hidden, and a hidden instance's anim is paused until it is shown again.
+
 ---
 
 ## 9. Input (`src/input/`)
@@ -492,7 +506,7 @@ export function capsLockOn(e: KeyboardEvent): boolean;
 Rules (from `PLAN.md` §6.5, made exact):
 - Ignore `e.repeat`, `e.isComposing`, `key === 'Dead'`, `key === 'Process'`, and any event with `ctrlKey | metaKey | altKey` **except** `Ctrl+Z`, or `Cmd+Z` (Meta+Z with no Ctrl/Alt/Shift), when `ctx.undo` is on (Builder; delivered as `typed` with key `'Undo'`; the Shift variants are not redo and stay ignored) and `AltGr` combos where `getModifierState('AltGraph')` is true (those are real chars on some layouts).
 - `Escape` → `pause` (in play) / `back` (menus). `Enter` → `confirm` in menus; in play, `Enter` is delivered as `typed` (key `'Enter'`) only if the mode declared it wants it via `ctx.wantsEnter` (none in v1, so it's ignored). `Tab` → `next` / `Shift+Tab` → `prev` in menus; ignored in play. Arrows → directions. `F1` or `` ` `` (by `key`, when `ctx.band === 'sprout'`) → `hearAgain`.
-- In play, `preventDefault` for every key that becomes `typed`, plus Space, `'`, `/`, Backspace, Tab.
+- In play, `preventDefault` for every key that becomes `typed`, plus Space, `'`, `/`, Backspace, Tab. A plain `F1` is prevented everywhere, menus and repeats included, because its default opens the browser's help page (decision 93).
 - Single printable chars pass through as-is; `' '` for Space. Typographic apostrophes/quotes from some keyboards (`’ ‘ “ ”`) normalize to `'` and `"`.
 - Window `blur` and `visibilitychange → hidden` produce `pause` immediately.
 

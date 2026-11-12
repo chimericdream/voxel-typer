@@ -26,11 +26,6 @@ export default {
     readOnly: "A newer game saved this player. Get the new game to change it.",
     lost: "We could not open this player. A grown-up can delete it to make room.",
   },
-  gate: {
-    ask: "A grown-up needs to say yes. Grown-up, is this OK?",
-    yes: "Yes, go ahead",
-    no: "Not now",
-  },
   rename: {
     label: "Type a new name",
     hint: "Make up a fun name, not a real one.",

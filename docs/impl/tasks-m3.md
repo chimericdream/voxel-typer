@@ -231,5 +231,22 @@ Field legend: see the top of `tasks-m0-m1.md`.
 - **Acceptance:**
   - [ ] Each item fixed, or listed with a reason; a11y review passes.
 
+### M3-FIX-5 Avatar onto the model runtime
+- **Size/Tier:** S / B · **Review:** required (visual)
+- **Depends on:** M3-09, M4-01
+- **Owns:** `src/render/avatar.ts`, `src/content/cosmetics/base.ts`, `tests/unit/render/avatar.test.ts`
+- **Spec:** M3-09 built the avatar's `VoxelModel` with its own reading of the type: `offset` as
+  the box's min corner in model space, `pivot` as the joint in model space. M4-01's runtime and
+  contracts §8.4 measure `pivot` from the box's min corner and `offset` from the parent's pivot.
+  Convert the avatar data to §8.4, and draw the snapshot through `buildModel` instead of the
+  avatar's own mesh code. Keep everything else the same:
+  - the one shared renderer and the restored render target;
+  - the per-skin PNG cache;
+  - the flat portrait fallback;
+  - the IP checks.
+- **Acceptance:**
+  - [ ] The avatar looks the same as before (baseline unchanged, or refreshed with a side-by-side
+    in the handoff).
+
 ### M3-GATE
 `PLAN.md` Phase 3 acceptance (curriculum doc generated, sim plausibility, axe clean). Owner gets the word-list review dump (👤, can be deferred to M6-08 by the owner's choice). Tag `m3`.
