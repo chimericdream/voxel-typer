@@ -39,6 +39,17 @@ export interface AppApi {
    * problem). They are read-only for this session: shown, never saved over.
    */
   readOnlyProfiles(): ReadonlySet<string>;
+  /**
+   * Ids of profiles whose records the store could not read at all (`unreadable` load problem,
+   * M3-09). They still take one of the 8 slots until a grown-up removes them.
+   */
+  damagedProfiles(): ReadonlySet<string>;
+  /**
+   * Deletes a profile and its `<id>:prev` snapshot (M3-09). Refuses a read-only profile (a newer
+   * build owns it). If it was the active profile, no profile is active afterwards. Never rejects:
+   * resolves false, with a kind notice, when nothing was removed.
+   */
+  removeProfile(id: string): Promise<boolean>;
   /** Every shipped lesson. */
   readonly lessons: readonly Lesson[];
   lesson(id: string): Lesson | null;

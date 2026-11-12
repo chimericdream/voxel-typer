@@ -1,5 +1,5 @@
 /**
- * Screen strings (task M2-11): splash, profiles, new player, lesson intro, results, privacy and
+ * Screen strings (task M2-11): splash, new player, lesson intro, results, privacy and
  * coming soon. Warm, short and concrete (docs/impl/README.md §4.4). Everything before a profile
  * is picked, and every `sprout` string, uses words a 6-year-old can read.
  */
@@ -7,18 +7,6 @@ export default {
   splash: {
     press: "Press any key to start",
     privacy: "How we keep you safe",
-  },
-  profiles: {
-    title: "Who is playing?",
-    newPlayer: "New player",
-    empty: "No players yet. Let's make one!",
-    full: "There are 8 players. That is all this game can hold.",
-    pick: "{name}, {band}",
-    loadFailed: "We could not open that player. A grown-up can help in Settings.",
-    readOnly: "Saved by a newer game. You can play, but new stars will not be saved.",
-    readOnlyHidden:
-      "{count, plural, one {One player was} other {# players were}} saved by a newer game. Ask a grown-up to get the new game. Your stars are safe.",
-    back: "Back",
   },
   bands: {
     sprout: "Sprout",
@@ -44,7 +32,7 @@ export default {
     skin: "Skin color {n} of {count}",
     create: "Let's go!",
     saving: "Saving…",
-    full: "There are 8 players already. A grown-up can make room in Settings.",
+    full: "This game is full! A grown-up can make room.",
     saveFailed: "We could not save your player. Try again in a moment.",
     back: "Back",
   },
