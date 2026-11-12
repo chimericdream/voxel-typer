@@ -126,7 +126,7 @@ Waves are a schedule hint. The real rule is "dependencies merged" plus rules 2�
 | M3-06 | Remedial + recommendations | M/B | M1-05, M3-03 | todo |
 | M3-07 | Accessibility features | M/B | M2-07, M2-08, M2-09, M2-14 | merged |
 | M3-08 | Settings + parent gate | M/B | M2-11, M3-07 | todo |
-| M3-09 | Profiles + avatar | M/B | M2-11, M1-09 | todo |
+| M3-09 | Profiles + avatar | M/B | M2-11, M1-09 | merged |
 | M3-10 | Achievements v1 | M/B | M2-10 | todo |
 | M3-11 | Parent Dashboard v1 | L/B | M3-08, M1-04 | todo |
 | M3-12 | Migrations + import/export UI | S/B | M1-09, M3-08 | todo |
@@ -136,13 +136,14 @@ Waves are a schedule hint. The real rule is "dependencies merged" plus rules 2�
 | M3-FIX-2 | Pixel font legibility | S/B | M2-08 | todo |
 | M3-FIX-3 | Placement follow-ups | S/B | M3-05 | todo |
 | M3-FIX-4 | Map labels + a11y follow-ups | S/B | M3-FIX-1, M3-07 | todo |
+| M3-FIX-5 | Avatar onto the model runtime | S/B | M3-09, M4-01 | todo |
 | M3-GATE | Gate | — | all M3 | todo |
-| M4-01 | Voxel model runtime | M/A | M2-01, M1-14 | todo |
+| M4-01 | Voxel model runtime | M/A | M2-01, M1-14 | merged |
 | M4-02 | Model Lab | S/C | M4-01 | todo |
 | M4-03 | ✦ Mobs wave 1 | L/A | M4-01, M4-02 | todo |
 | M4-04 | ✦ ⛩ Night Defense mode | L/A | M4-03, M4-05, M2-13, M2-02, M3-03 | todo |
 | M4-05 | Wave director | M/A | M1-04, M1-06, M1-07 | todo |
-| M4-06 | Island data + persistence | S/B | M1-09, M1-13 | todo |
+| M4-06 | Island data + persistence | S/B | M1-09, M1-13 | merged |
 | M4-07 | ✦ ⛩ Builder mode | L/A | M4-06, M2-13, M2-14 | todo |
 | M4-08 | Blueprints, expansion, snapshot | M/B | M4-07 | todo |
 | M4-09 | Inventory screen | M/B | M2-07, M2-04 | todo |
