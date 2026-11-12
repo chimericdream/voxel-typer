@@ -61,8 +61,14 @@ export interface ColorBox {
   color: readonly [number, number, number];
 }
 
-/** One geometry holding every box, with a `color` per vertex. One draw call however many boxes. */
-export function boxesGeometry(boxes: readonly ColorBox[]): THREE.BufferGeometry {
+/** Face shades for an unlit box, in BoxGeometry's face order: +x, −x, +y, −y, +z, −z. */
+const FACE_SHADE = [0.9, 0.86, 1, 0.78, 0.94, 0.84] as const;
+
+/**
+ * One geometry holding every box, with a `color` per vertex. One draw call however many boxes.
+ * With `shaded`, each face's color is dimmed a little by its direction, for unlit materials.
+ */
+export function boxesGeometry(boxes: readonly ColorBox[], shaded = false): THREE.BufferGeometry {
   const unit = new THREE.BoxGeometry(1, 1, 1);
   const up = unit.getAttribute("position");
   const un = unit.getAttribute("normal");
@@ -82,9 +88,11 @@ export function boxesGeometry(boxes: readonly ColorBox[]): THREE.BufferGeometry 
       normals[o] = un.getX(v);
       normals[o + 1] = un.getY(v);
       normals[o + 2] = un.getZ(v);
-      colors[o] = box.color[0];
-      colors[o + 1] = box.color[1];
-      colors[o + 2] = box.color[2];
+      // BoxGeometry has 4 vertices per face.
+      const shade = shaded ? (FACE_SHADE[Math.floor(v / 4)] ?? 1) : 1;
+      colors[o] = box.color[0] * shade;
+      colors[o + 1] = box.color[1] * shade;
+      colors[o + 2] = box.color[2] * shade;
     }
     for (let i = 0; i < perIndex; i++) indices[b * perIndex + i] = (ui?.getX(i) ?? 0) + b * per;
   });

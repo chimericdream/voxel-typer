@@ -40,7 +40,7 @@ const heightOf = (b: BiomeId): number => ISLAND_LAYOUT[b].y;
 
 const PINNED: Record<BiomeId, string> = {
   meadow: "32ddf46b",
-  birch: "68d08f45",
+  birch: "25bcbc3a",
   shore: "365eace6",
   frosty: "1de72ab8",
   mines: "75301ea3",

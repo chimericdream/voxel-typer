@@ -93,7 +93,9 @@ test("keyboard only: map → island → lesson → play → results → map, wit
   // The map opens with the cursor on the island to play next.
   const meadow = island(page, "Meadow Home");
   await expect(meadow).toBeFocused();
-  await expect(meadow).toHaveAccessibleName("Meadow Home, 0 of 6 lessons done, 0 stars");
+  await expect(meadow).toHaveAccessibleName(
+    "Meadow Home, 0 of 6 lessons done, 0 stars. Go here next!",
+  );
   await expect(island(page, "Birch Forest")).toHaveAttribute("aria-disabled", "true");
   await expectNoAxeViolations(page, "world map");
 
@@ -138,7 +140,7 @@ test("keyboard only: map → island → lesson → play → results → map, wit
   await page.keyboard.press("Escape");
   await expect(island(page, "Meadow Home")).toBeFocused();
   await expect(island(page, "Meadow Home")).toHaveAccessibleName(
-    `Meadow Home, 1 of 6 lessons done, ${stars} ${plural}`,
+    `Meadow Home, 1 of 6 lessons done, ${stars} ${plural}. Go here next!`,
   );
 
   // One canvas and one WebGL context for the map, the lesson and the map again.
@@ -224,6 +226,7 @@ test.describe("baselines", () => {
 
   test("an island's lesson path", async ({ page }) => {
     const errors = await openMap(page, "pinky-weak", "&freeze=1");
+    await expect(island(page, "Meadow Home")).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(page.getByRole("button", { name: /^Lesson 2: / })).toBeFocused();
     await settle(page);

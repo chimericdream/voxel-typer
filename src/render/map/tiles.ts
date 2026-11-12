@@ -39,7 +39,7 @@ export interface MapTiles {
 
 /** How far a locked island's colors move toward gray, and toward the mist color. */
 export const WASH_GRAY = 0.82;
-export const WASH_MIST = 0.3;
+export const WASH_MIST = 0.5;
 const MIST = [203, 212, 224] as const;
 
 /** A washed-out copy of a tile, for locked islands. */

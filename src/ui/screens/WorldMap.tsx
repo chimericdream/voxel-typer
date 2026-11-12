@@ -84,7 +84,6 @@ function IslandButton({
       data-nav={info.unlocked ? "" : undefined}
       data-locked={info.unlocked ? undefined : "1"}
       data-next={info.unlocked && info.next ? "1" : undefined}
-      aria-label={islandLabel(info)}
       aria-disabled={info.unlocked ? undefined : "true"}
       tabIndex={info.unlocked ? 0 : -1}
       onClick={() => {
@@ -96,25 +95,33 @@ function IslandButton({
         if (e.repeat && e.key === "Enter") e.preventDefault();
       }}
     >
-      {info.unlocked && info.next ? (
-        <span class={styles.nextTag}>{t("map.island.next")}</span>
-      ) : null}
-      <span class={styles.islandName}>{info.name}</span>
-      <span class={styles.islandMeta}>
-        {!info.unlocked ? (
-          t("map.island.locked")
-        ) : info.total === 0 ? (
-          t("map.island.soon")
-        ) : (
-          <>
-            <span class={styles.islandStars}>
-              <MiniStars value={info.stars > 0 ? 1 : 0} />
-              {t("map.island.stars", { stars: info.stars })}
-            </span>
-            <span>{t("map.island.count", { done: info.done, total: info.total })}</span>
-          </>
-        )}
+      {/* The button's name is the hidden sentence; what shows is the short form of it. */}
+      <span class={styles.srOnly} data-label="">
+        {islandLabel(info)}
       </span>
+      {info.unlocked && info.next ? (
+        <span class={styles.nextTag} aria-hidden="true">
+          {t("map.island.next")}
+        </span>
+      ) : null}
+      <span class={styles.islandName} aria-hidden="true">
+        {info.name}
+      </span>
+      {info.unlocked ? (
+        <span class={styles.islandMeta} aria-hidden="true">
+          {info.total === 0 ? (
+            t("map.island.soon")
+          ) : (
+            <>
+              <span class={styles.islandStars}>
+                <MiniStars value={info.stars > 0 ? 1 : 0} count={1} />
+                {info.stars}
+              </span>
+              <span>{t("map.island.count", { done: info.done, total: info.total })}</span>
+            </>
+          )}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -139,7 +146,9 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
       if (made === null || ul === null) return;
       for (const [biome, at] of made.anchors()) {
         const spot = ul.querySelector<HTMLElement>(`[data-spot="${biome}"]`);
-        if (spot) spot.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px)`;
+        if (!spot) continue;
+        spot.style.transform = `translate(${Math.round(at.x)}px, ${Math.round(at.y)}px)`;
+        spot.dataset["placed"] = "1";
       }
     };
     const loading = Promise.all([app.scene(), import("@/render/map/view")])
@@ -233,8 +242,11 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
 
   useScreenInput(app, (i) => {
     if (i.kind !== "control") return false;
-    if (open !== null && i.action === "back") {
-      leave();
+    if (i.action === "back") {
+      // Out of a path first; from the whole map, back to "Who is playing?". The app's own history
+      // would lead to the lesson just played, which is not where a child expects Escape to go.
+      if (open !== null) leave();
+      else app.navigate({ id: "profiles" });
       return true;
     }
     // The islands' buttons stay in the page (hidden) while a path is open, so move within the

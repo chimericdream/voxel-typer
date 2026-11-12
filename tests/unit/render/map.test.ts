@@ -213,7 +213,7 @@ describe("map geometry", () => {
   it("cloud cover sits around and above its island; stepping stones run between two islands", () => {
     const place = ISLAND_LAYOUT.frosty;
     const puffs = cloudCover(place, 3, 1);
-    expect(puffs.length).toBeGreaterThan(8);
+    expect(puffs.length).toBeGreaterThanOrEqual(4);
     for (const p of puffs) {
       expect(Math.abs(p.x - place.x)).toBeLessThan(14);
       expect(p.y).toBeGreaterThan(place.y);

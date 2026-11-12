@@ -29,15 +29,15 @@
   left: var(--sp-4);
   z-index: 1;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--sp-2);
-  max-width: min(60%, calc(26rem * var(--text-scale)));
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+  max-width: 72%;
 }
 
 .map[data-mode="flat"] .top {
   position: static;
-  align-items: center;
+  justify-content: center;
   max-width: 100%;
 }
 
@@ -107,6 +107,11 @@
   height: 0;
 }
 
+/* Not shown until the first frame has told the map where the island is (still focusable). */
+.map[data-mode="3d"] .spot:not([data-placed]) {
+  opacity: 0;
+}
+
 .map[data-mode="3d"] .island {
   transform: translateX(-50%);
   pointer-events: auto;
@@ -131,7 +136,7 @@
   width: max-content;
   max-width: calc(12rem * var(--text-scale));
   margin: 0;
-  padding: var(--sp-1) var(--sp-3) var(--sp-2);
+  padding: 2px var(--sp-2) var(--sp-1);
   border: var(--bevel-unit) solid transparent;
   background-color: var(--c-plate);
   background-clip: padding-box;
@@ -148,9 +153,19 @@
   box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
 }
 
+/* Read by screen readers as the button's whole name; never drawn. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .islandName {
   font-family: var(--font-pixel);
-  font-size: calc(1.125rem * var(--text-scale));
+  font-size: calc(var(--fs-sm) * var(--text-scale));
   font-weight: 700;
   line-height: 1.15;
   overflow-wrap: anywhere;
@@ -161,10 +176,11 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: var(--sp-1) var(--sp-3);
+  gap: 0 var(--sp-3);
   font-family: var(--font-body);
   font-size: calc(var(--fs-sm) * var(--text-scale));
   line-height: 1.25;
+  white-space: nowrap;
 }
 
 .islandStars,

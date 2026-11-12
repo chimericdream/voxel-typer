@@ -166,12 +166,9 @@ export function islandLabel(info: IslandInfo): string {
         });
   }
   if (info.total === 0) return t("map.island.labelEmpty", { name: info.name });
-  return t("map.island.label", {
-    name: info.name,
-    done: info.done,
-    total: info.total,
-    stars: info.stars,
-  });
+  const params = { name: info.name, done: info.done, total: info.total, stars: info.stars };
+  // The "Go here next!" tag is part of the name too, so a screen reader hears it.
+  return info.next ? t("map.island.labelNext", params) : t("map.island.label", params);
 }
 
 /** What a screen reader says for a lesson node. */

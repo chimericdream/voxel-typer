@@ -43,7 +43,9 @@ async function openMap(profile: Profile): Promise<Harness> {
 
 const active = (): HTMLElement | null =>
   document.activeElement instanceof HTMLElement ? document.activeElement : null;
-const label = (el: Element | null): string => el?.getAttribute("aria-label") ?? "";
+/** A button's name: its hidden sentence, or its `aria-label`. */
+const label = (el: Element | null): string =>
+  el?.querySelector("[data-label]")?.textContent ?? el?.getAttribute("aria-label") ?? "";
 const island = (root: HTMLElement, biome: string): HTMLButtonElement => {
   const el = root.querySelector<HTMLButtonElement>(`[data-spot="${biome}"] button`);
   if (!el) throw new Error(`no island ${biome}`);
@@ -120,7 +122,9 @@ describe("map logic", () => {
 
   it("names islands and lessons for a screen reader", () => {
     const [meadow, birch, shore] = islandInfos(played(sprout, "meadow-01", 1), lessons);
-    expect(meadow && islandLabel(meadow)).toBe("Meadow Home, 1 of 6 lessons done, 1 star");
+    expect(meadow && islandLabel(meadow)).toBe(
+      "Meadow Home, 1 of 6 lessons done, 1 star. Go here next!",
+    );
     expect(birch && islandLabel(birch)).toBe(
       "Birch Forest. In the clouds for now. Finish Meadow Home to get here.",
     );
@@ -162,12 +166,12 @@ describe("World map", () => {
     expect(all.filter((b) => b.tabIndex === 0)).toHaveLength(1);
     const meadow = island(s.root, "meadow");
     expect(active()).toBe(meadow);
-    expect(label(meadow)).toBe("Meadow Home, 0 of 6 lessons done, 0 stars");
+    expect(label(meadow)).toBe("Meadow Home, 0 of 6 lessons done, 0 stars. Go here next!");
     expect(text(meadow)).toContain(t("map.island.next"));
     const birch = island(s.root, "birch");
     expect(birch.getAttribute("aria-disabled")).toBe("true");
     expect(birch.tabIndex).toBe(-1);
-    expect(text(birch)).toContain(t("map.island.locked"));
+    expect(label(birch)).toContain("In the clouds for now");
     // A locked island does nothing when clicked.
     void act(() => birch.click());
     await s.settle();
@@ -194,9 +198,9 @@ describe("World map", () => {
     const s = await openMap(fixture("meadow-done-miner"));
     const meadow = island(s.root, "meadow");
     const birch = island(s.root, "birch");
-    expect(label(meadow)).toBe("Meadow Home, 6 of 6 lessons done, 16 stars");
+    // Every Meadow lesson is played and Birch has none yet, so the one with the fewest stars is next.
+    expect(label(meadow)).toBe("Meadow Home, 6 of 6 lessons done, 16 stars. Go here next!");
     expect(label(birch)).toBe("Birch Forest. New lessons are coming soon.");
-    // Every Meadow lesson has stars and Birch has none to play: nothing is "next".
     expect(active()).toBe(meadow);
     await s.press("ArrowRight");
     expect(active()).toBe(birch);
@@ -210,7 +214,7 @@ describe("World map", () => {
     expect(active()).toBe(birch);
   });
 
-  it("an island without lessons says so; Escape leaves the path, then the map", async () => {
+  it("an island without lessons says so; Escape leaves the path, then goes to the players", async () => {
     h = await mount({ initialProfile: fixture("meadow-done-miner") });
     const s = h;
     s.shell.api.navigate({ id: "map" });
@@ -225,7 +229,10 @@ describe("World map", () => {
     expect(s.root.querySelector("h2")).toBeNull();
     expect(active()).toBe(island(s.root, "birch"));
     await s.press("Escape");
-    expect(s.route().id).toBe("splash");
+    expect(s.route().id).toBe("profiles");
+    // And Escape there comes back to the map.
+    await s.press("Escape");
+    expect(s.route().id).toBe("map");
   });
 
   it("on a path, the arrows skip lessons that aren't open yet", async () => {

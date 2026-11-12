@@ -20,13 +20,13 @@ export default {
   island: {
     // Screen-reader labels, e.g. "Birch Forest, 4 of 15 lessons done, 9 stars".
     label: "{name}, {done} of {total} lessons done, {stars, plural, one {# star} other {# stars}}",
+    labelNext:
+      "{name}, {done} of {total} lessons done, {stars, plural, one {# star} other {# stars}}. Go here next!",
     labelEmpty: "{name}. New lessons are coming soon.",
     labelLocked: "{name}. In the clouds for now. Finish {need} to get here.",
     labelLockedFirst: "{name}. In the clouds for now.",
     count: "{done} of {total}",
-    stars: "{stars, plural, one {# star} other {# stars}}",
     soon: "Coming soon",
-    locked: "In the clouds",
     next: "Go here next!",
     list: "Islands",
   },

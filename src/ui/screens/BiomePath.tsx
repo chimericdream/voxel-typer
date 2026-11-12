@@ -32,11 +32,14 @@ const STAR_PATH = STAR.map((row, y) =>
   Array.from(row, (c, x) => (c === "#" ? `M${x} ${y}h1v1h-1z` : "")).join(""),
 ).join("");
 
-/** Three small stars, `value` of them filled. Decoration: the button's label says the count. */
-export function MiniStars({ value }: { value: number }) {
+/**
+ * Small stars, `value` of `count` filled. Decoration: the words beside it or the button's name
+ * say the number.
+ */
+export function MiniStars({ value, count = 3 }: { value: number; count?: number }) {
   return (
     <span class={styles.miniStars} aria-hidden="true" data-value={value}>
-      {[0, 1, 2].map((i) => (
+      {Array.from({ length: count }, (_, i) => (
         <svg
           key={i}
           class={styles.miniStar}
@@ -89,7 +92,7 @@ export function BiomePath({ info, nodes, camp, onPick, onBack }: BiomePathProps)
           <p class={styles.pathProgress}>
             <span>{t("map.path.progress", { done: info.done, total: info.total })}</span>
             <span class={styles.pathStars}>
-              <MiniStars value={info.stars > 0 ? 1 : 0} />
+              <MiniStars value={info.stars > 0 ? 1 : 0} count={1} />
               {t("map.path.stars", { stars: info.stars })}
             </span>
           </p>
@@ -133,7 +136,6 @@ export function BiomePath({ info, nodes, camp, onPick, onBack }: BiomePathProps)
                     data-lesson={node.lesson.id}
                     data-nav={node.open ? "" : undefined}
                     data-start={node === start ? "" : undefined}
-                    aria-label={nodeLabel(node)}
                     aria-disabled={node.open ? undefined : "true"}
                     tabIndex={node.open ? 0 : -1}
                     onClick={() => {
@@ -143,8 +145,18 @@ export function BiomePath({ info, nodes, camp, onPick, onBack }: BiomePathProps)
                     onMouseEnter={() => setShown(node)}
                     onKeyDown={ignoreHeldEnter}
                   >
-                    {node.next ? <span class={styles.nextTag}>{t("map.path.next")}</span> : null}
-                    <span class={styles.nodeNumber}>{node.n}</span>
+                    {/* The button's name is the hidden sentence; what shows is decoration. */}
+                    <span class={styles.srOnly} data-label="">
+                      {nodeLabel(node)}
+                    </span>
+                    {node.next ? (
+                      <span class={styles.nextTag} aria-hidden="true">
+                        {t("map.path.next")}
+                      </span>
+                    ) : null}
+                    <span class={styles.nodeNumber} aria-hidden="true">
+                      {node.n}
+                    </span>
                     <MiniStars value={node.stars} />
                   </button>
                 </li>

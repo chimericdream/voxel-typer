@@ -419,11 +419,11 @@ const BUILDERS: Readonly<Record<BiomeId, Builder>> = {
   // Birch Forest: pale trunks under light crowns, and a fallen log.
   birch(seed) {
     const b = makeBuild(seed, { top: "grass", sub: "dirt", deep: "stone", radius: 6.6 });
-    tree(b, 4, 5, 4, "birch-log", "leaves", 1.8);
-    tree(b, 10, 4, 3, "birch-log", "leaves", 1.9);
-    tree(b, 7, 9, 4, "birch-log", "leaves", 2.0);
-    tree(b, 12, 9, 2, "birch-log", "leaves", 1.6);
-    tree(b, 3, 10, 2, "birch-log", "leaves", 1.5);
+    tree(b, 4, 5, 4, "birch-log", "leaves", 1.5);
+    tree(b, 10, 4, 4, "birch-log", "leaves", 1.5);
+    tree(b, 7, 9, 4, "birch-log", "leaves", 1.6);
+    tree(b, 12, 9, 3, "birch-log", "leaves", 1.3);
+    tree(b, 3, 10, 3, "birch-log", "leaves", 1.3);
     for (const x of [8, 9, 10]) if (b.land(x, 12)) b.stack(x, 12, "birch-log");
     if (b.land(5, 12)) b.stack(5, 12, "yellow-flowers");
     return b.grid;

@@ -93,7 +93,7 @@ const OVERVIEW_ASPECT = 1.7;
 export function overviewPose(aspect: number): CameraPose {
   const a = aspect > 0 ? aspect : OVERVIEW_ASPECT;
   return {
-    target: { x: -2, y: 3.5, z: -10 },
+    target: { x: -2, y: 1.5, z: -10 },
     yaw: 0,
     pitch: rad(21),
     distance: 118 * Math.max(1, OVERVIEW_ASPECT / a),
@@ -136,8 +136,7 @@ export function archipelagoBox(): THREE.Box3 {
   return box;
 }
 
-const CLOUD_LIGHT = [0.96, 0.97, 1] as const;
-const CLOUD_SHADE = [0.8, 0.85, 0.93] as const;
+const CLOUD_LIGHT = [1, 1, 1] as const;
 const STONE_BASE = [0.3, 0.32, 0.35] as const;
 const STONE_GRASS = [0.2, 0.42, 0.1] as const;
 const STONE_PALE = [0.55, 0.6, 0.68] as const;
@@ -146,16 +145,14 @@ const STONE_PALE = [0.55, 0.6, 0.68] as const;
 const jitter = (a: number, b: number, seed: number): number => hash2(a, b, seed) / 4294967296;
 
 /**
- * The gentle cloud cover over one locked island: a few flat puffs in front of it, beside it and
- * above it. The island still shows between them.
+ * The gentle cloud cover over one locked island: three flat puffs, one low in front and two
+ * drifting over it. Most of the island still shows between them.
  */
 export function cloudCover(place: IslandPlace, index: number, seed: number): ColorBox[] {
   const puffs: readonly (readonly [number, number, number, number, number, number, boolean])[] = [
-    [-3, 1.8, 8, 11, 2.4, 5, true],
-    [-8.5, 4, 1.5, 6, 2, 6, false],
-    [6.5, 6.5, 3.5, 8, 2.2, 5, true],
-    [0.5, 9, -2, 9, 2, 6, false],
-    [5, 2.6, 9, 5, 1.6, 3.4, false],
+    [-4.5, 0.6, 8.5, 9, 2, 4.5, true],
+    [7, 5.5, 2.5, 7, 1.8, 4.5, true],
+    [-7.5, 6.5, -2, 6, 1.6, 4, false],
   ];
   const out: ColorBox[] = [];
   puffs.forEach(([dx, dy, dz, w, h, d, crest], i) => {
@@ -164,15 +161,14 @@ export function cloudCover(place: IslandPlace, index: number, seed: number): Col
     const x = place.x + dx + jx;
     const y = place.y + dy + jy;
     const z = place.z + dz;
-    out.push({ x, y, z, w, h, d, color: CLOUD_SHADE });
-    out.push({ x, y: y + h * 0.5 + 0.15, z, w: w - 1, h: 0.3, d: d - 1, color: CLOUD_LIGHT });
+    out.push({ x, y, z, w, h, d, color: CLOUD_LIGHT });
     if (crest) {
       out.push({
         x: x + (jx > 0 ? -1 : 1),
-        y: y + h * 0.5 + 0.9,
+        y: y + h * 0.5 + 0.7,
         z: z - 0.4,
         w: w * 0.55,
-        h: 1.5,
+        h: 1.4,
         d: d * 0.65,
         color: CLOUD_LIGHT,
       });
@@ -248,10 +244,11 @@ export function createWorldMapView(stage: MapStage, opts: MapViewOptions): World
   lit.name = "map-island";
   const glow = new THREE.MeshBasicMaterial({ map: texture, vertexColors: true });
   glow.name = "map-glow";
-  const cloud = new THREE.MeshLambertMaterial({
+  // Unlit, like the sky's own clouds, so the cover stays white from every side.
+  const cloud = new THREE.MeshBasicMaterial({
     vertexColors: true,
     transparent: true,
-    opacity: 0.93,
+    opacity: 0.9,
   });
   cloud.name = "map-cloud";
   const stone = new THREE.MeshLambertMaterial({ vertexColors: true });
@@ -290,7 +287,7 @@ export function createWorldMapView(stage: MapStage, opts: MapViewOptions): World
     }
   });
   if (cover.length > 0) {
-    const g = boxesGeometry(cover);
+    const g = boxesGeometry(cover, true);
     geometries.push(g);
     const mesh = new THREE.Mesh(g, cloud);
     mesh.name = "map-cloud-cover";
@@ -396,8 +393,8 @@ export function createWorldMapView(stage: MapStage, opts: MapViewOptions): World
       const { width, height } = opts.viewport();
       const out = new Map<BiomeId, ScreenPoint>();
       for (const [id, island] of islands) {
-        // The lowest point of the island's underside.
-        point.set(island.place.x, island.place.y - (ISLAND_GROUND_Y + 1.5), island.place.z);
+        // Just above the lowest point of the island's underside: the label overlaps the tip.
+        point.set(island.place.x, island.place.y - (ISLAND_GROUND_Y - 0.5), island.place.z);
         point.project(camera);
         out.set(id, {
           x: (point.x * 0.5 + 0.5) * width,
