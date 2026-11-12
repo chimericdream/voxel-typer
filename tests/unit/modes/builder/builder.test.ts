@@ -14,7 +14,7 @@ import { blocks } from "../../../../src/content/blocks";
 import { ISLAND_MAX, countBlocks, createIsland, islandBlocks } from "../../../../src/engine/island";
 import type { EngineEvent } from "../../../../src/engine/types";
 import { mode } from "../../../../src/modes/builder";
-import { AUTOSAVE_MS, HINT_MS, create } from "../../../../src/modes/builder/builder";
+import { AUTOSAVE_MS, HABIT_MS, HINT_MS, create } from "../../../../src/modes/builder/builder";
 import type { BuilderInstance } from "../../../../src/modes/builder/builder";
 import type { BuilderBlueprint } from "../../../../src/modes/builder/blueprints";
 import { builderHudOf } from "../../../../src/modes/builder/hud";
@@ -219,7 +219,9 @@ describe("builder: the card's sequence", () => {
     expect(v.hud().undo).toBe(2);
     v.type("undo");
     expect(v.grid().get(START.x + 2, START.y, START.z)).toBe(0);
-    expect(v.hud()).toMatchObject({ undo: 1, line: "", hint: null });
+    expect(v.hud()).toMatchObject({ undo: 1, line: "" });
+    // Undo always says what happened (a Backspace too many lands here as well).
+    expect(v.hud().hint).toEqual({ key: "builder.hint.undone", tone: "info" });
     expect(v.hud().palette.find((p) => p.block === "oak-planks")?.count).toBe(11);
 
     // Nothing is written until the island is left (or 30 s pass, or a pause).
@@ -351,6 +353,64 @@ describe("builder: putting and digging", () => {
   });
 });
 
+describe("builder: the habit space (review B1)", () => {
+  it("planks put east 2 put, typed with spaces: two blocks, not five", async () => {
+    const v = await visit(miner);
+    v.type("planks put east 2 put");
+    expect(v.grid().get(START.x, START.y, START.z)).toBe(num("oak-planks"));
+    expect(v.grid().get(START.x + 2, START.y, START.z)).toBe(num("oak-planks"));
+    expect(v.hud().palette.find((p) => p.block === "oak-planks")?.count).toBe(10);
+    expect(v.hud().undo).toBe(2);
+    expect(v.sfx.filter((s) => s === "place")).toHaveLength(2);
+    expect(v.sfx).not.toContain("thud");
+    // The spaces are not part of the words, and not slips.
+    v.type(" undo ");
+    v.play.quit();
+    await flush();
+    expect(v.profile().history.at(-1)).toMatchObject({
+      keystrokes: 22,
+      correct: 22,
+      errors: 0,
+      targetsCompleted: 5,
+    });
+    expect(v.profile().inventory["oak-planks"]).toBe(11);
+  });
+
+  it("a second Space is a deliberate put", async () => {
+    const v = await visit(miner);
+    v.type("put  ");
+    expect(v.hud().undo).toBe(2);
+  });
+
+  it("after a moment's wait, Space is put again", async () => {
+    const v = await visit(miner);
+    v.type("put");
+    v.run(HABIT_MS - 200);
+    v.type(" ");
+    expect(v.hud().undo).toBe(1);
+    v.type("put");
+    v.run(HABIT_MS + 200);
+    v.type(" ");
+    expect(v.hud().undo).toBe(3);
+  });
+
+  it("after an arrow key, a camera key or a pause, Space is put", async () => {
+    const v = await visit(miner);
+    v.type("put");
+    v.keys.press("ArrowRight");
+    v.type(" ");
+    expect(v.grid().get(START.x + 1, START.y, START.z)).toBe(num("cobble"));
+    v.type("east 1");
+    v.type("] ");
+    expect(v.grid().get(START.x + 2, START.y, START.z)).toBe(num("cobble"));
+    v.type("east 1");
+    v.play.pause(1);
+    v.play.resume(2);
+    v.type(" ");
+    expect(v.grid().get(START.x + 3, START.y, START.z)).toBe(num("cobble"));
+  });
+});
+
 describe("builder: undo", () => {
   it("Ctrl+Z and Backspace on an empty line both undo; with nothing left it says so", async () => {
     const v = await visit(miner);
@@ -379,7 +439,7 @@ describe("builder: moving", () => {
     v.type("north 3");
     v.type("west>");
     v.type("up 2");
-    v.type(" ");
+    v.type("put");
     expect(v.grid().get(START.x - 1, START.y + 2, START.z - 3)).toBe(num("cobble"));
   });
 
@@ -390,7 +450,7 @@ describe("builder: moving", () => {
     expect(v.hud().hint).toBeNull();
     v.type("east 9");
     expect(v.hud().hint?.key).toBe("builder.hint.edge");
-    v.type(" ");
+    v.type("put");
     // The plot's last column is x = 35.
     const column = Array.from({ length: ISLAND_MAX.sy }, (_, y) => v.grid().get(35, y, START.z));
     expect(column).toContain(num("cobble"));
@@ -555,6 +615,52 @@ describe("builder: the practice session", () => {
     v.play.quit();
     await flush();
     expect(v.profile().history.at(-1)).toMatchObject({ keystrokes: 3, correct: 3, errors: 0 });
+  });
+
+  it("a pause drops a half-typed word, so no false slips reach key stats (review N2)", async () => {
+    const v = await visit(miner);
+    v.type("pla");
+    v.play.pause(1);
+    // The line is cleared with its keys: the picture and the record agree.
+    expect(v.hud().line).toBe("");
+    v.play.resume(2);
+    v.type("nks");
+    // `n` starts north; `k` and `s` fit nothing after it. Nothing ran, so nothing is recorded.
+    expect(v.hud().armed).toBe("cobble");
+    v.type("<planks");
+    expect(v.hud().armed).toBe("oak-planks");
+    v.play.quit();
+    await flush();
+    const last = v.profile().history.at(-1);
+    expect(last).toMatchObject({ keystrokes: 6, correct: 6, errors: 0, targetsCompleted: 1 });
+    expect(v.events.filter((e) => e.type === "wrong")).toEqual([]);
+    expect(v.profile().keyStats["p"]?.errors ?? 0).toBe(miner.keyStats["p"]?.errors ?? 0);
+  });
+
+  it("Sprout: letters given back to a new word are that word's keys, not slips (review N1)", async () => {
+    const v = await visit(withBlocks(sprout, { "oak-planks": 3 }));
+    v.type("pla");
+    v.type("north>");
+    v.type("put");
+    expect(v.grid().get(START.x, START.y, START.z - 1)).toBe(num("oak-planks"));
+    v.play.quit();
+    await flush();
+    // pla (3) + north (5) + put (3).
+    expect(v.profile().history.at(-1)).toMatchObject({
+      keystrokes: 11,
+      correct: 11,
+      errors: 0,
+      targetsCompleted: 3,
+    });
+  });
+
+  it("Sprout: the rest of a block's name is typed quietly and is no part of the record", async () => {
+    const v = await visit(withBlocks(sprout, { "oak-planks": 3 }));
+    v.type("planks put");
+    expect(v.hud().undo).toBe(1);
+    v.play.quit();
+    await flush();
+    expect(v.profile().history.at(-1)).toMatchObject({ keystrokes: 6, correct: 6, errors: 0 });
   });
 
   it("Space as put, the arrows and the camera keys type no word", async () => {
@@ -743,8 +849,19 @@ describe("builder: blueprints (the M4-08 hook)", () => {
     expect(v.grid().get(START.x + 1, START.y, START.z + 1)).toBe(num("oak-planks"));
     expect(v.hud().palette.find((p) => p.block === "oak-planks")?.count).toBe(3);
     expect(v.hud().hint).toMatchObject({ key: "builder.hint.built", tone: "cheer" });
+    // The island's blocks plus the bag stay the same through the stamp and its undo (N9).
+    const sum = (): Record<string, number> => {
+      const total: Record<string, number> = { ...countBlocks(v.grid(), lookup) };
+      for (const item of v.hud().palette) total[item.block] = (total[item.block] ?? 0) + item.count;
+      return total;
+    };
+    const fresh = VoxelGrid.fromJSON(createIsland(miner.id, lookup, 0).grid);
+    const before: Record<string, number> = { ...countBlocks(fresh, lookup) };
+    for (const [id, n] of Object.entries(miner.inventory)) before[id] = (before[id] ?? 0) + n;
+    expect(sum()).toEqual(before);
     expect(v.dirty).toHaveLength(9);
     v.type("undo");
+    expect(sum()).toEqual(before);
     expect(v.grid().get(START.x, START.y, START.z)).toBe(0);
     expect(v.dirty).toHaveLength(18);
     expect(v.hud().palette.find((p) => p.block === "oak-planks")?.count).toBe(12);

@@ -40,7 +40,14 @@ import type { BlockId, Ms } from "@/types/core";
 import type { ModeContext, ModeInstance } from "../types";
 import { blueprintsFor } from "./blueprints";
 import type { BuilderBlueprint } from "./blueprints";
-import { EMPTY_LINE, buildVocabulary, completionOf, typeKey, waitsForSpace } from "./commands";
+import {
+  EMPTY_LINE,
+  buildVocabulary,
+  completionOf,
+  settled,
+  typeKey,
+  waitsForSpace,
+} from "./commands";
 import type { Command, Direction, Feedback, LineState } from "./commands";
 import { BUILDER_SLICE } from "./hud";
 import type { BuilderHint, BuilderHudSlice, PaletteItem } from "./hud";
@@ -59,6 +66,7 @@ import {
   digCell,
   facing,
   followTarget,
+  isBuried,
   moveCursor,
   putCell,
   stampOrigin,
@@ -72,6 +80,11 @@ import type { BuilderView } from "./view";
 
 /** Play time between autosaves (PLAN §6.6). */
 export const AUTOSAVE_MS: Ms = 30_000;
+/**
+ * How long after a word runs one Space is still the habit space between words. Later than this,
+ * Space is a deliberate `put`.
+ */
+export const HABIT_MS: Ms = 1500;
 /** How long a hint stays up without another key. */
 export const HINT_MS: Ms = 5000;
 /** Camera glides: following the cursor, and a quarter turn. Snaps under reduced motion. */
@@ -182,12 +195,31 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
   let commands = 0;
   /** Keys of the line being typed: the ones that went in, and the ones that didn't fit. */
   let keys: { input: KeyInput; accepted: boolean }[] = [];
+  /** Letters taken quietly after a Sprout code (the rest of the block's name), newest last. */
+  let quiet: KeyInput[] = [];
+  /** How long one Space after a word that ran still counts as the habit space. */
+  let habitLeft: Ms = 0;
 
   const emit = (events: readonly EngineEvent[]): void => {
     for (const e of events) {
       if (e.type === "sessionEnd") summary = e.summary;
       bus.emit("engine", e);
     }
+  };
+
+  /**
+   * Takes the first `n` letters of `text` from the quietly taken keys: they turned out to start
+   * this word, so they are its first keys.
+   */
+  const adopt = (n: number, text: string): void => {
+    const want = Array.from(text).slice(0, n);
+    const found: typeof keys = [];
+    for (const q of quiet) {
+      if (found.length < want.length && q.key.toLowerCase() === want[found.length]) {
+        found.push({ input: q, accepted: true });
+      }
+    }
+    keys = found;
   };
 
   /** Feeds a finished command to the session as one target. */
@@ -224,6 +256,13 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
   let zoom = ZOOM_START;
   let shown: BlockId[] = [];
   let inventory: Record<BlockId, number> = editor?.inventory() ?? {};
+
+  /** Something other than typing happened: no habit space is expected, no name being finished. */
+  const calm = (): void => {
+    line = settled(line);
+    quiet = [];
+    habitLeft = 0;
+  };
 
   const live = (): boolean => status === "ready" && !paused && !left && !disposed;
 
@@ -267,8 +306,8 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
   };
 
   const showCursor = (): void => {
-    view?.setCursor(cursor);
     const grid = editor?.grid ?? null;
+    view?.setCursor(cursor, grid !== null && isBuried(grid, cursor));
     const at = grid === null || armed === null ? null : putCell(grid, cursor);
     view?.setGhost(armed === null ? null : (lookup.numOf(armed) ?? null), at);
     const next = followTarget(target, cursor);
@@ -395,7 +434,8 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
       return;
     }
     audio.sfx("undo");
-    say(null);
+    // Backspace one time too many also lands here, so always say what happened.
+    say({ key: "builder.hint.undone" });
     afterEdit(touches.pop());
   };
 
@@ -492,6 +532,7 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
 
   const onNav = (nav: NavKey): void => {
     if (!live()) return;
+    calm();
     if (nav === "up" || nav === "down") move(nav, 1);
     else move(arrowDirection(nav, quarter), 1);
     showCursor();
@@ -550,20 +591,34 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
       if (k.key === "Undo" || (k.key === "Backspace" && line.text === "")) {
         line = EMPTY_LINE;
         keys = [];
+        quiet = [];
         undo();
       } else if (line.text === "" && CAMERA_KEYS.has(k.key)) {
+        calm();
         cameraKey(k.key);
       } else {
         const out = typeKey(line, k.key, vocab);
-        const before = line.text;
+        // A letter taken quietly as the rest of a Sprout block's name.
+        const quietly = out.state.eaten.length > line.eaten.length;
+        let before = line.text;
+        if (out.replayed > 0) {
+          // Those quiet letters began a new word after all: they are its first keys.
+          adopt(out.replayed, out.run === null ? out.state.text : (out.ran ?? ""));
+          before = Array.from(out.state.text).slice(0, out.replayed).join("");
+        }
+        const wholeReplay =
+          out.run !== null && out.replayed > 0 && Array.from(out.ran ?? "").length === out.replayed;
         line = out.state;
+        if (quietly) quiet.push(k);
+        else quiet = [];
+        habitLeft = line.habit ? HABIT_MS : 0;
         if (k.key === "Backspace") {
           // A change of mind: forget the letter taken back and the misses typed after it.
           while (keys.length > 0 && keys.at(-1)?.accepted === false) keys.pop();
           keys.pop();
-        } else if (out.run === null || (k.key !== " " && k.key !== "Enter")) {
-          // The key that only runs the line is not part of the word. A miss on an empty line has
-          // no word to belong to.
+        } else if (!wholeReplay && (out.run === null || (k.key !== " " && k.key !== "Enter"))) {
+          // The key that only runs the line is not part of the word, and neither is the habit
+          // space. A miss on an empty line has no word to belong to.
           const taken = out.accepted && (out.run !== null || line.text !== before);
           if (taken || (!out.accepted && before !== "")) keys.push({ input: k, accepted: taken });
         }
@@ -593,6 +648,11 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
           publish();
         }
       }
+      if (habitLeft > 0) {
+        habitLeft -= dtMs;
+        // After a moment's wait, Space is a deliberate `put` again.
+        if (habitLeft <= 0) line = { ...line, habit: false };
+      }
       sinceSave += dtMs;
       if (sinceSave >= AUTOSAVE_MS) autosave();
     },
@@ -600,8 +660,13 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
     pause() {
       if (paused) return;
       paused = true;
-      // The half-typed word stays on the line, but its keys are no longer timed.
+      // A half-typed word is dropped. Its keys can't be timed across the pause, and feeding only
+      // the letters typed afterwards would count them as slips on the word's first letters.
+      line = EMPTY_LINE;
       keys = [];
+      quiet = [];
+      habitLeft = 0;
+      if (status === "ready") publish();
       // A pause is also what a hidden or closing tab looks like: save now.
       autosave();
     },

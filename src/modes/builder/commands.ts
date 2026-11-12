@@ -19,11 +19,17 @@
  * that do fit. Nothing is ever an error. {@link parseLine} still classifies any text, so the HUD
  * and tests can ask about a line the reducer would never let through.
  *
+ * **The habit space.** Children are taught to put a space between words, so they type one here
+ * too. Right after a word that ran on its last key, one Space is taken and does nothing: without
+ * this, `planks put east 2 put` would place five blocks, not two. A second Space, or a Space after
+ * anything else (an arrow key, a pause, a moment's wait), is `put`.
+ *
  * **Sprout codes.** For the Sprout band every block answers to a short code: the first letters of
  * its name, three or more, as few as tell it apart from every other word (`dirt` → `dir`, `grass`
  * → `gras` because of `gravel`). The picture palette shows those letters as key caps. The rest of
  * the name may still be typed: it is taken quietly ({@link LineState.tail}), so a child who types
- * the whole word `dirt` sees nothing odd.
+ * the whole word `dirt` sees nothing odd. If those letters turn out to start another word (`pla`,
+ * then `north`), they are given back to the line.
  */
 import type { MessageKey } from "@/i18n";
 import type { AgeBand, BlockId } from "@/types/core";
@@ -211,9 +217,18 @@ export interface LineState {
   text: string;
   /** Letters still taken quietly after a Sprout code ran (the rest of the block's name). */
   tail: string;
+  /** The letters of that name taken quietly so far, in case they turn out to start a new word. */
+  eaten: string;
+  /**
+   * A word just ran on its last key, so one Space now is the habit space between words and does
+   * nothing (decision 90 settled the same for Mine). Any other key clears it.
+   */
+  habit: boolean;
 }
 
-export const EMPTY_LINE: LineState = { text: "", tail: "" };
+export const EMPTY_LINE: LineState = { text: "", tail: "", eaten: "", habit: false };
+
+const line = (text: string): LineState => ({ ...EMPTY_LINE, text });
 
 /** A gentle word from the command line. Always a hint, never an error. */
 export interface Feedback {
@@ -230,9 +245,17 @@ export interface KeyOutcome {
    * `run` came from Space on an empty line, which types no word.
    */
   ran: string | null;
-  /** True when the key went into the line (or ran it, or was taken as a code's tail). */
+  /**
+   * True when the key went into the line, ran it, or was taken quietly (a code's tail, or the
+   * habit space after a word).
+   */
   accepted: boolean;
   feedback: Feedback | null;
+  /**
+   * How many letters that were first taken quietly as a code's tail are now the start of the
+   * line: the child was typing a new word all along (`pla`, then `no…` is `north`).
+   */
+  replayed: number;
 }
 
 const wordList = (words: readonly string[]): string => words.slice(0, 4).join(", ");
@@ -261,14 +284,16 @@ const stay = (state: LineState, feedback: Feedback | null, accepted = false): Ke
   ran: null,
   accepted,
   feedback,
+  replayed: 0,
 });
 
-const ran = (command: Command, text: string | null, tail = ""): KeyOutcome => ({
-  state: { text: "", tail },
+const ran = (command: Command, text: string | null, after: LineState = EMPTY_LINE): KeyOutcome => ({
+  state: after,
   run: command,
   ran: text,
   accepted: true,
   feedback: null,
+  replayed: 0,
 });
 
 /**
@@ -279,43 +304,68 @@ const ran = (command: Command, text: string | null, tail = ""): KeyOutcome => ({
 export function typeKey(state: LineState, key: string, vocab: Vocabulary): KeyOutcome {
   const { text } = state;
   if (key === "Backspace") {
-    return stay({ text: Array.from(text).slice(0, -1).join(""), tail: "" }, null, text !== "");
+    return stay(line(Array.from(text).slice(0, -1).join("")), null, text !== "");
   }
 
   const here = parseLine(text, vocab);
   if (key === "Enter" || key === " ") {
-    const fresh: LineState = { text, tail: "" };
     if (here.kind === "empty") {
-      return key === " " ? ran({ kind: "put" }, null) : stay(fresh, null);
+      if (key === "Enter") return stay(EMPTY_LINE, null);
+      // The space a child types between words out of habit: taken once, and it does nothing.
+      if (state.habit) return stay(EMPTY_LINE, null, true);
+      return ran({ kind: "put" }, null);
     }
     if (here.kind === "command") return ran(here.command, text);
     if (here.kind === "direction") {
       // Space after the word makes room for a number; anything else runs one step.
-      if (key === " " && !here.spaced) return stay({ text: `${text} `, tail: "" }, null, true);
+      if (key === " " && !here.spaced) return stay(line(`${text} `), null, true);
       const dir = here.dir;
       return ran({ kind: "move", dir, steps: 1 }, dir);
     }
-    return stay(fresh, fitHint(text, vocab));
+    return stay(line(text), fitHint(text, vocab));
   }
 
   const ch = key.toLowerCase();
   if (Array.from(ch).length !== 1) return stay(state, null);
 
-  // The rest of a block's name after its Sprout code: taken quietly.
-  if (text === "" && state.tail !== "") {
-    if (state.tail.startsWith(ch)) return stay({ text: "", tail: state.tail.slice(1) }, null, true);
+  if (text === "" && state.tail.startsWith(ch)) {
+    // The rest of a block's name after its Sprout code: taken quietly. The habit space may
+    // still follow the whole word.
+    const tail = state.tail.slice(1);
+    // Once the whole name is typed it was the name: nothing is kept to give back.
+    return stay({ ...state, tail, eaten: tail === "" ? "" : state.eaten + ch }, null, true);
+  }
+  if (text === "" && state.eaten !== "") {
+    // Not the rest of the name after all: those letters and this one are a new word (`pla`, `n`,
+    // then `o` is `north`). Type them again as a fresh line.
+    let fresh = EMPTY_LINE;
+    for (const letter of state.eaten) {
+      const step = typeKey(fresh, letter, vocab);
+      // A tail that is itself a whole word runs it; the key in hand is dropped.
+      if (step.run !== null) return { ...step, replayed: Array.from(step.ran ?? "").length };
+      fresh = step.state;
+    }
+    const last = typeKey(fresh, key, vocab);
+    // Only when the key fits after them. Otherwise they were part of the name, left unfinished,
+    // and this key starts from an empty line (`plan`, then `dig`).
+    if (last.accepted) return { ...last, replayed: Array.from(fresh.text).length };
   }
 
   const next = text + ch;
   const p = parseLine(next, vocab);
   if (p.kind === "unknown" || p.kind === "empty") {
-    return stay({ text, tail: "" }, fitHint(text, vocab));
+    return stay(line(text), fitHint(text, vocab));
   }
   if (p.kind === "command" && p.auto) {
     const word = vocab.words.find((w) => w.word === next);
-    return ran(p.command, next, word?.tail ?? "");
+    return ran(p.command, next, { text: "", tail: word?.tail ?? "", eaten: "", habit: true });
   }
-  return stay({ text: next, tail: "" }, null, true);
+  return stay(line(next), null, true);
+}
+
+/** The line with nothing pending: no habit space expected and no name being finished. */
+export function settled(state: LineState): LineState {
+  return line(state.text);
 }
 
 /**

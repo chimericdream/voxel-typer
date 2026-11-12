@@ -88,6 +88,17 @@ export function digCell(grid: GridRead, at: Cell): Cell | null {
   return null;
 }
 
+/**
+ * True when the cursor's cell has a block somewhere above it: seen from above it is under the
+ * ground (or under a roof), so the view draws it stronger to keep it findable.
+ */
+export function isBuried(grid: GridRead, at: Cell): boolean {
+  for (let y = at.y + 1; y < grid.sy; y++) {
+    if (grid.get(at.x, y, at.z) !== 0) return true;
+  }
+  return false;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Camera
 // ---------------------------------------------------------------------------------------------

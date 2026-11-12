@@ -25,8 +25,8 @@ export default {
 
   where: {
     layer: "Layer {layer}",
-    // Which way is the top of the screen: "North is up".
-    facing: "{dir} is up",
+    // Which way is the top of the screen. Not "up": `up` is a command that lifts the cursor.
+    facing: "{dir} is at the top",
   },
 
   dir: {
@@ -69,6 +69,7 @@ export default {
     top: "That is the top.",
     bottom: "That is the bottom.",
     nothingToUndo: "There is nothing to undo.",
+    undone: "Took back your last step.",
     noRoom: "There is no room for that here. Try another spot.",
     alreadyThere: "That is already built here.",
     built: "You built a {name}!",
@@ -78,6 +79,6 @@ export default {
   damaged: {
     title: "Your island is resting",
     body: "We could not open your island this time. It is safe, just as you left it.",
-    help: "Ask a grown-up for help. Press Esc to go back.",
+    help: "Ask a grown-up for help. To leave, press Esc, then pick Back to the map.",
   },
 } as const;

@@ -119,7 +119,7 @@ describe("builder HUD", () => {
 
   it("says the layer and which way is up, and when no block is in hand", () => {
     show({ layer: 9, facing: "east", armed: null });
-    expect(text('[data-builder="layer"]')).toBe("Layer 9 · East is up");
+    expect(text('[data-builder="layer"]')).toBe("Layer 9 · East is at the top");
     expect(text('[data-builder="armed"]')).toBe(t("builder.palette.none"));
   });
 
@@ -179,6 +179,7 @@ describe("builder copy", () => {
       "top",
       "bottom",
       "nothingToUndo",
+      "undone",
       "noRoom",
       "alreadyThere",
       "built",

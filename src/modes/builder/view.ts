@@ -3,8 +3,10 @@
  * itself is the scene's chunk meshes.
  *
  * - **Cursor:** a cube frame around the cursor's cell, made of twelve bars in one instanced mesh.
- *   It is drawn twice: once in the world, and once faintly on top of everything, so a cursor
- *   behind a tree or under the ground can still be found. Two draw calls.
+ *   It is drawn twice: once in the world, and once on top of everything, so a cursor behind a
+ *   tree or under the ground can still be found. The on-top pass is faint while the cursor is in
+ *   the open, and strong with a dark outline when it is buried (review N3). Two draw calls in
+ *   the open, three when buried.
  * - **Ghost:** the armed block, see-through, in the cell `put` would fill. It is meshed by the
  *   real mesher from a one-cell grid, so a flower shows as its sprig and a cube as a cube. One
  *   draw call.
@@ -26,6 +28,12 @@ const BREATH_PERIOD_MS: Ms = 1400;
 const BAR = 0.06;
 const FRAME_COLOR = 0xfff1a8;
 const GHOST_OPACITY = 0.62;
+/** The on-top pass: a hint in the open, the main picture when the cursor is buried. */
+const THROUGH_OPEN = 0.28;
+const THROUGH_BURIED = 0.9;
+/** The dark outline behind a buried cursor's frame, a little larger than the frame. */
+const OUTLINE_COLOR = 0x1c2430;
+const OUTLINE_SCALE = 1.9;
 
 export interface BuilderViewOptions {
   scene: THREE.Scene;
@@ -36,7 +44,8 @@ export interface BuilderViewOptions {
 }
 
 export interface BuilderView {
-  setCursor(cell: Cell): void;
+  /** `buried`: a block sits somewhere above the cell, so the frame is drawn strong, on top. */
+  setCursor(cell: Cell, buried?: boolean): void;
   /** Shows block `blockNum` at `cell`, or hides the ghost when either is null. */
   setGhost(blockNum: number | null, cell: Cell | null): void;
   /** Advances the breath. Returns true while the frame is moving. */
@@ -44,8 +53,8 @@ export interface BuilderView {
   dispose(): void;
 }
 
-/** Twelve bars along the edges of a unit cube centered on the origin. */
-function frameMatrices(): THREE.Matrix4[] {
+/** Twelve bars along the edges of a unit cube centered on the origin, `thick` times as thick. */
+function frameMatrices(thick = 1): THREE.Matrix4[] {
   const out: THREE.Matrix4[] = [];
   const half = 0.5;
   const axes = [0, 1, 2] as const;
@@ -53,11 +62,11 @@ function frameMatrices(): THREE.Matrix4[] {
     for (const a of [-half, half]) {
       for (const b of [-half, half]) {
         const pos = [0, 0, 0];
-        const scale = [BAR, BAR, BAR];
+        const scale = [BAR * thick, BAR * thick, BAR * thick];
         const [u, v] = axes.filter((x) => x !== axis);
         pos[u ?? 0] = a;
         pos[v ?? 0] = b;
-        scale[axis] = 1 + BAR;
+        scale[axis] = 1 + BAR * thick;
         out.push(
           new THREE.Matrix4().compose(
             new THREE.Vector3(pos[0], pos[1], pos[2]),
@@ -81,7 +90,15 @@ export function createBuilderView(opts: BuilderViewOptions): BuilderView {
     color: FRAME_COLOR,
     fog: false,
     transparent: true,
-    opacity: 0.28,
+    opacity: THROUGH_OPEN,
+    depthTest: false,
+    depthWrite: false,
+  });
+  const dark = new THREE.MeshBasicMaterial({
+    color: OUTLINE_COLOR,
+    fog: false,
+    transparent: true,
+    opacity: 0.85,
     depthTest: false,
     depthWrite: false,
   });
@@ -95,6 +112,15 @@ export function createBuilderView(opts: BuilderViewOptions): BuilderView {
     mesh.renderOrder = material === through ? 20 : 10;
     frame.add(mesh);
   }
+  // The outline: the same frame with thicker bars, drawn first, shown only for a buried cursor.
+  const wide = frameMatrices(OUTLINE_SCALE);
+  const outline = new THREE.InstancedMesh(bar, dark, wide.length);
+  wide.forEach((m, i) => outline.setMatrixAt(i, m));
+  outline.instanceMatrix.needsUpdate = true;
+  outline.frustumCulled = false;
+  outline.renderOrder = 19;
+  outline.visible = false;
+  frame.add(outline);
   frame.scale.setScalar(FRAME_REST);
   root.add(frame);
 
@@ -132,8 +158,10 @@ export function createBuilderView(opts: BuilderViewOptions): BuilderView {
   let phase: Ms = 0;
 
   return {
-    setCursor(cell) {
+    setCursor(cell, buried = false) {
       frame.position.set(cell.x + 0.5, cell.y + 0.5, cell.z + 0.5);
+      outline.visible = buried;
+      through.opacity = buried ? THROUGH_BURIED : THROUGH_OPEN;
     },
     setGhost(blockNum, cell) {
       const atlas = opts.atlas();
@@ -164,6 +192,7 @@ export function createBuilderView(opts: BuilderViewOptions): BuilderView {
       bar.dispose();
       solid.dispose();
       through.dispose();
+      dark.dispose();
       ghostMaterial.dispose();
       empty.dispose();
       for (const g of ghostGeometry.values()) g.dispose();

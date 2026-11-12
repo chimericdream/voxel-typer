@@ -12,6 +12,7 @@ import {
   buildVocabulary,
   completionOf,
   parseLine,
+  settled,
   shortCode,
   typeKey,
   waitsForSpace,
@@ -162,7 +163,7 @@ describe("typeKey", () => {
     const r = type("put");
     expect(r.runs).toEqual([{ kind: "put" }]);
     expect(r.ran).toEqual(["put"]);
-    expect(r.state).toEqual(EMPTY_LINE);
+    expect(r.state).toEqual({ ...EMPTY_LINE, habit: true });
   });
 
   it("arms a block by its name", () => {
@@ -200,7 +201,7 @@ describe("typeKey", () => {
     const r = type("east 2");
     expect(r.runs).toEqual([{ kind: "move", dir: "east", steps: 2 }]);
     expect(r.ran).toEqual(["east 2"]);
-    expect(r.state).toEqual(EMPTY_LINE);
+    expect(r.state).toEqual({ ...EMPTY_LINE, habit: true });
   });
 
   it("a direction, Space, then Space or Enter with no number: one step", () => {
@@ -283,6 +284,78 @@ describe("typeKey", () => {
   });
 });
 
+describe("the habit space (review B1)", () => {
+  const kinds = (keys: string, vocab: Vocabulary = miner): string[] =>
+    type(keys, vocab).runs.map((c) => (c.kind === "move" ? `${c.dir} ${c.steps}` : c.kind));
+
+  const table: [keys: string, runs: string[]][] = [
+    // The reviewer's sequence: two puts, not five.
+    ["planks put east 2 put", ["arm", "put", "east 2", "put"]],
+    ["planks put", ["arm", "put"]],
+    ["put put put", ["put", "put", "put"]],
+    ["dig undo ", ["dig", "undo"]],
+    // One Space is the habit space; the next one is a deliberate put.
+    ["put ", ["put"]],
+    ["put  ", ["put", "put"]],
+    ["put   ", ["put", "put", "put"]],
+    ["east 2 ", ["east 2"]],
+    ["east 2  ", ["east 2", "put"]],
+    // Space with no word before it is put, as the card says.
+    [" ", ["put"]],
+    ["  ", ["put", "put"]],
+    // A word that Space or Enter ran has had its Space already.
+    ["blue ", ["arm"]],
+    ["blue  ", ["arm", "put"]],
+    ["blue> ", ["arm", "put"]],
+    ["east> ", ["east 1", "put"]],
+    ["up  ", ["up 1"]],
+    ["up   ", ["up 1", "put"]],
+    // Any other key ends the wait for a habit space.
+    ["putx ", ["put", "put"]],
+    ["put< ", ["put", "put"]],
+    ["put> ", ["put", "put"]],
+  ];
+  it.each(table)("%j runs %j", (keys, runs) => {
+    expect(kinds(keys)).toEqual(runs);
+  });
+
+  it("the habit space goes in quietly: no hint, and it is no word", () => {
+    const r = type("put ");
+    expect(r.hints).toEqual([]);
+    expect(r.rejected).toEqual([]);
+    expect(r.ran).toEqual(["put"]);
+    expect(r.state).toEqual(EMPTY_LINE);
+  });
+
+  it("after a Sprout types a block's whole name, the habit space still follows", () => {
+    expect(kinds("dirt put", sprout)).toEqual(["arm", "put"]);
+    expect(kinds("dir put", sprout)).toEqual(["arm", "put"]);
+    expect(kinds("dirt  ", sprout)).toEqual(["arm", "put"]);
+  });
+
+  it("settled() forgets the habit space and a half-finished name, and keeps the text", () => {
+    expect(settled(type("put").state)).toEqual(EMPTY_LINE);
+    expect(settled(type("dir", sprout).state)).toEqual(EMPTY_LINE);
+    expect(settled(type("pla").state)).toEqual({ ...EMPTY_LINE, text: "pla" });
+    expect(type(" ", miner, settled(type("put").state)).runs).toEqual([{ kind: "put" }]);
+  });
+
+  it("with a space after every word, each word runs exactly once (seed 4707)", () => {
+    const words = miner.words.filter((w) => w.command.kind !== "direction").map((w) => w.word);
+    fc.assert(
+      fc.property(fc.array(fc.constantFrom(...words), { minLength: 1, maxLength: 6 }), (list) => {
+        const spaced = list
+          .map((w) => (parseLine(w, miner).kind === "command" ? w : ""))
+          .join(" ");
+        const r = type(`${spaced} `);
+        expect(r.runs).toHaveLength(list.length);
+        expect(r.hints).toEqual([]);
+      }),
+      { seed: 4707, numRuns: 300 },
+    );
+  });
+});
+
 describe("what the HUD shows", () => {
   it("completes a word when only one fits", () => {
     expect(completionOf("plan", miner)).toBe("ks");
@@ -340,7 +413,7 @@ describe("Sprout codes", () => {
     expect(r.ran).toEqual(["dir"]);
     expect(r.hints).toEqual([]);
     expect(r.rejected).toEqual([]);
-    expect(r.state).toEqual(EMPTY_LINE);
+    expect(r.state).toEqual({ ...EMPTY_LINE, habit: true });
     // And the next word starts clean.
     expect(type("dirtput", sprout).runs).toEqual([{ kind: "arm", block: "dirt" }, { kind: "put" }]);
     // Leaving the name half done is fine too.
@@ -348,6 +421,62 @@ describe("Sprout codes", () => {
       { kind: "arm", block: "oak-planks" },
       { kind: "dig" },
     ]);
+  });
+
+  it("a new word that starts like the rest of the name gets its letters back (review N1)", () => {
+    // `pla` leaves `nks`; `north` starts with that `n`.
+    const r = type("planorth>", sprout);
+    expect(r.runs).toEqual([
+      { kind: "arm", block: "oak-planks" },
+      { kind: "move", dir: "north", steps: 1 },
+    ]);
+    expect(r.ran).toEqual(["pla", "north"]);
+    expect(r.hints).toEqual([]);
+    expect(r.rejected).toEqual([]);
+    // The line shows the letters as soon as they stop being the name.
+    expect(type("plano", sprout).state.text).toBe("no");
+    expect(typeKey(type("plan", sprout).state, "o", sprout).replayed).toBe(1);
+    // Two letters deep, and into a word that runs by itself.
+    expect(type("stonorth>", sprout).runs).toHaveLength(2);
+    expect(type("cobbri", sprout).runs).toEqual([
+      { kind: "arm", block: "cobble" },
+      { kind: "arm", block: "brick" },
+    ]);
+  });
+
+  it("after any code, any word can be typed with nothing lost", () => {
+    let pairs = 0;
+    for (const b of placeable) {
+      const code = sprout.wordOf(b.id) ?? "";
+      const tail = b.typedName.slice(code.length);
+      const armed = type(code, sprout);
+      if (armed.runs.length === 0) continue; // a code that waits for Space (`blue`)
+      for (const w of sprout.words) {
+        // A word that begins with the whole rest of the name can't be told from the name.
+        if (tail !== "" && w.word.startsWith(tail)) continue;
+        const want = parseLine(w.word, sprout);
+        const auto = want.kind === "command" && want.auto;
+        const r = type(auto ? w.word : `${w.word}>`, sprout, armed.state);
+        expect(r.hints, `${code} ${w.word}`).toEqual([]);
+        expect(r.rejected, `${code} ${w.word}`).toEqual([]);
+        expect(r.runs, `${code} ${w.word}`).toHaveLength(1);
+        if (want.kind === "command") expect(r.runs[0]).toEqual(want.command);
+        pairs += 1;
+      }
+    }
+    expect(pairs).toBeGreaterThan(700);
+  });
+
+  it("a letter that fits neither the name nor a word after its letters starts from an empty line", () => {
+    // `plan` then `dig`: the `n` was part of the name, left unfinished.
+    expect(type("plandig", sprout).runs).toEqual([
+      { kind: "arm", block: "oak-planks" },
+      { kind: "dig" },
+    ]);
+    const r = type("planx", sprout);
+    expect(r.state.text).toBe("");
+    expect(r.rejected).toEqual(["x"]);
+    expect(r.hints).toEqual([{ key: "builder.hint.tryWord" }]);
   });
 
   it("Miner and Builder type the whole name", () => {
