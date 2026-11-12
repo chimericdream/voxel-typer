@@ -26,16 +26,23 @@ import { hashString } from "@/engine/rng";
 import { createSession } from "@/engine/session";
 import { baselineNetWpm, computeStars } from "@/engine/stars";
 import type { SessionSummary } from "@/engine/stats";
-import type { EngineEvent, KeyInput, SessionView, Target, TargetView } from "@/engine/types";
+import type {
+  EngineEvent,
+  KeyInput,
+  SessionConfig,
+  SessionView,
+  Target,
+  TargetView,
+} from "@/engine/types";
 import { t } from "@/i18n";
 import type { MessageKey } from "@/i18n";
 import type { Atlas } from "@/render/atlas/build";
 import { breakShake } from "@/render/fx/tuning";
 import type { CameraRig, SceneHandle, Vec3 } from "@/render/types";
-import type { BiomeId, BlockId, Material, Ms } from "@/types/core";
+import type { BiomeId, BlockId, GameModeId, Material, Ms } from "@/types/core";
 import { HOTBAR_SLICE, reportWrongKey } from "@/ui/hud/bridge";
 import type { HotbarItem, HotbarSlice } from "@/ui/hud/bridge";
-import type { ModeContext, ModeInstance } from "../types";
+import type { ModeContext, ModeInstance, ModeResult } from "../types";
 import {
   NO_SLOT,
   BANNER_SHOW_MS,
@@ -106,6 +113,26 @@ export interface MineInstance extends ModeInstance {
   session(): SessionView | null;
 }
 
+/**
+ * Hooks for a mode built on Mine (M3-05: the placement test). Without them Mine plays the lesson
+ * as always. With them the caller picks the blocks, adds more as they break, and builds the
+ * result; the stage, the loot, the wrong-key cues and the habit-space rule stay Mine's.
+ */
+export interface MineOptions {
+  /** The summary's mode id. Default `mine`. */
+  mode: GameModeId;
+  /** The first blocks, how the session ends and its time limit (`null`: no countdown). */
+  plan: { targets: Target[]; end: SessionConfig["end"]; limitMs: Ms | null };
+  /** After each block breaks: the blocks to add, or `"end"` to finish the session now. */
+  onBlock(done: { errors: number; t: Ms }): Target[] | "end";
+  /** HUD progress, 0–1, from the blocks broken and the time left (`null` without a limit). */
+  progress(done: number, leftMs: Ms | null): number;
+  /** Show the countdown (non-Sprout timed lessons do by default). */
+  timer: boolean;
+  /** Builds the result instead of Mine's stars. */
+  result(summary: SessionSummary, loot: Record<BlockId, number>): ModeResult;
+}
+
 type AtlasScene = SceneHandle & { atlas(): Atlas | null };
 const hasAtlas = (s: SceneHandle): s is AtlasScene => "atlas" in s && typeof s.atlas === "function";
 
@@ -161,7 +188,7 @@ function plan(ctx: ModeContext): { targets: Target[]; lesson: Lesson | null; lim
   return { targets: blockTargets(targets), lesson, limitMs: size.timeLimitMs };
 }
 
-export function create(ctx: ModeContext): MineInstance {
+export function create(ctx: ModeContext, opts?: MineOptions): MineInstance {
   const { band, settings, scene, hud, audio, bus } = ctx;
   const biome = biomeOf(ctx.lesson);
   const table = LOOT_TABLES[biome] ?? meadowLoot;
@@ -169,15 +196,16 @@ export function create(ctx: ModeContext): MineInstance {
   const frozen = ctx.params["frozen"] === true;
   const reduced = (): boolean => reducedMotionOf(settings.reducedMotion);
 
-  const { targets, limitMs } = plan(ctx);
+  const { targets, limitMs } = opts?.plan ?? plan(ctx);
   const lesson = ctx.lesson;
   const session = createSession(
     {
       policy: lesson ? policyFor(lesson, band) : "stay",
       targeting: "sequential",
       caseSensitive: lesson ? caseSensitiveFor(lesson, band) : false,
-      end: limitMs === null ? { kind: "targets" } : { kind: "time", ms: limitMs },
-      mode: "mine",
+      end:
+        opts?.plan.end ?? (limitMs === null ? { kind: "targets" } : { kind: "time", ms: limitMs }),
+      mode: opts?.mode ?? "mine",
       seed: ctx.rng.seed,
       ...(lesson && { lessonId: lesson.id }),
     },
@@ -226,7 +254,11 @@ export function create(ctx: ModeContext): MineInstance {
   let typedOnce = false;
   let limitLeft: Ms = limitMs ?? 0;
   let timerShown = -1;
-  const showTimer = limitMs !== null && band !== "sprout" && !settings.calmMode;
+  const showTimer =
+    limitMs !== null && !settings.calmMode && (opts ? opts.timer : band !== "sprout");
+  /** A hook asked to end the session at this time (see `MineOptions.onBlock`). */
+  let endAt: Ms | null = null;
+  let progressShown = -1;
   const from = { x: 0, y: 0 };
 
   // --- HUD ---
@@ -249,12 +281,17 @@ export function create(ctx: ModeContext): MineInstance {
     hud.set({ custom: { ...hud.get().custom, mine, [HOTBAR_SLICE]: hotbar } });
   };
 
+  const progressNow = (a: TargetView | null): number =>
+    opts
+      ? opts.progress(done, limitMs === null ? null : limitLeft)
+      : progressOf(done, a, totalTargets);
+
   const syncHud = (v: SessionView): void => {
     const a = v.active;
     hud.set({
       word: a ? { text: a.text, marks: a.marks, typed: a.typed } : null,
       combo: comboOf(v.streak),
-      progress01: summary ? 1 : progressOf(done, a, totalTargets),
+      progress01: summary ? 1 : progressNow(a),
       nextKey: nextKeyOf(a),
     });
   };
@@ -360,6 +397,10 @@ export function create(ctx: ModeContext): MineInstance {
     flights = queued.queue;
     for (const f of queued.landed) land(f);
     current = null;
+
+    const more = opts?.onBlock({ errors: e.errors, t: e.t });
+    if (more === "end") endAt = e.t;
+    else if (more !== undefined && more.length > 0) session.addTargets(more);
   };
 
   // --- engine events ---
@@ -421,6 +462,12 @@ export function create(ctx: ModeContext): MineInstance {
           break;
       }
     }
+    if (endAt !== null && summary === null) {
+      const endT = endAt;
+      endAt = null;
+      handle(session.end(endT));
+      return;
+    }
     const v = session.view();
     const a = v.active;
     if (a && !a.complete && phase === "playing") {
@@ -437,6 +484,10 @@ export function create(ctx: ModeContext): MineInstance {
     const flushed = flushFlights(flights);
     flights = flushed.queue;
     for (const f of flushed.landed) land(f);
+    if (opts) {
+      ctx.finish(opts.result(summary, { ...loot }));
+      return;
+    }
     const stars = computeStars({
       completed: true,
       accuracy: summary.accuracy,
@@ -590,6 +641,14 @@ export function create(ctx: ModeContext): MineInstance {
           if (s !== timerShown) {
             timerShown = s;
             hud.set({ timer: { remainingMs: s * 1000 } });
+          }
+        }
+        if (opts && summary === null) {
+          // A hook's progress may follow the clock, so it moves between keys too.
+          const p = Math.round(progressNow(null) * 100);
+          if (p !== progressShown) {
+            progressShown = p;
+            hud.set({ progress01: p / 100 });
           }
         }
         if (limitLeft <= 0) handle(session.end(ctx.clock.now()));
