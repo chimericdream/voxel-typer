@@ -1,0 +1,411 @@
+/** @jsxImportSource preact */
+/**
+ * HUD (task M2-14): the signals bridge, the four mark kinds, render counts at 60 Hz, the timer,
+ * the Caps Lock hint and banner, the keyboard's wrong-key slice, and the stylesheet's colors.
+ */
+import { readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { effect } from "@preact/signals";
+import { options, render } from "preact";
+import type { ComponentChildren, VNode } from "preact";
+import { act } from "preact/test-utils";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { EN_US } from "../../../src/content/layouts";
+import { t } from "../../../src/i18n";
+import { defaultSettings } from "../../../src/save/settings";
+import {
+  HUD_FIELDS,
+  WRONG_KEY_SLICE,
+  createHudStore,
+  emptyHudState,
+  reportWrongKey,
+  wrongKeyOf,
+} from "../../../src/ui/hud/bridge";
+import type { HudState } from "../../../src/ui/hud/bridge";
+import {
+  Hud,
+  HudCombo,
+  HudKeyboard,
+  HudMessage,
+  HudProgress,
+  HudTimer,
+  HudWord,
+  formatTime,
+  timerHidden,
+} from "../../../src/ui/hud/Hud";
+import { SPACE_GLYPH, WordDisplay, sizeOf, wordCells } from "../../../src/ui/hud/WordDisplay";
+import { TEXT_PAIRS } from "../../../src/ui/theme/themes";
+import { createHudStore as appCreateHudStore } from "../../../src/app/hud";
+
+const REPO = resolve(import.meta.dirname, "../../..");
+
+let host: HTMLElement;
+
+beforeEach(() => {
+  host = document.createElement("div");
+  document.body.append(host);
+});
+
+afterEach(() => {
+  void act(() => render(null, host));
+  host.remove();
+});
+
+function mount(node: ComponentChildren): void {
+  void act(() => {
+    render(node, host);
+  });
+}
+
+describe("bridge", () => {
+  it("lists every field once", () => {
+    expect([...HUD_FIELDS].toSorted()).toEqual(Object.keys(emptyHudState()).toSorted());
+  });
+
+  it("set merges a patch; get returns the whole state", () => {
+    const hud = createHudStore();
+    hud.set({ combo: 3, nextKey: "f" });
+    hud.set({ progress01: 0.5 });
+    expect(hud.get()).toEqual({ ...emptyHudState(), combo: 3, nextKey: "f", progress01: 0.5 });
+  });
+
+  it("an equal patch writes nothing, even with fresh objects", () => {
+    const hud = createHudStore();
+    const state: Partial<HudState> = {
+      word: { text: "cat", marks: ["ok", "pending", "pending"], typed: 1 },
+      banner: { key: "hud.progress", params: { n: 1 }, tone: "info" },
+      timer: { remainingMs: 1000 },
+      custom: { a: 1 },
+      combo: 2,
+    };
+    hud.set(state);
+    const writes: string[] = [];
+    const stops = HUD_FIELDS.map((k) =>
+      effect(() => {
+        void hud.fields[k].value;
+        writes.push(k);
+      }),
+    );
+    writes.length = 0;
+    hud.set(structuredClone(state));
+    expect(writes).toEqual([]);
+    hud.set({ word: { text: "cat", marks: ["ok", "ok", "pending"], typed: 2 } });
+    expect(writes).toEqual(["word"]);
+    for (const stop of stops) stop();
+  });
+
+  it("reset empties everything but Caps Lock", () => {
+    const hud = createHudStore();
+    hud.set({ capsLock: true, combo: 9, nextKey: "j" });
+    hud.reset();
+    expect(hud.get()).toEqual({ ...emptyHudState(), capsLock: true });
+  });
+
+  it("the app's store is this bridge", () => {
+    expect(appCreateHudStore).toBe(createHudStore);
+  });
+
+  it("reportWrongKey bumps seq and keeps other custom slices", () => {
+    const hud = createHudStore();
+    hud.set({ custom: { other: 1 } });
+    reportWrongKey(hud, "k");
+    reportWrongKey(hud, "k");
+    expect(hud.get().custom).toEqual({ other: 1, [WRONG_KEY_SLICE]: { got: "k", seq: 2 } });
+    expect(wrongKeyOf(hud.get().custom)).toEqual({ got: "k", seq: 2 });
+    expect(wrongKeyOf({ wrongKey: { got: 1 } })).toBeNull();
+    expect(wrongKeyOf({})).toBeNull();
+  });
+});
+
+describe("word display: marks", () => {
+  it("renders all four mark kinds, the cursor and the trailing space", () => {
+    mount(
+      <WordDisplay
+        word={{ text: "dogs", marks: ["ok", "fixed", "wrong", "pending", "pending"], typed: 2 }}
+      />,
+    );
+    const word = host.querySelector('[role="img"]');
+    expect(word?.getAttribute("aria-label")).toBe(t("hud.wordSpace", { word: "dogs" }));
+    const cells = [...host.querySelectorAll<HTMLElement>("[data-mark]")];
+    expect(cells.map((c) => c.textContent)).toEqual(["d", "o", "g", "s", SPACE_GLYPH]);
+    expect(cells.map((c) => c.dataset["mark"])).toEqual([
+      "ok",
+      "fixed",
+      "wrong",
+      "pending",
+      "pending",
+    ]);
+    expect(cells.map((c) => c.dataset["next"] ?? "")).toEqual(["", "", "1", "", ""]);
+    expect(cells[4]?.dataset["space"]).toBe("1");
+    expect(cells.every((c) => c.getAttribute("aria-hidden") === "true")).toBe(true);
+  });
+
+  it("names the word without a space when none is needed", () => {
+    mount(<WordDisplay word={{ text: "f", marks: ["pending"], typed: 0 }} />);
+    expect(host.querySelector('[role="img"]')?.getAttribute("aria-label")).toBe(
+      t("hud.word", { word: "f" }),
+    );
+    expect(host.querySelector('[role="img"]')?.getAttribute("data-size")).toBe("letter");
+  });
+
+  it("draws nothing without a word", () => {
+    mount(<WordDisplay word={null} />);
+    expect(host.innerHTML).toBe("");
+  });
+
+  it("wordCells and sizeOf", () => {
+    expect(wordCells({ text: "a b", marks: ["ok", "pending", "pending"], typed: 1 })).toEqual([
+      { char: "a", mark: "ok", next: false },
+      { char: " ", mark: "pending", next: true },
+      { char: "b", mark: "pending", next: false },
+    ]);
+    expect([sizeOf(1), sizeOf(4), sizeOf(10), sizeOf(11)]).toEqual([
+      "letter",
+      "word",
+      "word",
+      "long",
+    ]);
+  });
+});
+
+describe("stylesheet", () => {
+  const css = readFileSync(join(REPO, "src/ui/hud/Hud.module.css"), "utf8");
+  const rule = (selector: string): string => {
+    const at = css.indexOf(`${selector} {`);
+    expect(at, selector).toBeGreaterThanOrEqual(0);
+    return css.slice(at, css.indexOf("}", at));
+  };
+
+  it("wrong is a wavy underline plus a pattern, and never animates", () => {
+    const wrong = rule('.char[data-mark="wrong"]');
+    expect(wrong).toMatch(/text-decoration: underline wavy/);
+    expect(wrong).toMatch(/background-image: repeating-linear-gradient/);
+    expect(wrong).not.toMatch(/animation|transition/);
+  });
+
+  it("fixed is a dotted underline; ok is the muted ink", () => {
+    expect(rule('.char[data-mark="fixed"]')).toMatch(/underline dotted/);
+    expect(rule('.char[data-mark="ok"]')).toMatch(/var\(--c-text-muted\)/);
+  });
+
+  it("the cursor bob scales with --motion-ok and has a static bar", () => {
+    expect(rule(".char[data-next]")).toMatch(/animation: bob calc\([^)]*var\(--motion-ok\)\)/);
+    expect(rule(".char[data-next]::after")).toMatch(/height: max\(4px/);
+  });
+
+  it("target text uses --font-body (M2-08), never the pixel font", () => {
+    expect(rule(".word")).toMatch(/font-family: var\(--font-body\)/);
+  });
+
+  it("uses only checked text colors and no rem", () => {
+    const fgs = new Set(
+      TEXT_PAIRS.map(([fg]) => fg.replaceAll(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)),
+    );
+    const colors = [...css.matchAll(/(?:^|\s)color:\s*var\(--c-([a-z-]+)\)/g)].map((m) => m[1]);
+    expect(colors.length).toBeGreaterThan(0);
+    for (const c of colors) expect(fgs, c).toContain(c);
+    expect(css).not.toMatch(/\d+(?:\.\d+)?rem\b/);
+  });
+});
+
+describe("parts", () => {
+  it("formatTime rounds up", () => {
+    expect([
+      formatTime(42_000),
+      formatTime(41_001),
+      formatTime(61_000),
+      formatTime(0),
+      formatTime(-5),
+    ]).toEqual(["0:42", "0:42", "1:01", "0:00", "0:00"]);
+  });
+
+  it("the timer is hidden for Sprout and calm mode", () => {
+    expect(timerHidden("sprout", { calmMode: false })).toBe(true);
+    expect(timerHidden("miner", { calmMode: true })).toBe(true);
+    expect(timerHidden("miner", { calmMode: false })).toBe(false);
+    const hud = createHudStore();
+    hud.set({ timer: { remainingMs: 5000 } });
+    const props = { fields: hud.fields, layout: EN_US } as const;
+    mount(<Hud {...props} band="sprout" settings={defaultSettings("sprout")} />);
+    expect(host.textContent).not.toContain("0:05");
+    mount(
+      <Hud {...props} band="miner" settings={{ ...defaultSettings("miner"), calmMode: true }} />,
+    );
+    expect(host.textContent).not.toContain("0:05");
+    mount(<Hud {...props} band="miner" settings={defaultSettings("miner")} />);
+    expect(host.textContent).toContain(`${t("hud.timeLeft")} ⏱0:05`);
+  });
+
+  it("the Caps Lock hint wins over the banner", () => {
+    const hud = createHudStore();
+    hud.set({ banner: { key: "hud.progress", tone: "cheer" } });
+    mount(<HudMessage fields={hud.fields} />);
+    expect(host.querySelector("output")?.textContent).toContain(t("hud.progress"));
+    void act(() => hud.set({ capsLock: true }));
+    expect(host.querySelectorAll("output")).toHaveLength(1);
+    expect(host.querySelector("output")?.textContent).toContain(
+      "Caps Lock is on! Tap it to turn it off.",
+    );
+    void act(() => hud.set({ capsLock: false, banner: null }));
+    expect(host.querySelector("output")).toBeNull();
+  });
+
+  it("combo lights min(9, combo) hotbar slots", () => {
+    const hud = createHudStore();
+    hud.set({ combo: 12 });
+    mount(<HudCombo fields={hud.fields} />);
+    expect(host.querySelector('[role="group"]')?.getAttribute("data-lit")).toBe("9");
+    expect(host.querySelector('[role="group"]')?.getAttribute("aria-label")).toBe(
+      t("hud.combo", { count: 9 }),
+    );
+  });
+
+  it("the keyboard follows nextKey and wobbles the key of a reported wrong press", () => {
+    const hud = createHudStore();
+    hud.set({ nextKey: "f" });
+    mount(<HudKeyboard fields={hud.fields} layout={EN_US} hands={false} labels={false} />);
+    expect(host.querySelector('[data-next="key"]')?.getAttribute("data-code")).toBe("KeyF");
+    void act(() => reportWrongKey(hud, "k"));
+    expect(host.querySelector('[data-wobble="1"]')?.getAttribute("data-code")).toBe("KeyK");
+  });
+
+  it("no keyboard when showKeyboard is off; labels on for Sprout", () => {
+    const hud = createHudStore();
+    hud.set({ nextKey: "f" });
+    mount(
+      <Hud
+        fields={hud.fields}
+        layout={EN_US}
+        band="builder"
+        settings={defaultSettings("builder")}
+      />,
+    );
+    expect(host.querySelector("[data-layout]")).toBeNull();
+    mount(
+      <Hud fields={hud.fields} layout={EN_US} band="sprout" settings={defaultSettings("sprout")} />,
+    );
+    expect(host.querySelector("[data-labels]")).not.toBeNull();
+  });
+});
+
+/** A mounted miner HUD with a word, a next key and a timer. */
+function setupHud() {
+  const hud = createHudStore();
+  hud.set({
+    word: {
+      text: "salad",
+      marks: ["pending", "pending", "pending", "pending", "pending"],
+      typed: 0,
+    },
+    nextKey: "s",
+    timer: { remainingMs: 30_000 },
+  });
+  mount(
+    <Hud fields={hud.fields} layout={EN_US} band="miner" settings={defaultSettings("miner")} />,
+  );
+  return hud;
+}
+
+describe("render counts at 60 Hz", () => {
+  type RenderHook = (vnode: VNode) => void;
+  let counts: Map<unknown, number>;
+  let raw: unknown;
+
+  beforeEach(() => {
+    counts = new Map();
+    // Preact's render hook (`options._render`, mangled to `__r`) runs before every component render.
+    raw = Reflect.get(options, "__r");
+    const hook = raw;
+    const prev: RenderHook | undefined =
+      typeof hook === "function" ? (vnode) => Reflect.apply(hook, options, [vnode]) : undefined;
+    Reflect.set(options, "__r", (vnode: VNode) => {
+      counts.set(vnode.type, (counts.get(vnode.type) ?? 0) + 1);
+      prev?.(vnode);
+    });
+  });
+
+  afterEach(() => {
+    Reflect.set(options, "__r", raw);
+  });
+
+  const PARTS = [HudWord, HudCombo, HudProgress, HudTimer, HudMessage, HudKeyboard, Hud] as const;
+
+  function frames(hud: ReturnType<typeof createHudStore>, patch: (i: number) => Partial<HudState>) {
+    counts.clear();
+    for (let i = 0; i < 60; i++) void act(() => hud.set(patch(i)));
+    return Object.fromEntries(PARTS.map((c) => [c.name, counts.get(c) ?? 0]));
+  }
+
+  it("re-sending the same state every frame re-renders nothing", () => {
+    const hud = setupHud();
+    const same = hud.get();
+    const r = frames(hud, () => structuredClone(same));
+    expect(r).toEqual({
+      HudWord: 0,
+      HudCombo: 0,
+      HudProgress: 0,
+      HudTimer: 0,
+      HudMessage: 0,
+      HudKeyboard: 0,
+      Hud: 0,
+    });
+  });
+
+  it("progress every frame re-renders only the progress bar", () => {
+    const hud = setupHud();
+    const r = frames(hud, (i) => ({ progress01: (i + 1) / 60 }));
+    expect(r).toEqual({
+      HudWord: 0,
+      HudCombo: 0,
+      HudProgress: 60,
+      HudTimer: 0,
+      HudMessage: 0,
+      HudKeyboard: 0,
+      Hud: 0,
+    });
+  });
+
+  it("a timer sent every frame re-renders only the timer, once a second", () => {
+    const hud = setupHud();
+    // 60 frames of 16.67 ms from 30 s: the display changes once (0:30 → 0:29).
+    const r = frames(hud, (i) => ({ timer: { remainingMs: 30_000 - (i + 1) * (1000 / 60) } }));
+    expect(r).toEqual({
+      HudWord: 0,
+      HudCombo: 0,
+      HudProgress: 0,
+      HudTimer: 1,
+      HudMessage: 0,
+      HudKeyboard: 0,
+      Hud: 0,
+    });
+  });
+
+  it("typing a word re-renders the word and the keyboard, nothing else", () => {
+    const hud = setupHud();
+    const text = "salad";
+    const r = frames(hud, (i) => {
+      const typed = Math.min(text.length, Math.floor(i / 12));
+      return {
+        word: { text, marks: Array.from(text, (_, j) => (j < typed ? "ok" : "pending")), typed },
+        nextKey: text[typed] ?? null,
+      };
+    });
+    expect(r["HudWord"]).toBe(4);
+    expect(r["HudKeyboard"]).toBe(4);
+    expect({ ...r, HudWord: 0, HudKeyboard: 0 }).toEqual({
+      HudWord: 0,
+      HudCombo: 0,
+      HudProgress: 0,
+      HudTimer: 0,
+      HudMessage: 0,
+      HudKeyboard: 0,
+      Hud: 0,
+    });
+  });
+
+  it("another custom slice doesn't re-render the keyboard", () => {
+    const hud = setupHud();
+    const r = frames(hud, (i) => ({ custom: { ...hud.get().custom, mine: i } }));
+    expect(r["HudKeyboard"]).toBe(0);
+  });
+});
