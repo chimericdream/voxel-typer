@@ -9,8 +9,12 @@ import { createHudStore } from "../../../src/app/hud";
 import {
   applyPlacement,
   isTestedOut,
+  placementEstimateOf,
+  placementRungsOf,
   placementTierOf,
   playableStart,
+  settleAtMeadow,
+  shouldOfferPlacement,
 } from "../../../src/app/progress";
 import { createShell } from "../../../src/app/shell";
 import { lessons as shippedLessons } from "../../../src/content/lessons";
@@ -19,6 +23,7 @@ import { PLACEMENT_GATES } from "../../../src/engine/placement";
 import {
   PLACEMENT_LESSON,
   PLACEMENT_LESSON_ID,
+  PLACEMENT_RUNGS_EXTRA,
   PLACEMENT_TIER_EXTRA,
 } from "../../../src/modes/placement/lesson";
 import { isProfile } from "../../../src/save/schema";
@@ -43,6 +48,9 @@ const placed = (netWpm: number, tier: number, accuracy = 0.97) =>
     extra: { [PLACEMENT_TIER_EXTRA]: tier },
     summary: summary({ mode: "placement", activeMs: 90_000, netWpm, accuracy }),
   });
+
+/** A result's `extra` holding `v` as its rung scores. */
+const extra = (v: unknown) => ({ extra: { [PLACEMENT_RUNGS_EXTRA]: v } });
 
 describe("applyPlacement", () => {
   const p = fixture("fresh-builder");
@@ -82,6 +90,24 @@ describe("applyPlacement", () => {
     expect(next.inventory["dirt"]).toBe((p.inventory["dirt"] ?? 0) + 3);
     expect(next.history.at(-1)).toMatchObject({ mode: "placement", at });
     expect(next.keyStats["f"]?.attempts).toBe(10);
+  });
+
+  it("keeps key stats from real lessons over the test's estimate (N5)", () => {
+    const real = {
+      attempts: 300,
+      errors: 3,
+      recentErrRate: 0.01,
+      latencyMedian: 180,
+      recentLatencies: [180],
+      lastSeenSession: 4,
+      srs: { intervalSessions: 4, dueSession: 8 },
+    };
+    const withStats = { ...p, keyStats: { f: real } };
+    const next = applyPlacement(withStats, curriculum, placed(30, 5), at);
+    // `f` was in the test too (10 attempts, 1 slip), but the lessons' 300 attempts win.
+    expect(next.keyStats["f"]).toEqual(real);
+    const baseline = placementEstimateOf(withStats, placed(30, 5)).keyBaseline;
+    expect(baseline["f"]?.attempts).toBe(10);
   });
 
   it("keeps lessons already played and never re-locks", () => {
@@ -127,6 +153,70 @@ describe("applyPlacement", () => {
     expect(placementTierOf({ extra: { [PLACEMENT_TIER_EXTRA]: -1 } })).toBe(0);
     expect(placementTierOf({})).toBe(0);
     expect(placementTierOf({ extra: { [PLACEMENT_TIER_EXTRA]: 2 } })).toBe(2);
+  });
+
+  it("reads the rung scores, leaving out anything malformed (N2)", () => {
+    const good = { tier: 0, ms: 9000, keystrokes: 70, correct: 66 };
+    expect(placementRungsOf(extra([good, { ...good, tier: 1.5 }, { tier: 1 }, null, 3]))).toEqual([
+      good,
+    ]);
+    expect(placementRungsOf(extra({ 0: good }))).toEqual([]);
+    expect(placementRungsOf({})).toEqual([]);
+  });
+
+  it("judges each gate on its rung's score, not the whole test (N2)", () => {
+    // Slow digits made the whole test 20 WPM; up to the bottom row the child typed 30 WPM.
+    const r = placed(20, 3);
+    const rungs = [0, 1, 2].map((tier) => ({
+      tier,
+      ms: 12_000 * (tier + 1),
+      keystrokes: 31 * (tier + 1),
+      correct: 30 * (tier + 1),
+    }));
+    const scored = { ...r, extra: { ...r.extra, [PLACEMENT_RUNGS_EXTRA]: rungs } };
+    expect(placementEstimateOf(p, r).startBiome).toBe("shore");
+    expect(placementEstimateOf(p, scored).startBiome).toBe("frosty");
+  });
+});
+
+describe("offering the test again (N4)", () => {
+  const fresh = fixture("fresh-builder");
+
+  it("offers it to a player who has neither settled a start nor played", () => {
+    expect(fresh.progress.placement).toBeUndefined();
+    expect(fresh.sessionCounter).toBe(0);
+    expect(shouldOfferPlacement(fresh)).toBe(true);
+    // After a lesson, never: the child has started playing.
+    expect(shouldOfferPlacement({ ...fresh, sessionCounter: 1 })).toBe(false);
+    // After a finished test, never.
+    expect(shouldOfferPlacement(applyPlacement(fresh, curriculum, placed(6, 0), at))).toBe(false);
+  });
+
+  it("settles the start at the Meadow, so the offer comes once more at most", () => {
+    const settled = settleAtMeadow(fresh, at);
+    expect(settled.progress.placement).toEqual({ doneAt: at, startBiome: "meadow" });
+    expect(settled.progress.unlockedBiomes).toEqual(fresh.progress.unlockedBiomes);
+    expect(settled.progress.lessons).toEqual(fresh.progress.lessons);
+    expect(isProfile(settled)).toBe(true);
+    expect(shouldOfferPlacement(settled)).toBe(false);
+    // An earlier start is kept.
+    const placedAt = applyPlacement(
+      fresh,
+      curriculum,
+      placed(PLACEMENT_GATES.shore?.netWpm ?? 0, 2),
+      at,
+    );
+    expect(settleAtMeadow(placedAt, at + 1).progress.placement).toEqual(
+      placedAt.progress.placement,
+    );
+    // A test finished after the offer replaces the Meadow start.
+    const later = applyPlacement(
+      settled,
+      curriculum,
+      placed(PLACEMENT_GATES.shore?.netWpm ?? 0, 2),
+      at + 5,
+    );
+    expect(later.progress.placement).toEqual({ doneAt: at + 5, startBiome: "shore" });
   });
 });
 

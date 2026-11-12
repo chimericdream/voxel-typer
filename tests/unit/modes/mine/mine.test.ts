@@ -58,7 +58,7 @@ interface Rig {
 function rig(
   lessonId: string,
   profile: Profile,
-  over: { params?: Record<string, unknown>; seed?: number } = {},
+  over: { params?: Record<string, unknown>; seed?: number; lesson?: Lesson } = {},
 ): Rig {
   const scene = fakeScene();
   const hud = createHudStore();
@@ -89,7 +89,7 @@ function rig(
   bus.on("engine", (e) => events.push(e));
   bus.on("loot", (e) => lootEvents.push(e));
   const instance = create({
-    lesson: lessonById(lessonId),
+    lesson: over.lesson ?? lessonById(lessonId),
     params: over.params ?? {},
     profile,
     settings: profile.settings,
@@ -645,5 +645,34 @@ describe("mine mode in the play host", () => {
     expect(h.play.status()).toBe("running");
     h.typeNext();
     expect(h.play.session()?.targets[0]?.complete).toBe(true);
+  });
+});
+
+const noCalm = (p: Profile): Profile => ({ ...p, settings: { ...p.settings, calmMode: false } });
+
+describe("Mine's countdown, without hooks (M3-05 review N7)", () => {
+  // No shipped Mine lesson is timed yet, so this one is meadow-01 played for 60 s.
+  const timed: Lesson = { ...lessonById("meadow-01"), length: { seconds: 60 } };
+
+  it("never shows a countdown to a Sprout, even with calm mode off", async () => {
+    const r = await started("meadow-01", noCalm(sprout), { lesson: timed });
+    r.typeNext();
+    r.run(1000);
+    expect(r.hud.get().timer).toBeNull();
+  });
+
+  it("shows one to an older child in a timed lesson, but not in calm mode", async () => {
+    const r = await started("meadow-01", noCalm(builder), { lesson: timed });
+    r.typeNext();
+    r.run(1000);
+    expect(r.hud.get().timer).not.toBeNull();
+    const calm = await started(
+      "meadow-01",
+      { ...builder, settings: { ...builder.settings, calmMode: true } },
+      { lesson: timed },
+    );
+    calm.typeNext();
+    calm.run(1000);
+    expect(calm.hud.get().timer).toBeNull();
   });
 });

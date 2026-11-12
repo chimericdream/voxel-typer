@@ -32,3 +32,10 @@ export const PLACEMENT_TIER_EXTRA = "placementTier";
 
 export const isPlacementLesson = (lesson: Pick<Lesson, "mode">): boolean =>
   lesson.mode === "placement";
+
+/**
+ * What a placement result carries in `extra` for M3-FIX-3 N2: a `RungScore[]`
+ * (`src/engine/placement.ts`), one for each rung the test left, so each biome's gate is judged on
+ * the blocks typed at or below its own rung.
+ */
+export const PLACEMENT_RUNGS_EXTRA = "placementRungs";
