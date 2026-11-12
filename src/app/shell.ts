@@ -155,6 +155,8 @@ export function createShell(deps: ShellDeps): Shell {
 
   const setProfile = (p: Profile | null): void => {
     const before = profile.value;
+    // Badge toasts belong to the player who earned them (M3-10 re-review N3).
+    if (before?.id !== p?.id) badgeToasts.value = [];
     profile.value = p;
     if (p === null) applySettings(deviceSettings());
     else if (before?.settings !== p.settings) applySettings(p.settings);
@@ -266,7 +268,9 @@ export function createShell(deps: ShellDeps): Shell {
   const back = (): void => {
     const prev = history.pop();
     if (route.value.id === "play" && play.status() !== "finished") play.quit();
-    route.value = prev ?? { id: "splash" };
+    // A fresh object, so screens that key on the route (the badge toast's settle wait) see a new
+    // arrival even when going back to a route object seen before (M3-10 re-review N1).
+    route.value = prev === undefined ? { id: "splash" } : { ...prev };
     enter(route.value);
   };
 
