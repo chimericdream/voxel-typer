@@ -9,6 +9,7 @@
 import type { ContentKind } from "@/engine/generator";
 import type { WrongKeyPolicy } from "@/engine/types";
 import type { MessageKey } from "@/i18n";
+import { BIOME_ORDER } from "@/types/core";
 import type { AgeBand, BiomeId, GameModeId, LessonId } from "@/types/core";
 
 /** One lesson of the curriculum. Lesson files export `lessons: Lesson[]`, one file per biome. */
@@ -48,19 +49,35 @@ export interface Lesson {
 
 /**
  * The keys a learner may be asked to type in a lesson: the cumulative `newKeys` of all earlier
- * lessons in `BIOME_ORDER`, plus this lesson's own `newKeys`. `sparkstone` keys are left out unless the lesson is in `sparkstone` or
- * later and `opts.sparkstoneUnlocked`. Pure: callers pass the lesson list (the app passes the glob
- * aggregator's list, tools pass `lessonsFromModules` from `load.ts`).
+ * lessons in `BIOME_ORDER`, plus this lesson's own `newKeys`, each key once, in curriculum order.
+ * Sparkstone is a side branch (README §8.5): its keys count for Sparkstone lessons, and for lessons
+ * after it in `BIOME_ORDER` only when `opts.sparkstoneUnlocked`. Pure: callers pass the lesson
+ * list (the app passes the glob aggregator's list, tools pass `lessonsFromModules` from `load.ts`).
  *
- * Stub; the curriculum task implements it.
+ * Throws when `lessonId` is not in `lessons`.
  */
 export function allowedKeysFor(
   lessons: readonly Lesson[],
   lessonId: LessonId,
   opts?: { sparkstoneUnlocked?: boolean },
 ): string[] {
-  void lessons;
-  void lessonId;
-  void opts;
-  throw new Error("not implemented: allowedKeysFor");
+  const lesson = lessons.find((l) => l.id === lessonId);
+  if (lesson === undefined) throw new Error(`allowedKeysFor: no lesson "${lessonId}"`);
+  const rank = (l: Lesson): number => BIOME_ORDER.indexOf(l.biome) * 1000 + l.order;
+  const upTo = rank(lesson);
+  const sparkstone = BIOME_ORDER.indexOf("sparkstone");
+  const at = BIOME_ORDER.indexOf(lesson.biome);
+  const withSparkstone =
+    at === sparkstone || (at > sparkstone && opts?.sparkstoneUnlocked === true);
+  const keys: string[] = [];
+  const add = (l: Lesson): void => {
+    for (const k of l.newKeys) if (!keys.includes(k)) keys.push(k);
+  };
+  for (const l of lessons.toSorted((a, b) => rank(a) - rank(b))) {
+    if (l.id === lesson.id || rank(l) > upTo) continue;
+    if (l.biome === "sparkstone" && !withSparkstone) continue;
+    add(l);
+  }
+  add(lesson);
+  return keys;
 }
