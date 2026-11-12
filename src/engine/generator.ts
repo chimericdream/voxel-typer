@@ -5,11 +5,13 @@
  * Rules, in priority order (a lower rule gives way when it can't hold together with a higher one):
  *
  * 1. Never emit a char outside `allowed ∪ {' '}`. Nothing relaxes this.
- * 2. Never emit a blocked letter run (see {@link BLOCKED_RUNS}) from random letters.
+ * 2. Never emit a blocked letter run (see {@link BLOCKED_RUNS}) from random letters, and never emit
+ *    a syllable that might sound unsafe when read aloud (`soundsUnsafe`, M3-FIX-6).
  * 3. `letters`: no char more than 3 times in a row (impossible when only one key is allowed).
  * 4. Comfort cap (contracts §4): at least 50% of the generated non-space chars come from
  *    "comfortable" keys (see {@link comfortableKeys}).
  */
+import { soundsUnsafe } from "@/content/wordlists/spoken-blocklist";
 import type { AgeBand } from "@/types/core";
 import type { Rng } from "./rng";
 import type { Target } from "./types";
@@ -351,12 +353,13 @@ function generateSyllables(
   return fill(budget, true, () => {
     for (let i = 0; i < GENERATOR_CONSTANTS.syllableTries; i++) {
       const s = one();
-      if (!containsBlockedRun(s)) {
+      // A rejected draft only costs a redraw: a group that passes uses the same draws as before.
+      if (!containsBlockedRun(s) && !soundsUnsafe(s)) {
         count(ctx, s);
         return s;
       }
     }
-    // A single char is never a blocked run.
+    // A single char is never a blocked run and never sounds unsafe.
     const c = pickChar(ctx, ctx.keys, rng);
     count(ctx, c);
     return c;

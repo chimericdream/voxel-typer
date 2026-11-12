@@ -14,7 +14,7 @@ a middle dot (`·`) when they have spaces inside them (phrases and sentences).
 | ----------- | ------------------- | -------- | --------------------------------- | ---- | -------- | ------------ | -------------------------------------------- |
 | `meadow-01` | Find F and J        | `f j`    | letters                           | mine | 50 chars | accuracy 85% | `j f f f j j j f j j f f f j j f f f j f …`  |
 | `meadow-02` | Hello, D and K      | `d k`    | letters                           | mine | 50 chars | accuracy 85% | `j j f j f d d d j k f f j d k d f f j j …`  |
-| `meadow-03` | Hello, S and L      | `s l`    | syllables                         | mine | 55 chars | accuracy 85% | `dl jd sfk ss lds jkf ll sk kds sk dl kjf …` |
+| `meadow-03` | Hello, S and L      | `s l`    | syllables                         | mine | 55 chars | accuracy 85% | `dl jd ss ksk lk sk kds sk dl kjf sfs sj …`  |
 | `meadow-04` | Hello, A and ;      | `a ;`    | letters                           | mine | 60 chars | accuracy 85% | `s d j k f a l a l a f f d s a k f f d d …`  |
 | `meadow-05` | Home Row Words      |          | words                             | mine | 60 chars | accuracy 85% | `as fads fall add adds as ads fads fad …`    |
 | `meadow-06` | Words Together      |          | phrases                           | mine | 55 chars | accuracy 85% | `add a salad · all dads ask · dad adds …`    |
