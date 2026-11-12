@@ -42,6 +42,8 @@ const RECIPES: readonly TextureRecipe[] = [
   { kind: "custom", paint: "ripple:water" },
   { kind: "custom", paint: "leaves:leaf" },
   { kind: "custom", paint: "pebbles:gravel" },
+  { kind: "custom", paint: "flowers-top:wool-red" },
+  { kind: "custom", paint: "flowers-side:wool-yellow" },
 ];
 
 function colorsOf(px: Uint8ClampedArray): Set<string> {
@@ -225,6 +227,18 @@ describe("errors", () => {
     expect(parseHex("#fa0")).toEqual([255, 170, 0]);
     expect(parseHex("#0a0B0c")).toEqual([10, 11, 12]);
     expect(() => parseHex("red")).toThrow();
+  });
+
+  it("flower beds show lawn, petals and a gold middle, not leaves (M2-FIX-2)", () => {
+    for (const paint of ["flowers-top:wool-red", "flowers-side:wool-red"]) {
+      const colors = colorsOf(paintTile({ kind: "custom", paint }, BASE_PALETTE, createRng(3)));
+      const has = (id: keyof typeof BASE_PALETTE) =>
+        BASE_PALETTE[id].some((c) => colors.has(c.toLowerCase()));
+      expect(has("grass"), paint).toBe(true);
+      expect(has("wool-red"), paint).toBe(true);
+      expect(colors.has(BASE_PALETTE["wool-yellow"][3] ?? ""), paint).toBe(true);
+      expect(has("leaf"), paint).toBe(false);
+    }
   });
 
   it("every custom painter is covered above", () => {

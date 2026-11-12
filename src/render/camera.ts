@@ -51,6 +51,11 @@ const angleDelta = (a: number, b: number): number => {
 
 const lerp = (a: number, b: number, k: number): number => a + (b - a) * k;
 
+/** Overview distance, as a share of the distance that fits the whole bounds. */
+const OVERVIEW_ZOOM = 0.74;
+/** Overview aim point, as a share of the bounds from their center. */
+const OVERVIEW_AIM = { x: 0.04, z: 0.1 } as const;
+
 /** The pose of a preset for a diorama `box` and a mine `target`. */
 export function presetPose(name: PresetName, box: THREE.Box3, target: Vec3): CameraPose {
   if (name === "mine") {
@@ -67,9 +72,15 @@ export function presetPose(name: PresetName, box: THREE.Box3, target: Vec3): Cam
   const fov = 35;
   // Fit the footprint's bounding circle, with the height counted at half weight.
   const radius = Math.hypot(size.x, size.z) / 2 + size.y * 0.25;
-  const distance = (radius / Math.tan(THREE.MathUtils.degToRad(fov / 2))) * 0.7;
+  const distance = (radius / Math.tan(THREE.MathUtils.degToRad(fov / 2))) * OVERVIEW_ZOOM;
+  // Aim a little toward the camera side of the slab: the near edge and its dirt and stone sides
+  // are what reach the bottom of the screen, while the far edge leaves sky (M2-03 review N2).
   return {
-    target: { x: center.x, y: center.y - size.y * 0.45, z: center.z },
+    target: {
+      x: center.x + size.x * OVERVIEW_AIM.x,
+      y: center.y - size.y * 0.45,
+      z: center.z + size.z * OVERVIEW_AIM.z,
+    },
     yaw: THREE.MathUtils.degToRad(35),
     pitch: THREE.MathUtils.degToRad(33),
     distance,

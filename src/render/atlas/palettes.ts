@@ -14,7 +14,8 @@ import type { Palette, PaletteRampId } from "./recipes";
 /** The default palette (Meadow, daytime). */
 export const BASE_PALETTE: Palette = {
   grass: ["#2f5a1f", "#3f7a2a", "#55962f", "#6fb13a", "#8fcb4f"],
-  leaf: ["#1f4a22", "#2c6230", "#3c7c3a", "#52984a", "#6db35c"],
+  // Warmer and a step lighter than at M1-14 (M2-03 review N3), so the grove sits with the lime grass.
+  leaf: ["#24491c", "#325f26", "#447a32", "#5a9540", "#74b050"],
   moss: ["#2e4a26", "#3f6233", "#557b41", "#6d9550", "#88ae64"],
   dirt: ["#4a2f1e", "#63402a", "#7c5336", "#966a46", "#ad8259"],
   mud: ["#2e241c", "#3e3126", "#504032", "#64513f", "#78644f"],
