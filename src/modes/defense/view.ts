@@ -35,6 +35,8 @@ const PULSE_MS: Ms = 320;
 /** A bonked mob hops back this far (in lane shares) and this high (world units). */
 const HOP_BACK = 0.05;
 const HOP_HEIGHT = 0.9;
+/** A new mob grows in over this long, with a little overshoot, so it pops up and doesn't blink in. */
+const GROW_MS: Ms = 260;
 
 export interface DefenseViewOptions {
   scene: THREE.Scene;
@@ -91,6 +93,8 @@ interface Shown {
   playing: "walk" | "idle" | "hit" | "defeat" | null;
   /** Bonk hop progress 0–1, or −1. */
   hop: number;
+  /** Arrival: 0 when it appears, 1 when it is full size. */
+  grow: number;
 }
 
 /** The top of a model above the ground, in model pixels: the highest part box at rest. */
@@ -241,7 +245,10 @@ export function createDefenseView(opts: DefenseViewOptions): DefenseView {
       p = mob.p - HOP_BACK * s.hop;
       y += HOP_HEIGHT * 4 * s.hop * (1 - s.hop);
     }
-    s.kind.handle.place(s.index, { x: xOf(mob.slot), y, z: zOf(p) }, 0, MOB_SCALE);
+    // Ease out with a small overshoot: 0 → 1.08 → 1.
+    const g = s.grow;
+    const size = g >= 1 ? 1 : 1 + 1.9 * (g - 1) ** 3 + 0.9 * (g - 1) ** 2;
+    s.kind.handle.place(s.index, { x: xOf(mob.slot), y, z: zOf(p) }, 0, MOB_SCALE * size);
     if (lockedId === mob.id) ring.position.set(xOf(mob.slot), layout.groundY + 0.04, zOf(p));
   };
 
@@ -269,7 +276,8 @@ export function createDefenseView(opts: DefenseViewOptions): DefenseView {
       const kind = kinds.get(mob.mobId);
       const index = kind?.free.pop();
       if (kind === undefined || index === undefined) return false;
-      const s: Shown = { kind, index, loop: "walk", playing: null, hop: -1 };
+      const grow = opts.reducedMotion() ? 1 : 0;
+      const s: Shown = { kind, index, loop: "walk", playing: null, hop: -1, grow };
       shown.set(mob.id, s);
       put(mob, s);
       kind.handle.setVisible(index, true);
@@ -325,7 +333,10 @@ export function createDefenseView(opts: DefenseViewOptions): DefenseView {
     },
     frame(dtMs) {
       if (disposed) return;
-      for (const s of shown.values()) if (s.hop >= 0) s.hop = Math.min(1, s.hop + dtMs / 420);
+      for (const s of shown.values()) {
+        if (s.hop >= 0) s.hop = Math.min(1, s.hop + dtMs / 420);
+        if (s.grow < 1) s.grow = Math.min(1, s.grow + dtMs / GROW_MS);
+      }
       for (const kind of kinds.values()) kind.handle.update(dtMs);
       if (pulseLeft > 0) {
         pulseLeft = Math.max(0, pulseLeft - dtMs);

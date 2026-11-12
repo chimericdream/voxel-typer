@@ -7,7 +7,7 @@
  * child types, nothing in the profile ever goes down.
  */
 import * as fc from "fast-check";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { createSilentAudio } from "../../../../src/app/audio";
 import type { Clock } from "../../../../src/app/clock";
 import { createEmitter } from "../../../../src/app/events";
@@ -22,7 +22,12 @@ import { foundBlocks } from "../../../../src/engine/achievements";
 import { createRng } from "../../../../src/engine/rng";
 import type { EngineEvent } from "../../../../src/engine/types";
 import { mode } from "../../../../src/modes/defense";
-import { WAVE_END_EVENT, WAVE_EVENT, create } from "../../../../src/modes/defense/defense";
+import {
+  WAVE_END_EVENT,
+  WAVE_EVENT,
+  create,
+  forgetNights,
+} from "../../../../src/modes/defense/defense";
 import type { DefenseInstance } from "../../../../src/modes/defense/defense";
 import {
   DAY_HOLD_MS,
@@ -192,6 +197,11 @@ const sprout = fixture("fresh-sprout");
 const miner = fixture("meadow-done-miner");
 const builder = fixture("veteran-builder");
 const sum = (xs: readonly number[]): number => xs.reduce((a, b) => a + b, 0);
+
+// Each test is a fresh sitting: no night remembered from the test before.
+beforeEach(() => {
+  forgetNights();
+});
 
 describe("the mode module", () => {
   it("registers as defense and loads lazily", async () => {

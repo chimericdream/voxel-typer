@@ -140,6 +140,11 @@ const LOOT_TABLES: Partial<Record<BiomeId, LootTable>> = { meadow: meadowLoot };
  */
 const lastDifficulty = new Map<string, number>();
 
+/** Forgets every remembered night (tests; a fresh page starts with none anyway). */
+export function forgetNights(): void {
+  lastDifficulty.clear();
+}
+
 /** What a night adds to `ModeResult.extra`. Results shows the first two (see `resultLines`). */
 export interface DefenseExtra {
   /** Visitors sent home. */
@@ -458,7 +463,9 @@ export function create(ctx: ModeContext): DefenseInstance {
     const feedback = waveFeedback(tally);
     // Once per wave, with the wave's own keys and mobs.
     director.observe(feedback);
-    lastDifficulty.set(profile.id, director.difficulty);
+    // Remembered only from a wave the child typed in: a night they walked away from says nothing
+    // about where the next one should start.
+    if (feedback.wordsDone > 0) lastDifficulty.set(profile.id, director.difficulty);
     bus.emit(WAVE_END_EVENT, { index: wave.index, ...feedback, difficulty: director.difficulty });
     wave = null;
     wavesDone++;
@@ -756,6 +763,9 @@ export function create(ctx: ModeContext): DefenseInstance {
   return {
     start() {
       setTime("day");
+      // Aim the camera before the world loads: the scene lights the lanterns nearest its target.
+      if (canTarget(scene.camera)) scene.camera.setTarget(layout.center);
+      scene.camera.preset("lane", { durationMs: 0 });
       // The same camp every night for one player: it is their place.
       const seed = hashString(`${profile.id}:${biome}:camp`);
       scene
