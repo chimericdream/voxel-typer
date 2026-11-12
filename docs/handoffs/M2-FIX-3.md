@@ -102,3 +102,14 @@ Status: done
 - None. The band field was approved (decision 80). The trailing-space fix uses the existing `Target.trailingSpace`.
 
 Closes #144
+
+## Review fix (orchestrator, B1 of review 5869357876)
+
+- **The bug:** with no trailing space, a space typed out of habit between blocks counted as a wrong key.
+  - Sprout and Miner: a streak break and lower accuracy.
+  - Builder: the space was charged to the next block's first letter, shifting every later key.
+- **The fix:** Mine now drops a space when no block is active or nothing of the active block is typed yet (`isStraySpace` in `src/modes/mine/logic.ts`). Spaces inside a phrase still count.
+- **Test:** for every band, a test types a space after each block of meadow-05 and expects 100 % accuracy with no `wrong` events. All three cases fail without the guard.
+- **Also from the review (non-blocking):**
+  - meadow-03 (syllables) also loses its between-block spaces.
+  - Mine lessons get about 20–33 % fewer keystrokes, because the length budget counted spaces.

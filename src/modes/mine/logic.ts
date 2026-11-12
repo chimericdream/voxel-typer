@@ -395,6 +395,17 @@ export function blockTargets(targets: readonly Target[]): Target[] {
   return targets.map((target) => ({ ...target, trailingSpace: false }));
 }
 
+/**
+ * Whether a key is a habit space between blocks: a space while no block is active, or before the
+ * first char of the active one. Mine drops it, so it is neither an error nor charged to the next
+ * block (decision 81). A space inside a phrase or sentence still counts.
+ */
+export function isStraySpace(key: string, active: TargetView | null): boolean {
+  if (key !== " ") return false;
+  if (active === null || active.complete) return true;
+  return active.typed === 0 && !active.text.startsWith(" ");
+}
+
 /** Length multiplier per band when the lesson has none (contracts §6). */
 export const DEFAULT_BAND_SCALE: Readonly<Record<AgeBand, number>> = {
   sprout: 0.6,

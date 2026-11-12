@@ -55,6 +55,7 @@ import {
   enqueueDrops,
   feedWrong,
   flushFlights,
+  isStraySpace,
   lengthPlan,
   nextKeyOf,
   stageFrame,
@@ -555,6 +556,8 @@ export function create(ctx: ModeContext): MineInstance {
     input(k: KeyInput) {
       // Nothing to type until the block is on the stage, and nothing after the last one.
       if (phase !== "playing" || paused) return;
+      // A habit space between blocks is not a slip (decision 81).
+      if (isStraySpace(k.key, session.view().active)) return;
       handle(session.feed(k));
     },
 

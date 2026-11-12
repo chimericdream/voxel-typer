@@ -407,6 +407,31 @@ describe("mine mode: a correct key", () => {
     },
   );
 
+  it.each([
+    ["sprout", sprout],
+    ["miner", miner],
+    ["builder", builder],
+  ] as const)(
+    "%s: a habit space after each block is ignored, not a slip (decision 81)",
+    async (_name, who) => {
+      const r = await started("meadow-05", who, { seed: 5 });
+      const texts = (r.instance.session()?.targets ?? []).map((x) => x.text);
+      r.type(" ");
+      while (r.hud.get().nextKey !== null) {
+        const before = r.events.filter((e) => e.type === "targetComplete").length;
+        r.typeNext();
+        if (r.events.filter((e) => e.type === "targetComplete").length > before) r.type(" ");
+        r.run(100);
+      }
+      r.run(1500);
+      const summary = r.results[0]?.summary;
+      expect(summary?.accuracy).toBe(1);
+      expect(summary?.correct).toBe(Array.from(texts.join("")).length);
+      expect(r.events.some((e) => e.type === "wrong")).toBe(false);
+      expect(r.results[0]?.stars).toBeGreaterThanOrEqual(2);
+    },
+  );
+
   it("lights the combo hotbar by streak", async () => {
     const r = await started("meadow-01", sprout);
     for (let i = 0; i < 7; i++) r.typeNext();
