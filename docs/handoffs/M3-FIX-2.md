@@ -59,7 +59,24 @@ a slashed counter, `B` and `8` differ clearly, and so do `5` and `S`, `C` and `O
 The before images are the baselines on `main`. The after images are the baselines that CI made
 for this branch with the Update snapshots workflow.
 
-AFTER_TABLE_PLACEHOLDER
+| Screen                                                     | Before (Pixelify)                              | After (Atkinson)                             |
+| ---------------------------------------------------------- | ---------------------------------------------- | -------------------------------------------- |
+| Profiles ("Bill" → "Gill", "Back" → "Gack")                | ![before](M3-FIX-2/profiles-cards-before.png)  | ![after](M3-FIX-2/profiles-cards-after.png)  |
+| World map, new player ("Go here next!", "Crystal Caverns") | ![before](M3-FIX-2/map-new-player-before.png)  | ![after](M3-FIX-2/map-new-player-after.png)  |
+| World map, all islands open                                | ![before](M3-FIX-2/map-all-open-before.png)    | ![after](M3-FIX-2/map-all-open-after.png)    |
+| Results                                                    | ![before](M3-FIX-2/results-before.png)         | ![after](M3-FIX-2/results-after.png)         |
+| Splash (only the button changed; the logo is SVG)          | ![before](M3-FIX-2/splash-before.png)          | ![after](M3-FIX-2/splash-after.png)          |
+| UI kit, day                                                | ![before](M3-FIX-2/ui-kit-day-before.png)      | ![after](M3-FIX-2/ui-kit-day-after.png)      |
+| UI kit, night                                              | ![before](M3-FIX-2/ui-kit-night-before.png)    | ![after](M3-FIX-2/ui-kit-night-after.png)    |
+| UI kit, high contrast                                      | ![before](M3-FIX-2/ui-kit-contrast-before.png) | ![after](M3-FIX-2/ui-kit-contrast-after.png) |
+
+These are the 8 baselines the workflow rewrote (it rewrites only pngs that differ). The owner's
+playtest shots of the same problem are `docs/screenshots/screenshot-01`, `-02`, `-03`, `-08`,
+`-09` and `-11`.
+
+Unrelated to this card, but visible in both map images: the "Pick an island" hint sits on top of
+the "Change player" button at 1280×720. It was already there before this change, and the
+narrower font doesn't fix it.
 
 ## Acceptance
 
