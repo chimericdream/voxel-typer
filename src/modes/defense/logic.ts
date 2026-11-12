@@ -473,10 +473,10 @@ export interface LaneView {
 
 export const LANE_FOV = 38;
 /** World units kept clear above the far end of the lanes, for the mobs there and their plates. */
-export const FIELD_HEADROOM = 4.6;
+export const FIELD_HEADROOM = 3.9;
 /** World units shown in front of the shield line: the fence and its lanterns. */
-export const FIELD_FRONT = 2.2;
-const PITCH_FLAT = (20 * Math.PI) / 180;
+export const FIELD_FRONT = 1.5;
+const PITCH_FLAT = (12 * Math.PI) / 180;
 const PITCH_TALL = (36 * Math.PI) / 180;
 
 /**
@@ -539,7 +539,7 @@ export function fitLaneView(
   const room: Box = box ?? { left: 0, top: 0, width: size.width, height: size.height };
   const w = Math.max(40, room.width * 0.94);
   const h = Math.max(40, room.height * 0.92);
-  const shape = clamp((room.height / Math.max(1, room.width) - 0.2) / 0.3, 0, 1);
+  const shape = clamp((room.height / Math.max(1, room.width) - 0.14) / 0.3, 0, 1);
   const pitch = PITCH_FLAT + (PITCH_TALL - PITCH_FLAT) * shape;
   const corners = fieldCorners(field);
   const measure = (

@@ -427,12 +427,12 @@ describe("framing the field", () => {
   const canvas = { width: 1280, height: 720 };
   /** The open stage of the real HUD at 1280×720 (M2-14): under the top row, above the keys. */
   const STAGES: Record<AgeBand, Box> = {
-    // Keyboard and hands: 364 px.
-    sprout: { left: 16, top: 110, width: 1248, height: 230 },
-    // Keyboard only: 228 px.
-    miner: { left: 16, top: 110, width: 1248, height: 370 },
+    // Measured on CI's screenshots, less the banner's room. Keyboard and hands: 380 px.
+    sprout: { left: 16, top: 131, width: 1248, height: 207 },
+    // Keyboard only.
+    miner: { left: 16, top: 131, width: 1248, height: 314 },
     // No keyboard.
-    builder: { left: 16, top: 110, width: 1248, height: 590 },
+    builder: { left: 16, top: 131, width: 1248, height: 570 },
   };
 
   it("projects a point the way three.js does", () => {

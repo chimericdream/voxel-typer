@@ -142,6 +142,8 @@ test("a Miner's night plays from day to dawn inside the draw-call budget", async
     peakCalls = Math.max(peakCalls, now.calls);
     if (!dawnShot && (await app.getByText("The sun is up! The camp is safe!").isVisible())) {
       dawnShot = true;
+      // The sky takes two seconds to turn: take the picture once it has.
+      await page.waitForTimeout(2600);
       await shot(page, info, "miner-dawn");
     }
     const s = await night(page);
@@ -187,6 +189,8 @@ test("a Miner's night plays from day to dawn inside the draw-call budget", async
   expect(end.done).toBeGreaterThan(5);
   expect(end.lootTotal).toBeGreaterThanOrEqual(end.done);
   await expect(app.getByText(/sent home$/)).toBeVisible();
+  // The stars and the loot fill in one by one.
+  await page.waitForTimeout(2500);
   await shot(page, info, "miner-results");
   // The arena, the mobs (one InstancedMesh per part per type), the ring, the shield and the sky.
   expect(peakCalls).toBeGreaterThan(5);

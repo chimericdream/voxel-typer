@@ -255,7 +255,9 @@ export function generateArena(biome: BiomeId, seed: number, lanes: number): Voxe
         const pz = z + dz;
         if (px < 0 || pz < 0 || px >= sx || pz >= sz) return false;
         if (placed[idx(px, pz)] === 1) return false;
-        if (inField(px) && pz >= FAR_Z - 2) return false;
+        // Nothing in the field's width at all, the hill behind it included: a tree or a rock
+        // there stands where the visitors come over the hill.
+        if (inField(px)) return false;
       }
     return true;
   };
