@@ -1,0 +1,463 @@
+/*
+ * World map and lesson path (task M3-04). Everything here sits over the 3D scene, so text is
+ * always on a plate, a panel or a button face (checked color pairs, PLAN.md §5.1). Sizes scale
+ * with --text-scale. Motion is gated by --motion-ok: with reduced motion nothing pulses.
+ */
+.map {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Flat: no 3D scene (no WebGL, tests). The same buttons in a simple grid. */
+.map[data-mode="flat"] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-5);
+  height: auto;
+  min-height: 100%;
+  padding: var(--sp-5) var(--sp-4);
+  overflow: visible;
+}
+
+.top {
+  position: absolute;
+  top: var(--sp-3);
+  left: var(--sp-4);
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+  max-width: 72%;
+}
+
+.map[data-mode="flat"] .top {
+  position: static;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.title,
+.hint {
+  margin: 0;
+  padding: var(--sp-1) var(--sp-3);
+  background-color: var(--c-plate);
+  color: var(--c-plate-text);
+  box-shadow: 0 0 0 var(--bevel-unit) rgb(0 0 0 / 0.35);
+  overflow-wrap: anywhere;
+}
+
+.title {
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.hint {
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  line-height: 1.3;
+}
+
+.corner {
+  position: absolute;
+  top: var(--sp-3);
+  right: var(--sp-4);
+  z-index: 1;
+}
+
+.map[data-mode="flat"] .corner {
+  position: static;
+}
+
+/* ---- Islands ---- */
+
+.islands {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.islands[hidden] {
+  display: none;
+}
+
+/* Until the scene is ready (or known to be missing), the buttons take no place on screen. */
+.map[data-mode="loading"] .islands {
+  visibility: hidden;
+}
+
+.map[data-mode="3d"] .islands {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* A zero-size point under the island; the map moves it with a transform, the button hangs from it. */
+.map[data-mode="3d"] .spot {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+}
+
+/* Not shown until the first frame has told the map where the island is (still focusable). */
+.map[data-mode="3d"] .spot:not([data-placed]) {
+  opacity: 0;
+}
+
+.map[data-mode="3d"] .island {
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+.map[data-mode="flat"] .islands {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(11rem * var(--text-scale)), 1fr));
+  gap: var(--sp-5) var(--sp-4);
+  box-sizing: border-box;
+  width: min(100%, calc(48rem * var(--text-scale)));
+  justify-items: center;
+}
+
+.island {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+  box-sizing: border-box;
+  width: max-content;
+  max-width: calc(12rem * var(--text-scale));
+  margin: 0;
+  padding: 2px var(--sp-2) var(--sp-1);
+  border: var(--bevel-unit) solid transparent;
+  background-color: var(--c-plate);
+  background-clip: padding-box;
+  color: var(--c-plate-text);
+  box-shadow: 0 0 0 var(--bevel-unit) rgb(0 0 0 / 0.35);
+  text-align: center;
+  cursor: pointer;
+}
+
+.island:focus-visible,
+.node:focus-visible {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+  box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
+}
+
+/* Read by screen readers as the button's whole name; never drawn. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.islandName {
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.islandMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0 var(--sp-3);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.islandStars,
+.pathStars {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* Locked: hatched, so it reads as closed by pattern as well as by its words. */
+.island[data-locked] {
+  cursor: default;
+}
+
+.island[data-locked]::after,
+.node[data-state="locked"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgb(0 0 0 / 0.16) 0 var(--bevel-unit),
+    transparent var(--bevel-unit) calc(var(--bevel-unit) * 3)
+  );
+  pointer-events: none;
+}
+
+/* The "go here next" tag: its own shape and words, and a gentle hop when motion is on. */
+.nextTag {
+  padding: 0 var(--sp-2);
+  background-color: var(--c-primary);
+  color: var(--c-primary-text);
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1.3;
+  box-shadow: 0 0 0 var(--bevel-unit) var(--c-primary-outline);
+  animation: map-hop calc(1100ms * var(--motion-ok)) steps(4, jump-none) infinite alternate;
+}
+
+.island .nextTag {
+  margin-top: calc(var(--sp-3) * -1);
+}
+
+@keyframes map-hop {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(calc(var(--bevel-unit) * -2));
+  }
+}
+
+/* ---- Small stars ---- */
+
+.miniStars {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px 3px;
+  background-color: var(--c-track);
+}
+
+.miniStar {
+  width: calc(0.8rem * var(--text-scale));
+  height: calc(0.8rem * var(--text-scale));
+  fill: var(--c-track-outline);
+  opacity: 0.6;
+}
+
+.miniStar[data-earned] {
+  fill: var(--c-accent);
+  opacity: 1;
+}
+
+/* ---- Lesson path ---- */
+
+.pathWrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  box-sizing: border-box;
+  padding: calc(var(--sp-7) + var(--sp-5)) var(--sp-5) var(--sp-5);
+  pointer-events: none;
+}
+
+.map[data-mode="flat"] .pathWrap,
+.map[data-mode="loading"] .pathWrap {
+  position: static;
+  justify-content: center;
+  width: 100%;
+  padding: 0;
+}
+
+.path {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  box-sizing: border-box;
+  width: min(100%, max(54%, calc(24rem * var(--text-scale))));
+  max-height: 100%;
+  padding: var(--sp-4) var(--sp-5);
+  border: var(--bevel-w) solid var(--c-panel-outline);
+  border-image: var(--bevel-panel, none) var(--bevel-slice) fill / var(--bevel-w) repeat;
+  background-color: var(--c-panel);
+  background-clip: padding-box;
+  color: var(--c-text);
+  overflow: auto;
+  pointer-events: auto;
+  image-rendering: pixelated;
+}
+
+/* A tall or narrow window: the island is centered at the top, so the path goes below it. */
+@media (max-aspect-ratio: 13/10) {
+  .map[data-mode="3d"] .pathWrap {
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .map[data-mode="3d"] .path {
+    width: 100%;
+    max-height: 58%;
+  }
+}
+
+.pathTitle {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.pathText,
+.pathProgress,
+.pathShown {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.pathProgress,
+.pathShown {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1) var(--sp-4);
+}
+
+.pathShown {
+  min-height: calc(1.35em + var(--sp-2));
+  font-size: calc(var(--fs-md) * var(--text-scale));
+}
+
+.pathShownTitle {
+  font-weight: 700;
+}
+
+.trail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4) 0;
+  margin: 0;
+  /* Room above the first row for the "Next" tag. */
+  padding: calc(1.5rem * var(--text-scale)) var(--sp-1) var(--sp-1);
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+}
+
+/* The trail between two stones. */
+.step + .step::before {
+  content: "";
+  width: var(--sp-4);
+  height: var(--bevel-unit);
+  margin: 0 var(--sp-1);
+  background: repeating-linear-gradient(
+    90deg,
+    var(--c-text) 0 var(--bevel-unit),
+    transparent var(--bevel-unit) calc(var(--bevel-unit) * 2)
+  );
+}
+
+.node {
+  --face: var(--c-button);
+  --ink: var(--c-button-text);
+  --bevel: var(--bevel-button, none);
+  --edge: var(--c-button-outline);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  box-sizing: border-box;
+  min-width: calc(4rem * var(--text-scale));
+  min-height: calc(4rem * var(--text-scale));
+  margin: 0;
+  padding: var(--sp-1) var(--sp-2);
+  border: var(--bevel-w) solid var(--edge);
+  border-image: var(--bevel) var(--bevel-slice) fill / var(--bevel-w) repeat;
+  background-color: var(--face);
+  background-clip: padding-box;
+  color: var(--ink);
+  cursor: pointer;
+  image-rendering: pixelated;
+}
+
+.node[data-state="next"] {
+  --face: var(--c-primary);
+  --ink: var(--c-primary-text);
+  --bevel: var(--bevel-primary, none);
+  --edge: var(--c-primary-outline);
+
+  animation: map-pulse calc(1100ms * var(--motion-ok)) steps(5, jump-none) infinite alternate;
+}
+
+@keyframes map-pulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+
+.node[data-state="locked"] {
+  cursor: default;
+  filter: saturate(0.3);
+}
+
+.node:active:not([aria-disabled="true"]) {
+  border-image-source: var(--bevel-button-pressed, none);
+}
+
+.node[data-state="next"]:active {
+  border-image-source: var(--bevel-primary-pressed, none);
+}
+
+.nodeNumber {
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1;
+}
+
+.node .nextTag {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  translate: -50% -85%;
+  white-space: nowrap;
+}
+
+.tent {
+  width: calc(2.25rem * var(--text-scale));
+  height: calc(1.25rem * var(--text-scale));
+  fill: currentcolor;
+}
+
+.pathActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+@media (hover: hover) {
+  .island:hover:not([data-locked]),
+  .node:hover:not([aria-disabled="true"]) {
+    filter: brightness(1.06);
+  }
+}

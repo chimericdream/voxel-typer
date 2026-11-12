@@ -482,16 +482,7 @@ describe("Privacy", () => {
 });
 
 describe("ComingSoon", () => {
-  it("on the map, offers the next lesson to play", async () => {
-    const s = await open({ initial: { id: "map" }, initialProfile: fixture("fresh-sprout") });
-    expect(text(s.root)).toContain(t("screens.comingSoon.mapBody"));
-    const play = t("screens.comingSoon.next", { title: t("lessonsMeadow.meadow01") });
-    expect(text(active())).toBe(play);
-    await s.press("Enter");
-    expect(s.route()).toEqual({ id: "lessonIntro", lesson: "meadow-01" });
-  });
-
-  it("other routes without a screen offer the way back", async () => {
+  it("routes without a screen offer the way back", async () => {
     const s = await open({ initial: { id: "splash" }, initialProfile: fixture("fresh-sprout") });
     s.shell.api.navigate({ id: "settings" });
     await s.settle();

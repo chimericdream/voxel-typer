@@ -147,6 +147,12 @@ export interface CameraRigCore extends CameraRig {
    */
   setTarget(at: Vec3, opts?: { durationMs?: Ms }): void;
   setDrift(on: boolean): void;
+  /**
+   * Glides to a free pose, for a screen that frames its own objects (the world map, M3-04). A
+   * snap when `durationMs` is 0 or missing, and under reduced motion. The current preset's name is
+   * kept; the next `preset`, `setBounds` or `setTarget` call moves on from this pose.
+   */
+  moveTo(to: Readonly<CameraPose>, opts?: { durationMs?: Ms }): void;
   /** True while the parallax drift moves the camera: drift on and no reduced motion. */
   readonly drifting: boolean;
   readonly current: PresetName;
@@ -201,9 +207,7 @@ export function createCameraRig(
     camera.updateMatrixWorld();
   };
 
-  const goTo = (name: PresetName, durationMs: Ms): void => {
-    current = name;
-    const to = presetPose(name, box, target);
+  const glide = (to: CameraPose, durationMs: Ms): void => {
     if (durationMs <= 0 || opts.reducedMotion()) {
       tween = null;
       copyPose(pose, to);
@@ -216,6 +220,11 @@ export function createCameraRig(
       };
     }
     opts.wake();
+  };
+
+  const goTo = (name: PresetName, durationMs: Ms): void => {
+    current = name;
+    glide(presetPose(name, box, target), durationMs);
   };
 
   const system: SystemFn = (dt, t) => {
@@ -275,6 +284,9 @@ export function createCameraRig(
     setDrift(on) {
       drift = on;
       opts.wake();
+    },
+    moveTo(to, moveOpts) {
+      glide(copyPose(blankPose(), to), moveOpts?.durationMs ?? 0);
     },
     get drifting() {
       return driftOn();

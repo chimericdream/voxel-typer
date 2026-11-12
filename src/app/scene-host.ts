@@ -8,11 +8,13 @@
  *
  * The render core is loaded with a dynamic import, so three.js stays out of the initial bundle.
  */
+import type * as THREE from "three";
 import type { Clock } from "@/app/clock";
 import { createRng } from "@/engine/rng";
+import type { CameraPose } from "@/render/camera";
 import type { SceneCore } from "@/render/scene";
 import type { CameraRig, SceneHandle } from "@/render/types";
-import type { QualityLevel } from "@/types/core";
+import type { Ms, QualityLevel } from "@/types/core";
 
 /**
  * World y of the top of the highest solid block at or below `at` in its column. Without a
@@ -37,7 +39,13 @@ export function groundUnder(
  * {@link SceneCore} fits it; tests pass a small fake.
  */
 export interface AppScene extends SceneHandle {
-  readonly camera: CameraRig & { setDrift(on: boolean): void };
+  readonly camera: CameraRig & {
+    setDrift(on: boolean): void;
+    /** Glides to a free pose (the world map frames its own islands, M3-04). */
+    moveTo(to: Readonly<CameraPose>, opts?: { durationMs?: Ms }): void;
+  };
+  /** Aims the sun, and with it the sky's clouds and fog, at a box (M3-04). Fakes may omit it. */
+  readonly lights?: { fitTo(box: THREE.Box3): void };
   renderStats(): { calls: number };
   dispose(): void;
 }

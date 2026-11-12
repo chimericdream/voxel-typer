@@ -13,6 +13,7 @@ import keyboard from "./keyboard";
 import screens from "./screens";
 import hud from "./hud";
 import mine from "./mine";
+import map from "./map";
 
 const en = {
   common,
@@ -23,6 +24,7 @@ const en = {
   screens,
   hud,
   mine,
+  map,
 } as const;
 
 export default en;
