@@ -331,6 +331,14 @@ stars = 1  if the lesson completed
 baseline = median netWpm of the profile's last 10 summaries in mine/practice/minecart modes; if fewer than 3, wpmRelative is ignored
 ```
 
+**Band-aware thresholds** (added 2026-11-11, decision 80; additive). `StarInput` gains `band?: AgeBand`. With no band, the rules above apply. `target` is `lesson.targets.accuracy`.
+
+| Band | 2nd star: accuracy ≥ | 3rd star: accuracy ≥ | 3rd star speed check |
+|---|---|---|---|
+| sprout | max(0.85, target − 0.05) | 0.90 | none |
+| miner | max(0.88, target − 0.02) | 0.93 | as above |
+| builder | max(0.90, target) | 0.95 | as above |
+
 **Unlocks:** completing a lesson (any stars) unlocks the next in its biome. A biome's `mastery` lesson with ≥ 2 stars unlocks the next biome in `BIOME_ORDER` (`caverns` unlocks both `sparkstone` and `citadel`). The placement test can unlock up to the biome it estimates. Nothing ever re-locks.
 
 ---
@@ -694,6 +702,7 @@ export interface BlockDef {
   tags: string[];                            // 'terrain', 'ore', 'biome:meadow', 'placeable', 'light', 'transparent'
   light?: { color: string; intensity: number };
   typedName: string;                         // what kids type in Builder to arm it, e.g. 'oak' (lowercase, a–z only)
+  shape?: "cube" | "sprig";                  // added 2026-11-11 (decision 82, additive): missing = cube; a sprig is a small plant inside its cell
 }
 ```
 `num` values are allocated in ranges per group file to avoid collisions: terrain 1–99, wood 100–149, stone 150–199, ores 200–249, wool/colors 250–299, deco/light 300–399, biome-specials 400–599. A unit test asserts uniqueness and that `typedName` is unique and typeable.

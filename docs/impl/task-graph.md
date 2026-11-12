@@ -98,26 +98,28 @@ Waves are a schedule hint. The real rule is "dependencies merged" plus rules 2�
 | M1-14 | Palette, recipes, atlas | M/A | M1-01, M1-02 | merged |
 | M1-FIX-1 | Blocklist precision follow-up | S/B | M1-10 | todo |
 | M1-GATE | Gate | — | all M1 | passed |
-| M2-01 | Render core | M/A | M1-13, M1-14 | running |
-| M2-02 | Sky, clouds, day/night | M/A | M2-01 | todo |
-| M2-03 | Meadow diorama | M/A | M2-01, M2-04 | todo |
-| M2-04 | Block registry v1 + loot | M/B | M1-14 | running |
-| M2-05 | FX | M/A | M2-01 | todo |
-| M2-06 | Audio synth and SFX | M/A | M1-01 | todo |
-| M2-07 | Voxel UI kit | M/A | M0-01, M1-12, M1-14 | todo |
-| M2-08 | Fonts and typography | S/B | M0-01 | todo |
-| M2-09 | On-screen keyboard + hands | M/B | M1-11, M2-07 | todo |
-| M2-10 | App shell, routing, hooks | M/A | M1-08, M1-09, M1-12, M2-07 | todo |
-| M2-11 | Screens v1 | M/B | M2-07, M2-10 | todo |
-| M2-12 | Meadow lessons 1–6 | S/A | M1-06, M1-10 | todo |
-| M2-13 | ✦ ⛩ Mine mode | L/A | M1-GATE, M2-02..06, M2-10, M2-14 | todo |
-| M2-14 | HUD | M/B | M2-07, M2-09, M2-10 | todo |
-| M2-15 | ⛩ Slice E2E + baselines | M/B | M2-11, M2-13, M2-14 | todo |
-| M2-16 | Playtest kit | S/C | M2-11 | todo |
-| M2-FIX-2 | Slice polish from the M2 reviews | M/B | M2-13 | todo |
-| M2-GATE | **Go/no-go** | — | all M2 | todo |
+| M2-01 | Render core | M/A | M1-13, M1-14 | merged |
+| M2-02 | Sky, clouds, day/night | M/A | M2-01 | merged |
+| M2-03 | Meadow diorama | M/A | M2-01, M2-04 | merged |
+| M2-04 | Block registry v1 + loot | M/B | M1-14 | merged |
+| M2-05 | FX | M/A | M2-01 | merged |
+| M2-06 | Audio synth and SFX | M/A | M1-01 | merged |
+| M2-07 | Voxel UI kit | M/A | M0-01, M1-12, M1-14 | merged |
+| M2-08 | Fonts and typography | S/B | M0-01 | merged |
+| M2-09 | On-screen keyboard + hands | M/B | M1-11, M2-07 | merged |
+| M2-10 | App shell, routing, hooks | M/A | M1-08, M1-09, M1-12, M2-07 | merged |
+| M2-11 | Screens v1 | M/B | M2-07, M2-10 | merged |
+| M2-12 | Meadow lessons 1–6 | S/A | M1-06, M1-10 | merged |
+| M2-13 | ✦ ⛩ Mine mode | L/A | M1-GATE, M2-02..06, M2-10, M2-14 | merged |
+| M2-14 | HUD | M/B | M2-07, M2-09, M2-10 | merged |
+| M2-15 | ⛩ Slice E2E + baselines | M/B | M2-11, M2-13, M2-14 | merged |
+| M2-16 | Playtest kit | S/C | M2-11 | merged |
+| M2-FIX-2 | Slice polish from the M2 reviews | M/B | M2-13 | merged |
+| M2-FIX-3 | Owner playtest fixes (stars by band, no extra space) | M/B | M2-GATE | todo |
+| M2-FIX-4 | Flowers as small sprigs | M/A | M2-GATE | todo |
+| M2-GATE | **Go/no-go** | — | all M2 | passed (go with fixes) |
 | M3-01 | Curriculum validator + doc gen | S/B | M1-06, M2-12 | todo |
-| M3-02 | Word lists biomes 1–4 | L/A | M1-10 | todo |
+| M3-02 | Word lists biomes 1–4 | L/A | M1-10 | merged |
 | M3-03 | Lessons biomes 1–4 | M/A | M3-01, M3-02, M2-12 | todo |
 | M3-04 | ✦ World map | L/A | M2-01, M2-03, M2-11 | todo |
 | M3-05 | Placement test | M/B | M2-13 | todo |
@@ -146,7 +148,7 @@ Waves are a schedule hint. The real rule is "dependencies merged" plus rules 2�
 | M5-02 | ⛩ Boss framework + DSL | M/A | M4-01, M4-04, M2-13 | todo |
 | M5-03 | ✦ Boss designs + models | L/A | M4-01, M4-02 | todo |
 | M5-04 | Boss scripts | M/B | M5-02, M5-03, M5-06 | todo |
-| M5-05 | Content biomes 5–9 | L/A | M1-10, M3-02 | todo |
+| M5-05 | Content biomes 5–9 | L/A | M1-10, M3-02 | merged |
 | M5-06 | Lessons biomes 5–9 | M/A | M5-05, M3-01 | todo |
 | M5-07 | ✦ Biomes 5–9 art + mobs wave 2 | L/A | M2-02, M2-03, M4-03 | todo |
 | M5-08 | Daily Quest + torches | M/B | M2-13, M4-04, M5-01, M4-07 | todo |

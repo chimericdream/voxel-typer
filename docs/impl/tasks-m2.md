@@ -240,6 +240,57 @@ Field legend: see the top of `tasks-m0-m1.md`.
   - [ ] Each item fixed, or listed in the handoff with a reason.
   - [ ] Baselines regenerated through the Update snapshots workflow; visual + a11y review passes.
 
+### M2-FIX-3 Owner playtest fixes: age-aware stars, no extra space
+- **Size/Tier:** M / B · **Review:** required (pedagogy + code)
+- **Depends on:** M2-GATE
+- **Owns:** `src/engine/stars.ts`, `tests/unit/engine/stars.test.ts`, the Mine-mode call site
+  (`src/modes/mine/mine.ts`), the end-of-target handling wherever it lives (find it first), and
+  the Results layout CSS
+- **Spec:** from the owner's own play of the slice (2026-11-11) and the M2-15 handoff.
+  - **Stars by age band** (decision 80; contract change approved, `contracts.md` §6). `StarInput`
+    gains an optional `band?: AgeBand`. When it is missing, today's rules apply unchanged.
+
+    | Band | 2nd star: accuracy ≥ | 3rd star: accuracy ≥ | 3rd star speed check |
+    |---|---|---|---|
+    | sprout | max(0.85, target − 0.05) | 0.90 | none |
+    | miner | max(0.88, target − 0.02) | 0.93 | as now |
+    | builder | max(0.90, target) | 0.95 | as now |
+
+    `target` is `lesson.targets.accuracy`. Mine mode passes `ctx.band`. The mastery rule (≥ 2
+    stars) stays. A pure table test covers every band at each boundary.
+  - **No extra space at the end.** The owner had to press space after the last word of some
+    words and phrases before the target finished. A target must finish on its last character.
+    Spaces *between* words still count. Find where the trailing space comes from (the generator
+    padding targets, the matcher, or Mine mode's "a word breaks on its trailing space"), fix it
+    at the source, and test it. If the fix needs a frozen-contract change, stop and send a
+    Contract change request.
+  - **Results at 1280×720** (M2-15 handoff): the button row sits on the bottom edge and the
+    "Next lesson" focus ring is clipped. Give it room.
+  - **FX atlas swap** (`src/render/fx/index.ts`): the atlas-swap check also drops chips made before
+    any atlas loaded. Drop them only when a previous atlas existed.
+- **Acceptance:**
+  - [ ] Star table tests per band; existing star tests still pass with no band.
+  - [ ] A test proves a lesson's last word finishes without a trailing space.
+  - [ ] Results buttons and focus ring fully visible at 1280×720 (baseline refreshed through the
+    Update snapshots workflow).
+
+### M2-FIX-4 Flowers as small sprigs, not full blocks
+- **Size/Tier:** M / A · **Review:** required (visual + code; the mesher is a pure zone)
+- **Depends on:** M2-GATE
+- **Owns:** `src/content/blocks/types.ts` (the new optional field), `src/content/blocks/flora.ts`,
+  `src/render/mesher/*`, `src/render/atlas/painters.ts` (flower painters), mesher tests
+- **Spec:** the owner saw the Meadow's flowers as full-size blocks. Make each flower a small
+  plant inside its cell: a thin stem and a small bloom built from a few sub-voxel boxes, about
+  ⅜ of a block wide and ⅝ tall, bloom in the flower's colour. **Not** crossed billboard quads:
+  that look belongs to a famous game (IP rule). Approved additive contract change: `BlockDef`
+  gains `shape?: "cube" | "sprig"` (missing = cube). A sprig cell never culls its neighbours'
+  faces and casts no AO. Keep flowers out of Mine mode's breakable set. Draw calls must not
+  grow: sprigs go in the chunk mesh, with the chunk's material.
+- **Acceptance:**
+  - [ ] Mesher unit tests: sprig geometry, no face culling against sprigs, determinism.
+  - [ ] Meadow baselines refreshed through the Update snapshots workflow; draw calls unchanged.
+  - [ ] Visual review: flowers read as flowers at overview and play distance.
+
 ### M2-GATE (go/no-go)
 Orchestrator + reviewer + 👤 owner.
 - `PLAN.md` Phase 2 acceptance. "A 6-year-old completes lesson 1 without instructions" and "60 fps on integrated GPU" are 👤: the orchestrator tells the owner the `:edge` image is ready to deploy on Proxmox (or the owner promotes it by tagging `m2` once the automated checks pass), hands over the playtest kit, and **waits for the result**.
