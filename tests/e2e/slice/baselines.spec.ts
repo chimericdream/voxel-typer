@@ -98,6 +98,12 @@ test("results", async ({ page }) => {
     expect(box.y + box.height + ring).toBeLessThanOrEqual(main.y + main.height);
   }
   await expect(page.getByRole("button", { name: "Next lesson" })).toBeFocused();
+  // A first lesson earns badges (M3-10). Their toasts show one at a time on Results; the
+  // baseline is the screen once they are done.
+  const toast = page.getByTestId("badge-toast");
+  await expect(toast.getByText("New badge: First Steps!")).toBeVisible({ timeout: 30_000 });
+  await expect(toast).toHaveCount(0, { timeout: 60_000 });
+  await expect(page.getByRole("button", { name: "Next lesson" })).toBeFocused();
   await expect(page).toHaveScreenshot("results.png", { timeout: 30_000 });
   expect(errors).toEqual([]);
 });

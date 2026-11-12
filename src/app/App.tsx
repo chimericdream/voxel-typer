@@ -5,13 +5,14 @@
  */
 import type { ReadonlySignal } from "@preact/signals";
 import type { ComponentType } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useCallback, useEffect, useState } from "preact/hooks";
 import { fingerLabelsOn, hearAgainKey, hearAgainShown } from "@/a11y/options";
 import { EN_US, layoutById } from "@/content/layouts";
 import { t } from "@/i18n";
 import { Button } from "@/ui/kit/Button";
 import { Panel } from "@/ui/kit/Panel";
 import { Toast } from "@/ui/kit/Toast";
+import type { AchievementToastProps } from "@/ui/components/AchievementToast";
 import { ComingSoon } from "@/ui/screens/ComingSoon";
 import { Hud } from "@/ui/hud/Hud";
 import { Pause } from "@/ui/screens/Pause";
@@ -118,6 +119,42 @@ function Notices({ shell }: { shell: Shell }) {
   );
 }
 
+/**
+ * How long a screen must have been shown before a badge toast opens on it (M3-10 review B1). The
+ * route announcer reads the new screen's name (and on Results the stars) as soon as the route
+ * changes, through the page's one live region. A toast that announced itself at the same moment
+ * would wipe that message, or be wiped by it, so the toast waits until it has been read.
+ */
+export const BADGE_SETTLE_MS = 1500;
+
+/**
+ * Badge toasts (M3-10) never open on the `play` route, whatever the lesson's status: they wait for
+ * Results or the next menu, and then for {@link BADGE_SETTLE_MS} on it. A pause is a modal dialog
+ * (the rest of the page is inert), so they wait through a pause too.
+ */
+function Badges({ shell }: { shell: Shell }) {
+  const onShown = useCallback(() => shell.nextBadgeToast(), [shell]);
+  const queue = shell.badgeToasts.value;
+  const route = shell.route.value;
+  const onPlay = route.id === "play";
+  // Each new route starts unsettled; the timer settles it.
+  const [settledOn, setSettledOn] = useState<typeof route | null>(null);
+  useEffect(() => {
+    if (onPlay) return undefined;
+    const timer = setTimeout(() => setSettledOn(route), BADGE_SETTLE_MS);
+    return () => clearTimeout(timer);
+  }, [route, onPlay]);
+  // Loaded with the first badge: it draws block icons, which the first screen doesn't need.
+  const [View, setView] = useState<ComponentType<AchievementToastProps> | null>(null);
+  const want = queue.length > 0;
+  useEffect(() => {
+    if (!want || View !== null) return;
+    void import("@/ui/components/AchievementToast").then((m) => setView(() => m.AchievementToast));
+  }, [want, View]);
+  if (View === null) return null;
+  return <View queue={queue} open={!onPlay && settledOn === route} onShown={onShown} />;
+}
+
 export interface AppProps {
   shell: Shell;
   /** True while the device has an English voice of its own (`src/a11y/voice.ts`). */
@@ -137,6 +174,7 @@ export function App({ shell, localVoice }: AppProps) {
         )}
       </main>
       <Notices shell={shell} />
+      <Badges shell={shell} />
       {FOOTER_ROUTES.has(route.id) ? (
         <footer class={styles.footer}>{t("common.notAffiliated")}</footer>
       ) : null}
