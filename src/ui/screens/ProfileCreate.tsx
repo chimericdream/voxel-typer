@@ -15,13 +15,13 @@ import type { Profile } from "@/save/schema";
 import { SCHEMA_VERSION } from "@/save/schema";
 import { defaultSettings } from "@/save/settings";
 import { newId } from "@/save/id";
-import { MAX_PROFILES } from "@/save/store";
 import type { AgeBand, EpochMs } from "@/types/core";
 import { Button } from "@/ui/kit/Button";
 import { Toast } from "@/ui/kit/Toast";
 import { Avatar, SKIN_TONES } from "./Avatar";
 import type { SkinToneId } from "./Avatar";
 import { createLatch, useScreenInput } from "./nav";
+import { gameIsFull } from "./profiles-logic";
 import screen from "./screen.module.css";
 import styles from "./ProfileCreate.module.css";
 
@@ -93,7 +93,8 @@ export default function ProfileCreate({ app }: ScreenProps) {
     if (!busy.take()) return;
     setSaving(true);
     const existing = await app.store.listProfiles();
-    if (existing.length >= MAX_PROFILES) {
+    // Damaged and newer-build profiles hold a slot too (M3-09).
+    if (gameIsFull(existing, app.damagedProfiles(), app.readOnlyProfiles())) {
       busy.release();
       setSaving(false);
       setProblem("full");
@@ -106,7 +107,8 @@ export default function ProfileCreate({ app }: ScreenProps) {
       setProblem("saveFailed");
       return;
     }
-    app.navigate({ id: "map" }, { replace: true });
+    // A new player gets the placement test first; it has a clear Skip (M3-05).
+    app.navigate({ id: "placement" }, { replace: true });
   };
 
   const count = Array.from(name).length;

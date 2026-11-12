@@ -71,3 +71,38 @@
   text-align: center;
   color: var(--c-bg-text);
 }
+
+/* A damaged profile's card (M3-09): a plain block with a question mark. */
+.lostIcon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: calc(3rem * var(--text-scale));
+  height: calc(3rem * var(--text-scale));
+  border: 3px dashed var(--c-slot-outline);
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+}
+
+/* The change dialog (M3-09). */
+.menu,
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: min(28rem, 80vw);
+}
+
+.stepText {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  line-height: 1.4;
+}
+
+.stepActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}

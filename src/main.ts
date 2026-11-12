@@ -8,11 +8,14 @@
  */
 import "@/ui/theme/tokens.css";
 import "@/ui/theme/fonts.css";
+import "@/ui/theme/motion.css";
+import "@/ui/theme/high-contrast.css";
 import { h, render } from "preact";
 import { App } from "@/app/App";
 import { realClock, fixedStepClock } from "@/app/clock";
 import { parseDebugParams } from "@/app/debug";
 import { createHudStore } from "@/app/hud";
+import { screens } from "@/app/routes";
 import type { Route } from "@/app/routes";
 import { createSceneHost, renderCoreFactory } from "@/app/scene-host";
 import { createShell } from "@/app/shell";
@@ -22,31 +25,29 @@ import { attachKeyboard, capsLockOn } from "@/input/keyboard";
 import { resolveMode } from "@/modes/registry";
 import { isProfile } from "@/save/schema";
 import type { Profile } from "@/save/schema";
-import type { Settings } from "@/save/settings";
 import { createIdbStore, createMemoryStore } from "@/save/store";
 import type { SaveStore } from "@/save/store";
 import type { SaveProblem } from "@/save/problems";
-import { applyMotion, applyTextScale, applyTheme, themeFor } from "@/ui/theme/themes";
+import { guardHeldActivation } from "@/a11y/key-repeat";
+import { appMotion } from "@/a11y/motion";
+import { applyPageSettings } from "@/a11y/page";
+import { attachRouteAnnouncer } from "@/a11y/route-announcer";
+import { browserVoices, watchLocalVoice } from "@/a11y/voice";
+import { announce } from "@/ui/kit/announce";
 
 const PRODUCTION = import.meta.env.MODE === "production";
 const INTERACTIVE = "button, a[href], input, select, textarea, [role='button'], [tabindex]";
 
-function reducedMotionOf(s: Readonly<Settings>): boolean {
-  if (s.reducedMotion !== "system") return s.reducedMotion;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-function applyPageSettings(root: HTMLElement, s: Readonly<Settings>): void {
-  applyTheme(root, themeFor(s.highContrast, "day"));
-  applyTextScale(root, s.textScale);
-  applyMotion(root, s.reducedMotion);
-  if (s.font === "dyslexic") {
-    root.style.setProperty("--font-body", '"OpenDyslexic", sans-serif');
-    root.style.setProperty("--font-pixel", '"OpenDyslexic", sans-serif');
-  } else {
-    root.style.removeProperty("--font-body");
-    root.style.removeProperty("--font-pixel");
-  }
+/** The scene camera's world position and rotation, for e2e checks (shake, drift). */
+function cameraPose(
+  cam: {
+    position: { x: number; y: number; z: number };
+    quaternion: { x: number; y: number; z: number; w: number };
+  } | null,
+): { x: number; y: number; z: number; qx: number; qy: number; qz: number; qw: number } | null {
+  if (cam === null) return null;
+  const { position: p, quaternion: q } = cam;
+  return { x: p.x, y: p.y, z: p.z, qx: q.x, qy: q.y, qz: q.z, qw: q.w };
 }
 
 /** `?profile=<fixture>`: a test fixture in a throwaway store. Not in production builds. */
@@ -91,12 +92,13 @@ async function boot(host: HTMLElement): Promise<void> {
 
   const hud = createHudStore();
   const audio = createAudio();
-  let reducedMotion = false;
+  // One reduced-motion flag for the app; 'system' keeps following the OS while the game runs.
+  const motion = appMotion();
 
   const scenes = createSceneHost(canvas, renderCoreFactory, {
     seed: debug.seed ?? 1,
     quality: debug.quality ?? "medium",
-    reducedMotion: () => reducedMotion,
+    reducedMotion: () => motion.reduced(),
     // Under ?freeze only the frame loop reads this clock; input keeps the real one.
     clock: debug.freeze ? fixedStepClock(0, 16) : realClock,
     frozen: debug.freeze,
@@ -118,7 +120,7 @@ async function boot(host: HTMLElement): Promise<void> {
     away: () => document.hidden || !document.hasFocus(),
     record: debug.record,
     applySettings(s) {
-      reducedMotion = reducedMotionOf(s);
+      // Theme, letter size, motion (CSS and the shared flag) and font (src/a11y/page.ts).
       applyPageSettings(root, s);
     },
     focusOnControl: () => document.activeElement?.matches(INTERACTIVE) === true,
@@ -129,6 +131,24 @@ async function boot(host: HTMLElement): Promise<void> {
     initialProfile: firstProfile,
   });
   onProblem = (p) => shell.onSaveProblem(p);
+
+  // A motion change (the setting, or the OS mid-game) redraws, so drift stops or starts at once.
+  const offMotion = motion.subscribe(() => scenes.current()?.requestRender());
+  // A held Enter presses a control once (PLAN.md §4.6).
+  const offRepeat = guardHeldActivation(window);
+  // Screen names and lesson results for screen readers; never per keystroke.
+  const offAnnounce = attachRouteAnnouncer({
+    route: shell.route,
+    hasScreen: (id) => screens[id] !== undefined,
+    lesson: (id) => shell.api.lesson(id),
+    lastResult: () => shell.play.lastResult(),
+    band: () => shell.profile.value?.ageBand ?? null,
+    say: (text) => {
+      announce(document, text);
+    },
+  });
+  // "Hear it again" shows only with an English voice on the device (decision 69).
+  const voice = watchLocalVoice(browserVoices());
 
   // Input: always the real clock, also under ?freeze (contracts §13).
   const detachKeys = attachKeyboard(
@@ -150,12 +170,16 @@ async function boot(host: HTMLElement): Promise<void> {
   window.addEventListener("pagehide", (e) => {
     if (e.persisted) return;
     detachKeys();
+    offMotion();
+    offRepeat();
+    offAnnounce();
+    voice.dispose();
     window.removeEventListener("keydown", onGesture, { capture: true });
     window.removeEventListener("pointerdown", onGesture, { capture: true });
     scenes.dispose();
   });
 
-  render(h(App, { shell }), ui);
+  render(h(App, { shell, localVoice: voice.available }), ui);
 
   if (!PRODUCTION) {
     const hooks = await import("@/app/test-hooks");
@@ -167,6 +191,7 @@ async function boot(host: HTMLElement): Promise<void> {
       fps: () => shell.play.fps(),
       ready: () => shell.ready(),
       drawCalls: () => scenes.current()?.renderStats().calls ?? null,
+      camera: () => cameraPose(scenes.current()?.three?.camera ?? null),
     });
   }
   host.dataset["ready"] = "1";

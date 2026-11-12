@@ -187,3 +187,122 @@ export function startIsland(infos: readonly IslandInfo[]): BiomeId | null {
     infos.find((i) => i.unlocked && i.next)?.biome ?? infos.find((i) => i.unlocked)?.biome ?? null
   );
 }
+
+/** The kind line shown after clicking an island that is still in the clouds. */
+export function notYetLine(info: IslandInfo): string {
+  return info.opensAfter === null
+    ? t("map.island.notYetFirst")
+    : t("map.island.notYet", { need: t(`map.biome.${info.opensAfter}`) });
+}
+
+/** One island label to place: where its island wants it, and how big it is. */
+export interface LabelBox {
+  /** The island's anchor: the label's top center wants to be here. */
+  x: number;
+  y: number;
+  /** The button's size. */
+  w: number;
+  h: number;
+  /** How far something (the "Go here next!" tag) sticks out above the button. */
+  above: number;
+}
+
+/** An area labels keep out of (the heading, the corner buttons), in the same pixels. */
+export interface KeepOut {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+export interface LabelLayout {
+  /** Room kept between a label and the window's edge; the focus ring needs about 7 px. */
+  margin: number;
+  /** Room kept between two labels, or a label and a keep-out area. */
+  gap: number;
+}
+
+export const LABEL_LAYOUT: LabelLayout = { margin: 10, gap: 12 };
+
+/**
+ * Where each label's button goes (its top-left corner), so that every label stays inside the
+ * window and no two labels overlap (M3-04 review N2). A label starts centered under its island,
+ * then is pushed only as far as it must: down out of the heading, then sideways away from its
+ * neighbours; if a row has no room left, the later label moves below the earlier one.
+ *
+ * Plain numbers in and out, so it is tested without a browser.
+ */
+export function layoutLabels(
+  labels: readonly LabelBox[],
+  size: { width: number; height: number },
+  keepOut: readonly KeepOut[] = [],
+  opts: LabelLayout = LABEL_LAYOUT,
+): { left: number; top: number }[] {
+  const { margin, gap } = opts;
+  const boxes = labels.map((l) => ({
+    left: l.x - l.w / 2,
+    top: l.y,
+    w: l.w,
+    h: l.h,
+    above: l.above,
+  }));
+  const clampX = (b: (typeof boxes)[number]): void => {
+    b.left = Math.max(margin, Math.min(size.width - margin - b.w, b.left));
+  };
+  const clampY = (b: (typeof boxes)[number]): void => {
+    b.top = Math.max(margin + b.above, Math.min(size.height - margin - b.h, b.top));
+  };
+  const crossesY = (a: (typeof boxes)[number], b: { top: number; bottom: number }): boolean =>
+    a.top - a.above < b.bottom + gap && b.top < a.top + a.h + gap;
+
+  for (const b of boxes) {
+    clampX(b);
+    clampY(b);
+    for (const k of keepOut) {
+      const crossesX = b.left < k.right + gap && k.left < b.left + b.w + gap;
+      if (crossesX && crossesY(b, k)) b.top = k.bottom + gap + b.above;
+    }
+    clampY(b);
+  }
+
+  /** How far two labels overlap sideways (with the gap), or 0 when they are clear. */
+  const overlap = (a: (typeof boxes)[number], b: (typeof boxes)[number]): number => {
+    if (!crossesY(a, { top: b.top - b.above, bottom: b.top + b.h })) return 0;
+    const [l, r] = a.left + a.w / 2 <= b.left + b.w / 2 ? [a, b] : [b, a];
+    return Math.max(0, l.left + l.w + gap - r.left);
+  };
+
+  // Push overlapping neighbours apart, half each; a label at the window's edge stays and the
+  // other one takes the rest on the next pass.
+  for (let pass = 0; pass < 40; pass++) {
+    let moved = false;
+    for (let i = 0; i < boxes.length; i++) {
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i];
+        const b = boxes[j];
+        if (a === undefined || b === undefined) continue;
+        const o = overlap(a, b);
+        if (o <= 0.5) continue;
+        const [l, r] = a.left + a.w / 2 <= b.left + b.w / 2 ? [a, b] : [b, a];
+        l.left -= o / 2;
+        r.left += o / 2;
+        clampX(l);
+        clampX(r);
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+
+  // No room left in a row: the later label goes below the earlier one.
+  for (let i = 0; i < boxes.length; i++) {
+    for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i];
+      const b = boxes[j];
+      if (a === undefined || b === undefined || overlap(a, b) <= 0.5) continue;
+      b.top = a.top + a.h + gap + b.above;
+    }
+  }
+
+  return boxes.map((b) => ({ left: Math.round(b.left), top: Math.round(b.top) }));
+}

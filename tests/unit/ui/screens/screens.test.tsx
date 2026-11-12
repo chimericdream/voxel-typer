@@ -86,7 +86,7 @@ describe("Profiles", () => {
     const pip = fixture("fresh-sprout");
     const rook = fixture("fresh-builder");
     const s = await open({ initial: { id: "profiles" }, profiles: [pip, rook] });
-    expect(text(s.root.querySelector("h1"))).toBe(t("screens.profiles.title"));
+    expect(text(s.root.querySelector("h1"))).toBe(t("profiles.title"));
     const players = [...s.root.querySelectorAll("li button")];
     expect(players.map((b) => [...b.querySelectorAll("span span")].map((x) => text(x)))).toEqual([
       [pip.name, t(`screens.bands.${pip.ageBand}`)],
@@ -96,7 +96,7 @@ describe("Profiles", () => {
     await s.press("ArrowDown");
     expect(active()).toBe(players[1]);
     await s.press("ArrowDown");
-    expect(text(active())).toBe(t("screens.profiles.newPlayer"));
+    expect(text(active())).toBe(t("profiles.newPlayer"));
     await s.press("ArrowUp");
     await s.press("Enter");
     expect(s.route().id).toBe("map");
@@ -105,8 +105,8 @@ describe("Profiles", () => {
 
   it("with no players: a kind line and New player", async () => {
     const s = await open({ initial: { id: "profiles" } });
-    expect(text(s.root)).toContain(t("screens.profiles.empty"));
-    expect(text(active())).toBe(t("screens.profiles.newPlayer"));
+    expect(text(s.root)).toContain(t("profiles.empty"));
+    expect(text(active())).toBe(t("profiles.newPlayer"));
     await s.press("Enter");
     expect(s.route().id).toBe("profileCreate");
   });
@@ -134,7 +134,7 @@ describe("Profiles", () => {
     await s.settle();
     const row = s.root.querySelector("li button");
     expect(text(row)).toContain(pip.name);
-    expect(text(row)).toContain(t("screens.profiles.readOnly"));
+    expect(text(row)).toContain(t("profiles.readOnly"));
     await s.press("Enter");
     expect(s.route().id).toBe("map");
   });
@@ -144,7 +144,7 @@ describe("Profiles", () => {
     s.shell.onSaveProblem({ profileId: "x-1", kind: "newerVersion", message: "newer" });
     s.shell.api.navigate({ id: "profiles" });
     await s.settle();
-    expect(text(s.root)).toContain(t("screens.profiles.readOnlyHidden", { count: 1 }));
+    expect(text(s.root)).toContain(t("profiles.readOnlyHidden", { count: 1 }));
   });
 });
 
@@ -171,7 +171,7 @@ describe("ProfileCreate", () => {
       field(s).focus();
     });
     await s.press("Enter");
-    expect(s.route().id).toBe("map");
+    expect(s.route().id).toBe("placement");
     const list = await s.store.listProfiles();
     expect(list).toHaveLength(1);
     expect(list[0]).toMatchObject({

@@ -1,0 +1,14 @@
+/* Same box as the flat portrait (`ui/screens/Avatar.module.css`), so cards don't jump on swap. */
+.avatar {
+  display: block;
+  flex: none;
+  box-sizing: content-box;
+  width: calc(3rem * var(--text-scale));
+  height: calc(3rem * var(--text-scale));
+  border: 3px solid var(--c-slot-outline);
+}
+
+.avatar[data-size="lg"] {
+  width: calc(5rem * var(--text-scale));
+  height: calc(5rem * var(--text-scale));
+}

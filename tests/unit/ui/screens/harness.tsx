@@ -16,6 +16,7 @@ import { createSilentAudio } from "../../../../src/app/audio";
 import { realClock } from "../../../../src/app/clock";
 import { createHudStore } from "../../../../src/app/hud";
 import type { Route } from "../../../../src/app/routes";
+import type { AppScene } from "../../../../src/app/scene-host";
 import { createShell } from "../../../../src/app/shell";
 import type { Shell } from "../../../../src/app/shell";
 import { lessons } from "../../../../src/content/lessons";
@@ -72,6 +73,8 @@ export async function mount(
     profiles?: Profile[];
     initialProfile?: Profile;
     store?: SaveStore;
+    /** The app's shared scene. By default there is none, so 3D screens run flat. */
+    acquireScene?: () => Promise<AppScene>;
   } = {},
 ): Promise<Harness> {
   const problems: SaveProblem[] = [];
@@ -92,7 +95,8 @@ export async function mount(
     resolveMode: () => {
       throw new Error("no modes in screen tests");
     },
-    acquireScene: () => Promise.reject(new Error("no scene in screen tests")),
+    acquireScene:
+      opts.acquireScene ?? (() => Promise.reject(new Error("no scene in screen tests"))),
     hud: createHudStore(),
     audio,
     clock: realClock,

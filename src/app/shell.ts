@@ -9,6 +9,7 @@ import { signal } from "@preact/signals";
 import type { ReadonlySignal } from "@preact/signals";
 import type { AudioApi, Bus } from "@/audio/types";
 import type { Lesson } from "@/content/lessons/types";
+import { PLACEMENT_LESSON, PLACEMENT_LESSON_ID } from "@/modes/placement/lesson";
 import type { ModeModule } from "@/modes/types";
 import type { SaveProblem, SaveProblemKind } from "@/save/problems";
 import type { Profile } from "@/save/schema";
@@ -105,6 +106,8 @@ export function createShell(deps: ShellDeps): Shell {
   const pending = new Set<Promise<unknown>>();
   /** Profiles a newer build owns: never written again this session. */
   const readOnly = new Set<string>();
+  /** Profiles the store could not read at all: they hold a slot until removed (M3-09). */
+  const damaged = new Set<string>();
   let noticeId = 0;
 
   const notify = (kind: SaveProblemKind): void => {
@@ -153,6 +156,20 @@ export function createShell(deps: ShellDeps): Shell {
     }
   };
 
+  const removeProfile = async (id: string): Promise<boolean> => {
+    if (readOnly.has(id)) return false;
+    try {
+      await deps.store.remove(id);
+    } catch (err) {
+      console.warn("[app] remove failed", err);
+      notify("storageError");
+      return false;
+    }
+    damaged.delete(id);
+    if (profile.value?.id === id) setProfile(null);
+    return true;
+  };
+
   const lessonById = (id: string): Lesson | null => deps.lessons.find((l) => l.id === id) ?? null;
 
   const play = createPlayHost({
@@ -167,12 +184,18 @@ export function createShell(deps: ShellDeps): Shell {
     record: deps.record,
     reminder: createBreakReminder(),
     saveProfile,
+    lessons: deps.lessons,
     onStatus(s) {
       playStatus.value = s;
     },
     onFinished(_result, _updated) {
       const current = route.value;
       if (current.id !== "play") return;
+      // The placement test shows where the player starts, on its own screen (M3-05).
+      if (current.lesson === PLACEMENT_LESSON_ID) {
+        go({ id: "placement", lesson: PLACEMENT_LESSON_ID }, true);
+        return;
+      }
       const next: Route = { id: "results" };
       if (current.lesson !== undefined) next.lesson = current.lesson;
       go(next, true);
@@ -183,7 +206,12 @@ export function createShell(deps: ShellDeps): Shell {
     // The world map draws its islands in the shared scene too (M3-04).
     deps.showCanvas(to.id === "play" || to.id === "map");
     if (to.id !== "play") return;
-    const lesson = to.lesson === undefined ? null : lessonById(to.lesson);
+    const lesson =
+      to.lesson === PLACEMENT_LESSON_ID
+        ? PLACEMENT_LESSON
+        : to.lesson === undefined
+          ? null
+          : lessonById(to.lesson);
     const p = profile.value;
     if (lesson === null || p === null) {
       playStatus.value = "failed";
@@ -229,6 +257,8 @@ export function createShell(deps: ShellDeps): Shell {
     setProfile,
     saveProfile,
     readOnlyProfiles: () => readOnly,
+    damagedProfiles: () => damaged,
+    removeProfile,
     lessons: deps.lessons,
     lesson: lessonById,
     lastResult: () => play.lastResult(),
@@ -260,6 +290,7 @@ export function createShell(deps: ShellDeps): Shell {
     router,
     onSaveProblem(p) {
       if (p.kind === "newerVersion" && p.profileId !== null) readOnly.add(p.profileId);
+      if (p.kind === "unreadable" && p.profileId !== null) damaged.add(p.profileId);
       notify(p.kind);
     },
     dismissNotice(id) {
