@@ -5,8 +5,8 @@
  *
  * Plays nights of Defense with M1-07's synthetic typists (`tools/sim/typist.ts`) at 10, 25 and 50
  * WPM, through the real wave director (`src/modes/defense/director.ts`) and the real typing engine
- * in `lockOn` targeting. Each learner first plays a short Mine-like session, whose net WPM is the
- * baseline the director starts from, as the game's baseline would be. The report gives, per row,
+ * in `lockOn` targeting. Each learner first plays a short Mine-like session, whose net WPM and
+ * accuracy are the baselines the director starts from, as the game's would be. The report gives, per row,
  * the median over learners of each wave's accuracy, reached-base share and difficulty.
  *
  * **The defense typist.** M1-07's typist errs at a fixed rate, whatever the pace, so on its own
@@ -18,8 +18,8 @@
  *   (at the typist's median gap, plus a read delay per word), over the time until it arrives.
  *   Above 1 the typist can't save every mob.
  * - Each key's slip chance is M1-07's chance plus `slope × max(0, pressure − p0)` (capped at 0.9),
- *   and its gap shrinks by up to `rush` (rushing). Defaults: `p0 = 0.5`, `slope = 0.24`,
- *   `rush = 0.15`.
+ *   (the extra capped at `maxExtra`), and its gap shrinks by up to `rush` (rushing). Defaults
+ *   ({@link DEFAULT_PRESSURE}): `p0 = 0.1`, `slope = 0.4`, `maxExtra = 0.2`, `rush = 0.15`.
  * - Calm mode: mobs wait at the waiting line (85 % of the lane), so they never reach the base, and
  *   the typist feels half the pressure.
  *
@@ -32,6 +32,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { argv } from "node:process";
 import { fileURLToPath } from "node:url";
+import { MOBS } from "../src/content/mobs";
 import { poolFromText } from "../src/content/wordlists/loader";
 import { generateTargets } from "../src/engine/generator";
 import type { WordPool } from "../src/engine/generator";
@@ -86,19 +87,11 @@ export const DEFENSE_TYPISTS: Readonly<Record<string, TypistProfile>> = {
 };
 
 /**
- * Stand-ins for M4-03's mobs (the ids of the card, flavors and speed classes guessed). The sim only
- * needs a flavor tag and a speed class; the real roster replaces these.
+ * The sim's mobs: the real roster (M4-03), all eight, as on a late-biome night. The Cave Bat's
+ * flavor words are capitalised (the Deep Mines teach Shift), so with the sim's lowercase keys it
+ * carries the lesson's words, as it would for a learner who hasn't reached the Mines.
  */
-export const SIM_MOBS: readonly DefenseMob[] = [
-  { id: "slimeling", speedClass: "slow", flavor: "theme=food" },
-  { id: "moss-golem", speedClass: "slow", flavor: "theme=nature" },
-  { id: "cave-bat", speedClass: "fast", flavor: "theme=animals" },
-  { id: "frost-pup", speedClass: "medium", flavor: "theme=snow" },
-  { id: "cactus-cat", speedClass: "medium", flavor: "theme=animals" },
-  { id: "lantern-fish", speedClass: "medium", flavor: "theme=colors" },
-  { id: "crystal-crab", speedClass: "slow", flavor: "theme=blocks" },
-  { id: "sandstorm-imp", speedClass: "fast", flavor: "theme=tools" },
-];
+export const SIM_MOBS: readonly DefenseMob[] = MOBS;
 
 /** Every word list in `src/content/wordlists/` (not the blocklist), read with `node:fs`. */
 export function loadAllPools(): WordPool[] {
@@ -134,6 +127,18 @@ export interface RowResult {
   learnerMean: number;
   /** Share of learners whose mean accuracy over waves 4 on is in 85–95 %. */
   inBand: number;
+  /**
+   * Stability, over every learner's waves from wave 4 on (not medians):
+   * - `swamped`: the share of waves that went badly for the child, by the director's own relief
+   *   marks (accuracy under 75 %, or more than 30 % of the mobs at the base);
+   * - `crowded`: the share of waves with more than 20 % of the mobs at the base;
+   * - `low`: the share of waves under 85 % accuracy.
+   */
+  swamped: number;
+  crowded: number;
+  low: number;
+  /** The `swamped` share over waves 1–3: the part of the night every child plays. */
+  swampedEarly: number;
 }
 
 export interface DefenseSimOptions {
@@ -147,7 +152,7 @@ export function measureBaseline(
   profile: TypistProfile,
   pools: readonly WordPool[],
   rng: Rng,
-): number {
+): { netWpm: number; accuracy: number } {
   const targets = generateTargets(
     {
       kind: "words",
@@ -173,7 +178,7 @@ export function measureBaseline(
     profile,
     rng: rng.fork("baseline:typist"),
   });
-  return run.summary.netWpm;
+  return { netWpm: run.summary.netWpm, accuracy: run.summary.accuracy };
 }
 
 interface LiveMob {
@@ -324,7 +329,8 @@ export function playNight(
   const baseline = measureBaseline(profile, lessonPools, rng.fork("baseline"));
   const director = createDirector({
     band: spec.band,
-    baselineNetWpm: spec.baseline ? baseline : null,
+    baselineNetWpm: spec.baseline ? baseline.netWpm : null,
+    baselineAccuracy: spec.baseline ? baseline.accuracy : null,
     calm: spec.calm,
     rng: rng.fork("director"),
     mobs: SIM_MOBS,
@@ -342,7 +348,7 @@ export function playNight(
     feedback.push(f);
     director.observe(f);
   }
-  return { baseline, feedback, difficulty };
+  return { baseline: baseline.netWpm, feedback, difficulty };
 }
 
 const reachedShare = (f: WaveFeedback): number => {
@@ -351,6 +357,8 @@ const reachedShare = (f: WaveFeedback): number => {
 };
 const mean = (xs: readonly number[]): number =>
   xs.length === 0 ? 0 : xs.reduce((a, b) => a + b, 0) / xs.length;
+const share = <T>(xs: readonly T[], test: (x: T) => boolean): number =>
+  xs.length === 0 ? 0 : xs.filter(test).length / xs.length;
 
 /** The rows the report prints. */
 export function reportRows(): RowSpec[] {
@@ -397,6 +405,7 @@ export function simulateRow(
   const perWave = (f: (n: (typeof nights)[number], w: number) => number): number[] =>
     Array.from({ length: opts.waves }, (_, w) => median(nights.map((n) => f(n, w))) ?? 0);
   const means = nights.map((n) => mean(n.feedback.slice(3).map((f) => f.accuracy)));
+  const later = nights.flatMap((n) => n.feedback.slice(3));
   return {
     spec,
     baselineWpm: median(nights.map((n) => n.baseline)) ?? 0,
@@ -405,6 +414,13 @@ export function simulateRow(
     reachedLater: mean(nights.flatMap((n) => n.feedback.slice(3).map(reachedShare))),
     learnerMean: median(means) ?? 0,
     inBand: means.filter((m) => m >= 0.85 && m <= 0.95).length / opts.runs,
+    swamped: share(later, (f) => f.accuracy < 0.75 || reachedShare(f) > 0.3),
+    crowded: share(later, (f) => reachedShare(f) > 0.2),
+    low: share(later, (f) => f.accuracy < 0.85),
+    swampedEarly: share(
+      nights.flatMap((n) => n.feedback.slice(0, 3)),
+      (f) => f.accuracy < 0.75 || reachedShare(f) > 0.3,
+    ),
   };
 }
 
@@ -428,9 +444,12 @@ export function formatDefense(results: readonly RowResult[], opts: DefenseSimOpt
     "Waves 1-N: median accuracy % over learners. Range 4+: lowest and highest of those medians from",
     "wave 4 on. Learner mean 4+: median over learners of their own mean accuracy from wave 4 on; In",
     "band: the share of learners whose mean is in 85-95 %. Reached 4+: mean share of mobs at the base.",
+    "Swamped / Crowded / Low 4+: the share of all waves from wave 4 on (every learner, not medians)",
+    "that were under 75 % accuracy or had over 30 % of the mobs at the base / had over 20 % of the",
+    "mobs at the base / were under 85 % accuracy. Swamped 1-3: the swamped share over waves 1 to 3.",
     "",
-    `| Row | Typist | Band | Baseline | ${waves.join(" | ")} | Range 4+ | Learner mean 4+ | In band | Reached 4+ | d first→last | Converged |`,
-    `|---|---|---|---:|${waves.map(() => "---:").join("|")}|---|---:|---:|---:|---|---|`,
+    `| Row | Typist | Band | Baseline | ${waves.join(" | ")} | Range 4+ | Learner mean 4+ | In band | Reached 4+ | Swamped 4+ | Crowded 4+ | Low 4+ | Swamped 1-3 | d first→last | Converged |`,
+    `|---|---|---|---:|${waves.map(() => "---:").join("|")}|---|---:|---:|---:|---:|---:|---:|---:|---|---|`,
   ];
   for (const r of results) {
     const later = r.accuracy.slice(3);
@@ -446,6 +465,10 @@ export function formatDefense(results: readonly RowResult[], opts: DefenseSimOpt
       pct1(r.learnerMean),
       `${pct0(r.inBand)}%`,
       `${pct1(r.reachedLater)}%`,
+      `${pct0(r.swamped)}%`,
+      `${pct0(r.crowded)}%`,
+      `${pct0(r.low)}%`,
+      `${pct0(r.swampedEarly)}%`,
       `${d0.toFixed(2)}→${d1.toFixed(2)}`,
       converged(r) ? "yes" : "no",
     ];
@@ -483,9 +506,11 @@ export function sweepPlant(opts: DefenseSimOptions, band: AgeBand = "miner"): Sw
       const reached: number[] = [];
       for (let r = 0; r < opts.runs; r++) {
         const rng = createRng(opts.seed).fork(`sweep:${typist}:${r}`);
+        const base = measureBaseline(profile, lessonPools, rng.fork("baseline"));
         const director = createDirector({
           band,
-          baselineNetWpm: measureBaseline(profile, lessonPools, rng.fork("baseline")),
+          baselineNetWpm: base.netWpm,
+          baselineAccuracy: base.accuracy,
           calm: false,
           rng: rng.fork("director"),
           mobs: SIM_MOBS,
