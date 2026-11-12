@@ -169,13 +169,20 @@ Field legend: see the top of `tasks-m0-m1.md`.
 
 ### M3-FIX-2 Pixel font legibility
 - **Size/Tier:** S / B · **Review:** required (visual + a11y)
-- **Depends on:** M2-08
+- **Depends on:** M2-08. High priority after the owner's playtest.
 - **Owns:** `src/ui/theme/fonts.css` and the font tokens, plus any app-wide heading or HUD style
   that uses Pixelify
 - **Spec:** in bold Pixelify, "C" reads as "O" and "5" as "S" (M3-04 review). Typing targets
   already use Atkinson (decision 68). Find where bold Pixelify shows letters or digits a child
   must read: island names, HUD numbers, Results. Then use the regular weight, or fall back to
   `--font-body` for digits and short labels. Keep Pixelify's look for big headings.
+  - **Owner playtest, 2026-11-12** (`docs/screenshots/`): it is worse than C/O. Capital B reads
+    as G or 8 ("Bill" → "Gill", "Back" → "Gack", "Go here next!" → "8o here next!"), and C
+    reads as O at every size ("Crystal Caverns" → "Orystal Oaverns"). It shows on buttons, map
+    labels and headings alike. If no Pixelify weight fixes B and C at button size, use
+    `--font-body` for buttons, labels and names, and keep Pixelify only where a child never has
+    to read the word to act (the logo, big titles). Check every capital and digit at the sizes
+    used, and put a glyph sheet in the handoff.
 - **Acceptance:**
   - [ ] Before and after screenshots of each affected screen in the handoff; baselines refreshed.
 
@@ -210,6 +217,11 @@ Field legend: see the top of `tasks-m0-m1.md`.
 - **Owns:** `src/ui/screens/map-logic.ts`, `src/ui/screens/WorldMap.tsx`, the map e2e, plus the
   small a11y files named below
 - **Spec:**
+  - **Whole island is the target** (owner playtest, 2026-11-12): a child clicked the Meadow
+    island itself several times, and only the small nameplate worked. A click or tap on an
+    island's model selects it the same way the nameplate does (raycast against the island
+    meshes, or a hit box per island). Add a pointer cursor and a hover highlight. Keep the
+    nameplate working, and keep keyboard selection the same.
   - **Map** (M3-FIX-1 review 5870192563):
     - **N1:** the last step of `layoutLabels` (map-logic.ts:297) never re-checks earlier labels
       and never keeps a moved label inside the bottom of the window. At 1024×600, text scale 2,
@@ -229,6 +241,8 @@ Field legend: see the top of `tasks-m0-m1.md`.
     - The `KeyCap` kit should default to `--font-body`.
     - Test the "Hear it again" hint at text scale 2.
 - **Acceptance:**
+  - [ ] An e2e clicks the centre of the Meadow island's model (not its label) and the lesson
+    panel opens.
   - [ ] Each item fixed, or listed with a reason; a11y review passes.
 
 ### M3-FIX-5 Avatar onto the model runtime
@@ -247,6 +261,94 @@ Field legend: see the top of `tasks-m0-m1.md`.
 - **Acceptance:**
   - [ ] The avatar looks the same as before (baseline unchanged, or refreshed with a side-by-side
     in the handoff).
+
+### M3-FIX-6 Letter groups that sound safe when read aloud (child safety, first priority)
+- **Size/Tier:** S / A · **Review:** required (child safety)
+- **Depends on:** none. Run it before every other card.
+- **Owns:** `src/engine/generator.ts` (the syllable path only), a new pure
+  `src/content/wordlists/spoken-blocklist.ts` (or `.txt` with a loader in the same folder),
+  `tests/unit/engine/generator-spoken.test.ts`, plus any curated letter drills in
+  `src/content/lessons/*.ts` and `src/content/wordlists/*.txt` that fail the new check
+- **Spec:** owner playtest, 2026-11-12. The `syllables` generator joins letters at random, and
+  read-aloud says the group as a word. "fak" sounded like the f-word. Nothing checks generated groups
+  against the blocklist today, and the blocklist only matches spellings, not sounds.
+  - Add a pure "spoken-alike" check. It rejects a group when its spelling, or its likely
+    pronunciation, is close to a swear word, slur, body or toilet word. Cover at least: vowel swaps
+    (fak, fuk, fek, fok), c/k/ck/q swaps, ph/f, doubled letters, a silent trailing e, and the short
+    forms (sht, fk, dk). Normalise first (lower case, c→k, ck→k, ph→f, q→k, collapse doubles), then
+    compare against a short list of normalised stems. Matching a stem anywhere inside the group
+    counts.
+  - The generator rejects such a group and draws again, inside the existing `syllableTries`
+    budget, without changing the seeded stream for groups that pass. If it changes the stream
+    anyway, say so in the handoff and refresh any replay or golden fixtures.
+  - Run the same check over every fixed item that the read-aloud can speak: lesson drills, word
+    lists, phrases and placement items. Fix or drop whatever fails.
+  - Put the stem list in one place with a comment that it is for M6-08's content review. Keep it
+    out of kid-facing UI and out of `t()`.
+- **Acceptance:**
+  - [ ] A property test (fixed seed, at least 10,000 groups for each allowed-key set the lessons
+    use) finds no group that fails the check.
+  - [ ] A table test lists at least 40 unsafe spellings, all rejected, and 40 near-misses that stay
+    allowed (for example `fan`, `kit`, `sad`, `has`, `dish`).
+  - [ ] Every fixed item in `src/content` passes, enforced by a test.
+
+### M3-FIX-7 Curriculum: replay variety, skipping "No Peeking!", Mine review keys
+- **Size/Tier:** S / B · **Review:** optional
+- **Depends on:** M3-03
+- **Owns:** `src/content/lessons/*.ts`, `src/content/wordlists/*.txt`, `src/engine/generator.ts`
+  (the item-pick path only), `src/modes/mine/mine.ts` (one line), their tests
+- **Spec:**
+  - **Replay variety (owner playtest, 2026-11-12):** after finishing Meadow, the owner pressed
+    "Play again" on a Meadow lesson, and every item was "ha ha". Find the cause, which could be the
+    pool filter, a seed reused on replay, or a pool that leaves one item. Fix it, so that each
+    lesson in every biome gets at least 5 distinct items per session when replayed.
+  - The challenge "No Peeking!" lessons must be skippable before anything hides the keyboard.
+  - Mine should weight `reviewKeys` (one line in `mine.ts`).
+- **Acceptance:**
+  - [ ] A test that replays every lesson 3 times with new seeds and checks for at least 5 distinct
+    items per session.
+  - [ ] A test that "No Peeking!" can be skipped.
+
+### M3-FIX-8 My Badges scrolling and toast placement
+- **Size/Tier:** S / B · **Review:** optional
+- **Depends on:** M3-10
+- **Owns:** the My Badges screen and its CSS, the toast component and its CSS, their tests
+- **Spec:**
+  - **Scrolling (owner playtest, 2026-11-12):** the badge list scrolls, but nothing shows that it
+    does. The owner read "16 of 24" as a bug. Make the overflow obvious: a fade at the cut edge and
+    a "More badges below" cue, or a layout that fits. Keyboard and screen-reader users must reach
+    every badge.
+  - A toast that arrives under a modal is never read. Hold it until the modal closes.
+  - At text scale 2 the toast may cover the map corner.
+- **Acceptance:**
+  - [ ] At 1280×720 and at text scale 2, a screenshot shows the cue whenever badges are hidden.
+  - [ ] A test that a toast queued under a modal is announced after the modal closes.
+
+### M3-FIX-9 Import/export leftovers
+- **Size/Tier:** S / B · **Review:** required (data safety)
+- **Depends on:** M3-12
+- **Owns:** the import/export screen and the `src/save/` import code, their tests
+- **Spec:** from the M3-12 review:
+  - Show which copy has an island (N4).
+  - Make the `dateText` locale explicit (N5).
+  - Two-tab safety: a `BroadcastChannel` message after each save, or a lock per player, so two
+    tabs can't overwrite each other's progress.
+- **Acceptance:**
+  - [ ] A two-tab test (unit, with a fake channel) proves the stale tab reloads or refuses to save.
+
+### M3-FIX-10 Placement small items
+- **Size/Tier:** XS / C · **Review:** optional
+- **Depends on:** M3-FIX-3
+- **Owns:** `src/engine/placement*.ts`, the placement screen, their tests and docs
+- **Spec:**
+  - The docs say "Birch judged on home row", but the 60-key floor pools keys up to the words rung.
+    Make the code and the docs agree.
+  - The floor test should import the real constant, not keep its own copy.
+  - Quitting the test and then picking yourself on the player screen offers the test again at
+    once. Don't offer it again in the same visit.
+  - Fix the stale comments.
+- **Acceptance:**
+  - [ ] Each item fixed, or listed in the handoff note with a reason.
 
 ### M3-GATE
 `PLAN.md` Phase 3 acceptance (curriculum doc generated, sim plausibility, axe clean). Owner gets the word-list review dump (👤, can be deferred to M6-08 by the owner's choice). Tag `m3`.
