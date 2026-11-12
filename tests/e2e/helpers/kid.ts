@@ -99,6 +99,8 @@ export interface Played {
   keys: number;
   slips: number;
   peakCalls: number;
+  /** Wall time (ms) from the first press to the last. */
+  wallMs: number;
 }
 
 /**
@@ -112,11 +114,14 @@ export async function playLesson(
   onKey?: (index: number) => Promise<void>,
 ): Promise<Played> {
   const press = createKid(page, opts);
-  const played: Played = { keys: 0, slips: 0, peakCalls: 0 };
+  const played: Played = { keys: 0, slips: 0, peakCalls: 0, wallMs: 0 };
+  const started = Date.now();
   for (let now = await state(page); now.next !== null; now = await state(page)) {
+    // The frame drawn since the last key (one read per key keeps the overhead low).
+    played.peakCalls = Math.max(played.peakCalls, now.calls);
     played.slips += await press(now.next);
     played.keys++;
-    played.peakCalls = Math.max(played.peakCalls, (await state(page)).calls);
+    played.wallMs = Date.now() - started;
     if (onKey !== undefined) await onKey(played.keys);
   }
   return played;
