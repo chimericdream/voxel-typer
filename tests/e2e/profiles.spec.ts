@@ -52,7 +52,7 @@ test("profile cards show the 3D avatar from the shared renderer", async ({ page 
   expect(alpha).toEqual({ w: 160, mid: 255, corner: 0 });
   expect(await contexts(page)).toBe(1);
   await expectNoAxeViolations(page, "profiles");
-  await expect(page.locator("#app")).toHaveScreenshot("profiles-cards.png");
+  await expect(page).toHaveScreenshot("profiles-cards.png");
   expect(errors).toEqual([]);
 });
 
