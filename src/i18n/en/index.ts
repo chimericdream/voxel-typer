@@ -18,6 +18,9 @@ import a11y from "./a11y";
 import placement from "./placement";
 import profiles from "./profiles";
 import settings from "./settings";
+import lessonsBirch from "./lessons-birch";
+import lessonsShore from "./lessons-shore";
+import lessonsFrosty from "./lessons-frosty";
 
 const en = {
   common,
@@ -33,6 +36,9 @@ const en = {
   placement,
   profiles,
   settings,
+  lessonsBirch,
+  lessonsShore,
+  lessonsFrosty,
 } as const;
 
 export default en;

@@ -1,9 +1,10 @@
 /**
  * Meadow lessons 1–6 (task M2-12): the lesson data, its word pools, and what the generator makes
- * from them for every band over ten seeds.
+ * from them for every band over ten seeds. Lessons 7–14 (M3-03) are checked by
+ * `biomes-1-4.test.ts` and the curriculum validator.
  */
 import { describe, expect, it } from "vitest";
-import { lessons } from "../../../src/content/lessons/meadow";
+import { lessons as meadow } from "../../../src/content/lessons/meadow";
 import type { Lesson } from "../../../src/content/lessons/types";
 import { wordPools } from "../../../src/content/wordlists/pools";
 import { keyWeights } from "../../../src/engine/adaptive";
@@ -13,6 +14,9 @@ import { createRng } from "../../../src/engine/rng";
 import type { Target } from "../../../src/engine/types";
 import en from "../../../src/i18n/en";
 import type { AgeBand } from "../../../src/types/core";
+
+/** M2-12's lessons, the ones this file checks. */
+const lessons = meadow.filter((l) => l.order <= 6);
 
 const BANDS: readonly AgeBand[] = ["sprout", "miner", "builder"];
 /** Contracts §6 defaults. */

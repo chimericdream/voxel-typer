@@ -73,10 +73,10 @@ export const WORD_KINDS: ReadonlySet<string> = new Set(["words", "phrases", "sen
 const SPACED_KINDS: ReadonlySet<string> = new Set(["phrases", "sentences"]);
 
 /**
- * Biomes still being written, which may lack their `mastery` lesson and some of their keys. M3-03
- * removes `meadow` when it adds Meadow 07–14.
+ * Biomes still being written, which may lack their `mastery` lesson and some of their keys. Empty
+ * since M3-03 finished Meadow; add a biome here while its lessons land over several cards.
  */
-export const IN_PROGRESS_BIOMES: ReadonlySet<BiomeId> = new Set<BiomeId>(["meadow"]);
+export const IN_PROGRESS_BIOMES: ReadonlySet<BiomeId> = new Set<BiomeId>();
 
 export const RULES = [
   "unique-id",

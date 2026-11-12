@@ -9,7 +9,7 @@ import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { applyResult } from "../../../src/app/progress";
-import { lessons } from "../../../src/content/lessons";
+import { lessons as shipped } from "../../../src/content/lessons";
 import { t } from "../../../src/i18n";
 import en from "../../../src/i18n/en";
 import type { Profile } from "../../../src/save/schema";
@@ -32,6 +32,12 @@ import { result, summary } from "../app/helpers";
 import type { Harness } from "./screens/harness";
 import { buttonByText, fixture, mount, text } from "./screens/harness";
 
+/**
+ * The map is checked against a fixed curriculum, Meadow 1–6 (M2-12), so its counts and labels
+ * don't change each time lessons are added. Birch and later biomes have no lessons here.
+ */
+const lessons = shipped.filter((l) => l.biome === "meadow" && l.order <= 6);
+
 let h: Harness | null = null;
 afterEach(() => {
   h?.unmount();
@@ -40,7 +46,7 @@ afterEach(() => {
 });
 
 async function openMap(profile: Profile): Promise<Harness> {
-  h = await mount({ initial: { id: "map" }, initialProfile: profile });
+  h = await mount({ lessons, initial: { id: "map" }, initialProfile: profile });
   return h;
 }
 
@@ -279,7 +285,7 @@ describe("World map", () => {
   });
 
   it("an island without lessons says so; Escape leaves the path, then goes to the players", async () => {
-    h = await mount({ initialProfile: fixture("meadow-done-miner") });
+    h = await mount({ lessons, initialProfile: fixture("meadow-done-miner") });
     const s = h;
     s.shell.api.navigate({ id: "map" });
     await s.settle();
@@ -387,7 +393,7 @@ describe("World map", () => {
   });
 
   it("without a player, offers the way to pick one", async () => {
-    h = await mount({ initial: { id: "map" } });
+    h = await mount({ lessons, initial: { id: "map" } });
     expect(text(h.root)).toContain(t("map.noPlayer.body"));
     expect(text(active())).toBe(t("map.noPlayer.go"));
     await h.press("Enter");
