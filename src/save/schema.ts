@@ -237,20 +237,24 @@ const shape =
     return null;
   };
 
-const settingsCheck: Check = shape({
-  textScale: num(1, 2),
-  showKeyboard: bool,
-  showHands: bool,
-  calmMode: bool,
-  reducedMotion: either(bool, oneOf(["system"])),
-  highContrast: bool,
-  font: oneOf(FONTS),
-  tts: bool,
-  volume: shape(Object.fromEntries(BUSES.map((b) => [b, num(0, 1)]))),
-  quality: oneOf(QUALITIES),
-  breakReminderMin: num(0),
-  layout: str(1, 32),
-});
+const settingsCheck: Check = shape(
+  {
+    textScale: num(1, 2),
+    showKeyboard: bool,
+    showHands: bool,
+    calmMode: bool,
+    reducedMotion: either(bool, oneOf(["system"])),
+    highContrast: bool,
+    font: oneOf(FONTS),
+    tts: bool,
+    volume: shape(Object.fromEntries(BUSES.map((b) => [b, num(0, 1)]))),
+    quality: oneOf(QUALITIES),
+    breakReminderMin: num(0),
+    layout: str(1, 32),
+  },
+  // Decision 93: additive, so saves without it stay valid (no migration).
+  { fingerLabels: bool },
+);
 
 const keyStatCheck: Check = shape({
   attempts: int(),

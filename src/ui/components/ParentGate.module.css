@@ -1,0 +1,77 @@
+/*
+ * The parent gate (task M3-08). It sits on a panel (a Settings tab, or a caller's dialog), so it
+ * uses the panel's text colors. Every size scales with --text-scale and every row wraps.
+ */
+.gate {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: min(26rem, 80vw);
+  max-width: 100%;
+  font-family: var(--font-body);
+  color: var(--c-text);
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+  line-height: var(--lh);
+}
+
+.ask,
+.why,
+.note {
+  margin: 0;
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.why,
+.note {
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  color: var(--c-text-muted);
+}
+
+.note:empty {
+  display: none;
+}
+
+/* The word to copy: big, in the body font (Pixelify mirrors letters, decision 68). */
+.word {
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+  letter-spacing: 0.05em;
+}
+
+.label {
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+}
+
+.field {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  border: 3px solid var(--c-slot-outline);
+  background-color: var(--c-panel);
+  color: var(--c-text);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+}
+
+.field:focus-visible {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+  box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
+}
+
+.field:disabled {
+  opacity: 0.6;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}

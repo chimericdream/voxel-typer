@@ -190,3 +190,154 @@ forgets fast: the fold applies α = 0.1 per attempt, so a key with 15 attempts k
    had at least `ADAPTIVE_CONSTANTS.unseenAttempts` (5) attempts on the key or bigram; below that,
    keep the old `srs`. Keys mostly pass that bar (7–60 attempts a session here), so in practice it
    only changes bigrams. `stats.ts` is not part of this task, so this is a proposal only.
+
+## Night Defense wave director (`tools/sim-defense.ts`, M4-05)
+
+```sh
+npm run tool -- sim-defense --runs 50 --waves 10 --seed 1 --sweep 1
+```
+
+| Flag      | Default | Meaning                                                       |
+| --------- | ------- | ------------------------------------------------------------- |
+| `--runs`  | `50`    | Learners per row. Each is independent (`rng.fork(…:run:<n>)`) |
+| `--waves` | `10`    | Waves per night (at least 4)                                  |
+| `--seed`  | `1`     | Root seed. Same arguments give byte-identical output          |
+| `--sweep` | `0`     | `1` also prints the plant sweep (below)                       |
+
+The tool plays nights of Defense through the real director (`src/modes/defense/director.ts`) and
+the real typing engine in `lockOn` targeting with the `stay` policy. The typists are M1-07's
+`slow`, `avg` and `fast` profiles set to exactly 10, 25 and 50 WPM. Each learner first types a
+30-word Mine-style session; its net WPM is the baseline the director starts from, as the game's
+baseline would be. Words come from the shipped word lists with all 26 letters allowed (a learner
+past Frosty Peaks). The mobs are stand-ins for M4-03's roster: the card's ids, with guessed flavor
+tags and speed classes. The run takes about 7 s, or 9 s with the sweep.
+
+### The defense typist (an assumption)
+
+M1-07's typist errs at a fixed rate whatever the pace, so on its own nothing the director does
+could move its accuracy. Children make more slips when they rush, so the sim adds a pressure model
+on top:
+
+- **Pressure** is the most urgent "work left ÷ time left" over the mobs on the field. For each mob,
+  in the order they will reach the base, it is the time to type its word and every word before it
+  (at the typist's median gap, plus 500 ms and one gap to read each new word), divided by the time
+  until it arrives. Above 1 the typist can't save every mob.
+- **Slips.** Each key's slip chance is M1-07's chance plus `min(0.2, 0.4 × max(0, pressure − 0.1))`.
+  Rushing also shortens the gap by up to 15 %.
+- **Triage.** With nothing locked, the typist starts the first-arriving mob it can still finish in
+  time, or else the one arriving last.
+- **Calm mode.** Mobs stop at the waiting line (85 % of the lane) and never reach the base, and the
+  typist feels half the pressure.
+
+The numbers are a guess, not a measurement. `p0` was first 0.5, but with mobs walking three spawn
+gaps that only pushed on a typist already swamped, so it became 0.1. The extra slips are capped at
+20 points, because a swamped child lets mobs through rather than typing at 10 % accuracy. The
+`slope 0.2` and `slope 0.8` rows rerun the Miner rows with half and double the slope, to check the
+controller does not depend on the exact model.
+
+### The controller
+
+`d ∈ [0.3, 2.0]` scales time against the learner's reference speed (the baseline, or 5/10/15 WPM
+for a new Sprout/Miner/Builder). At `d = 1` a mob spawns every "reaction + word at the reference
+speed" (reaction 1400/900/650 ms by band) and walks its lane in three of those. Below `d = 1` the
+spawn gap is `base / d`; above it, `base / d^0.3`. Travel time is always `3 × base / d^1.5`, kept
+inside 4–40 s, and fast mobs walk 1.25× faster, slow ones 0.8×. Each wave lasts about 20/25/30 s
+by band (3 s longer per wave up to the fourth), so a fast learner gets more mobs, never a longer
+wave. A night starts at `d = 0.8` (0.7 for a new profile).
+
+After each wave:
+
+1. `step = k × (accuracy − 0.90)`. `accuracy` is a words-weighted average in which each wave counts
+   half as much as the next. A wave under 2 s of activity doesn't count for accuracy.
+2. If more than 10 % of the wave's mobs reached the base, `step ≤ −1.5 × (share − 0.10)`.
+3. **Search, then fine.** Until the first wave at or under 90 % (or with more than 10 % at the
+   base), `k = 2.5` and steps stay within ±15 %. After that, `k = 1` and steps stay within
+   −8 % / +5 %.
+4. **Relief.** A wave under 75 %, or with more than 30 % of its mobs at the base, makes the next
+   one 15 % easier.
+5. `d ← clamp(d × (1 + step), 0.3, 2.0)`. In calm mode: a pace of 0.75×, at most `d = 1.2`, at
+   most +8 % a wave, and at most 10 mobs.
+
+How it got there (each change checked against the full table):
+
+- **A plain proportional step** (`k = 3`, ±15 %, an exponential average) left fast typists at 98 %:
+  `d` only scaled the typing part of each mob's time, not the reaction allowance. So `d` became a
+  time scale on everything.
+- **Then the plant sweep showed a cliff.** Accuracy is flat until about `d = 0.8`, then falls about
+  10 points per 0.1 of `d`. Two changes followed:
+  - With `k = 2.5` the loop gain on that slope was about 2.7, which is unstable for this kind of
+    step, so the controller swung between too easy and swamped.
+  - Speed and spawn rate scaled the same way, so above `d = 1` the extra pressure came from more
+    words a minute. That overloads the learner: every slip costs time, which brings more pressure
+    and more slips. Speed now rises faster than the spawn rate.
+- **Fine mode** came next, because a fast typist's in-band window is only about ±0.03 of `d` wide.
+- **Things that didn't help:**
+  - a median-of-3 estimate;
+  - asymmetric smoothing, which biased the estimate down so slow typists drifted to lower `d`;
+  - lower targets (0.88, 0.89), which traded the in-band share for nothing;
+  - other relief thresholds.
+
+### Result
+
+| Row         | Typist | Band    | Baseline |   1 |   2 |   3 |   4 |   5 |   6 |   7 |   8 |   9 |  10 | Range 4+   | Learner mean 4+ | In band | Reached 4+ | d first→last | Converged |
+| ----------- | ------ | ------- | -------: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | ---------- | --------------: | ------: | ---------: | ------------ | --------- |
+| main        | 10wpm  | sprout  |      8.2 |  89 |  94 |  88 |  89 |  90 |  90 |  90 |  93 |  91 |  94 | 89.4-93.7  |            90.0 |     94% |       1.1% | 0.80→0.78    | yes       |
+| main        | 10wpm  | miner   |      8.3 |  92 |  90 |  92 |  88 |  91 |  90 |  91 |  90 |  90 |  91 | 88.0-91.5  |            89.3 |     78% |       1.4% | 0.80→0.77    | yes       |
+| main        | 10wpm  | builder |      8.2 |  92 |  90 |  88 |  88 |  90 |  91 |  90 |  91 |  93 |  89 | 88.2-92.7  |            88.9 |     88% |       1.4% | 0.80→0.77    | yes       |
+| main        | 25wpm  | sprout  |     22.0 |  92 |  93 |  95 |  91 |  94 |  93 |  94 |  91 |  94 |  95 | 90.8-94.5  |            89.9 |     80% |       4.7% | 0.80→0.95    | yes       |
+| main        | 25wpm  | miner   |     22.2 |  94 |  92 |  91 |  93 |  93 |  91 |  93 |  93 |  93 |  94 | 91.5-94.2  |            90.9 |    100% |       3.4% | 0.80→0.85    | yes       |
+| main        | 25wpm  | builder |     21.7 |  93 |  92 |  93 |  91 |  90 |  94 |  94 |  93 |  94 |  92 | 90.5-94.5  |            90.6 |     90% |       3.6% | 0.80→0.81    | yes       |
+| main        | 50wpm  | sprout  |     46.9 | 100 |  98 |  95 |  95 |  95 |  91 |  92 |  94 |  93 |  94 | 91.2-95.1  |            90.1 |     94% |       7.0% | 0.80→1.23    | no        |
+| main        | 50wpm  | miner   |     46.6 |  97 |  96 |  81 |  94 |  96 |  95 |  95 |  94 |  96 |  95 | 93.7-96.1  |            89.5 |     86% |       9.4% | 0.80→0.89    | no        |
+| main        | 50wpm  | builder |     46.4 |  97 |  91 |  94 |  96 |  96 |  94 |  95 |  96 |  96 |  95 | 94.2-96.2  |            90.8 |     98% |       7.8% | 0.80→0.84    | no        |
+| new profile | 10wpm  | miner   |     none |  94 |  91 |  91 |  87 |  91 |  91 |  91 |  90 |  89 |  91 | 86.8-91.5  |            89.2 |     76% |       1.7% | 0.70→0.68    | yes       |
+| new profile | 25wpm  | miner   |     none |  95 |  95 |  95 |  96 |  95 |  94 |  93 |  94 |  94 |  94 | 93.1-96.1  |            93.7 |     78% |       0.6% | 0.70→1.28    | no        |
+| new profile | 50wpm  | miner   |     none | 100 | 100 | 100 |  97 | 100 |  97 |  97 |  97 |  97 |  97 | 96.7-100.0 |            97.4 |      2% |       0.0% | 0.70→2.00    | no        |
+| calm        | 10wpm  | sprout  |      8.2 |  92 |  93 |  90 |  94 |  94 |  94 |  94 |  94 |  94 |  94 | 93.5-94.4  |            92.7 |     84% |       0.0% | 0.80→0.96    | yes       |
+| calm        | 25wpm  | sprout  |     22.0 |  95 |  96 |  96 |  94 |  96 |  96 |  97 |  95 |  95 |  97 | 94.1-97.0  |            95.4 |     38% |       0.0% | 0.80→1.20    | no        |
+| calm        | 50wpm  | sprout  |     46.9 | 100 | 100 |  97 |  98 |  97 | 100 |  97 | 100 |  97 |  98 | 97.4-100.0 |            98.2 |      0% |       0.0% | 0.80→1.20    | no        |
+| slope 0.2   | 10wpm  | miner   |      8.3 |  94 |  90 |  94 |  89 |  91 |  91 |  92 |  90 |  91 |  91 | 88.9-91.7  |            89.9 |     90% |       1.9% | 0.80→0.83    | yes       |
+| slope 0.2   | 25wpm  | miner   |     22.2 |  94 |  93 |  92 |  92 |  92 |  92 |  93 |  93 |  93 |  94 | 91.8-93.8  |            90.6 |     94% |       4.5% | 0.80→0.97    | yes       |
+| slope 0.2   | 50wpm  | miner   |     46.6 |  98 |  97 |  95 |  92 |  94 |  93 |  95 |  94 |  93 |  95 | 92.5-95.3  |            90.9 |     98% |       8.5% | 0.80→1.10    | no        |
+| slope 0.8   | 10wpm  | miner   |      8.3 |  90 |  88 |  89 |  88 |  90 |  90 |  91 |  90 |  90 |  90 | 87.8-90.9  |            87.9 |     76% |       1.5% | 0.80→0.68    | yes       |
+| slope 0.8   | 25wpm  | miner   |     22.2 |  91 |  89 |  91 |  94 |  94 |  93 |  93 |  93 |  94 |  93 | 92.8-94.4  |            90.9 |     90% |       2.9% | 0.80→0.78    | yes       |
+| slope 0.8   | 50wpm  | miner   |     46.6 |  96 |  90 |  88 |  95 |  97 |  94 |  96 |  95 |  97 |  95 | 94.2-96.9  |            89.7 |     86% |       8.4% | 0.80→0.79    | no        |
+
+Plant sweep (miner band, fixed d, 50 learners, waves 3-4): mean accuracy % / reached %
+
+| Typist |  d 0.5 |  d 0.6 |  d 0.7 |  d 0.8 |  d 0.9 |   d 1.0 |   d 1.1 |   d 1.2 |   d 1.3 |   d 1.4 |   d 1.5 |   d 1.6 |
+| ------ | -----: | -----: | -----: | -----: | -----: | ------: | ------: | ------: | ------: | ------: | ------: | ------: |
+| 10wpm  | 93 / 0 | 93 / 0 | 92 / 0 | 91 / 1 | 88 / 2 | 82 / 10 | 73 / 25 | 67 / 37 | 60 / 50 | 55 / 59 | 49 / 70 | 45 / 77 |
+| 25wpm  | 95 / 0 | 95 / 0 | 94 / 0 | 93 / 0 | 89 / 3 | 77 / 21 | 69 / 35 | 63 / 47 | 56 / 60 | 52 / 68 | 47 / 76 | 44 / 81 |
+| 50wpm  | 98 / 0 | 98 / 0 | 97 / 0 | 97 / 0 | 93 / 3 | 82 / 19 | 75 / 32 | 68 / 44 | 65 / 52 | 61 / 59 | 59 / 63 | 58 / 65 |
+
+- **10 and 25 WPM converge in every band.** The median accuracy is in 85–95 % at wave 4 and every
+  later wave (88.0–94.5 %), and at most 4.7 % of mobs reach the base.
+- **50 WPM is 1 point over at the top.** Each learner's own mean from wave 4 on is in band: the
+  median of those means is 89.5–90.8 %, and 86–98 % of the learners are in band. But the per-wave
+  median peaks at 95.1 % (Sprout), 96.1 % (Miner) and 96.2 % (Builder), because a fast typist's
+  waves are "fine or swamped". The sweep shows why: at fixed `d` the fast typist goes from 97 % at
+  `d = 0.8` to 82 % at `d = 1.0`. A typical wave just under that edge scores 95–97 %, and an
+  occasional one over it scores 70–80 %. So the average sits at 90 % while the median wave sits
+  higher. At most 9.4 % of mobs reach the base, inside the 20 % limit.
+- **New profiles start slow on purpose.** A 10 WPM new player converges. A 25 or 50 WPM one is
+  still climbing at wave 10 (`d` reaches 1.28 and 2.00), because the default reference is
+  10 WPM and steps are at most +15 % a wave. Defense lessons come after Mine lessons and the
+  placement test, so in practice a baseline exists.
+- **Calm mode never lets a mob reach the base** and keeps `d ≤ 1.2`. That ceiling leaves 25 and
+  50 WPM Sprouts above 95 %: calm mode trades challenge for calm.
+- **The model's slope barely matters.** With half or double the slope, 10 and 25 WPM still
+  converge, and 50 WPM behaves as in the main rows.
+
+`tests/unit/sim/sim-defense.test.ts` pins these results:
+
+- 10 and 25 WPM converge in every band;
+- 50 WPM: the learner mean is in band, at least 80 % of learners are in band, and every per-wave
+  median from wave 4 on is within 85–96.5 %;
+- reached base ≤ 20 % on the main rows;
+- calm mode: no mob reaches the base, and `d ≤ 1.2`;
+- the report is the same for the same seed.
+
+**What the model can't show.** In M1-07's typist the slip rate depends on the key and on pressure,
+never on the word. Real children also slip more on longer and harder words. That is a second lever
+the director could use for fast learners (longer words as `d` rises) once real play data exists.

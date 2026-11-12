@@ -502,7 +502,7 @@ describe("Privacy", () => {
 describe("ComingSoon", () => {
   it("routes without a screen offer the way back", async () => {
     const s = await open({ initial: { id: "splash" }, initialProfile: fixture("fresh-sprout") });
-    s.shell.api.navigate({ id: "settings" });
+    s.shell.api.navigate({ id: "parent" });
     await s.settle();
     expect(text(s.root)).toContain(t("screens.comingSoon.body"));
     await s.press("Enter");

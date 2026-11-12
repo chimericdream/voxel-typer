@@ -265,9 +265,14 @@ describe("World map", () => {
     expect(active()).toBe(birch);
     await s.press("ArrowDown");
     expect(text(active())).toBe(t("map.players"));
+    // M3-08: Settings sits after Players in the corner.
+    await s.press("ArrowRight");
+    expect(text(active())).toBe(t("settings.title"));
     await s.press("ArrowRight");
     expect(active()).toBe(meadow);
     await s.press("ArrowLeft");
+    expect(text(active())).toBe(t("settings.title"));
+    await s.press("ArrowUp");
     expect(text(active())).toBe(t("map.players"));
     await s.press("ArrowUp");
     expect(active()).toBe(birch);

@@ -66,4 +66,5 @@ export const screens: Partial<Record<RouteId, ScreenLoader>> = {
   privacy: () => import("@/ui/screens/Privacy"),
   map: () => import("@/ui/screens/WorldMap"),
   placement: () => import("@/ui/screens/Placement"),
+  settings: () => import("@/ui/screens/Settings"),
 };

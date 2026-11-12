@@ -69,10 +69,21 @@ async function startChange(s: Harness, name: string, item: string, yes = true): 
   await s.press("Enter");
   await focusButton(s, dialog(s), item);
   await s.press("Enter");
-  expect(dialog(s).querySelector("[data-gate]")).not.toBeNull();
-  expect(text(active())).toBe(t("profiles.gate.yes"));
-  if (yes) await s.press("Enter");
-  else await focusButton(s, dialog(s), t("profiles.gate.no")).then(() => s.press("Enter"));
+  await answerGate(s, yes);
+}
+
+/** The parent gate (M3-08) is open in the dialog: type its word, or say "Not now". */
+async function answerGate(s: Harness, yes: boolean): Promise<void> {
+  const gate = dialog(s).querySelector("[data-gate]");
+  expect(gate).not.toBeNull();
+  expect(active()).toBe(gate?.querySelector("input"));
+  if (yes) {
+    await s.type(text(gate?.querySelector("[data-gate-word]") ?? null));
+    await s.press("Enter");
+  } else {
+    await focusButton(s, dialog(s), t("settings.gate.cancel"));
+    await s.press("Enter");
+  }
 }
 
 describe("Profiles: cards", () => {
@@ -258,8 +269,7 @@ describe("Profiles: slots", () => {
     expect(text(dialog(s))).toContain(t("profiles.menu.lost"));
     await focusButton(s, dialog(s), t("profiles.menu.remove"));
     await s.press("Enter");
-    expect(text(active())).toBe(t("profiles.gate.yes"));
-    await s.press("Enter");
+    await answerGate(s, true);
     expect(text(active())).toBe(t("profiles.remove.lostConfirm"));
     await s.press("Enter");
     expect(map.has(lostId)).toBe(false);
