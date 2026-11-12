@@ -72,7 +72,7 @@ function Intro({ app }: { app: App }) {
   return (
     <div class={screen.screen}>
       <h1 class={screen.title}>{t("placement.title")}</h1>
-      <Panel tone="plate">
+      <Panel>
         <div class={screen.column}>
           <p class={screen.text}>{t("placement.intro")}</p>
           <p class={screen.text}>{t("placement.howTo")}</p>
@@ -106,7 +106,7 @@ function Done({ app, profile }: { app: App; profile: Readonly<Profile> }) {
   return (
     <div class={screen.screen}>
       <h1 class={screen.title}>{t("placement.doneTitle")}</h1>
-      <Panel tone="plate">
+      <Panel>
         <div class={screen.column}>
           <p class={screen.text}>
             <strong>{first}</strong>
