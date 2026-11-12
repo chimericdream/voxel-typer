@@ -50,8 +50,7 @@ export const BUILDER_ISLAND_EXTRA = "builderIsland";
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-const isCount = (v: unknown): v is number =>
-  typeof v === "number" && Number.isInteger(v) && v >= 0;
+const isCount = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0;
 
 function isIsland(v: unknown): v is IslandPatch["island"] {
   if (!isRecord(v) || !isCount(v["expansions"]) || typeof v["lastEdited"] !== "number") {

@@ -40,13 +40,7 @@ import type { BlockId, Ms } from "@/types/core";
 import type { ModeContext, ModeInstance } from "../types";
 import { blueprintsFor } from "./blueprints";
 import type { BuilderBlueprint } from "./blueprints";
-import {
-  EMPTY_LINE,
-  buildVocabulary,
-  completionOf,
-  typeKey,
-  waitsForSpace,
-} from "./commands";
+import { EMPTY_LINE, buildVocabulary, completionOf, typeKey, waitsForSpace } from "./commands";
 import type { Command, Direction, Feedback, LineState } from "./commands";
 import { BUILDER_SLICE } from "./hud";
 import type { BuilderHint, BuilderHudSlice, PaletteItem } from "./hud";
@@ -110,7 +104,8 @@ const canMarkDirty = (s: SceneHandle): s is DirtyScene =>
   "markDirty" in s && typeof s.markDirty === "function";
 
 type FreeCamera = CameraRig & { moveTo(to: Readonly<Pose>, opts?: { durationMs?: Ms }): void };
-const canMoveTo = (c: CameraRig): c is FreeCamera => "moveTo" in c && typeof c.moveTo === "function";
+const canMoveTo = (c: CameraRig): c is FreeCamera =>
+  "moveTo" in c && typeof c.moveTo === "function";
 
 const CAMERA_KEYS = new Set(["[", "]", "-", "=", "+", "_"]);
 
@@ -312,10 +307,9 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
   const refusal = (res: Extract<EditResult, { ok: false }>, block: BlockId | null): Feedback => {
     switch (res.reason) {
       case "not-enough": {
-        const [id, count] = Object.entries(res.missing ?? {}).toSorted((a, b) => b[1] - a[1])[0] ?? [
-          block ?? "",
-          1,
-        ];
+        const [id, count] = Object.entries(res.missing ?? {}).toSorted(
+          (a, b) => b[1] - a[1],
+        )[0] ?? [block ?? "", 1];
         return block !== null && id === block && count === 1
           ? { key: "builder.hint.noneLeft", params: { name: nameOf(id) } }
           : { key: "builder.hint.needMore", params: { count, name: nameOf(id) } };
@@ -485,7 +479,10 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
       quarter = turn(quarter, key === "]" ? 1 : -1);
       applyCamera(TURN_MS);
     } else {
-      const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom + (key === "-" || key === "_" ? -1 : 1)));
+      const next = Math.max(
+        ZOOM_MIN,
+        Math.min(ZOOM_MAX, zoom + (key === "-" || key === "_" ? -1 : 1)),
+      );
       if (next === zoom) return;
       zoom = next;
       applyCamera(FOLLOW_MS);

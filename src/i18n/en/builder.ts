@@ -39,7 +39,6 @@ export default {
   },
 
   help: {
-    label: "Words you can type",
     put: "put",
     dig: "dig",
     undo: "undo",

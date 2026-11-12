@@ -71,6 +71,7 @@ function CommandLine({ slice }: { slice: BuilderHudSlice }) {
     <div class={styles.lineRow}>
       <div
         class={styles.line}
+        // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- reason: the prompt, text and caret are one picture of the line, named by aria-label
         role="img"
         aria-label={empty ? t("builder.line.empty") : t("builder.line.label", { text: slice.line })}
         data-builder="line"
@@ -124,7 +125,7 @@ function Where({ slice }: { slice: BuilderHudSlice }) {
 
 function Help() {
   return (
-    <div class={styles.help} aria-label={t("builder.help.label")} role="group">
+    <div class={styles.help} data-builder="help">
       <p class={styles.plate}>
         <span class={styles.words}>
           <b>{t("builder.help.put")}</b>

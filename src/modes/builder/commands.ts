@@ -87,44 +87,39 @@ export function shortCode(name: string, others: readonly string[]): string {
 }
 
 export function buildVocabulary(input: VocabularyInput): Vocabulary {
-  const full: { name: string; make(word: string): VocabWord }[] = [];
+  /** Every word under its full name, before Sprout codes. */
+  const full: { name: string; command: VocabWord["command"] }[] = [];
   const conflicts: string[] = [];
   const taken = new Set<string>();
-  const add = (name: string, make: (word: string) => VocabWord): void => {
+  const add = (name: string, command: VocabWord["command"]): void => {
     if (!/^[a-z]+$/.test(name) || taken.has(name)) {
       conflicts.push(name);
       return;
     }
     taken.add(name);
-    full.push({ name, make });
+    full.push({ name, command });
   };
-  const plain =
-    (command: VocabWord["command"]) =>
-    (word: string): VocabWord => ({ word, command, tail: "" });
 
-  add("put", plain({ kind: "put" }));
-  add("dig", plain({ kind: "dig" }));
-  add("undo", plain({ kind: "undo" }));
-  for (const dir of DIRECTIONS) add(dir, plain({ kind: "direction", dir }));
+  add("put", { kind: "put" });
+  add("dig", { kind: "dig" });
+  add("undo", { kind: "undo" });
+  for (const dir of DIRECTIONS) add(dir, { kind: "direction", dir });
+  for (const b of input.blocks) add(b.typedName, { kind: "arm", block: b.id });
+  for (const name of input.blueprints ?? []) add(name, { kind: "blueprint", name });
+
   const short = input.band === "sprout";
-  const blockWords = new Map<BlockId, string>();
-  for (const b of input.blocks) {
-    add(b.typedName, (word) => {
-      blockWords.set(b.id, word);
-      return {
-        word,
-        command: { kind: "arm", block: b.id },
-        tail: b.typedName.slice(word.length),
-      };
-    });
-  }
-  for (const name of input.blueprints ?? []) add(name, plain({ kind: "blueprint", name }));
-
   const names = full.map((f) => f.name);
-  const words = full.map((f, i) => {
-    const isBlock = f.make(f.name).command.kind === "arm";
-    const others = names.filter((_, j) => j !== i);
-    return f.make(short && isBlock ? shortCode(f.name, others) : f.name);
+  const blockWords = new Map<BlockId, string>();
+  const words = full.map(({ name, command }, i): VocabWord => {
+    if (command.kind !== "arm") return { word: name, command, tail: "" };
+    const word = short
+      ? shortCode(
+          name,
+          names.filter((_, j) => j !== i),
+        )
+      : name;
+    blockWords.set(command.block, word);
+    return { word, command, tail: name.slice(word.length) };
   });
   return { words, wordOf: (block) => blockWords.get(block), conflicts };
 }
@@ -254,7 +249,7 @@ function fitHint(text: string, vocab: Vocabulary): Feedback {
   if (p.kind === "command" && !p.auto) {
     return { key: "builder.hint.pressSpace", params: { word: text } };
   }
-  if (p.kind === "empty") return { key: "builder.hint.tryWord" };
+  if (p.kind !== "unknown" || p.suggestions.length === 0) return { key: "builder.hint.tryWord" };
   return p.suggestions.length === 0
     ? { key: "builder.hint.tryWord" }
     : { key: "builder.hint.oneOf", params: { words: wordList(p.suggestions) } };

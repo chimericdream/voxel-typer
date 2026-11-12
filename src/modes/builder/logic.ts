@@ -152,14 +152,15 @@ export function cameraPose(target: Cell, view: Quarter, zoom: number): Pose {
 /** How far the cursor may wander from the look-at point before the camera follows. */
 export const FOLLOW_SLACK = { xz: 5, y: 3 } as const;
 
+const pull = (t: number, c: number, slack: number): number =>
+  c - t > slack ? c - slack : t - c > slack ? c + slack : t;
+
 /**
  * The camera's look-at point after the cursor moved: unchanged while the cursor is within
  * {@link FOLLOW_SLACK} of it, else pulled just far enough to bring the cursor back inside. So the
  * world holds still for small moves and the cursor never leaves the middle of the screen.
  */
 export function followTarget(target: Cell, cursor: Cell): Cell {
-  const pull = (t: number, c: number, slack: number): number =>
-    c - t > slack ? c - slack : t - c > slack ? c + slack : t;
   return {
     x: pull(target.x, cursor.x, FOLLOW_SLACK.xz),
     y: pull(target.y, cursor.y, FOLLOW_SLACK.y),
