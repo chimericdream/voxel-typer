@@ -18,6 +18,9 @@ import a11y from "./a11y";
 import placement from "./placement";
 import profiles from "./profiles";
 import settings from "./settings";
+import lessonsBirch from "./lessons-birch";
+import lessonsShore from "./lessons-shore";
+import lessonsFrosty from "./lessons-frosty";
 import achievements from "./achievements";
 
 const en = {
@@ -34,6 +37,9 @@ const en = {
   placement,
   profiles,
   settings,
+  lessonsBirch,
+  lessonsShore,
+  lessonsFrosty,
   achievements,
 } as const;
 

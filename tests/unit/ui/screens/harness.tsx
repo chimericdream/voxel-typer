@@ -20,6 +20,7 @@ import type { AppScene } from "../../../../src/app/scene-host";
 import { createShell } from "../../../../src/app/shell";
 import type { Shell } from "../../../../src/app/shell";
 import { lessons } from "../../../../src/content/lessons";
+import type { Lesson } from "../../../../src/content/lessons/types";
 import { attachKeyboard } from "../../../../src/input/keyboard";
 import { isProfile } from "../../../../src/save/schema";
 import type { Profile } from "../../../../src/save/schema";
@@ -75,6 +76,8 @@ export async function mount(
     store?: SaveStore;
     /** The app's shared scene. By default there is none, so 3D screens run flat. */
     acquireScene?: () => Promise<AppScene>;
+    /** The curriculum. By default the shipped lessons. */
+    lessons?: readonly Lesson[];
   } = {},
 ): Promise<Harness> {
   const problems: SaveProblem[] = [];
@@ -91,7 +94,7 @@ export async function mount(
   const audio = makeAudio();
   const shell = createShell({
     store,
-    lessons,
+    lessons: opts.lessons ?? lessons,
     resolveMode: () => {
       throw new Error("no modes in screen tests");
     },

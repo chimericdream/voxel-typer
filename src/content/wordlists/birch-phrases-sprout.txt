@@ -1,0 +1,37 @@
+# Birch Forest phrases of 2-4 words for Sprouts, authored for Voxel Typer. Provenance: SOURCES.md.
+# Every item uses only the Meadow and Birch keys: a s d f g h j k l ; e i r u t y o w q p
+# tags: band=sprout reading=grade2 kind=phrases keys=asdfghjkl;eirutyowqp biome=birch theme=forest
+a fresh pear
+a gift for you
+a happy pup
+a hat for dad
+a little frog
+a little seed
+a pretty kite
+a quiet path
+a red jay
+a red leaf
+a soft pillow
+a tall tree
+a white daisy
+eat a pear
+go to the hut
+hug a tree
+look at the owl
+pet the dog
+put it here
+sit with a pal
+the deer sleeps
+the dog is wet
+the frog hops
+the goat is fed
+the owl hoots
+the owl is wise
+the path is wet
+the rose is red
+the sky is gray
+the trees are tall
+two little owls
+up a ladder
+up the tree
+we see a hare
