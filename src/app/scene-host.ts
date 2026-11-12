@@ -9,6 +9,7 @@
  * The render core is loaded with a dynamic import, so three.js stays out of the initial bundle.
  */
 import type { Clock } from "@/app/clock";
+import { createRng } from "@/engine/rng";
 import type { SceneCore } from "@/render/scene";
 import type { SkyController } from "@/render/sky";
 import type { CameraRig, SceneHandle } from "@/render/types";
@@ -60,13 +61,12 @@ export type SceneFactory = (canvas: HTMLCanvasElement, opts: AppSceneOptions) =>
 
 /** The real factory: the M2-01 render core, loaded on first use. */
 export const renderCoreFactory: SceneFactory = async (canvas, opts) => {
-  const [{ createSceneHandle }, { blocks }, { createSkyEnvironment }, { createFx }, { createRng }] =
+  const [{ createSceneHandle }, { blocks }, { createSkyEnvironment }, { createFx }] =
     await Promise.all([
       import("@/render/scene"),
       import("@/content/blocks"),
       import("@/render/sky"),
       import("@/render/fx"),
-      import("@/engine/rng"),
     ]);
   const frozen = opts.frozen ?? false;
   // Clouds start still; they drift only with the camera, during live play (see `setDrift` below).

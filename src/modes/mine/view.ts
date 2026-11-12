@@ -31,6 +31,8 @@ export const SWING_MS: Ms = 120;
 export const SLIDE_MS: Ms = 220;
 /** How long the block's little recoil from a hit lasts. */
 export const RECOIL_MS: Ms = 110;
+/** The beat between a break and the next block, so the burst is seen before the stage refills. */
+export const ARRIVE_DELAY_MS: Ms = 150;
 
 const BOB_PERIOD: Ms = 3400;
 const BOB_HEIGHT = 0.06;
@@ -205,7 +207,12 @@ export function createStageView(opts: StageViewOptions): StageView {
 
   const blockGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
   const baseUv = Float32Array.from(blockGeo.getAttribute("uv").array);
-  const blockMat = new THREE.MeshLambertMaterial({ alphaTest: 0.5 });
+  const blockMat = new THREE.MeshLambertMaterial({
+    alphaTest: 0.5,
+    // A little of its own light, so the target stands out from the diorama on its shaded side.
+    emissive: 0xffffff,
+    emissiveIntensity: 0.16,
+  });
   blockMat.name = "mine-block";
   const block = new THREE.Mesh(blockGeo, blockMat);
   root.add(block);
@@ -294,6 +301,9 @@ export function createStageView(opts: StageViewOptions): StageView {
   let swingLeft: Ms = 0;
   let recoilLeft: Ms = 0;
   let slideLeft: Ms = 0;
+  /** Time until a block that was asked for shows up. */
+  let arriveLeft: Ms = 0;
+  let waiting = false;
   let wobbleAngle = 0;
   let wobbleSpeed = 0;
   let phase: Ms = 0;
@@ -304,7 +314,7 @@ export function createStageView(opts: StageViewOptions): StageView {
   const placeArm = (): void => {
     const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * ARM_DEPTH;
     const halfW = halfH * camera.aspect;
-    armPivot.position.set(Math.min(halfW * 0.6, halfH * 1.15), -halfH * 0.92, -ARM_DEPTH);
+    armPivot.position.set(Math.min(halfW * 0.74, halfH * 1.4), -halfH * 1.02, -ARM_DEPTH);
     let k = 0;
     if (swingLeft > 0) {
       const u = 1 - swingLeft / SWING_MS;
@@ -378,12 +388,15 @@ export function createStageView(opts: StageViewOptions): StageView {
       if (atlas) {
         if (blockMat.map !== atlas.texture) {
           blockMat.map = atlas.texture;
+          blockMat.emissiveMap = atlas.texture;
           blockMat.needsUpdate = true;
         }
         setUvs(atlas, spec.blockId);
       }
-      root.visible = true;
-      shadow.visible = true;
+      waiting = slide && animate();
+      arriveLeft = waiting ? ARRIVE_DELAY_MS : 0;
+      root.visible = !waiting;
+      shadow.visible = !waiting;
       crack.visible = false;
       crackShown = null;
       veinOn = spec.vein;
@@ -413,6 +426,7 @@ export function createStageView(opts: StageViewOptions): StageView {
       opts.requestRender();
     },
     hideBlock() {
+      waiting = false;
       root.visible = false;
       shadow.visible = false;
       opts.requestRender();
@@ -443,7 +457,16 @@ export function createStageView(opts: StageViewOptions): StageView {
       if (ambient()) phase += dtMs;
       swingLeft = Math.max(0, swingLeft - dtMs);
       recoilLeft = Math.max(0, recoilLeft - dtMs);
-      slideLeft = Math.max(0, slideLeft - dtMs);
+      if (waiting) {
+        arriveLeft -= dtMs;
+        if (arriveLeft <= 0) {
+          waiting = false;
+          root.visible = true;
+          shadow.visible = true;
+        }
+      } else {
+        slideLeft = Math.max(0, slideLeft - dtMs);
+      }
       if (wobbleAngle !== 0 || wobbleSpeed !== 0) {
         const dt = dtMs / 1000;
         wobbleSpeed += (-WOBBLE_STIFFNESS * wobbleAngle - WOBBLE_DAMPING * wobbleSpeed) * dt;
@@ -468,7 +491,7 @@ export function createStageView(opts: StageViewOptions): StageView {
       return true;
     },
     stats: () => ({
-      blockVisible: root.visible,
+      blockVisible: root.visible || waiting,
       crack: crackShown,
       glyph: root.visible && glyph.visible,
       glow: root.visible && glow.visible,
