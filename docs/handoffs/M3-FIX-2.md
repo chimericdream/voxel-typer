@@ -78,6 +78,8 @@ Unrelated to this card, but visible in both map images: the "Pick an island" hin
 the "Change player" button at 1280×720. It was already there before this change, and the
 narrower font doesn't fix it.
 
+- **Review fixes (orchestrator, review on #186):** seven baselines kept Pixelify because the snapshot workflow only rewrites diffs over 1%: `hud-day`, `hud-night`, `hud-contrast`, `lesson-intro`, `map-lesson-path`, `builder-miner` and `builder-sprout`. They were deleted and remade on CI. Settings no longer offers "Blocky": it looked the same as Clear, and its own label was drawn in Pixelify. Saves keep accepting `"pixel"`, which the picker shows as Clear, so the schema is unchanged.
+
 ## Acceptance
 
 - [x] Before and after screenshots of each affected screen are in this note (above), and the
