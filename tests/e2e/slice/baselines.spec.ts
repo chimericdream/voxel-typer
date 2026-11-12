@@ -83,6 +83,21 @@ test("results", async ({ page }) => {
   expect((await state(page)).stars).toBe(3);
   await expect(page.locator("#app").getByText("Wow! Three stars!")).toBeVisible();
   await settle(page);
+  // Every button and the focus ring around it (4 px ring, 3 px halo) fit inside the visible part
+  // of the screen at 1280×720, with nothing scrolled (M2-FIX-3).
+  const main = await page.locator("main").boundingBox();
+  if (main === null) throw new Error("no main");
+  expect(await page.locator("main").evaluate((el) => el.scrollTop)).toBe(0);
+  const ring = 7;
+  const buttons = page.locator("main").getByRole("button");
+  await expect(buttons).toHaveCount(3);
+  for (const button of await buttons.all()) {
+    const box = await button.boundingBox();
+    if (box === null) throw new Error("a button has no box");
+    expect(box.y - ring).toBeGreaterThanOrEqual(main.y);
+    expect(box.y + box.height + ring).toBeLessThanOrEqual(main.y + main.height);
+  }
+  await expect(page.getByRole("button", { name: "Next lesson" })).toBeFocused();
   await expect(page).toHaveScreenshot("results.png", { timeout: 30_000 });
   expect(errors).toEqual([]);
 });

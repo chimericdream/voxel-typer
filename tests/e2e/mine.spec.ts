@@ -50,7 +50,7 @@ test("meadow-01 plays to Results inside the draw-call budget", async ({ page }) 
   expect(errors).toEqual([]);
 });
 
-test("meadow-05: a word chips, breaks on its space, and the loot lands in the hotbar", async ({
+test("meadow-05: a word chips, breaks on its last letter, and the loot lands in the hotbar", async ({
   page,
 }) => {
   test.slow();
@@ -59,10 +59,12 @@ test("meadow-05: a word chips, breaks on its space, and the loot lands in the ho
   expect(first.length).toBeGreaterThan(1);
   const hotbar = page.getByRole("group", { name: /./ }).first();
   await expect(hotbar.getByRole("img")).toHaveCount(0);
-  for (let i = 0; i < first.length + 1; i++) {
+  // No space after the word (decision 81): its last letter breaks the block.
+  for (let i = 0; i < first.length; i++) {
     const key = await nextKey(page);
     if (key === null) break;
-    await page.keyboard.press(key === " " ? "Space" : key);
+    expect(key).not.toBe(" ");
+    await page.keyboard.press(key);
     await page.waitForTimeout(80);
   }
   // The next word is up, and what was inside the block is in a hotbar slot.

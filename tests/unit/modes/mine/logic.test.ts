@@ -10,8 +10,10 @@ import type { Lesson } from "../../../../src/content/lessons/types";
 import { meadowLoot } from "../../../../src/content/loot/meadow";
 import type { LootDrop } from "../../../../src/engine/loot";
 import { createRng } from "../../../../src/engine/rng";
+import { createSession } from "../../../../src/engine/session";
 import type { TargetView } from "../../../../src/engine/types";
 import {
+  blockTargets,
   BANNER_GAP_MS,
   BLOCK_PX_MAX,
   BLOCK_PX_MIN,
@@ -480,6 +482,43 @@ describe("HUD values", () => {
 });
 
 describe("from a lesson to a session", () => {
+  it("makes every target a block that breaks on its last char (decision 81)", () => {
+    const generated = [
+      { id: "g0", text: "dad", trailingSpace: true },
+      { id: "g1", text: "a sad lad", trailingSpace: true },
+      { id: "g2", text: "f", trailingSpace: false },
+      { id: "g3", text: "flask" },
+    ];
+    const targets = blockTargets(generated);
+    expect(targets.map((x) => x.trailingSpace)).toEqual([false, false, false, false]);
+    expect(targets.map((x) => x.text)).toEqual(generated.map((x) => x.text));
+    // The generator's targets are left as they were.
+    expect(generated[0]?.trailingSpace).toBe(true);
+
+    const session = createSession(
+      {
+        policy: "stay",
+        targeting: "sequential",
+        caseSensitive: true,
+        end: { kind: "targets" },
+        mode: "mine",
+        seed: 1,
+      },
+      targets,
+    );
+    let t = 0;
+    const done: string[] = [];
+    for (const key of "dada sad ladfflask") {
+      for (const e of session.feed({ key, t: (t += 100), shift: false })) {
+        if (e.type === "targetComplete") done.push(`${e.targetId}@${key}`);
+        if (e.type === "wrong") throw new Error(`"${key}" was not wanted`);
+      }
+    }
+    // Each block ends on its own last char; the spaces inside the phrase still count.
+    expect(done).toEqual(["g0@d", "g1@d", "g2@f", "g3@k"]);
+    expect(session.view().ended).toBe(true);
+  });
+
   it("allows every key up to the lesson, in the order they were taught", () => {
     expect(allowedKeys(lessons, lesson("meadow-01"))).toEqual(["f", "j"]);
     expect(allowedKeys(lessons, lesson("meadow-03"))).toEqual(["f", "j", "d", "k", "s", "l"]);

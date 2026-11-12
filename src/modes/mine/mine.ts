@@ -43,6 +43,7 @@ import {
   TARGET_LATENCY,
   allowedKeys,
   biomeOf,
+  blockTargets,
   burstCount,
   caseSensitiveFor,
   chimeStep,
@@ -54,6 +55,7 @@ import {
   enqueueDrops,
   feedWrong,
   flushFlights,
+  isStraySpace,
   lengthPlan,
   nextKeyOf,
   stageFrame,
@@ -156,7 +158,7 @@ function plan(ctx: ModeContext): { targets: Target[]; lesson: Lesson | null; lim
     },
     ctx.rng.fork("targets"),
   );
-  return { targets, lesson, limitMs: size.timeLimitMs };
+  return { targets: blockTargets(targets), lesson, limitMs: size.timeLimitMs };
 }
 
 export function create(ctx: ModeContext): MineInstance {
@@ -441,6 +443,7 @@ export function create(ctx: ModeContext): MineInstance {
       netWpm: summary.netWpm,
       targets: lesson?.targets ?? { accuracy: 0.85 },
       baseline: baselineNetWpm(ctx.profile.history),
+      band,
     });
     ctx.finish({ summary, loot: { ...loot }, stars, extra: { oreVeins: veinCount } });
   };
@@ -553,6 +556,8 @@ export function create(ctx: ModeContext): MineInstance {
     input(k: KeyInput) {
       // Nothing to type until the block is on the stage, and nothing after the last one.
       if (phase !== "playing" || paused) return;
+      // A habit space between blocks is not a slip (decision 81).
+      if (isStraySpace(k.key, session.view().active)) return;
       handle(session.feed(k));
     },
 
