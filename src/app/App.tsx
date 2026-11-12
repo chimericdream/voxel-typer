@@ -5,13 +5,14 @@
  */
 import type { ReadonlySignal } from "@preact/signals";
 import type { ComponentType } from "preact";
-import { useEffect, useState } from "preact/hooks";
+import { useCallback, useEffect, useState } from "preact/hooks";
 import { fingerLabelsOn, hearAgainKey, hearAgainShown } from "@/a11y/options";
 import { EN_US, layoutById } from "@/content/layouts";
 import { t } from "@/i18n";
 import { Button } from "@/ui/kit/Button";
 import { Panel } from "@/ui/kit/Panel";
 import { Toast } from "@/ui/kit/Toast";
+import type { AchievementToastProps } from "@/ui/components/AchievementToast";
 import { ComingSoon } from "@/ui/screens/ComingSoon";
 import { Hud } from "@/ui/hud/Hud";
 import { Pause } from "@/ui/screens/Pause";
@@ -118,6 +119,29 @@ function Notices({ shell }: { shell: Shell }) {
   );
 }
 
+/**
+ * Badge toasts (M3-10) wait while a lesson is on: they show on Results or the next menu. A pause
+ * is a modal dialog, which makes the rest of the page inert, so a toast there would be hidden
+ * from screen readers; they wait through a pause too.
+ */
+function Badges({ shell }: { shell: Shell }) {
+  const onShown = useCallback(() => shell.nextBadgeToast(), [shell]);
+  const queue = shell.badgeToasts.value;
+  const status = shell.playStatus.value;
+  const inLesson =
+    shell.route.value.id === "play" &&
+    (status === "running" || status === "paused" || status === "break");
+  // Loaded with the first badge: it draws block icons, which the first screen doesn't need.
+  const [View, setView] = useState<ComponentType<AchievementToastProps> | null>(null);
+  const want = queue.length > 0;
+  useEffect(() => {
+    if (!want || View !== null) return;
+    void import("@/ui/components/AchievementToast").then((m) => setView(() => m.AchievementToast));
+  }, [want, View]);
+  if (View === null) return null;
+  return <View queue={queue} open={!inLesson} onShown={onShown} />;
+}
+
 export interface AppProps {
   shell: Shell;
   /** True while the device has an English voice of its own (`src/a11y/voice.ts`). */
@@ -137,6 +161,7 @@ export function App({ shell, localVoice }: AppProps) {
         )}
       </main>
       <Notices shell={shell} />
+      <Badges shell={shell} />
       {FOOTER_ROUTES.has(route.id) ? (
         <footer class={styles.footer}>{t("common.notAffiliated")}</footer>
       ) : null}

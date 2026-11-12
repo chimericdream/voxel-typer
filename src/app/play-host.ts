@@ -15,6 +15,8 @@ import type { KeyInput, SessionView } from "@/engine/types";
 import type { ModeContext, ModeInstance, ModeModule, ModeResult } from "@/modes/types";
 import type { Profile } from "@/save/schema";
 import type { GameModeId, Ms } from "@/types/core";
+import { withUnlocks } from "@/engine/achievements";
+import type { AchievementTracker, RunTracker } from "./achievements";
 import type { BreakReminder } from "./break-reminder";
 import type { Clock } from "./clock";
 import { createEmitter } from "./events";
@@ -66,6 +68,8 @@ export interface PlayHostDeps {
   saveProfile(p: Profile): Promise<boolean>;
   /** Every shipped lesson, for the placement test's unlocks (M3-05). Default: none. */
   lessons?: readonly Lesson[];
+  /** Achievements (M3-10): told when each lesson starts, finishes or is left. Optional. */
+  achievements?: AchievementTracker;
   /** Called on every status change. */
   onStatus(status: PlayStatus): void;
   /** Called once per finished lesson, after the profile is updated and the save attempted. */
@@ -112,6 +116,7 @@ interface Run {
   unFrame: (() => void) | null;
   unBus: (() => void) | null;
   bus: Emitter<GameEvents> | null;
+  ach: RunTracker | null;
   log: KeyInput[];
 }
 
@@ -157,6 +162,13 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
   const teardown = (r: Run): void => {
     if (r.disposed) return;
     r.disposed = true;
+    // A lesson left early keeps the badges it already earned.
+    const ach = r.ach;
+    r.ach = null;
+    if (ach !== null && !r.finished) {
+      const kept = ach.abandon();
+      if (Object.keys(kept).length > 0) void deps.saveProfile(withUnlocks(r.profile, kept));
+    }
     stopFrames(r);
     r.unBus?.();
     r.unBus = null;
@@ -182,9 +194,10 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
     queueMicrotask(() => teardown(r));
     const at = deps.clock.epoch();
     // The placement test is not a curriculum lesson: it sets the start instead (M3-05).
-    const updated = isPlacementLesson(r.lesson)
+    const applied = isPlacementLesson(r.lesson)
       ? applyPlacement(r.profile, deps.lessons ?? [], result, at)
       : applyResult(r.profile, r.lesson, result, at);
+    const updated = r.ach?.finish(applied, result) ?? applied;
     void deps.saveProfile(updated).then(() => {
       // A newer lesson started (or this one was quit) while the save was in flight: don't let
       // the old finish route the new lesson to results.
@@ -217,6 +230,7 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
         unFrame: null,
         unBus: null,
         bus: null,
+        ach: null,
         log: [],
       };
       run = r;
@@ -229,6 +243,7 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
         r.scene = scene;
         const bus = createEmitter<GameEvents>();
         r.bus = bus;
+        r.ach = deps.achievements?.begin({ profile, lesson, bus }) ?? null;
         r.unBus = bus.on("engine", (e) => {
           // A break waits for a target boundary, never mid-word.
           if (e.type !== "targetComplete") return;
