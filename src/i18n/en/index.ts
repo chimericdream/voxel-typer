@@ -17,6 +17,7 @@ import map from "./map";
 import a11y from "./a11y";
 import placement from "./placement";
 import profiles from "./profiles";
+import settings from "./settings";
 
 const en = {
   common,
@@ -31,6 +32,7 @@ const en = {
   a11y,
   placement,
   profiles,
+  settings,
 } as const;
 
 export default en;

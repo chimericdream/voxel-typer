@@ -12,7 +12,8 @@
 import { wordPools } from "@/content/wordlists/pools";
 import { PLACEMENT_MS } from "@/engine/placement";
 import { createPlacementDriver } from "@/engine/placement-driver";
-import { PLACEMENT_TIER_EXTRA } from "./lesson";
+import { PLACEMENT_RUNGS_EXTRA, PLACEMENT_TIER_EXTRA } from "./lesson";
+import type { RungScore } from "@/engine/placement";
 import type { Ms } from "@/types/core";
 import { create as createMine } from "../mine/mine";
 import type { MineInstance } from "../mine/mine";
@@ -27,7 +28,8 @@ export function create(ctx: ModeContext): MineInstance {
       band: ctx.band,
       pools: wordPools,
       stats: ctx.profile.keyStats,
-      sessionIndex: ctx.profile.sessionCounter,
+      // The session the test counts as, as in the estimate (M3-05 review N8).
+      sessionIndex: ctx.profile.sessionCounter + 1,
       targetLatencyMs: TARGET_LATENCY[ctx.band],
     },
     ctx.rng.fork("placement"),
@@ -36,16 +38,28 @@ export function create(ctx: ModeContext): MineInstance {
   // pressure, and a block count made slow typists sit for minutes and cut the fastest short
   // (M3-05 review B1).
   const limitMs: Ms = PLACEMENT_MS;
+  // Pauses, on the real clock, so each rung's time leaves them out like `activeMs` does.
+  const pauses: { from: Ms; to: Ms | null }[] = [];
+  const pausedWithin = (from: Ms, to: Ms): Ms =>
+    pauses.reduce((sum, p) => {
+      const end = Math.min(to, p.to ?? to);
+      return sum + Math.max(0, end - Math.max(from, p.from));
+    }, 0);
+  const rungs = (startT: Ms, activeMs: Ms): RungScore[] =>
+    driver.rungScores(startT).map((r) => ({
+      ...r,
+      ms: Math.min(activeMs, Math.max(0, r.ms - pausedWithin(startT, startT + r.ms))),
+    }));
 
-  return createMine(ctx, {
+  const mine = createMine(ctx, {
     mode: "placement",
     plan: {
       targets: [driver.first()],
       end: { kind: "time", ms: limitMs },
       limitMs,
     },
-    onBlock({ errors }) {
-      return [driver.next(errors)];
+    onBlock({ errors, t }) {
+      return [driver.next(errors, t)];
     },
     progress(_done, leftMs) {
       return leftMs === null ? 0 : clamp01(1 - leftMs / limitMs);
@@ -57,8 +71,25 @@ export function create(ctx: ModeContext): MineInstance {
         summary,
         loot,
         stars: 0,
-        extra: { [PLACEMENT_TIER_EXTRA]: driver.tierReached() },
+        extra: {
+          [PLACEMENT_TIER_EXTRA]: driver.tierReached(),
+          [PLACEMENT_RUNGS_EXTRA]: rungs(summary.startedAtT, summary.activeMs),
+        },
       };
     },
   });
+
+  return {
+    ...mine,
+    pause(t) {
+      const last = pauses.at(-1);
+      if (last === undefined || last.to !== null) pauses.push({ from: t, to: null });
+      mine.pause(t);
+    },
+    resume(t) {
+      const last = pauses.at(-1);
+      if (last !== undefined && last.to === null) last.to = t;
+      mine.resume(t);
+    },
+  };
 }

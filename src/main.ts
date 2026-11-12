@@ -28,6 +28,8 @@ import type { Profile } from "@/save/schema";
 import { createIdbStore, createMemoryStore } from "@/save/store";
 import type { SaveStore } from "@/save/store";
 import type { SaveProblem } from "@/save/problems";
+import type { Settings } from "@/save/settings";
+import type { QualityLevel } from "@/types/core";
 import { guardHeldActivation } from "@/a11y/key-repeat";
 import { appMotion } from "@/a11y/motion";
 import { applyPageSettings } from "@/a11y/page";
@@ -104,6 +106,18 @@ async function boot(host: HTMLElement): Promise<void> {
     frozen: debug.freeze,
   });
 
+  // Picture quality (Settings → Look, M3-08): `?quality` wins; 'auto' is medium until M6 measures.
+  const qualityFor = (s: Readonly<Settings>): QualityLevel =>
+    debug.quality ?? (s.quality === "auto" ? "medium" : s.quality);
+  let quality: QualityLevel = debug.quality ?? "medium";
+  let sceneQuality: QualityLevel = quality;
+  const syncQuality = (): void => {
+    const scene = scenes.current();
+    if (scene === null || sceneQuality === quality) return;
+    sceneQuality = quality;
+    scene.setQuality(quality);
+  };
+
   const initial: Route = { id: debug.screen ?? "splash" };
   if (debug.lesson !== null) initial.lesson = debug.lesson;
 
@@ -111,7 +125,11 @@ async function boot(host: HTMLElement): Promise<void> {
     store,
     lessons,
     resolveMode,
-    acquireScene: () => scenes.acquire(),
+    acquireScene: () =>
+      scenes.acquire().then((scene) => {
+        syncQuality();
+        return scene;
+      }),
     hud,
     audio,
     clock: realClock,
@@ -122,6 +140,8 @@ async function boot(host: HTMLElement): Promise<void> {
     applySettings(s) {
       // Theme, letter size, motion (CSS and the shared flag) and font (src/a11y/page.ts).
       applyPageSettings(root, s);
+      quality = qualityFor(s);
+      syncQuality();
     },
     focusOnControl: () => document.activeElement?.matches(INTERACTIVE) === true,
     showCanvas(on) {
