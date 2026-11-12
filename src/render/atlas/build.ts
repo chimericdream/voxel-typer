@@ -169,18 +169,21 @@ export function createAtlasLookup(
   blocks: readonly BlockDef[],
   plan: AtlasPlan,
   size: number,
-): Pick<Atlas, "uv" | "transparent" | "tileOf"> {
+): Pick<Atlas, "uv" | "transparent" | "shape" | "tileOf"> {
   const byNum = new Map<number, Record<Face, number>>();
   const transparent = new Set<number>();
+  const sprigs = new Set<number>();
   for (const block of blocks) {
     const faces = plan.faces.get(block.id);
     if (byNum.has(block.num)) throw new Error(`duplicate block num: ${block.num}`);
     if (faces) byNum.set(block.num, faces);
     if (block.tags.includes("transparent")) transparent.add(block.num);
+    if (block.shape === "sprig") sprigs.add(block.num);
   }
   return {
     uv: (blockNum, face) => tileUv(size, byNum.get(blockNum)?.[face] ?? MISSING_TILE),
     transparent: (blockNum) => transparent.has(blockNum),
+    shape: (blockNum) => (sprigs.has(blockNum) ? "sprig" : "cube"),
     tileOf: (blockId, face) => plan.faces.get(blockId)?.[face] ?? MISSING_TILE,
   };
 }

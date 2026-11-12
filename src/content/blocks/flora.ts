@@ -2,9 +2,11 @@
  * Flowers (deco range, nums 300–399) and wool dyed in flower colors (wool/colors range, 250–299;
  * docs/impl/contracts.md §17). Pure data.
  *
- * Flowers are small cubes, not cross-shaped billboards (M2-04 card). They have their own painters
- * (M2-FIX-2): blossoms on a lawn from above, stems and blossoms on the sides, so a patch reads as
- * flowers, not as a berry bush.
+ * Flowers are `shape: "sprig"` (M2-FIX-4, decision 82): a thin stem, two leaf nubs and a small
+ * bloom built from sub-voxel boxes inside the cell, never crossed billboards (IP rule). Their
+ * painters lay the sprig out where the mesher samples it: the side tile is the sprig seen from the
+ * side (and doubles as the block's icon), the top tile is the bloom from above, the bottom tile
+ * the bloom's shaded underside.
  */
 import type { PaletteRampId, TextureRecipe } from "@/render/atlas/recipes";
 import type { BlockDef } from "./types";
@@ -13,7 +15,7 @@ const same = (r: TextureRecipe): BlockDef["faces"] => ({ top: r, side: r, bottom
 const blossoms = (ramp: PaletteRampId): BlockDef["faces"] => ({
   top: { kind: "custom", paint: `flowers-top:${ramp}` },
   side: { kind: "custom", paint: `flowers-side:${ramp}` },
-  bottom: { kind: "noise", ramp: "dirt", scale: 4, contrast: 0.5 },
+  bottom: { kind: "custom", paint: `flowers-under:${ramp}` },
 });
 
 export const blocks: BlockDef[] = [
@@ -23,6 +25,7 @@ export const blocks: BlockDef[] = [
     nameKey: "blocks.redBlooms",
     faces: blossoms("wool-red"),
     material: "leaf",
+    shape: "sprig",
     rarity: "uncommon",
     tags: ["flower", "placeable", "biome:meadow"],
     typedName: "bloom",
@@ -33,6 +36,7 @@ export const blocks: BlockDef[] = [
     nameKey: "blocks.sunnyFlowers",
     faces: blossoms("wool-yellow"),
     material: "leaf",
+    shape: "sprig",
     rarity: "uncommon",
     tags: ["flower", "placeable", "biome:meadow"],
     typedName: "sunny",
@@ -43,6 +47,7 @@ export const blocks: BlockDef[] = [
     nameKey: "blocks.bluebells",
     faces: blossoms("wool-blue"),
     material: "leaf",
+    shape: "sprig",
     rarity: "uncommon",
     tags: ["flower", "placeable", "biome:meadow"],
     typedName: "bluebell",
@@ -53,6 +58,7 @@ export const blocks: BlockDef[] = [
     nameKey: "blocks.purplePuffs",
     faces: blossoms("wool-purple"),
     material: "leaf",
+    shape: "sprig",
     rarity: "uncommon",
     tags: ["flower", "placeable", "biome:meadow"],
     typedName: "puff",
