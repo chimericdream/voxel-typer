@@ -76,7 +76,7 @@ function harness(reduced = false, withAtlas = true) {
   const canvas = document.createElement("canvas");
   host.append(canvas);
   document.body.append(host);
-  const atlas = withAtlas ? fakeAtlas() : null;
+  let atlas = withAtlas ? fakeAtlas() : null;
   const cameraRig = createCameraRig(camera, { reducedMotion: () => rm, wake: () => loop.wake() });
   // FX never touches the renderer, and happy-dom has no WebGL to build a real one.
   const renderer: unknown = Object.create(THREE.WebGLRenderer.prototype);
@@ -98,11 +98,17 @@ function harness(reduced = false, withAtlas = true) {
     loop,
     scene,
     host,
-    atlas,
+    get atlas() {
+      return atlas;
+    },
     hitStops,
     cameraRig,
     setReduced(v: boolean) {
       rm = v;
+    },
+    /** Swaps the scene's atlas, as a biome change does. */
+    setAtlas(a: Atlas | null) {
+      atlas = a;
     },
     /** Moves the clock by `ms` and runs the queued frame (if any). */
     tick(ms = 16) {
@@ -442,6 +448,27 @@ describe("float text", () => {
 });
 
 describe("dispose", () => {
+  it("drops live chips when the atlas changes, and never draws the old texture (M2-05 N4)", () => {
+    const h = harness();
+    const old = h.atlas?.texture;
+    h.fx.burst(AT, { blockId: "stone", count: 12 });
+    expect(h.fx.stats().particles).toBe(12);
+    const mesh = particlesMesh(h.scene);
+    if (!(mesh.material instanceof THREE.MeshLambertMaterial)) throw new Error("material");
+    expect(mesh.material.map).toBe(old);
+    // A biome change: the scene builds a new atlas and disposes the old texture.
+    const next = fakeAtlas();
+    h.setAtlas(next);
+    h.tick(16);
+    expect(h.fx.stats().particles).toBe(0);
+    expect(mesh.material.map).toBeNull();
+    expect(mesh.count).toBe(0);
+    // The next burst takes the new atlas.
+    h.fx.burst(AT, { blockId: "stone", count: 4 });
+    expect(mesh.material.map).toBe(next.texture);
+    h.fx.dispose();
+  });
+
   it("frees the mesh, its geometry and material, removes the overlay, keeps the atlas", () => {
     const h = harness();
     h.fx.burst(AT, { blockId: "stone", count: 10 });
