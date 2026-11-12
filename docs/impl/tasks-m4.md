@@ -114,5 +114,50 @@ Field legend: see the top of `tasks-m0-m1.md`.
 - **Acceptance:**
   - [ ] All green twice.
 
+### M4-FIX-1 Builder: digging keeps every block, plus leftovers
+- **Size/Tier:** S / B · **Review:** required (no-failure rule)
+- **Depends on:** M4-07
+- **Owns:** `src/modes/builder/*`, `src/engine/island.ts`, their tests
+- **Spec:**
+  - **Dig loses blocks (owner playtest, 2026-11-12, no-failure rule):** on My Island, typing `dig`
+    on a block the player had none of (grass, when they only had dirt) removed it, and it never
+    showed up anywhere. `island.ts` says starter terrain refunds to the inventory. Find where it is
+    lost: the refund delta, the hotbar filter, the inventory write-back or the save. Fix it, so
+    every dug block shows in the hotbar and in the inventory, and survives a reload. If a block
+    can't go in the inventory (it isn't a placeable block), refund the block it drops instead, as
+    grass drops dirt, and say so in the hint.
+  - **From the M4-07 review:**
+    - Make the habit window depend on the band. 1.5 s may be too short for slow Sprouts.
+    - `plank` followed by `o` drops the `k`.
+    - The cursor outline is too thin.
+    - Tooltips should also open on focus and on touch.
+    - Fix the "Three sliders" comment.
+    - Add a baseline for the narrow map corner.
+  - The owner's answers on Sprout words, damaged-island reset and the `veteran-builder` fixture
+    are added here when they arrive.
+- **Acceptance:**
+  - [ ] A property test: for any sequence of put, dig and undo, the island blocks plus the inventory
+    always add up to the starting totals, counted per block, after a save and reload.
+  - [ ] An e2e: dig grass with zero grass in the inventory, and grass (or its drop) appears in the
+    hotbar.
+
+### M4-FIX-2 Night Defense pacing and leftovers
+- **Size/Tier:** S / B · **Review:** required (feel)
+- **Depends on:** M4-04, M4-05
+- **Owns:** `src/modes/defense/*`, their tests and sims
+- **Spec:**
+  - **Pacing (owner playtest, 2026-11-12):** mobs come too slowly, even for kids. There should never
+    be more than about 2–3 s of empty field. Measure the empty time: no mob visible and walking, and
+    no word left to type. When the field empties, bring the next spawn forward, so the gap is at most
+    `maxIdleMs` (start at 2,500 ms, the same for every band). Fewer mobs for a slow learner still
+    comes from the speed and the count, never from long empty waits. Keep the existing convergence
+    targets (the 50 WPM pin, mean in 90–97 %) passing, or retune and report the new numbers.
+  - The slow typists' dips are pinned at 25 %. Check that this still holds after the pacing change.
+  - Crash memory was removed. Check that nothing else depended on it.
+- **Acceptance:**
+  - [ ] A sim test: across bands and 5–60 WPM typists, no stretch of empty field is longer than
+    `maxIdleMs` + 250 ms, except the dawn ending.
+  - [ ] The existing director tests pass, or the handoff explains each retuned number.
+
 ### M4-GATE
 `PLAN.md` Phase 4 acceptance (no-failure verified, wave convergence, island round-trip) + visual review of Defense and Builder. Tag `m4`.
