@@ -229,7 +229,7 @@ describe("normalizeKeyEvent: preventDefault in play", () => {
   });
 
   it("leaves every other key alone", () => {
-    for (const k of ["Escape", "Enter", "ArrowUp", "ArrowLeft", "F1", "F5", "Shift", "Dead"]) {
+    for (const k of ["Escape", "Enter", "ArrowUp", "ArrowLeft", "F5", "Shift", "Dead"]) {
       expect(prevented(k, PLAY), k).toBe(false);
     }
     expect(prevented("`", { inPlay: true, band: "sprout" })).toBe(false);
@@ -237,6 +237,14 @@ describe("normalizeKeyEvent: preventDefault in play", () => {
     expect(prevented("a", PLAY, { ctrlKey: true })).toBe(false);
     expect(prevented("z", PLAY, { ctrlKey: true })).toBe(false);
     expect(prevented("r", PLAY, { metaKey: true })).toBe(false);
+  });
+
+  it("prevents F1 everywhere, so it never opens the browser's help page (M3-07 review B1)", () => {
+    expect(prevented("F1", PLAY)).toBe(true);
+    expect(prevented("F1", MENU)).toBe(true);
+    expect(prevented("F1", PLAY, { repeat: true })).toBe(true);
+    expect(prevented("F1", MENU, { shiftKey: true })).toBe(true);
+    expect(prevented("F1", PLAY, { ctrlKey: true })).toBe(false);
   });
 
   it("never prevents during IME composition", () => {
