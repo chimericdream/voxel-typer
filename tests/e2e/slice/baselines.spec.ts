@@ -33,7 +33,7 @@ test("splash", async ({ page }) => {
   const errors = collectErrors(page);
   await page.goto("/?seed=1&freeze=1", { waitUntil: "domcontentloaded" });
   await ready(page);
-  await expect(page.getByText("Press any key to start")).toBeVisible();
+  await expect(page.locator("#app").getByText("Press any key to start")).toBeVisible();
   await settle(page);
   await expect(page).toHaveScreenshot("splash.png");
   expect(errors).toEqual([]);
@@ -81,7 +81,7 @@ test("results", async ({ page }) => {
   await expectScreen(page, "results");
   // No history and no slips: three stars every time.
   expect((await state(page)).stars).toBe(3);
-  await expect(page.getByText("Wow! Three stars!")).toBeVisible();
+  await expect(page.locator("#app").getByText("Wow! Three stars!")).toBeVisible();
   await settle(page);
   await expect(page).toHaveScreenshot("results.png", { timeout: 30_000 });
   expect(errors).toEqual([]);

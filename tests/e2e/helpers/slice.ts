@@ -38,7 +38,7 @@ export async function newPlayerToIntro(
 ): Promise<void> {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await ready(page);
-  await expect(page.getByText("Press any key to start")).toBeVisible();
+  await expect(page.locator("#app").getByText("Press any key to start")).toBeVisible();
   if (opts.axe === true) await expectNoAxeViolations(page, "splash");
 
   await page.keyboard.press("k");
