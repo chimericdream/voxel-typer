@@ -1,0 +1,183 @@
+{
+  "$schema": "../../../src/render/models/schema.json",
+  "id": "box-critter",
+  "parts": [
+    {
+      "name": "body",
+      "size": [8, 6, 10],
+      "pivot": [4, 0, 5],
+      "offset": [0, 3, 0],
+      "color": "#7fb26a"
+    },
+    {
+      "name": "head",
+      "parent": "body",
+      "size": [6, 6, 6],
+      "pivot": [3, 0, 1],
+      "offset": [0, 4, 4],
+      "color": "#8fc27a"
+    },
+    {
+      "name": "eye-left",
+      "parent": "head",
+      "size": [1, 2, 1],
+      "pivot": [0.5, 0, 0],
+      "offset": [-1.5, 3, 5],
+      "color": "#2b2d42"
+    },
+    {
+      "name": "eye-right",
+      "parent": "head",
+      "size": [1, 2, 1],
+      "pivot": [0.5, 0, 0],
+      "offset": [1.5, 3, 5],
+      "color": "#2b2d42"
+    },
+    {
+      "name": "tuft",
+      "parent": "head",
+      "size": [4, 2, 4],
+      "pivot": [2, 0, 2],
+      "offset": [0, 6, 2],
+      "tile": { "blockId": "grass", "face": "top" }
+    },
+    {
+      "name": "leg-fl",
+      "parent": "body",
+      "size": [2, 3, 2],
+      "pivot": [1, 3, 1],
+      "offset": [-2.5, 0, 3],
+      "color": "#5e8a4c"
+    },
+    {
+      "name": "leg-fr",
+      "parent": "body",
+      "size": [2, 3, 2],
+      "pivot": [1, 3, 1],
+      "offset": [2.5, 0, 3],
+      "color": "#5e8a4c"
+    },
+    {
+      "name": "leg-bl",
+      "parent": "body",
+      "size": [2, 3, 2],
+      "pivot": [1, 3, 1],
+      "offset": [-2.5, 0, -3],
+      "color": "#5e8a4c"
+    },
+    {
+      "name": "leg-br",
+      "parent": "body",
+      "size": [2, 3, 2],
+      "pivot": [1, 3, 1],
+      "offset": [2.5, 0, -3],
+      "color": "#5e8a4c"
+    }
+  ],
+  "anims": {
+    "idle": {
+      "durationMs": 1200,
+      "loop": true,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "pos",
+          "keys": [
+            { "t": 0, "v": [0, 0, 0] },
+            { "t": 600, "v": [0, 0.5, 0] },
+            { "t": 1200, "v": [0, 0, 0] }
+          ]
+        },
+        {
+          "part": "head",
+          "prop": "rot",
+          "keys": [
+            { "t": 0, "v": [0, 0, -4] },
+            { "t": 600, "v": [0, 0, 4] },
+            { "t": 1200, "v": [0, 0, -4] }
+          ]
+        }
+      ]
+    },
+    "walk": {
+      "durationMs": 500,
+      "loop": true,
+      "tracks": [
+        {
+          "part": "leg-fl",
+          "prop": "rot",
+          "keys": [
+            { "t": 0, "v": [25, 0, 0] },
+            { "t": 250, "v": [-25, 0, 0] },
+            { "t": 500, "v": [25, 0, 0] }
+          ]
+        },
+        {
+          "part": "leg-br",
+          "prop": "rot",
+          "keys": [
+            { "t": 0, "v": [25, 0, 0] },
+            { "t": 250, "v": [-25, 0, 0] },
+            { "t": 500, "v": [25, 0, 0] }
+          ]
+        },
+        {
+          "part": "leg-fr",
+          "prop": "rot",
+          "keys": [
+            { "t": 0, "v": [-25, 0, 0] },
+            { "t": 250, "v": [25, 0, 0] },
+            { "t": 500, "v": [-25, 0, 0] }
+          ]
+        },
+        {
+          "part": "leg-bl",
+          "prop": "rot",
+          "keys": [
+            { "t": 0, "v": [-25, 0, 0] },
+            { "t": 250, "v": [25, 0, 0] },
+            { "t": 500, "v": [-25, 0, 0] }
+          ]
+        }
+      ]
+    },
+    "hit": {
+      "durationMs": 240,
+      "loop": false,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "scale",
+          "keys": [
+            { "t": 0, "v": [1, 1, 1] },
+            { "t": 80, "v": [1.2, 0.8, 1.2] },
+            { "t": 240, "v": [1, 1, 1] }
+          ]
+        }
+      ]
+    },
+    "defeat": {
+      "durationMs": 400,
+      "loop": false,
+      "tracks": [
+        {
+          "part": "body",
+          "prop": "scale",
+          "keys": [
+            { "t": 0, "v": [1, 1, 1] },
+            { "t": 120, "v": [1.25, 1.25, 1.25] },
+            { "t": 400, "v": [0, 0, 0] }
+          ]
+        },
+        {
+          "part": "body",
+          "prop": "pos",
+          "keys": [
+            { "t": 0, "v": [0, 0, 0] },
+            { "t": 400, "v": [0, 4, 0] }
+          ]
+        }
+      ]
+    }
+  }
+}
