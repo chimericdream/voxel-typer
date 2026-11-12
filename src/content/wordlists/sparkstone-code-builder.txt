@@ -1,0 +1,32 @@
+# Code-ish strings for Builders in Sparkstone Factory. Authored for Voxel Typer (M5-05); see SOURCES.md.
+# tags: band=builder reading=grade6+ kind=phrases case=mixed biome=sparkstone theme=code
+build_bridge(10)
+light_all(lanterns)
+move_cart(track-3)
+now #gears_turning: 48
+stack(blocks) * 64
+paint_wall(blue)
+fill(bucket) * 3
+speed = (5 + 3) * 2
+belt_A + belt_B
+sort(gems)
+cogs_counted: 128
+sprocket-7-small
+pipe_14 = open
+lift(crate) / 2
+(gears + cogs) * 4
+height = 12 + 6
+open_valve(2)
+water(garden)
+plant_row(5)
+wave_hello()
+draw(circle)
+tune(bell_3)
+team #robots_happy: 9
+lever-panel-11
+map_grid = 8 * 8
+timer: 1:30
+pump(water) + 2
+greet(friend)
+start_conveyor()
+smile_count = 100

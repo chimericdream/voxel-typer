@@ -1,0 +1,42 @@
+# Short Mushroom Marsh phrases with numbers. Authored for Voxel Typer (M5-05); see SOURCES.md.
+# tags: band=sprout reading=grade2 kind=phrases case=mixed biome=marsh theme=marsh
+2 red caps
+3 frogs
+4 big logs
+5 red mushrooms
+1 snail
+6 lily pads
+7 tiny bugs
+8 green ferns
+9 wet boots
+10 drops
+2 toads hop
+3 slugs nap
+1 big pond
+4 pink caps
+5 frogs on a log
+Room 12
+Path 3
+Log 7
+Pond 4
+Hut 9
+Mia has 2 hats
+Ben sees 6 bugs
+Rosa has 3 jars
+Leo has 1 kite
+6 ducks swim
+2 by 2
+1 2 3
+4 5 6
+7 8 9
+10 11 12
+0 to 10
+5 and 5
+3 and 4
+Day 1
+Day 2
+8 snails
+9 spots
+12 caps
+20 frogs
+11 moths

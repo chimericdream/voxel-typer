@@ -6,6 +6,11 @@
  *   npm run tool -- validate-wordlists                     # the repo's lists; exits 1 on problems
  *   npm run tool -- validate-wordlists --dir DIR           # another folder of lists (tests)
  *   npm run tool -- validate-wordlists --blocklist FILE    # another blocklist
+ *   npm run tool -- validate-wordlists --sentences DIR     # another folder of sentence lists
+ *
+ * By default it reads `src/content/wordlists/` and `src/content/sentences/` together: one set of
+ * pools, one duplicate check per band, one registry (`wordlists/pools.ts`). With `--dir` and no
+ * `--sentences`, it reads only that folder.
  *
  * It checks, and reports each problem as `file:line: message`:
  *   - structure: tags before items, known tags, `name=value` form (from the loader), a valid pool id
@@ -17,8 +22,13 @@
  *   - blocklist hits ({@link blocklistHits}): every term and its common inflections as whole
  *     words, substrings for the "strict" sections, and both again after look-alike digits and
  *     punctuation are undone; the "ip" and "brands" sections are reported as trademark/IP terms
- *   - comment lines: no blocklist hit and no non-ASCII char, because comments ship in the bundle
+ *   - comment lines: "# " then text, so an item that starts with "#" isn't dropped as a comment by
+ *     mistake; no blocklist hit and no non-ASCII char, because comments ship in the bundle
  *     with the list (the raw import can't strip them without a build plugin)
+ *   - biome key sets (M5-05): a list tagged `biome=<id>` uses only the keys taught up to that biome
+ *     ({@link biomeKeys}), and its `keys` tag asks for nothing more
+ *   - sentence repetition (M5-05): no 4-word run appears more than {@link NGRAM_MAX} times across
+ *     every `kind=sentences` list, so the sentence set doesn't lean on one template
  *   - registry: when the folder has `pools.ts`, its `POOL_IDS` and the `.txt` files match
  *   - the blocklist itself: valid sections, lowercase terms, no term listed twice
  *
@@ -40,10 +50,12 @@ import {
   type ParsedPoolFile,
   type PoolKind,
 } from "../src/content/wordlists/loader";
-import { BIOME_ORDER } from "../src/types/core";
+import { BIOME_ORDER, type BiomeId } from "../src/types/core";
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 export const DEFAULT_DIR = join(REPO_ROOT, "src", "content", "wordlists");
+/** Sentence lists live in their own folder (M5-05) but share the registry in `pools.ts`. */
+export const DEFAULT_SENTENCES_DIR = join(REPO_ROOT, "src", "content", "sentences");
 export const BLOCKLIST_NAME = "blocklist.txt";
 export const DEFAULT_BLOCKLIST = join(DEFAULT_DIR, BLOCKLIST_NAME);
 
@@ -60,7 +72,18 @@ export const WORD_LENGTH: Readonly<Record<string, { min: number; max: number }>>
   all: { min: 1, max: 5 },
 };
 export const PHRASE_MAX = 30;
+/** Sentence length bounds in chars, by band: short and concrete for Sprouts. `all` uses Sprout's. */
+export const SENTENCE_LENGTH: Readonly<Record<string, number>> = {
+  sprout: 40,
+  miner: 70,
+  builder: 90,
+  all: 40,
+};
+/** The longest sentence any band may have. */
 export const SENTENCE_MAX = 90;
+/** Words in a run for the repetition rule, and how often one run may appear across all sentences. */
+export const NGRAM_SIZE = 4;
+export const NGRAM_MAX = 5;
 
 const LOWER = "abcdefghijklmnopqrstuvwxyz";
 const UPPER = LOWER.toUpperCase();
@@ -68,9 +91,45 @@ const DIGITS = "0123456789";
 /** Chars each kind may use, before `case` and `keys` narrow them. */
 const KIND_CHARS: Readonly<Record<PoolKind, string>> = {
   words: LOWER + UPPER,
-  phrases: `${LOWER}${UPPER} '`,
+  phrases: `${LOWER}${UPPER}${DIGITS} '`,
   sentences: `${LOWER}${UPPER}${DIGITS} .,!?'":;-`,
 };
+/** Sparkstone's symbols. Phrases and sentences may use them only in a `biome=sparkstone` list. */
+export const SPARKSTONE_SYMBOLS = "-_():@#/=+*";
+
+/**
+ * The keys each biome introduces (docs/impl/tasks-m3.md M3-02, tasks-m5.md M5-05, README §8.4):
+ * Mines adds Shift (capitals), Marsh the number row, Crystal Caverns `. , ? ! ' "` and `/`, and
+ * Sparkstone its symbols. Frosty and Sky Citadel add none. Space is always allowed.
+ */
+export const BIOME_NEW_KEYS: Readonly<Record<BiomeId, string>> = {
+  meadow: "asdfjkl;gh",
+  birch: "eirutyowqp",
+  shore: "cnvmbxz",
+  frosty: "",
+  mines: UPPER,
+  marsh: DIGITS,
+  caverns: `.,?!'"/`,
+  sparkstone: SPARKSTONE_SYMBOLS,
+  citadel: "",
+};
+
+/**
+ * Every key a list for `biome` may use: the new keys of that biome and of each biome before it in
+ * `BIOME_ORDER`. Sparkstone is a side branch (README §8.5), so only Sparkstone itself gets its
+ * symbols; Sky Citadel, after it in the order, does not.
+ */
+export function biomeKeys(biome: BiomeId): ReadonlySet<string> {
+  const out = new Set<string>();
+  for (const b of BIOME_ORDER) {
+    if (b !== "sparkstone" || biome === "sparkstone") for (const c of BIOME_NEW_KEYS[b]) out.add(c);
+    if (b === biome) break;
+  }
+  return out;
+}
+
+const isBiome = (s: string | undefined): s is BiomeId =>
+  s !== undefined && (BIOME_ORDER as readonly string[]).includes(s);
 
 /** Categories reported as trademark/IP terms rather than as blocked words. */
 const IP_CATEGORIES: ReadonlySet<string> = new Set(["ip", "brands"]);
@@ -421,6 +480,11 @@ export function blocklistHits(item: string, blocklist: Blocklist): BlockTerm[] {
 export interface ValidateOptions {
   /** Folder of `<pool-id>.txt` files (default: `src/content/wordlists`). */
   dir?: string;
+  /**
+   * A second folder of lists, read with `dir` as one set (default: `src/content/sentences` when
+   * `dir` is not given, else none). The registry is still `dir`'s `pools.ts`.
+   */
+  sentencesDir?: string;
   /** Blocklist file (default: the repo's `src/content/wordlists/blocklist.txt`). */
   blocklist?: string;
 }
@@ -442,12 +506,18 @@ const isOneOf = (list: readonly string[], v: string): boolean => list.includes(v
 const hex = (c: string): string =>
   `U+${(c.codePointAt(0) ?? 0).toString(16).toUpperCase().padStart(4, "0")}`;
 
+/** What the item checks need to know about a list, from its tags. */
+interface ItemSettings {
+  band: string;
+  kind: PoolKind;
+  mixed: boolean;
+  keys: ReadonlySet<string> | null;
+  /** The list's biome, when its `biome` tag is a known one. */
+  biome: BiomeId | null;
+}
+
 /** Checks the tags of one file. Returns the settings the item checks need, or null if unusable. */
-function checkTags(
-  parsed: ParsedPoolFile,
-  file: string,
-  problems: Problem[],
-): { band: string; kind: PoolKind; mixed: boolean; keys: ReadonlySet<string> | null } | null {
+function checkTags(parsed: ParsedPoolFile, file: string, problems: Problem[]): ItemSettings | null {
   const tag = (name: string): string | undefined => parsed.tags.get(name);
   /** Where a tag is, or where it belongs (the first tag line, else line 1) when it is missing. */
   const firstTagLine = Math.min(...parsed.tagLines.values(), parsed.items[0]?.line ?? 1);
@@ -530,13 +600,25 @@ function checkTags(
       message: `unknown biome "${biome}" (${BIOME_ORDER.join(", ")})`,
     });
   }
+  const knownBiome = isBiome(biome) ? biome : null;
+  if (knownBiome !== null && keys !== null) {
+    const taught = biomeKeys(knownBiome);
+    const early = [...keys].filter((c) => !taught.has(c));
+    if (early.length > 0) {
+      problems.push({
+        file,
+        line: at("keys"),
+        message: `keys tag has ${early.map((c) => `"${c}"`).join(", ")}, not taught by ${knownBiome} yet`,
+      });
+    }
+  }
   const theme = tag("theme");
   if (theme !== undefined && !KEBAB.test(theme)) {
     problems.push({ file, line: at("theme"), message: `theme "${theme}" must be kebab-case` });
   }
 
   if (!usable || band === undefined || kind === undefined) return null;
-  return { band, kind, mixed: caseTag === "mixed", keys };
+  return { band, kind, mixed: caseTag === "mixed", keys, biome: knownBiome };
 }
 
 /** The non-ASCII and control chars of `text`, as `U+XXXX`, each once. */
@@ -557,7 +639,7 @@ function checkItem(
   text: string,
   line: number,
   file: string,
-  opts: { band: string; kind: PoolKind; mixed: boolean; keys: ReadonlySet<string> | null },
+  opts: ItemSettings,
   problems: Problem[],
 ): void {
   const push = (message: string): void => {
@@ -566,7 +648,10 @@ function checkItem(
   if (text !== text.trim()) push(`"${text}" starts or ends with a space`);
   if (text.includes("  ")) push(`"${text}" has two spaces in a row`);
 
-  const allowed = new Set(KIND_CHARS[opts.kind]);
+  const allowed = new Set(
+    KIND_CHARS[opts.kind] +
+      (opts.biome === "sparkstone" && opts.kind !== "words" ? SPARKSTONE_SYMBOLS : ""),
+  );
   const outside = [...new Set(text)].filter((c) => !allowed.has(c));
   if (outside.length > 0) {
     push(
@@ -583,6 +668,15 @@ function checkItem(
       push(`"${text}" uses ${off.map((c) => `"${c}"`).join(", ")}, not in the keys tag`);
     }
   }
+  if (opts.biome !== null) {
+    const taught = biomeKeys(opts.biome);
+    const early = [...new Set(text)].filter((c) => c !== " " && !taught.has(c));
+    if (early.length > 0) {
+      push(
+        `"${text}" uses ${early.map((c) => `"${c}"`).join(", ")}, not taught by ${opts.biome} yet`,
+      );
+    }
+  }
 
   const len = text.length;
   if (opts.kind === "words") {
@@ -590,9 +684,12 @@ function checkItem(
     if (len < b.min || len > b.max) {
       push(`"${text}" is ${len} letters; band=${opts.band} words are ${b.min}-${b.max} letters`);
     }
+  } else if (opts.kind === "phrases") {
+    if (len > PHRASE_MAX) push(`"${text}" is ${len} chars; phrases are at most ${PHRASE_MAX}`);
   } else {
-    const max = opts.kind === "phrases" ? PHRASE_MAX : SENTENCE_MAX;
-    if (len > max) push(`"${text}" is ${len} chars; ${opts.kind} are at most ${max}`);
+    const max = SENTENCE_LENGTH[opts.band] ?? SENTENCE_MAX;
+    if (len > max)
+      push(`"${text}" is ${len} chars; band=${opts.band} sentences are at most ${max}`);
   }
 }
 
@@ -618,18 +715,35 @@ export function validateWordlists(opts: ValidateOptions = {}): ValidateResult {
   const blocklist = loadBlocklist(blocklistPath);
   const problems: Problem[] = [...blocklist.problems];
 
-  const files = readdirSync(dir)
-    .filter((f) => f.endsWith(".txt") && resolve(dir, f) !== blocklistPath && f !== BLOCKLIST_NAME)
-    .toSorted();
+  const sentencesDir =
+    opts.sentencesDir !== undefined
+      ? resolve(opts.sentencesDir)
+      : opts.dir === undefined
+        ? DEFAULT_SENTENCES_DIR
+        : null;
+  const listFiles = (d: string): string[] =>
+    existsSync(d)
+      ? readdirSync(d)
+          .filter(
+            (f) => f.endsWith(".txt") && resolve(d, f) !== blocklistPath && f !== BLOCKLIST_NAME,
+          )
+          .toSorted()
+          .map((f) => join(d, f))
+      : [];
+  const files = [...listFiles(dir), ...(sentencesDir !== null ? listFiles(sentencesDir) : [])];
+  /** Every sentence item, for the repetition rule. */
+  const sentences: { text: string; file: string; line: number }[] = [];
   /** band → item → first place it was seen. */
   const seenByBand = new Map<string, Map<string, { file: string; line: number }>>();
   const pools: string[] = [];
   let items = 0;
 
-  for (const name of files) {
-    const abs = join(dir, name);
+  for (const abs of files) {
     const file = displayPath(abs);
-    const id = poolIdOf(name) ?? name;
+    const id = poolIdOf(abs) ?? abs;
+    if (pools.includes(id)) {
+      problems.push({ file, line: 0, message: `pool id "${id}" is used by two files` });
+    }
     pools.push(id);
     if (!POOL_ID.test(id)) {
       problems.push({ file, line: 0, message: `pool id "${id}" must be kebab-case (a-z, 0-9, -)` });
@@ -643,6 +757,14 @@ export function validateWordlists(opts: ValidateOptions = {}): ValidateResult {
 
     // Comments ship in the bundle with the list (the raw import keeps them), so check them too.
     for (const { text, line } of parsed.comments) {
+      // "#gems: 3" looks like an item, but the loader reads every "#" line as a comment and drops it.
+      if (text !== "" && !text.startsWith(" ")) {
+        problems.push({
+          file,
+          line,
+          message: `"#${text}" is read as a comment, not an item; start comments with "# ", and don't start an item with "#"`,
+        });
+      }
       const bad = nonAsciiOf(text);
       if (bad.length > 0) {
         problems.push({ file, line, message: `comment has non-ASCII chars (${bad.join(", ")})` });
@@ -677,6 +799,7 @@ export function validateWordlists(opts: ValidateOptions = {}): ValidateResult {
         problems.push({ file, line, message: `"${text}" ${describeHit(hit)}` });
       }
       if (!settings || !seen) continue;
+      if (settings.kind === "sentences") sentences.push({ text, file, line });
       const key = text.toLowerCase();
       const first = seen.get(key);
       if (first === undefined) {
@@ -691,6 +814,8 @@ export function validateWordlists(opts: ValidateOptions = {}): ValidateResult {
       }
     }
   }
+
+  problems.push(...repetitionProblems(sentences));
 
   const registryPath = join(dir, "pools.ts");
   if (existsSync(registryPath)) {
@@ -715,10 +840,10 @@ export function validateWordlists(opts: ValidateOptions = {}): ValidateResult {
           problems.push({ file, line, message: `"${id}" is listed but ${id}.txt does not exist` });
         }
       }
-      for (const id of pools) {
+      for (const [i, id] of pools.entries()) {
         if (!listed.has(id)) {
           problems.push({
-            file: displayPath(join(dir, `${id}.txt`)),
+            file: displayPath(files[i] ?? join(dir, `${id}.txt`)),
             line: 0,
             message: `not listed in pools.ts; append "${id}" to POOL_IDS`,
           });
@@ -728,7 +853,46 @@ export function validateWordlists(opts: ValidateOptions = {}): ValidateResult {
   }
 
   problems.sort((a, b) => (a.file === b.file ? a.line - b.line : a.file < b.file ? -1 : 1));
-  return { problems, pools, items };
+  return { problems, pools: pools.toSorted(), items };
+}
+
+/** The lowercase words of a sentence for the repetition rule; punctuation at word ends is dropped. */
+export const ngramWords = (sentence: string): string[] =>
+  sentence
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => w.replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, ""))
+    .filter((w) => w !== "");
+
+/**
+ * One problem for each {@link NGRAM_SIZE}-word run that appears more than {@link NGRAM_MAX} times
+ * over all `sentences`, reported where it appears for the (NGRAM_MAX + 1)th time.
+ */
+export function repetitionProblems(
+  sentences: readonly { text: string; file: string; line: number }[],
+): Problem[] {
+  const runs = new Map<string, { file: string; line: number }[]>();
+  for (const s of sentences) {
+    const words = ngramWords(s.text);
+    for (let i = 0; i + NGRAM_SIZE <= words.length; i++) {
+      const run = words.slice(i, i + NGRAM_SIZE).join(" ");
+      const at = runs.get(run) ?? [];
+      at.push({ file: s.file, line: s.line });
+      runs.set(run, at);
+    }
+  }
+  const out: Problem[] = [];
+  for (const [run, at] of runs) {
+    const over = at[NGRAM_MAX];
+    const first = at[0];
+    if (over === undefined || first === undefined) continue;
+    out.push({
+      file: over.file,
+      line: over.line,
+      message: `the words "${run}" appear ${at.length} times across the sentences (at most ${NGRAM_MAX}; first at ${first.file}:${first.line}); vary the wording`,
+    });
+  }
+  return out;
 }
 
 function main(): void {
@@ -739,9 +903,11 @@ function main(): void {
   };
   const dir = opt("--dir");
   const blocklist = opt("--blocklist");
+  const sentencesDir = opt("--sentences");
   const result = validateWordlists({
     ...(dir !== undefined && { dir }),
     ...(blocklist !== undefined && { blocklist }),
+    ...(sentencesDir !== undefined && { sentencesDir }),
   });
   for (const p of result.problems) console.error(formatProblem(p));
   if (result.problems.length > 0) {

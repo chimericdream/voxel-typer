@@ -1,0 +1,13 @@
+# Six sentences share one four-word run; five share another, which is allowed.
+# tags: band=builder reading=grade6+ kind=sentences case=mixed
+Mia rides the big red cart.
+Ben fixed the big red cart today.
+We love the big red cart!
+Is that the big red cart?
+Look at the big red cart go.
+Rosa painted the big red cart blue.
+The snow is soft and white.
+Today the snow is soft.
+Oh, the snow is soft!
+Now the snow is soft again.
+Here the snow is soft too.

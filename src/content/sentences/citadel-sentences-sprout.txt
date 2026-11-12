@@ -1,0 +1,27 @@
+# Citadel sentences for the sprout band: capitals, digits and punctuation. Authored for Voxel Typer (M5-05); see wordlists/SOURCES.md.
+# tags: band=sprout reading=grade2 kind=sentences case=mixed keys=abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,?!'"; biome=citadel theme=story
+The Sky Citadel is so high!
+Look at the big white clouds.
+Can you see the flags?
+We take the sky bridge up.
+The bells ring and ring!
+"Hi, sky!" said Mia.
+Ben has a blue kite.
+Is the tower tall? Yes!
+The wind is soft today.
+Rosa sees a bird on the wall.
+We can see Home Island!
+Leo waves at the clouds.
+The gate is gold and big.
+"Up we go!" said Uma.
+The doves sing a song.
+I can type well and with care.
+Omar's flag is red.
+Let's go up the stairs.
+We did it! We are at the top!
+The last gem is here.
+Theo puts the gem in his bag.
+"Thank you, sky!" said Nora.
+The Big Lantern is so bright!
+Look, the sun is up.
+We are a good team.
