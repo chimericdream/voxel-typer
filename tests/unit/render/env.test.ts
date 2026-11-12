@@ -116,8 +116,8 @@ describe("biome environment data", () => {
     }
   });
 
-  it("the meadow has pollen", () => {
-    expect(MEADOW_ENV.particle?.kind).toBe("pollen");
+  it("no biome lists an ambient particle until something draws it (M2-FIX-2)", () => {
+    expect(MEADOW_ENV.particle).toBeNull();
   });
 
   it("meadow day lighting is exactly what M2-01 tuned", () => {

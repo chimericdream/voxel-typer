@@ -48,7 +48,9 @@ export const MEADOW_ENV: BiomeEnv = {
       moonDisc: { color: "#eef1ff", opacity: 1 },
     },
   },
-  particle: { kind: "pollen", color: "#fff2a6", density: 3 },
+  // No ambient particle yet: nothing draws one, and data that renders nothing misleads (M2-02
+  // review). An ambient-particle system for every biome is its own task; pollen comes back then.
+  particle: null,
 };
 
 // ---------------------------------------------------------------------------------------------
