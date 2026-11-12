@@ -65,14 +65,18 @@ test("pause, blur and resume leave the summary WPM alone", async ({ page }) => {
 
   expect(pausedFor).toBeGreaterThanOrEqual(PAUSE_MS);
   expect(paused.correct).toBe(pausedPlay.keys);
-  // Active time is the typing time: the wall time from first key to last, minus the pause.
+  // Active time is the typing time: the wall time from first key to last, minus the pause. The
+  // wall brackets include Playwright's overhead around the keys and the pause, so they read high
+  // by a second or two on CI; the bound that matters is the upper one. Had the pause counted,
+  // active time would be a whole pause (8 s+) above the typing time.
   const typingMs = pausedPlay.wallMs - pausedFor;
-  expect(Math.abs(paused.activeMs - typingMs)).toBeLessThan(1500);
-  // So the summary WPM is the typing's WPM (formula in src/engine/stats.ts), well above the WPM
-  // the wall time would give if the pause counted.
+  expect(paused.activeMs).toBeLessThan(typingMs + 1000);
+  expect(paused.activeMs).toBeGreaterThan(typingMs - 5000);
+  // So the summary WPM is at least the typing's WPM (formula in src/engine/stats.ts), and well
+  // above the WPM the wall time would give if the pause counted.
   const typingWpm = paused.correct / 5 / (typingMs / 60_000);
   const wallWpm = paused.correct / 5 / (pausedPlay.wallMs / 60_000);
-  expect(Math.abs(paused.netWpm - typingWpm) / typingWpm).toBeLessThan(0.08);
+  expect(paused.netWpm).toBeGreaterThan(typingWpm * 0.97);
   expect(paused.netWpm).toBeGreaterThan(wallWpm * 1.08);
   test.info().annotations.push({
     type: "wpm",
