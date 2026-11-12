@@ -75,8 +75,9 @@ export function createFx(ctx: FxContext, opts: FxOptions): FxCore {
     holdLeft = Math.max(0, holdLeft - dtMs);
     // A new atlas (a biome change) while chips are alive: drop them rather than keep drawing the
     // old texture, which the scene has disposed and would upload again (M2-05 review N4). Their
-    // UVs point into the old atlas, so they couldn't simply switch over.
-    if (pool.alive > 0 && (ctx.atlas()?.texture ?? null) !== chipTexture) {
+    // UVs point into the old atlas, so they couldn't simply switch over. Chips made before any
+    // atlas loaded have no texture to lose, so the first atlas leaves them be (M2-FIX-3).
+    if (pool.alive > 0 && chipTexture !== null && (ctx.atlas()?.texture ?? null) !== chipTexture) {
       pool.clear();
       particles.sync(pool);
       chipTexture = null;

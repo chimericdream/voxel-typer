@@ -357,15 +357,15 @@ describe("mine mode: a correct key", () => {
     expect(r.sfx[2]?.opts).toMatchObject({ pitchStep: 1 });
   });
 
-  it("breaks the block on its trailing space: hit-stop, burst, break sound, shake, float text", async () => {
+  it("breaks the block on its last letter: hit-stop, burst, break sound, shake, float text", async () => {
     const r = await started("meadow-05", miner);
     const word = r.instance.session()?.active?.text ?? "";
-    for (let i = 0; i < word.length; i++) r.typeNext();
-    expect(r.hud.get().nextKey).toBe(" ");
+    for (let i = 0; i < word.length - 1; i++) r.typeNext();
     expect(r.events.some((e) => e.type === "targetComplete")).toBe(false);
     r.sfx.length = 0;
     r.fx.length = 0;
     r.typeNext();
+    expect(r.events.filter((e) => e.type === "targetComplete")).toHaveLength(1);
     expect(names(r)).toContain("break");
     expect(names(r)).not.toContain("chip");
     expect(r.fx.slice(0, 2)).toEqual(["hitStop:40", `burst:${8 + 2 * word.length}`]);
@@ -373,10 +373,39 @@ describe("mine mode: a correct key", () => {
     expect(r.fx[2]).toMatch(/^text:\+\d+$/);
     expect(r.shakes).toHaveLength(1);
     expect(r.shakes[0]).toBeLessThanOrEqual(0.3);
-    // The next word is up.
+    // The next word is up, and no space was asked for.
     expect(r.hud.get().word?.typed).toBe(0);
     expect(r.hud.get().word?.text).toBe(r.instance.session()?.targets[1]?.text);
+    expect(r.hud.get().word?.marks).toHaveLength(r.hud.get().word?.text.length ?? -1);
   });
+
+  it.each(["meadow-05", "meadow-06"])(
+    "%s: every block finishes on its last char, never on a space after it (decision 81)",
+    async (lessonId) => {
+      const r = await started(lessonId, miner, { seed: 5 });
+      const texts = (r.instance.session()?.targets ?? []).map((x) => x.text);
+      expect(texts.length).toBeGreaterThan(1);
+      let keys = "";
+      while (r.hud.get().nextKey !== null) {
+        const key = r.hud.get().nextKey ?? "";
+        const before = r.events.filter((e) => e.type === "targetComplete").length;
+        r.typeNext();
+        keys += key;
+        const after = r.events.filter((e) => e.type === "targetComplete").length;
+        // A key that breaks a block is never a space.
+        if (after > before) expect(key).not.toBe(" ");
+        r.run(100);
+      }
+      r.run(1500);
+      // What was typed is the texts back to back: spaces inside a phrase, none between blocks.
+      expect(keys).toBe(texts.join(""));
+      const summary = r.results[0]?.summary;
+      expect(summary?.correct).toBe(Array.from(texts.join("")).length);
+      const spaces = texts.join("").split(" ").length - 1;
+      expect(summary?.perKey[" "]?.attempts ?? 0).toBe(spaces);
+      if (lessonId === "meadow-06") expect(spaces).toBeGreaterThan(0);
+    },
+  );
 
   it("lights the combo hotbar by streak", async () => {
     const r = await started("meadow-01", sprout);

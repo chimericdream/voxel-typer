@@ -12,7 +12,7 @@ import type { GenerateParams, WordPool } from "@/engine/generator";
 import { LOOT_THRESHOLDS } from "@/engine/loot";
 import type { LootDrop } from "@/engine/loot";
 import type { Rng } from "@/engine/rng";
-import type { SessionConfig, TargetView, WrongKeyPolicy } from "@/engine/types";
+import type { SessionConfig, Target, TargetView, WrongKeyPolicy } from "@/engine/types";
 import { BIOME_ORDER } from "@/types/core";
 import type { AgeBand, BiomeId, BlockId, Ms } from "@/types/core";
 
@@ -27,8 +27,7 @@ export const MAX_CRACK_STAGE = 9;
 
 /**
  * The crack stage of a block after `typed` of `len` chars: `floor(9 × typed / len)`, kept inside
- * 0–9. A trailing space is not part of `len`, so a word whose letters are all typed sits at stage
- * 9 until its space breaks it.
+ * 0–9. Mine's targets have no trailing space ({@link blockTargets}), so the last char breaks it.
  */
 export function crackStage(typed: number, len: number): number {
   if (!(len > 0) || !(typed > 0)) return 0;
@@ -385,6 +384,16 @@ export function progressOf(
 // ---------------------------------------------------------------------------------------------
 // From a lesson to a session
 // ---------------------------------------------------------------------------------------------
+
+/**
+ * Mine's targets, each one block on the stage: the generator's targets with `trailingSpace: false`,
+ * so a block breaks on its last char (decision 81). The generator asks for a space after every
+ * word-like target, which suits text that runs on, but a lone block has nothing after it to type a
+ * space for. Spaces inside a phrase or a sentence are part of its text and still count.
+ */
+export function blockTargets(targets: readonly Target[]): Target[] {
+  return targets.map((target) => ({ ...target, trailingSpace: false }));
+}
 
 /** Length multiplier per band when the lesson has none (contracts §6). */
 export const DEFAULT_BAND_SCALE: Readonly<Record<AgeBand, number>> = {

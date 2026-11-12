@@ -119,7 +119,7 @@ export default function Results({ app, route }: ScreenProps) {
   const best = profile !== null && isPersonalBest(profile, lesson.id, result.summary);
 
   return (
-    <div class={screen.screen}>
+    <div class={`${screen.screen} ${styles.page}`}>
       <h1 class={screen.title}>{t("screens.results.title")}</h1>
       <div class={styles.card}>
         <Stars
@@ -155,7 +155,7 @@ export default function Results({ app, route }: ScreenProps) {
           )}
         </section>
       </div>
-      <div class={screen.actions} ref={actions}>
+      <div class={`${screen.actions} ${styles.actions}`} ref={actions}>
         {next ? (
           <Button variant="primary" size="lg" onClick={goNext}>
             {t("screens.results.next")}
