@@ -105,8 +105,12 @@ The rest
 - [x] Each item fixed, or listed with a reason. All card items are fixed except: pollen, dropped
       (see Sky); the bevel ring width, colours only (see Flat bevels); the centred Sprout block, hint
       instead (see N2).
-- [ ] Baselines regenerated through the Update snapshots workflow; visual + a11y review passes.
-      Dispatched on this branch after opening the PR; the review is the orchestrator's.
+- [x] Baselines regenerated through the Update snapshots workflow (runs 43140203952 and
+      43140745398; bot commits `47bb22d` and `bdb55c2`). Baselines that changed within the 1 %
+      tolerance (ui-kit ×3, hud ×3, keyboard-contrast, sky `*-mine` ×4, hello-voxel) were deleted and
+      remade. The first run had one CI failure, `fx.spec` "…then the loop idles" (timeout). It
+      passed 3/3 locally and in both later CI runs, so it looks like a flake. The visual + a11y
+      review is the orchestrator's.
 - `npm run verify`: exit 0 (2790 tests; all bundle budgets met).
 - `npm run e2e` locally (one worker, port 4393, screenshots skipped off CI): 58 passed.
 
