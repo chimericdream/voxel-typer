@@ -5,11 +5,11 @@ Voxel Typer self-hosts three fonts, all under the SIL Open Font License 1.1. The
 `src/ui/theme/fonts.css`. The game never loads a font from a CDN or any other host
 (`tests/e2e/fonts.spec.ts` checks this with request interception).
 
-| Family                | Role                                                        | Files in `public/fonts/`                                                | Bytes (WOFF2)     |
-| --------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------- |
-| Pixelify Sans         | Pixel font: headings, HUD, buttons (`--font-pixel`)         | `PixelifySans-wght.woff2` (variable, weight 400–700)                    | 22,984            |
-| Atkinson Hyperlegible | Body text, words, sentences, single letters (`--font-body`) | `AtkinsonHyperlegible-Regular.woff2`, `AtkinsonHyperlegible-Bold.woff2` | 23,196 + 23,776   |
-| OpenDyslexic          | Dyslexia toggle (Settings `font: 'dyslexic'`)               | `OpenDyslexic-Regular.woff2`, `OpenDyslexic-Bold.woff2`                 | 103,336 + 108,068 |
+| Family                | Role                                                           | Files in `public/fonts/`                                                | Bytes (WOFF2)     |
+| --------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------- | ----------------- |
+| Pixelify Sans         | Settings font preview only (since M3-FIX-2, see below)         | `PixelifySans-wght.woff2` (variable, weight 400–700)                    | 22,984            |
+| Atkinson Hyperlegible | All UI text and typing targets (`--font-body`, `--font-pixel`) | `AtkinsonHyperlegible-Regular.woff2`, `AtkinsonHyperlegible-Bold.woff2` | 23,196 + 23,776   |
+| OpenDyslexic          | Dyslexia toggle (Settings `font: 'dyslexic'`)                  | `OpenDyslexic-Regular.woff2`, `OpenDyslexic-Bold.woff2`                 | 103,336 + 108,068 |
 
 Total: 281,360 bytes. WOFF2 is already compressed, so gzip doesn't shrink it (gzip -9 adds about
 60 bytes per file). These files count toward the 3 MB total `dist/` budget (`contracts.md` §14),
@@ -64,8 +64,9 @@ OpenDyslexic), record the tool, command and Unicode ranges here, and keep the li
 
 - Every `@font-face` uses `font-display: swap`, so text shows at once in the fallback stack from
   `tokens.css` and swaps when the font arrives.
-- `index.html` preloads only `/fonts/PixelifySans-wght.woff2` (with `crossorigin`, as font
-  preloads need). The body and dyslexia fonts are not preloaded.
+- `index.html` preloads the two Atkinson Hyperlegible files (with `crossorigin`, as font
+  preloads need), because the first screen uses them. Pixelify Sans and the dyslexia font are not
+  preloaded.
 - `src/main.ts` imports `fonts.css`. The URLs are root-absolute (`/fonts/…`), which Vite leaves
   alone, so they match the preload URL exactly.
 - The CSP already allows this: `font-src 'self'`.
@@ -93,3 +94,21 @@ tail, `1` has a full flag and base, and `I` has serifs.
 HUD, buttons and other text that isn't something the child has to type. This follows the priority
 order: accessibility and learning effectiveness come before visual style. M2-14 (HUD word
 display) should use `--font-body` for all typing targets.
+
+## M3-FIX-2: UI chrome moves to Atkinson Hyperlegible
+
+In the owner's playtest (2026-11-12) the Pixelify capitals misread: "Bill" read as "Gill",
+"Back" as "Gack", "Go here next!" as "8o here next!" and "Crystal Caverns" as "Orystal Oaverns".
+Every capital and digit was rendered in Pixelify Sans at weights 400, 500, 600 and 700, at the
+sizes the app uses (16, 20, 26 and 36 px, and the same at 1.5× letter size: 24, 30, 39 and
+54 px). The glyph sheets are in `docs/handoffs/M3-FIX-2/`.
+
+- `B` has an open top-left corner and reads as `G` or `8` at every weight and size.
+- `C` has a notch on the right and reads as `O`; `G` reads as `C`.
+- `5` is drawn the same as `S`, `0` the same as `O`, and `Z` the same as `2`.
+- `J` reads as `D` or `U`.
+
+No weight or size fixes these, because the letter shapes themselves are ambiguous; at 54 px
+they are bigger, not clearer. So `--font-pixel` (headings, buttons, labels, names, HUD) now
+points at `--font-body`, and Pixelify is not used on any screen. The logo keeps its blocky look:
+it is drawn as SVG voxel letters, not set in a font.
