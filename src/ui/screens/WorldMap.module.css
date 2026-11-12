@@ -33,8 +33,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2) var(--sp-4);
-  /* Clear of the corner buttons: their width comes from WorldMap.tsx (M4-FIX-1). */
-  max-width: min(72%, calc(100% - var(--corner-w, 0px) - var(--sp-4) * 2 - var(--sp-3)));
+  max-width: 72%;
 }
 
 .map[data-mode="flat"] .top {
@@ -92,6 +91,15 @@
  * stay for screen readers. Text size is untouched: the picture scales with it.
  */
 @media (max-width: 1100px) {
+  /*
+   * Clear of the corner buttons, whose width WorldMap.tsx measures into --corner-w: at 1024 px
+   * the hint wraps under the title instead of covering Change player (M4-FIX-1). Wider windows
+   * keep the 72% rule, where the word buttons already leave room.
+   */
+  .top {
+    max-width: min(72%, calc(100% - var(--corner-w, 0px) - var(--sp-4) * 2 - var(--sp-3)));
+  }
+
   .corner button {
     min-width: 0;
   }
