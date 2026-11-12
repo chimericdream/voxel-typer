@@ -95,16 +95,6 @@ async function profiles(page: Page): Promise<Record<string, unknown>> {
   return out;
 }
 
-/** Axe, once the Toast's pop-in has finished (mid-fade text reads as low contrast). */
-async function axeWhenStill(page: Page, where: string): Promise<void> {
-  await expect
-    .poll(() =>
-      page.evaluate(() => document.getAnimations().filter((a) => a.playState === "running").length),
-    )
-    .toBe(0);
-  await expectNoAxeViolations(page, where);
-}
-
 async function passGate(page: Page): Promise<void> {
   const word = (await page.locator("[data-gate-word]").textContent())?.trim() ?? "";
   expect(word).toMatch(/^[a-z]{6,8}$/);
@@ -164,7 +154,7 @@ test("export from one browser, import into a fresh one: the profiles are equal",
   await expect(a.locator("[data-left-out='lost']")).toContainText(
     "One damaged player was left out",
   );
-  await axeWhenStill(a, "export: done");
+  await expectNoAxeViolations(a, "export: done");
 
   const expected = await profiles(a);
   expect(Object.keys(expected)).toHaveLength(3);
@@ -192,12 +182,12 @@ test("export from one browser, import into a fresh one: the profiles are equal",
   await expect(review.locator("[data-row='add']")).toHaveCount(3);
   // Nothing is written before the grown-up says go.
   expect(await profiles(b)).toEqual({});
-  await axeWhenStill(b, "import: check");
+  await expectNoAxeViolations(b, "import: check");
 
   await b.getByRole("button", { name: "Load players" }).click();
   const result = b.locator("[data-import-result]");
   await expect(result).toContainText("Added 3, updated 0, not loaded 0.");
-  await axeWhenStill(b, "import: done");
+  await expectNoAxeViolations(b, "import: done");
   expect(await profiles(b)).toEqual(expected);
 
   // After a reload the players are there to pick.
@@ -226,7 +216,7 @@ test("export from one browser, import into a fresh one: the profiles are equal",
   const juniper = review.locator("[data-row='conflict']").filter({ hasText: "Juniper" });
   await juniper.getByRole("radio", { name: "Use the file's copy" }).check();
   await expect(juniper.locator("[data-wins]")).toContainText("can't be brought back");
-  await axeWhenStill(b, "import: check with a replace");
+  await expectNoAxeViolations(b, "import: check with a replace");
   const [backup] = await Promise.all([
     b.waitForEvent("download"),
     b.getByRole("button", { name: "Download a save file first" }).click(),

@@ -679,6 +679,18 @@ describe("ImportExport: Profile.found (M3-10)", () => {
 });
 
 describe("Settings wiring", () => {
+  it("on the splash the child's start button stays first; the grown-up link is last", async () => {
+    h = await mount();
+    const buttons = [...h.root.querySelectorAll("button")].map((b) => text(b));
+    expect(buttons[0]).toBe(t("screens.splash.press"));
+    expect(buttons.at(-1)).toBe(t("importexport.fromSplash"));
+    // The grown-up link is a plain button: it never takes focus on its own.
+    expect(document.activeElement).not.toBe(buttonByText(h.root, t("importexport.fromSplash")));
+    // Any key still starts the game for a child: it goes on to make a player.
+    await h.press("k");
+    expect(h.route().id).toBe("profileCreate");
+  });
+
   it("the splash links to a gated import on the no-player screen", async () => {
     h = await mount();
     void act(() => buttonByText(h!.root, t("importexport.fromSplash")).click());

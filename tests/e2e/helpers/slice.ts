@@ -12,8 +12,36 @@ import { ready, state, vt, waitForLesson } from "./vt";
 /** M2-11 Results ignores presses for its first 700 ms, so a stray key can't skip the stars. */
 export const RESULTS_ARM_MS = 700;
 
-/** Runs axe on the page as it is now and expects no violations. */
+/**
+ * Waits until every finite UI animation now running has finished (at most `capMs`). A toast's
+ * pop-in starts at `opacity: 0`, and axe reads half-faded text as low contrast, so the result
+ * depended on timing (M3-12: the badge toast on Results). Looping animations (the splash bob, the
+ * map) never finish, so they are left out.
+ */
+export async function settleAnimations(page: Page, capMs = 3000): Promise<void> {
+  await page.evaluate(async (cap) => {
+    const finite = document.getAnimations().filter((a) => {
+      const end = a.effect?.getComputedTiming().endTime;
+      return a.playState === "running" && typeof end === "number" && Number.isFinite(end);
+    });
+    const done = Promise.all(
+      finite.map((a) =>
+        a.finished.then(
+          () => true,
+          () => true,
+        ),
+      ),
+    );
+    await Promise.race([done, new Promise((r) => setTimeout(r, cap))]);
+  }, capMs);
+}
+
+/**
+ * Runs axe on the page once its finite animations have settled (what a child sees), and expects
+ * no violations.
+ */
 export async function expectNoAxeViolations(page: Page, where: string): Promise<void> {
+  await settleAnimations(page);
   const axe = await new AxeBuilder({ page }).analyze();
   expect(
     axe.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(" ")).join(", ")}`),
