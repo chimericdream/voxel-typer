@@ -60,4 +60,5 @@ export const screens: Partial<Record<RouteId, ScreenLoader>> = {
   lessonIntro: () => import("@/ui/screens/LessonIntro"),
   results: () => import("@/ui/screens/Results"),
   privacy: () => import("@/ui/screens/Privacy"),
+  map: () => import("@/ui/screens/WorldMap"),
 };

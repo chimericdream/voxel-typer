@@ -2,9 +2,9 @@
  * Star rules and the speed baseline (contracts §6), tested at each threshold boundary.
  */
 import { describe, expect, it } from "vitest";
-import { baselineNetWpm, computeStars } from "../../../src/engine/stars";
+import { BAND_STAR_RULES, baselineNetWpm, computeStars } from "../../../src/engine/stars";
 import type { StarInput } from "../../../src/engine/stars";
-import type { GameModeId } from "../../../src/types/core";
+import type { AgeBand, GameModeId } from "../../../src/types/core";
 
 function input(overrides: Partial<StarInput> = {}): StarInput {
   return {
@@ -86,6 +86,99 @@ describe("computeStars: the speed goal", () => {
 
   it("with no wpmRelative the baseline is ignored", () => {
     expect(computeStars(input({ baseline: 50, netWpm: 1 }))).toBe(3);
+  });
+});
+
+describe("computeStars: band-aware bars (decision 80)", () => {
+  // [band, lesson accuracy target, accuracy, stars], no speed goal. Each bar is tested on it and
+  // just under it. The lesson targets cover the floor winning (0.80, 0.85) and the target winning
+  // (0.90 for Miner and Builder, 0.95 for everyone).
+  const table: [AgeBand, number, number, 1 | 2 | 3][] = [
+    // Sprout: 2nd star at max(0.85, target − 0.05), 3rd at 0.90.
+    ["sprout", 0.8, 0.8499, 1],
+    ["sprout", 0.8, 0.85, 2],
+    ["sprout", 0.9, 0.8499, 1],
+    ["sprout", 0.9, 0.85, 2],
+    ["sprout", 0.9, 0.8999, 2],
+    ["sprout", 0.9, 0.9, 3],
+    ["sprout", 0.95, 0.8999, 1],
+    ["sprout", 0.95, 0.9, 3],
+    ["sprout", 0.97, 0.9199, 2],
+    ["sprout", 0.97, 0.92, 3],
+    ["sprout", 0.9, 1, 3],
+    // Miner: 2nd star at max(0.88, target − 0.02), 3rd at 0.93.
+    ["miner", 0.85, 0.8799, 1],
+    ["miner", 0.85, 0.88, 2],
+    ["miner", 0.9, 0.8799, 1],
+    ["miner", 0.9, 0.88, 2],
+    ["miner", 0.9, 0.9299, 2],
+    ["miner", 0.9, 0.93, 3],
+    ["miner", 0.95, 0.9299, 1],
+    ["miner", 0.95, 0.93, 3],
+    ["miner", 0.9, 1, 3],
+    // Builder: 2nd star at max(0.90, target), 3rd at 0.95 (the rules with no band).
+    ["builder", 0.85, 0.8999, 1],
+    ["builder", 0.85, 0.9, 2],
+    ["builder", 0.9, 0.8999, 1],
+    ["builder", 0.9, 0.9, 2],
+    ["builder", 0.9, 0.9499, 2],
+    ["builder", 0.9, 0.95, 3],
+    ["builder", 0.93, 0.9299, 1],
+    ["builder", 0.93, 0.93, 2],
+    ["builder", 0.97, 0.96, 2],
+    ["builder", 0.97, 0.97, 3],
+    ["builder", 0.9, 1, 3],
+  ];
+  it.each(table)("%s, target %s: accuracy %s → %i stars", (band, target, accuracy, stars) => {
+    expect(computeStars(input({ band, accuracy, targets: { accuracy: target } }))).toBe(stars);
+  });
+
+  it("a missing band gives the same stars as Builder for every row of the table", () => {
+    for (const [, target, accuracy] of table) {
+      const base = input({ accuracy, targets: { accuracy: target } });
+      expect(computeStars(base)).toBe(computeStars({ ...base, band: "builder" }));
+    }
+  });
+
+  it("accuracy as the session computes it lands on the bar: 17 / 20, 22 / 25 and 57 / 60", () => {
+    const targets = { accuracy: 0.9 };
+    expect(computeStars(input({ band: "sprout", accuracy: 17 / 20, targets }))).toBe(2);
+    expect(computeStars(input({ band: "sprout", accuracy: 9 / 10, targets }))).toBe(3);
+    expect(computeStars(input({ band: "miner", accuracy: 22 / 25, targets }))).toBe(2);
+    expect(computeStars(input({ band: "builder", accuracy: 57 / 60, targets }))).toBe(3);
+  });
+
+  it("no band ever gives 0 stars to a finished lesson, or any to an unfinished one", () => {
+    for (const band of ["sprout", "miner", "builder"] as const) {
+      expect(computeStars(input({ band, accuracy: 0 }))).toBe(1);
+      expect(computeStars(input({ band, completed: false }))).toBe(0);
+    }
+  });
+
+  it("Sprout has no speed check: 3 stars however slow, at 0.90 and up", () => {
+    const targets = { accuracy: 0.9, wpmRelative: 1.1 };
+    expect(computeStars(input({ band: "sprout", targets, baseline: 20, netWpm: 1 }))).toBe(3);
+    expect(computeStars(input({ band: "sprout", targets, baseline: 20, netWpm: 0 }))).toBe(3);
+    expect(BAND_STAR_RULES.sprout.speedCheck).toBe(false);
+  });
+
+  it.each(["miner", "builder"] as const)("%s keeps the speed check on the 3rd star", (band) => {
+    const targets = { accuracy: 0.9, wpmRelative: 1.1 };
+    expect(computeStars(input({ band, targets, baseline: 20, netWpm: 22 }))).toBe(3);
+    expect(computeStars(input({ band, targets, baseline: 20, netWpm: 21.99 }))).toBe(2);
+    expect(computeStars(input({ band, targets, baseline: null, netWpm: 0 }))).toBe(3);
+  });
+
+  it("the bars never get stricter from Sprout to Miner to Builder", () => {
+    for (const target of [0.8, 0.85, 0.9, 0.95, 0.99]) {
+      for (let a = 0; a <= 1000; a++) {
+        const accuracy = a / 1000;
+        const at = (band: AgeBand): number =>
+          computeStars(input({ band, accuracy, targets: { accuracy: target } }));
+        expect(at("sprout")).toBeGreaterThanOrEqual(at("miner"));
+        expect(at("miner")).toBeGreaterThanOrEqual(at("builder"));
+      }
+    }
   });
 });
 

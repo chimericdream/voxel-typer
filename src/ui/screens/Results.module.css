@@ -1,12 +1,31 @@
+/*
+ * Results is the tallest menu screen: stars, message, up to two rows of loot and a row of big
+ * buttons. At 1280×720 it ran past the bottom edge and clipped the focus ring of "Next lesson"
+ * (M2-FIX-3), so it is tighter than the shared `.screen` and keeps room below the buttons for the
+ * ring. The class is doubled so it wins over `.screen` whatever order the sheets load in.
+ */
+.page.page {
+  gap: var(--sp-4);
+  padding-bottom: calc(var(--sp-4) + var(--focus-w) + var(--focus-halo-w));
+}
+
+/*
+ * A button that takes focus (Next lesson does on arrival) scrolls into view with its ring, when the
+ * window is too short for the whole screen.
+ */
+.actions > * {
+  scroll-margin-block: calc(var(--focus-w) + var(--focus-halo-w) + var(--sp-3));
+}
+
 .card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--sp-4);
+  gap: var(--sp-3);
   box-sizing: border-box;
   width: min(100%, calc(40rem * var(--text-scale)));
   max-width: 100%;
-  padding: var(--sp-5);
+  padding: var(--sp-4) var(--sp-5);
   border: var(--bevel-w) solid var(--c-panel-outline);
   border-image: var(--bevel-panel, none) var(--bevel-slice) fill / var(--bevel-w) repeat;
   background-color: var(--c-panel);
@@ -83,6 +102,13 @@
 
 .slot {
   display: block;
+}
+
+/* On a short window the loot slots shrink a step, so two rows of finds still leave the buttons room. */
+@media (max-height: 800px) {
+  .slots {
+    --slot-base: 48px;
+  }
 }
 
 .slots[data-animate] .slot {

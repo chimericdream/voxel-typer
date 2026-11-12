@@ -365,3 +365,16 @@ PRs, and the orchestrator's rulings in those PRs.
 86. **E2E flakes.** The `fx.spec` loop-idle check waits up to 45 s; CI needs 9–11 s. The pause flow
     times key and blur events on the page's own clock. One rerun of a failed CI job is allowed for
     a known flake; a second failure is a bug.
+87. **World map layout (M3-04, PR #148).** The lesson path sits in a panel beside the island, not
+    drawn on it: stars and numbers on voxel textures were hard to read. Escape on the map overview
+    goes to "Who is playing?", following PLAN §5.3's screen order. This is an exception to the
+    shell's "Escape goes back", which would return to the lesson just played.
+88. **`CameraRig.moveTo(pose, { durationMs })` and `AppApi.scene()` are additions (M3-04).**
+    They don't change a frozen contract: `AppApi` and `AppScene` aren't in contracts.md. A screen
+    may draw in the shared scene through `AppApi.scene()`; there is still one WebGL context.
+89. **Map islands use map-only voxel kinds (M3-04).** The block registry has only Meadow's blocks so
+    far, so islands are painted from biome palettes, not registry blocks.
+90. **Mine ignores a habit space between blocks (M2-FIX-3 review B1, PR #147).** With decision 81, a
+    space with nothing of the current block typed is dropped, not counted as a slip. Mine lessons
+    are about 20–33 % fewer keystrokes, because the length budget counted spaces. Before the
+    M3-GATE playtest, reset dev profiles, because older sessions counted spaces in their WPM.

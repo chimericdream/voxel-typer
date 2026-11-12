@@ -340,6 +340,7 @@ export function simulate(lesson: SimLesson, opts: SimOptions): SimReport {
         netWpm: summary.netWpm,
         targets: lesson.goals,
         baseline,
+        band: opts.band,
       });
       row.stars[stars]++;
       row.accuracies.push(summary.accuracy);

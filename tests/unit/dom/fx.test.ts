@@ -469,6 +469,30 @@ describe("dispose", () => {
     h.fx.dispose();
   });
 
+  it("keeps chips made before any atlas when the first atlas loads (M2-FIX-3)", () => {
+    const h = harness(false, false);
+    h.fx.burst(AT, { blockId: "stone", count: 6 });
+    expect(h.fx.stats().particles).toBe(6);
+    const mesh = particlesMesh(h.scene);
+    if (!(mesh.material instanceof THREE.MeshLambertMaterial)) throw new Error("material");
+    expect(mesh.material.map).toBeNull();
+    // The world finishes loading: the scene's first atlas appears while the chips still fly.
+    h.setAtlas(fakeAtlas());
+    h.tick(16);
+    expect(h.fx.stats().particles).toBe(6);
+    expect(mesh.count).toBe(6);
+    h.fx.dispose();
+  });
+
+  it("drops live chips when their atlas goes away (no atlas after one)", () => {
+    const h = harness();
+    h.fx.burst(AT, { blockId: "stone", count: 6 });
+    h.setAtlas(null);
+    h.tick(16);
+    expect(h.fx.stats().particles).toBe(0);
+    h.fx.dispose();
+  });
+
   it("frees the mesh, its geometry and material, removes the overlay, keeps the atlas", () => {
     const h = harness();
     h.fx.burst(AT, { blockId: "stone", count: 10 });

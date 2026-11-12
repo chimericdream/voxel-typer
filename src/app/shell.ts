@@ -180,7 +180,8 @@ export function createShell(deps: ShellDeps): Shell {
   });
 
   const enter = (to: Route): void => {
-    deps.showCanvas(to.id === "play");
+    // The world map draws its islands in the shared scene too (M3-04).
+    deps.showCanvas(to.id === "play" || to.id === "map");
     if (to.id !== "play") return;
     const lesson = to.lesson === undefined ? null : lessonById(to.lesson);
     const p = profile.value;
@@ -240,6 +241,7 @@ export function createShell(deps: ShellDeps): Shell {
     },
     audio: deps.audio,
     whenReady,
+    scene: () => deps.acquireScene(),
     recording: () => play.recording(),
   };
 
