@@ -68,7 +68,8 @@ test("meadow-05: a word chips, breaks on its space, and the loot lands in the ho
   const after = await state(page);
   expect(after.text).not.toBeNull();
   expect(after.typed).toBe(0);
-  await expect(hotbar.getByRole("img")).not.toHaveCount(0);
+  // The slot fills when the loot's flight lands, on frame time: slow on CI's SwiftShader (M2-15).
+  await expect(hotbar.getByRole("img")).not.toHaveCount(0, { timeout: 30_000 });
   expect(after.calls).toBeLessThanOrEqual(150);
   expect(errors).toEqual([]);
 });
