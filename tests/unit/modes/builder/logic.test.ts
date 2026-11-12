@@ -1,0 +1,311 @@
+/** Builder's cursor, camera and palette rules, and what it tells the play host to save (M4-07). */
+import fc from "fast-check";
+import { describe, expect, it } from "vitest";
+import { footprint } from "../../../../src/engine/island";
+import { DIRECTIONS } from "../../../../src/modes/builder/commands";
+import { attachNavKeys, navKeyOf } from "../../../../src/modes/builder/keys";
+import {
+  BUILDER_ISLAND_EXTRA,
+  BUILDER_LESSON,
+  isBuilderLesson,
+  islandPatchOf,
+  withBuilderIsland,
+  withIslandPatch,
+} from "../../../../src/modes/builder/lesson";
+import {
+  FOLLOW_SLACK,
+  ZOOM_MAX,
+  ZOOM_MIN,
+  arrowDirection,
+  cameraPose,
+  createTouchLog,
+  digCell,
+  facing,
+  followTarget,
+  mostOwned,
+  moveCursor,
+  putCell,
+  stampOrigin,
+  startCursor,
+  steadyPalette,
+  turn,
+} from "../../../../src/modes/builder/logic";
+import type { Quarter } from "../../../../src/modes/builder/logic";
+import { VoxelGrid } from "../../../../src/render/mesher/voxel-grid";
+import { fixture } from "../../app/helpers";
+
+const area = footprint(0);
+const HEIGHT = 32;
+
+/** A column of blocks at (1, 0–2, 1) in a small grid. */
+function column(): VoxelGrid {
+  const g = new VoxelGrid(4, 8, 4);
+  for (let y = 0; y <= 2; y++) g.set(1, y, 1, 7);
+  return g;
+}
+
+describe("moveCursor", () => {
+  it("moves along the island's compass: north is −z, east is +x, up is +y", () => {
+    const at = { x: 20, y: 5, z: 20 };
+    expect(moveCursor(at, "north", 2, area, HEIGHT).cell).toEqual({ x: 20, y: 5, z: 18 });
+    expect(moveCursor(at, "south", 1, area, HEIGHT).cell).toEqual({ x: 20, y: 5, z: 21 });
+    expect(moveCursor(at, "east", 3, area, HEIGHT).cell).toEqual({ x: 23, y: 5, z: 20 });
+    expect(moveCursor(at, "west", 1, area, HEIGHT).cell).toEqual({ x: 19, y: 5, z: 20 });
+    expect(moveCursor(at, "up", 4, area, HEIGHT)).toEqual({
+      cell: { x: 20, y: 9, z: 20 },
+      moved: 4,
+    });
+    expect(moveCursor(at, "down", 9, area, HEIGHT)).toEqual({
+      cell: { x: 20, y: 0, z: 20 },
+      moved: 5,
+    });
+  });
+
+  it("never leaves the build area (seed 4707)", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.tuple(fc.constantFrom(...DIRECTIONS), fc.integer({ min: 0, max: 60 })), {
+          maxLength: 30,
+        }),
+        fc.integer({ min: 0, max: 6 }),
+        (moves, expansions) => {
+          const f = footprint(expansions);
+          let at = { x: 24, y: 5, z: 24 };
+          for (const [dir, steps] of moves) at = moveCursor(at, dir, steps, f, HEIGHT).cell;
+          expect(at.x).toBeGreaterThanOrEqual(f.x0);
+          expect(at.x).toBeLessThan(f.x1);
+          expect(at.z).toBeGreaterThanOrEqual(f.z0);
+          expect(at.z).toBeLessThan(f.z1);
+          expect(at.y).toBeGreaterThanOrEqual(0);
+          expect(at.y).toBeLessThan(HEIGHT);
+        },
+      ),
+      { seed: 4707, numRuns: 200 },
+    );
+  });
+});
+
+describe("where put and dig land", () => {
+  it("the cursor starts in the first free cell above the middle of the island", () => {
+    const g = new VoxelGrid(48, 32, 48);
+    for (let y = 0; y <= 4; y++) g.set(24, y, 24, 1);
+    expect(startCursor(g, area)).toEqual({ x: 24, y: 5, z: 24 });
+    expect(startCursor(new VoxelGrid(48, 32, 48), area)).toEqual({ x: 24, y: 0, z: 24 });
+  });
+
+  it("put fills the cursor's cell, or the first free cell above it", () => {
+    const g = column();
+    expect(putCell(g, { x: 1, y: 5, z: 1 })).toEqual({ x: 1, y: 5, z: 1 });
+    expect(putCell(g, { x: 1, y: 1, z: 1 })).toEqual({ x: 1, y: 3, z: 1 });
+    for (let y = 3; y < 8; y++) g.set(1, y, 1, 7);
+    expect(putCell(g, { x: 1, y: 1, z: 1 })).toBeNull();
+  });
+
+  it("dig empties the cursor's cell, or the first block under it", () => {
+    const g = column();
+    expect(digCell(g, { x: 1, y: 1, z: 1 })).toEqual({ x: 1, y: 1, z: 1 });
+    expect(digCell(g, { x: 1, y: 6, z: 1 })).toEqual({ x: 1, y: 2, z: 1 });
+    expect(digCell(g, { x: 2, y: 6, z: 2 })).toBeNull();
+  });
+});
+
+describe("camera", () => {
+  it("in view 0 away is north and right is east; each turn to the right shifts them", () => {
+    expect((["away", "right", "near", "left"] as const).map((a) => arrowDirection(a, 0))).toEqual([
+      "north",
+      "east",
+      "south",
+      "west",
+    ]);
+    expect(arrowDirection("right", 1)).toBe("south");
+    expect(arrowDirection("away", 1)).toBe("east");
+    expect(arrowDirection("left", 3)).toBe("south");
+    expect(([0, 1, 2, 3] as const).map(facing)).toEqual(["north", "east", "south", "west"]);
+  });
+
+  it("an arrow always moves the cursor the way it points on screen", () => {
+    // The camera looks along (−sin yaw, −cos yaw) in x/z; its right is (cos yaw, −sin yaw).
+    const step = { north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0] } as const;
+    for (const view of [0, 1, 2, 3] as const) {
+      const { yaw } = cameraPose({ x: 0, y: 0, z: 0 }, view, 2);
+      const look = [-Math.sin(yaw), -Math.cos(yaw)] as const;
+      const right = [Math.cos(yaw), -Math.sin(yaw)] as const;
+      const dot = (a: readonly number[], b: readonly number[]): number =>
+        (a[0] ?? 0) * (b[0] ?? 0) + (a[1] ?? 0) * (b[1] ?? 0);
+      const dirOf = (arrow: "away" | "right" | "near" | "left"): readonly number[] => {
+        const d = arrowDirection(arrow, view);
+        return d === "up" || d === "down" ? [0, 0] : step[d];
+      };
+      expect(dot(dirOf("away"), look)).toBeGreaterThan(0.7);
+      expect(dot(dirOf("near"), look)).toBeLessThan(-0.7);
+      expect(dot(dirOf("right"), right)).toBeGreaterThan(0.7);
+      expect(dot(dirOf("left"), right)).toBeLessThan(-0.7);
+    }
+  });
+
+  it("turn wraps both ways", () => {
+    let q: Quarter = 0;
+    for (let i = 0; i < 4; i++) q = turn(q, 1);
+    expect(q).toBe(0);
+    expect(turn(0, -1)).toBe(3);
+  });
+
+  it("zoom is clamped, and nearer steps are closer", () => {
+    const at = { x: 0, y: 0, z: 0 };
+    expect(cameraPose(at, 0, -5).distance).toBe(cameraPose(at, 0, ZOOM_MIN).distance);
+    expect(cameraPose(at, 0, 99).distance).toBe(cameraPose(at, 0, ZOOM_MAX).distance);
+    expect(cameraPose(at, 0, ZOOM_MAX).distance).toBeLessThan(cameraPose(at, 0, ZOOM_MIN).distance);
+  });
+
+  it("follows the cursor only past the slack, and then just far enough", () => {
+    const target = { x: 24, y: 5, z: 24 };
+    expect(followTarget(target, { x: 24 + FOLLOW_SLACK.xz, y: 5, z: 24 })).toEqual(target);
+    expect(followTarget(target, { x: 24 + FOLLOW_SLACK.xz + 2, y: 5, z: 24 })).toEqual({
+      x: 26,
+      y: 5,
+      z: 24,
+    });
+    expect(followTarget(target, { x: 24, y: 5 - FOLLOW_SLACK.y - 1, z: 10 })).toEqual({
+      x: 24,
+      y: 4,
+      z: 10 + FOLLOW_SLACK.xz,
+    });
+  });
+});
+
+describe("palette", () => {
+  const order = ["grass", "dirt", "cobble", "planks", "glass", "brick", "sand", "clay"];
+
+  it("shows the six blocks the player owns most of, most first", () => {
+    const inv = { grass: 3, dirt: 9, cobble: 9, planks: 1, glass: 0, brick: 2, sand: 5, clay: 4 };
+    expect(mostOwned(inv, order)).toEqual(["dirt", "cobble", "sand", "clay", "grass", "brick"]);
+    expect(mostOwned({}, order)).toEqual([]);
+    expect(mostOwned({ "not-a-block": 50, dirt: 1 }, order)).toEqual(["dirt"]);
+  });
+
+  it("keeps blocks in their slots while they are owned, and fills a freed slot", () => {
+    const shown = ["dirt", "cobble", "sand"];
+    expect(steadyPalette(shown, { dirt: 1, cobble: 30, sand: 5 }, order)).toEqual(shown);
+    expect(steadyPalette(shown, { dirt: 0, cobble: 30, sand: 5, clay: 2 }, order)).toEqual([
+      "cobble",
+      "sand",
+      "clay",
+    ]);
+    expect(steadyPalette([], { dirt: 1, cobble: 30 }, order, 1)).toEqual(["cobble"]);
+  });
+});
+
+describe("redraw bookkeeping", () => {
+  it("the touch log keeps the newest boxes, newest out first", () => {
+    const log = createTouchLog(2);
+    for (const x of [1, 2, 3]) log.push({ min: { x, y: 0, z: 0 }, max: { x, y: 0, z: 0 } });
+    expect(log.size).toBe(2);
+    expect(log.pop()?.min.x).toBe(3);
+    expect(log.pop()?.min.x).toBe(2);
+    expect(log.pop()).toBeNull();
+  });
+
+  it("a blueprint stands on the cursor's layer, centered on its column", () => {
+    expect(stampOrigin({ x: 10, y: 5, z: 10 }, { sx: 3, sz: 5 })).toEqual({ x: 9, y: 5, z: 8 });
+    expect(stampOrigin({ x: 10, y: 5, z: 10 }, { sx: 1, sz: 2 })).toEqual({ x: 10, y: 5, z: 9 });
+  });
+});
+
+describe("nav keys", () => {
+  const event = (key: string, over: object = {}) => ({
+    key,
+    ctrlKey: false,
+    metaKey: false,
+    altKey: false,
+    defaultPrevented: false,
+    preventDefault: () => undefined,
+    ...over,
+  });
+
+  it("maps the arrows and the Page keys, and nothing else", () => {
+    expect(
+      ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "PageUp", "PageDown"].map((k) =>
+        navKeyOf(event(k)),
+      ),
+    ).toEqual(["left", "right", "away", "near", "up", "down"]);
+    for (const k of ["a", " ", "Enter", "Escape", "Home", "Tab"])
+      expect(navKeyOf(event(k))).toBeNull();
+  });
+
+  it("leaves handled events, chords and IME composition alone", () => {
+    expect(navKeyOf(event("ArrowUp", { defaultPrevented: true }))).toBeNull();
+    for (const mod of ["ctrlKey", "metaKey", "altKey", "isComposing"]) {
+      expect(navKeyOf(event("ArrowUp", { [mod]: true }))).toBeNull();
+    }
+  });
+
+  it("with no window there is nothing to listen to", () => {
+    expect(() =>
+      attachNavKeys(
+        null,
+        () => true,
+        () => undefined,
+      )(),
+    ).not.toThrow();
+  });
+});
+
+describe("what Builder tells the play host", () => {
+  const miner = fixture("meadow-done-miner");
+  const island = {
+    grid: { sx: 48, sy: 32, sz: 48, rle: [73728, 0] },
+    expansions: 0,
+    lastEdited: 5,
+  };
+
+  it("is a lesson record for the play host, outside the curriculum", () => {
+    expect(isBuilderLesson(BUILDER_LESSON)).toBe(true);
+    expect(BUILDER_LESSON).toMatchObject({
+      id: "builder",
+      mode: "builder",
+      targets: { accuracy: 0 },
+    });
+  });
+
+  it("reads a patch, and refuses anything malformed", () => {
+    const patch = { island, inventory: { dirt: 2, cobble: 0 } };
+    expect(islandPatchOf(patch)).toEqual(patch);
+    const bad: unknown[] = [
+      null,
+      "x",
+      [],
+      {},
+      { island },
+      { island, inventory: { dirt: -1 } },
+      { island, inventory: { dirt: 1.5 } },
+      { island, inventory: { dirt: "2" } },
+      { island: { ...island, grid: { ...island.grid, rle: "x" } }, inventory: {} },
+      { island: { ...island, grid: { ...island.grid, rle: [1, -2] } }, inventory: {} },
+      { island: { ...island, expansions: "1" }, inventory: {} },
+      { island: { grid: null, expansions: 0, lastEdited: 0 }, inventory: {} },
+    ];
+    for (const v of bad) expect(islandPatchOf(v), JSON.stringify(v)).toBeNull();
+  });
+
+  it("a patch changes the island and the bag, and nothing else", () => {
+    const next = withIslandPatch(miner, { island, inventory: { dirt: 2 } });
+    expect(next).toEqual({ ...miner, island, inventory: { dirt: 2 }, found: miner.inventory });
+    expect(miner.island).toBeNull();
+  });
+
+  it("writes lifetime finds only when the profile has none recorded", () => {
+    const had = { ...miner, found: { cobble: 4 } };
+    expect(withIslandPatch(had, { island, inventory: {} }).found).toEqual({ cobble: 4 });
+  });
+
+  it("a result with no island, or a broken one, leaves the profile as it is", () => {
+    expect(withBuilderIsland(miner, {})).toBe(miner);
+    expect(withBuilderIsland(miner, { extra: { [BUILDER_ISLAND_EXTRA]: { island: 3 } } })).toBe(
+      miner,
+    );
+    expect(
+      withBuilderIsland(miner, { extra: { [BUILDER_ISLAND_EXTRA]: { island, inventory: {} } } })
+        .island,
+    ).toEqual(island);
+  });
+});

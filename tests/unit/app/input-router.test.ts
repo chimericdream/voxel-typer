@@ -141,14 +141,17 @@ describe("input routing", () => {
       expect(setup({ onPlay: false, status: "running" }).router.ctx().inPlay).toBe(false);
     });
 
-    it("passes the band, and undo only while Builder runs", () => {
+    it("passes the band; undo and Enter only while Builder runs", () => {
       expect(setup({ onPlay: true, status: "running" }).router.ctx()).toEqual({
         inPlay: true,
         band: "sprout",
       });
-      expect(
-        setup({ onPlay: true, status: "running", mode: "builder" }).router.ctx(),
-      ).toMatchObject({ undo: true });
+      expect(setup({ onPlay: true, status: "running", mode: "builder" }).router.ctx()).toEqual({
+        inPlay: true,
+        band: "sprout",
+        undo: true,
+        wantsEnter: true,
+      });
       expect(
         setup({ onPlay: false, status: "idle", mode: "builder" }).router.ctx().undo,
       ).toBeUndefined();

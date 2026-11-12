@@ -172,6 +172,28 @@ describe("app shell", () => {
     expect(s.mode.calls).toEqual(["start", "pause", "dispose"]);
   });
 
+  it("the Home Island is Builder on the play route (M4-07): `island` goes there", async () => {
+    const s = setup();
+    s.shell.api.setProfile(fixture("fresh-sprout"));
+    s.shell.api.navigate({ id: "map" });
+    s.shell.api.navigate({ id: "island" });
+    await s.shell.ready();
+    expect(s.shell.route.value).toEqual({ id: "play", lesson: "builder" });
+    expect(s.mode.ctx().lesson).toMatchObject({ id: "builder", mode: "builder" });
+    expect(s.canvas.at(-1)).toBe(true);
+    // Leaving from the pause overlay goes to the map, and back from there is not the island.
+    s.shell.play.pause(1);
+    s.shell.quitPlay();
+    expect(s.shell.route.value.id).toBe("map");
+  });
+
+  it("a deep link to `island` opens Builder too", async () => {
+    const s = setup({ initial: { id: "island" }, initialProfile: fixture("fresh-sprout") });
+    await s.shell.ready();
+    expect(s.shell.route.value).toEqual({ id: "play", lesson: "builder" });
+    expect(s.shell.playStatus.value).toBe("running");
+  });
+
   describe("autosave", () => {
     it("a newer save is never overwritten: one notice, and no more writes", async () => {
       const store: SaveStore = createMemoryStore();
