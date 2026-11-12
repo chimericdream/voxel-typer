@@ -22,6 +22,13 @@ import type { Clock } from "./clock";
 import { createEmitter } from "./events";
 import type { Emitter, GameEvents } from "./events";
 import type { HudStore } from "./hud";
+import {
+  BUILDER_SAVE_EVENT,
+  isBuilderLesson,
+  islandPatchOf,
+  withBuilderIsland,
+  withIslandPatch,
+} from "@/modes/builder/lesson";
 import { isPlacementLesson } from "@/modes/placement/lesson";
 import { applyPlacement, applyResult } from "./progress";
 import type { AppScene } from "./scene-host";
@@ -39,6 +46,11 @@ export type PlayStatus =
 /** Modes may also expose their session's read model, for `__vt.session()`. Optional. */
 export interface InspectableMode extends ModeInstance {
   session?(): SessionView | null;
+  /**
+   * A mode with no end of its own (Builder, M4-07) finishes here: the host calls it when the
+   * child leaves, and the mode calls `finish` with what it has, so the visit is saved.
+   */
+  leave?(): void;
 }
 
 /** The bus event a mode receives when the child asks to hear the word again. */
@@ -164,6 +176,22 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
     setDrift(r, true);
   };
 
+  /** The app's profile as it is now when it is still this run's player, else the run's own copy. */
+  const liveProfile = (r: Run): Profile => {
+    const now = deps.currentProfile?.() ?? null;
+    return now?.id === r.profile.id ? now : r.profile;
+  };
+
+  /** Lets a mode that is being left finish first (see {@link InspectableMode.leave}). */
+  const leave = (r: Run): void => {
+    if (r.finished || r.disposed || r.instance?.leave === undefined) return;
+    try {
+      r.instance.leave();
+    } catch (err) {
+      console.error("[play] mode leave failed", err);
+    }
+  };
+
   const teardown = (r: Run): void => {
     if (r.disposed) return;
     r.disposed = true;
@@ -202,11 +230,29 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
     queueMicrotask(() => teardown(r));
     const at = deps.clock.epoch();
     // The placement test is not a curriculum lesson: it sets the start instead (M3-05).
-    const applied = isPlacementLesson(r.lesson)
-      ? applyPlacement(r.profile, deps.lessons ?? [], result, at)
-      : applyResult(r.profile, r.lesson, result, at);
-    const updated = r.ach?.finish(applied, result) ?? applied;
-    void deps.saveProfile(updated).then(() => {
+    let updated: Profile;
+    let changed = true;
+    if (isBuilderLesson(r.lesson)) {
+      // Builder (M4-07) saved the island while it ran, so the base is the profile as it is now,
+      // never the copy from when the visit started. The island and the practice session go in
+      // one save. It is not a lesson: no lesson record, and only the badges earned live count.
+      const base = liveProfile(r);
+      const built = withBuilderIsland(base, result);
+      const typed = result.summary.keystrokes > 0;
+      const applied = typed ? applyResult(built, null, result, at) : built;
+      const kept = r.ach?.abandon() ?? {};
+      r.ach = null;
+      updated = Object.keys(kept).length > 0 ? withUnlocks(applied, kept) : applied;
+      // A visit that changed nothing writes nothing.
+      changed = updated !== base;
+    } else {
+      const applied = isPlacementLesson(r.lesson)
+        ? applyPlacement(r.profile, deps.lessons ?? [], result, at)
+        : applyResult(r.profile, r.lesson, result, at);
+      updated = r.ach?.finish(applied, result) ?? applied;
+    }
+    const saved = changed ? deps.saveProfile(updated) : Promise.resolve(true);
+    void saved.then(() => {
       // A newer lesson started (or this one was quit) while the save was in flight: don't let
       // the old finish route the new lesson to results.
       if (run !== r) return;
@@ -225,7 +271,10 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
 
   return {
     async start({ lesson, profile, params = {} }) {
-      if (run !== null) teardown(run);
+      if (run !== null) {
+        leave(run);
+        teardown(run);
+      }
       frameTimes.length = 0;
       const r: Run = {
         instance: null,
@@ -252,11 +301,21 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
         const bus = createEmitter<GameEvents>();
         r.bus = bus;
         r.ach = deps.achievements?.begin({ profile, lesson, bus }) ?? null;
-        r.unBus = bus.on("engine", (e) => {
+        const offEngine = bus.on("engine", (e) => {
           // A break waits for a target boundary, never mid-word.
           if (e.type !== "targetComplete") return;
           if (deps.reminder.due(profile.settings.breakReminderMin)) enterBreak(r);
         });
+        // Builder's autosave (M4-07): the island and inventory, onto the profile as it is now.
+        const offSave = bus.on(BUILDER_SAVE_EVENT, (e) => {
+          const patch = islandPatchOf(e);
+          if (patch === null || r !== run || r.finished || r.disposed) return;
+          void deps.saveProfile(withIslandPatch(liveProfile(r), patch));
+        });
+        r.unBus = () => {
+          offEngine();
+          offSave();
+        };
         deps.hud.reset();
         const ctx: ModeContext = {
           lesson,
@@ -328,6 +387,7 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
 
     quit() {
       if (run === null) return;
+      leave(run);
       teardown(run);
       run = null;
       setStatus("idle");

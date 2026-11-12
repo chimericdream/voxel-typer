@@ -76,6 +76,39 @@
   gap: var(--sp-2);
 }
 
+/* A corner button's picture: hidden while there is room for its words. */
+.cornerIcon {
+  display: none;
+  width: 1.4em;
+  height: 1.4em;
+  fill: currentcolor;
+  shape-rendering: crispedges;
+}
+
+/*
+ * Four buttons (My Island came with M4-07) don't fit one row in a narrow window at large text,
+ * and a second row takes the island labels' room. There each button shows its picture; its words
+ * stay for screen readers. Text size is untouched: the picture scales with it.
+ */
+@media (max-width: 1100px) {
+  .corner button {
+    min-width: 0;
+  }
+
+  .cornerIcon {
+    display: block;
+  }
+
+  .cornerText {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
 .map[data-mode="flat"] .corner {
   position: static;
 }

@@ -9,8 +9,9 @@ dist/
 dist-test/
 *.local
 
-# Vitest coverage
+# Vitest coverage and reports
 coverage/
+.vitest/
 
 # Playwright
 test-results/

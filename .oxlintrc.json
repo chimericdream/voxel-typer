@@ -67,6 +67,8 @@
         "src/save/migrations.ts",
         "src/modes/mine/logic.ts",
         "src/modes/defense/director.ts",
+        "src/modes/builder/commands.ts",
+        "src/modes/builder/logic.ts",
         "src/modes/defense/logic.ts",
         "src/a11y/flash-guard.ts",
         "src/types/**"

@@ -9,6 +9,7 @@ import { signal } from "@preact/signals";
 import type { ReadonlySignal } from "@preact/signals";
 import type { AudioApi, Bus } from "@/audio/types";
 import type { Lesson } from "@/content/lessons/types";
+import { BUILDER_LESSON, BUILDER_LESSON_ID } from "@/modes/builder/lesson";
 import { PLACEMENT_LESSON, PLACEMENT_LESSON_ID } from "@/modes/placement/lesson";
 import type { ModeModule } from "@/modes/types";
 import type { SaveProblem, SaveProblemKind } from "@/save/problems";
@@ -105,6 +106,10 @@ export function applyAudioSettings(audio: ShellAudio, s: Readonly<Settings>): vo
   audio.setSpeechEnabled?.(s.tts);
   for (const bus of BUSES) audio.setVolume(bus, s.volume[bus]);
 }
+
+/** The Home Island is Builder mode on the play route (M4-07); `island` is its address. */
+const homeIsland = (to: Route): Route =>
+  to.id === "island" ? { id: "play", lesson: BUILDER_LESSON_ID } : to;
 
 export function createShell(deps: ShellDeps): Shell {
   const route = signal<Route>(deps.initial ?? { id: "splash" });
@@ -228,6 +233,11 @@ export function createShell(deps: ShellDeps): Shell {
     onFinished(_result, _updated) {
       const current = route.value;
       if (current.id !== "play") return;
+      // Builder has no Results: leaving the island goes back to the map (M4-07).
+      if (current.lesson === BUILDER_LESSON_ID) {
+        go({ id: "map" }, true);
+        return;
+      }
       // The placement test shows where the player starts, on its own screen (M3-05).
       if (current.lesson === PLACEMENT_LESSON_ID) {
         go({ id: "placement", lesson: PLACEMENT_LESSON_ID }, true);
@@ -246,9 +256,11 @@ export function createShell(deps: ShellDeps): Shell {
     const lesson =
       to.lesson === PLACEMENT_LESSON_ID
         ? PLACEMENT_LESSON
-        : to.lesson === undefined
-          ? null
-          : lessonById(to.lesson);
+        : to.lesson === BUILDER_LESSON_ID
+          ? BUILDER_LESSON
+          : to.lesson === undefined
+            ? null
+            : lessonById(to.lesson);
     const p = profile.value;
     if (lesson === null || p === null) {
       playStatus.value = "failed";
@@ -257,7 +269,8 @@ export function createShell(deps: ShellDeps): Shell {
     whenReady(play.start({ lesson, profile: p }));
   };
 
-  function go(to: Route, replace: boolean): void {
+  function go(target: Route, replace: boolean): void {
+    const to = homeIsland(target);
     const from = route.value;
     if (from.id === "play" && to.id !== "play" && play.status() !== "finished") play.quit();
     if (!replace) history.push(from);
@@ -316,6 +329,7 @@ export function createShell(deps: ShellDeps): Shell {
 
   if (deps.initialProfile) setProfile(deps.initialProfile);
   else applySettings(deviceSettings());
+  route.value = homeIsland(route.value);
   enter(route.value);
 
   return {

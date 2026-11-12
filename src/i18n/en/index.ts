@@ -24,6 +24,7 @@ import lessonsFrosty from "./lessons-frosty";
 import achievements from "./achievements";
 import importexport from "./importexport";
 import mobs from "./mobs";
+import builder from "./builder";
 import defense from "./defense";
 
 const en = {
@@ -46,6 +47,7 @@ const en = {
   achievements,
   importexport,
   mobs,
+  builder,
   defense,
 } as const;
 
