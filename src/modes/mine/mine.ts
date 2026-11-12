@@ -175,7 +175,7 @@ function plan(ctx: ModeContext): { targets: Target[]; lesson: Lesson | null; lim
       allowed,
       weights: keyWeights({
         allowed,
-        focus: lesson?.newKeys ?? [],
+        focus: lesson ? [...lesson.newKeys, ...lesson.reviewKeys] : [],
         stats: profile.keyStats,
         sessionIndex: profile.sessionCounter,
         targetLatencyMs: TARGET_LATENCY[band],

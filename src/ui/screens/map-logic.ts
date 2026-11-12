@@ -4,7 +4,9 @@
  *
  * Unlock rules are the contract's (`docs/impl/contracts.md` §6): a biome is open when it is in
  * `progress.unlockedBiomes`; a lesson is open when it is the first of its biome or the lesson
- * before it has been played. Nothing here changes the profile.
+ * before it has been played. A "No Peeking!" challenge (`challenge-hide-keyboard`) is optional
+ * (M3-FIX-7): it never gates the lesson after it, which opens with the challenge itself. Nothing
+ * here changes the profile.
  */
 import { biomesUnlockedBy } from "@/app/progress";
 import type { Lesson } from "@/content/lessons/types";
@@ -42,6 +44,8 @@ export interface LessonNode {
   stars: Stars;
   /** Playable now. */
   open: boolean;
+  /** The path number of the lesson that opens this one (0 for the first lesson). */
+  after: number;
   /** The recommended lesson: this node pulses. */
   next: boolean;
 }
@@ -70,16 +74,31 @@ const starsOf = (profile: Profile, id: string): Stars =>
 const playedIn = (profile: Profile, id: string): boolean =>
   profile.progress.lessons[id] !== undefined;
 
+/** An optional lesson: the "No Peeking!" challenge. It never gates the next lesson (M3-FIX-7). */
+export const isOptional = (lesson: Lesson): boolean =>
+  lesson.tags?.includes("challenge-hide-keyboard") === true;
+
+/**
+ * An optional lesson the player went past: a later lesson of its biome has been played. The map
+ * stops pointing at it, so skipping it never nags.
+ */
+function skipped(profile: Profile, lessons: readonly Lesson[], lesson: Lesson): boolean {
+  return (
+    isOptional(lesson) &&
+    lessonsOf(lessons, lesson.biome).some((l) => l.order > lesson.order && playedIn(profile, l.id))
+  );
+}
+
 /** Every lesson the player may start now, in curriculum order. */
 function openLessons(profile: Profile, lessons: readonly Lesson[]): Lesson[] {
   const unlocked = new Set(profile.progress.unlockedBiomes);
   const out: Lesson[] = [];
   for (const biome of BIOME_ORDER) {
     if (!unlocked.has(biome)) continue;
-    let prevPlayed = true;
+    let gatePlayed = true;
     for (const lesson of lessonsOf(lessons, biome)) {
-      if (prevPlayed) out.push(lesson);
-      prevPlayed = playedIn(profile, lesson.id);
+      if (gatePlayed) out.push(lesson);
+      if (!isOptional(lesson)) gatePlayed = playedIn(profile, lesson.id);
     }
   }
   return out;
@@ -87,14 +106,15 @@ function openLessons(profile: Profile, lessons: readonly Lesson[]): Lesson[] {
 
 /**
  * The lesson the map points the player to: the first open lesson they haven't played, else the
- * open lesson with the fewest stars (below three), else none.
+ * open lesson with the fewest stars (below three), else none. A "No Peeking!" challenge the player
+ * went past is not pointed at again.
  *
  * This is the one place that decides it. M3-06's `recommendNext(profile)` (due remedial → next
  * unplayed → lowest stars) replaces the body of this function.
  */
 export function recommendedLesson(profile: Profile, lessons: readonly Lesson[]): Lesson | null {
   const open = openLessons(profile, lessons);
-  const fresh = open.find((l) => !playedIn(profile, l.id));
+  const fresh = open.find((l) => !playedIn(profile, l.id) && !skipped(profile, lessons, l));
   if (fresh) return fresh;
   let best: Lesson | null = null;
   for (const lesson of open) {
@@ -144,15 +164,21 @@ export function lessonNodes(
 ): LessonNode[] {
   const next = recommendedLesson(profile, lessons);
   const open = new Set(openLessons(profile, lessons).map((l) => l.id));
-  return lessonsOf(lessons, biome).map((lesson, i) => ({
-    lesson,
-    n: i + 1,
-    title: t(lesson.titleKey),
-    played: playedIn(profile, lesson.id),
-    stars: starsOf(profile, lesson.id),
-    open: open.has(lesson.id),
-    next: next?.id === lesson.id,
-  }));
+  let after = 0;
+  return lessonsOf(lessons, biome).map((lesson, i) => {
+    const node: LessonNode = {
+      lesson,
+      n: i + 1,
+      title: t(lesson.titleKey),
+      played: playedIn(profile, lesson.id),
+      stars: starsOf(profile, lesson.id),
+      open: open.has(lesson.id),
+      after,
+      next: next?.id === lesson.id,
+    };
+    if (!isOptional(lesson)) after = i + 1;
+    return node;
+  });
 }
 
 /** What a screen reader says for an island, e.g. "Birch Forest, 4 of 15 lessons done, 9 stars". */
@@ -174,7 +200,7 @@ export function islandLabel(info: IslandInfo): string {
 /** What a screen reader says for a lesson node. */
 export function nodeLabel(node: LessonNode): string {
   const params = { n: node.n, title: node.title, stars: node.stars };
-  if (!node.open) return t("map.path.lessonLocked", { n: node.n, prev: node.n - 1 });
+  if (!node.open) return t("map.path.lessonLocked", { n: node.n, prev: node.after });
   if (node.next) {
     return node.played ? t("map.path.lessonNextAgain", params) : t("map.path.lessonNext", params);
   }
