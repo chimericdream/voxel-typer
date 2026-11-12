@@ -109,6 +109,8 @@ export const WAVE_END_EVENT = "defense:waveEnd";
 const HIT_STOP_MS: Ms = 30;
 /** The start hint goes away by itself after this long, or at the first right key. */
 const START_HINT_MS: Ms = 7000;
+/** How strongly the camp's glow lights the field at each time of day. */
+const GLOW = { day: 0, dusk: 0.5, night: 1, dawn: 0.3 } as const;
 /** Calm mode: no new mob sets out while this many are already on the field. */
 const CALM_MAX_LIVE = 4;
 /** Room kept at the top of the stage for the banner, in CSS pixels (times the text scale). */
@@ -499,6 +501,7 @@ export function create(ctx: ModeContext): DefenseInstance {
 
   const setTime = (timeOfDay: "day" | "dusk" | "night" | "dawn"): void => {
     scene.setEnvironment({ biome, timeOfDay });
+    view?.setGlow(GLOW[timeOfDay]);
   };
 
   const toDusk = (): void => {

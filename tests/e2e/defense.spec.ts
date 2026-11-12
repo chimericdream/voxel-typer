@@ -117,6 +117,10 @@ async function lockFirst(page: Page, chars: number): Promise<void> {
     await page.keyboard.press(s.next);
     await page.waitForTimeout(120);
   }
+  // The plate is repainted on the next frame, and CI's software renderer draws frames slowly.
+  await expect(page.locator('.vt-defense-plate[data-locked="1"]')).toHaveCount(1, {
+    timeout: 20_000,
+  });
 }
 
 test("a Miner's night plays from day to dawn inside the draw-call budget", async ({

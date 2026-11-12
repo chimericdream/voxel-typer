@@ -196,6 +196,9 @@
 
 /* The open stage over the 3D scene, where messages float without moving the layout. */
 .stage {
+  /* Pinned to the flexible row: a mode that shows no big word (Night Defense, M4-04) leaves the
+     word row empty, and without this the stage slid up into it and collapsed. */
+  grid-row: 3;
   position: relative;
   width: 100%;
   min-height: 0;
@@ -228,6 +231,7 @@
  * fit that height (--keyboard-max-unit, read by the keyboard), so keys shrink instead of scrolling.
  */
 .keyboard {
+  grid-row: 4;
   container-type: size;
   display: flex;
   align-items: flex-end;

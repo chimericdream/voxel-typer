@@ -495,17 +495,21 @@ describe("framing the field", () => {
     }
   });
 
-  it("draws a mob at least 30 px tall at the base, even in a Sprout's narrow stage", () => {
+  it("draws a mob big enough to read, even in a Sprout's narrow stage", () => {
     for (const band of BANDS) {
       const field = arenaLayout(BAND_LANES[band]);
       const fit = fitLaneView(field, canvas, STAGES[band]);
       const at = (y: number, z: number): number =>
         projectLane({ x: field.center.x, y, z }, fit, canvas).y;
-      // A mob is about 1.75 blocks tall (a 16-px model at 1.75×).
-      const nearPx = at(field.groundY, field.baseZ) - at(field.groundY + 1.75, field.baseZ);
-      const farPx = at(field.groundY, field.farZ) - at(field.groundY + 1.75, field.farZ);
-      expect(nearPx, band).toBeGreaterThanOrEqual(30);
-      expect(farPx, band).toBeGreaterThanOrEqual(18);
+      // A mob is about 2.2 blocks tall (a 16-px model at 2.2×).
+      const nearPx = at(field.groundY, field.baseZ) - at(field.groundY + 2.2, field.baseZ);
+      const farPx = at(field.groundY, field.farZ) - at(field.groundY + 2.2, field.farZ);
+      expect(nearPx, band).toBeGreaterThanOrEqual(44);
+      expect(farPx, band).toBeGreaterThanOrEqual(30);
+      // And the lanes are far enough apart for a word plate over each.
+      const x = (lane: number): number =>
+        projectLane({ x: field.laneX[lane] ?? 0, y: field.groundY, z: field.farZ }, fit, canvas).x;
+      expect(x(1) - x(0), band).toBeGreaterThanOrEqual(70);
     }
   });
 

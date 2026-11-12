@@ -27,13 +27,13 @@ import type { Ms } from "@/types/core";
 import type { FieldMob, LaneView } from "./logic";
 
 /** Mobs are drawn this much bigger than their model, so a 13–17 px creature reads from afar. */
-export const MOB_SCALE = 1.75;
+export const MOB_SCALE = 2.2;
 /** Instances per mob type: the director never sends more than 18 mobs in a wave. */
 export const POOL_SIZE = 18;
 /** How long the shield's ripple from a bonk lasts. */
 const PULSE_MS: Ms = 320;
 /** A bonked mob hops back this far (in lane shares) and this high (world units). */
-const HOP_BACK = 0.05;
+const HOP_BACK = 0.1;
 const HOP_HEIGHT = 0.9;
 /** A new mob grows in over this long, with a little overshoot, so it pops up and doesn't blink in. */
 const GROW_MS: Ms = 260;
@@ -63,6 +63,11 @@ export interface DefenseView {
   bonk(mob: FieldMob, done: () => void): void;
   /** The mob with the ring under it, or null. */
   setLocked(id: string | null): void;
+  /**
+   * How strongly the camp's glow lights the field, 0–1: none by day, full at night. Without it
+   * the mobs are dark shapes on a dark lawn, because the night's light comes from behind them.
+   */
+  setGlow(level01: number): void;
   /** The shield: `level01` is how full it is; `pulse` ripples it (a bonk, or dawn's regrowth). */
   setShield(level01: number, pulse: boolean): void;
   frame(dtMs: Ms): void;
@@ -218,6 +223,13 @@ export function createDefenseView(opts: DefenseViewOptions): DefenseView {
   };
   paintShield();
 
+  // --- the camp's glow: a warm light from the camera's side, onto the mobs' faces ---
+  const glow = new THREE.DirectionalLight(ramp("ore-amber", 4), 0);
+  glow.name = "defense-glow";
+  glow.position.set(layout.center.x, layout.groundY + 9, layout.baseZ + 16);
+  glow.target.position.set(layout.center.x, layout.groundY, layout.center.z);
+  root.add(glow, glow.target);
+
   const v = new THREE.Vector3();
   let disposed = false;
 
@@ -324,6 +336,10 @@ export function createDefenseView(opts: DefenseViewOptions): DefenseView {
       ring.visible = s !== undefined;
       opts.requestRender();
     },
+    setGlow(level01) {
+      glow.intensity = 1.5 * Math.min(1, Math.max(0, level01));
+      opts.requestRender();
+    },
     setShield(level01, pulse) {
       shieldLevel = Math.min(1, Math.max(0, level01));
       // A ripple is a flash: at most 3 a second across the whole app, and none under reduced motion.
@@ -387,6 +403,7 @@ export function createDefenseView(opts: DefenseViewOptions): DefenseView {
       shieldGeo.dispose();
       shieldMat.dispose();
       shieldTex.dispose();
+      glow.dispose();
       // The camera is shared: hand it back without the view shift.
       camera.clearViewOffset();
       opts.requestRender();

@@ -133,7 +133,7 @@ export interface FieldMob {
 }
 
 /** Calm mode: mobs in one lane wait this far apart, as a share of the lane. */
-export const QUEUE_GAP = 0.11;
+export const QUEUE_GAP = 0.2;
 
 /**
  * Moves the walking mobs by `dtMs`. Returns the mobs that reached the base in this step (state
@@ -473,7 +473,7 @@ export interface LaneView {
 
 export const LANE_FOV = 38;
 /** World units kept clear above the far end of the lanes, for the mobs there and their plates. */
-export const FIELD_HEADROOM = 4.2;
+export const FIELD_HEADROOM = 4.6;
 /** World units shown in front of the shield line: the fence and its lanterns. */
 export const FIELD_FRONT = 2.2;
 const PITCH_FLAT = (20 * Math.PI) / 180;

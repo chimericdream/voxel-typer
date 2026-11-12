@@ -39,14 +39,20 @@ export const ARENA_SIZE = { sx: 48, sy: 24, sz: 48 } as const;
 
 /** The most lanes an arena has (Builder at high difficulty). */
 export const ARENA_MAX_LANES = 5;
-/** Blocks between the middles of two neighbouring lanes. */
-export const LANE_SPACING = 5;
+/**
+ * Blocks between the middles of two neighbouring lanes. Fewer lanes stand further apart, so the
+ * field (and the word plates over it) uses the width of the screen.
+ */
+export function laneSpacing(lanes: number): number {
+  return lanes <= 3 ? 7 : lanes === 4 ? 6 : 5;
+}
 /** A lane's path is this many blocks wide. */
 export const LANE_WIDTH = 3;
 
 const FLOOR_Y = 4;
 const FAR_Z = 9;
-const BASE_Z = 33;
+/** Lanes are short on purpose: 13 blocks, so a mob is big on screen from the moment it appears. */
+const BASE_Z = 22;
 /** The waiting line, as a share of the way from the far end to the base (the sim's 85 %). */
 export const WAIT_SHARE = 0.85;
 /** The back hill's extra height at z = 0. */
@@ -84,7 +90,7 @@ export function arenaLayout(lanes: number): ArenaLayout {
   // Each lane's middle is the middle of a cell, so its path is the same width on both sides.
   const laneX = Array.from(
     { length: n },
-    (_, i) => Math.floor(mid + (i - (n - 1) / 2) * LANE_SPACING) + 0.5,
+    (_, i) => Math.floor(mid + (i - (n - 1) / 2) * laneSpacing(n)) + 0.5,
   );
   const cx = ((laneX[0] ?? mid) + (laneX[n - 1] ?? mid)) / 2;
   const groundY = FLOOR_Y + 1;
@@ -98,7 +104,7 @@ export function arenaLayout(lanes: number): ArenaLayout {
     baseZ,
     waitZ: farZ + (baseZ - farZ) * WAIT_SHARE,
     center: { x: cx, y: groundY, z: (farZ + baseZ) / 2 },
-    width: (n - 1) * LANE_SPACING + LANE_WIDTH + 4,
+    width: (n - 1) * laneSpacing(n) + LANE_WIDTH + 4,
     camp: { x: cx, y: groundY, z: BASE_Z + 2 },
   };
 }
