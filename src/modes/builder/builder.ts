@@ -73,6 +73,7 @@ import {
   putCell,
   stampOrigin,
   startCursor,
+  restorePalette,
   steadyPalette,
   turn,
 } from "./logic";
@@ -162,20 +163,43 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
     console.warn("[builder] the saved island did not open; leaving it untouched", err);
     status = "damaged";
   }
-  /** True once this visit changed the island, so leaving writes it even after a failed autosave. */
+  /**
+   * True once this visit changed the island, so leaving writes it even after a failed autosave.
+   * Moved palette slots also count, but only on an island that is already saved: a fresh island
+   * is still written only after its first edit.
+   */
   let edited = false;
   let sinceSave: Ms = 0;
   const touches = createTouchLog(UNDO_LIMIT);
 
+  /**
+   * The palette's slots, in order. They are saved with the island (`IslandSave.palette`,
+   * M4-FIX-1), so a block that got a slot keeps it on the next visit. A save without them, or
+   * with ids the child no longer owns, falls back to ranking by count.
+   */
+  let shown: BlockId[] =
+    editor === null
+      ? []
+      : restorePalette(profile.island?.palette, editor.inventory(), placeableIds);
+  /** The slots as last saved (or as loaded), to tell whether they changed. */
+  let savedSlots = shown.join(" ");
+  /** True when the slots changed since the last save, on an island that is already saved. */
+  const slotsMoved = (): boolean => profile.island !== null && shown.join(" ") !== savedSlots;
+
   const patch = (): IslandPatch | null => {
     if (editor === null) return null;
-    return { island: editor.save(ctx.clock.epoch()), inventory: editor.inventory() };
+    const island = editor.save(ctx.clock.epoch());
+    savedSlots = shown.join(" ");
+    return {
+      island: shown.length > 0 ? { ...island, palette: [...shown] } : island,
+      inventory: editor.inventory(),
+    };
   };
 
   /** Sends the island out to be saved, when something changed since the last time. */
   const autosave = (): void => {
     sinceSave = 0;
-    if (editor === null || !editor.dirty) return;
+    if (editor === null || !(editor.dirty || slotsMoved())) return;
     const p = patch();
     if (p !== null) bus.emit(BUILDER_SAVE_EVENT, p);
   };
@@ -258,7 +282,9 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
   let target: Cell = { x: 0, y: 0, z: 0 };
   let quarter: Quarter = 0;
   let zoom = ZOOM_START;
-  let shown: BlockId[] = [];
+  /** When each block was last dug, armed or placed this visit, for the palette's slots. */
+  const used = new Map<BlockId, number>();
+  let uses = 0;
   let inventory: Record<BlockId, number> = editor?.inventory() ?? {};
 
   /** Something other than typing happened: no habit space is expected, no name being finished. */
@@ -272,8 +298,18 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
 
   // --- HUD ---
 
+  /**
+   * A block was dug, armed or placed: it is the most recently used, and it gets a slot. In a full
+   * palette it takes the least recently used one.
+   */
+  const use = (block: BlockId): void => {
+    uses += 1;
+    used.set(block, uses);
+    shown = steadyPalette(shown, inventory, placeableIds, { held: armed, picked: block, used });
+  };
+
   const publish = (): void => {
-    shown = steadyPalette(shown, inventory, placeableIds, undefined, armed);
+    shown = steadyPalette(shown, inventory, placeableIds, { held: armed, used });
     const palette: PaletteItem[] = shown.map((block) => ({
       block,
       name: nameOf(block),
@@ -400,6 +436,7 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
     audio.sfx("place", def ? { material: def.material } : undefined);
     say(null);
     afterEdit(boxOfCell(cell));
+    use(armed);
   };
 
   const dig = (): void => {
@@ -436,8 +473,7 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
     say(null);
     afterEdit(boxOfCell(cell));
     // The block lands in the palette, even a full one, so the child sees where it went.
-    if (id !== undefined)
-      shown = steadyPalette(shown, inventory, placeableIds, undefined, armed, id);
+    if (id !== undefined) use(id);
   };
 
   const undo = (): void => {
@@ -477,6 +513,7 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
       return;
     }
     armed = block;
+    use(block);
     audio.sfx("pop", { gain: 0.6 });
     say(null);
   };
@@ -564,7 +601,7 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
     status = "ready";
     cursor = startCursor(editor.grid, editor.footprint);
     target = { ...cursor };
-    armed = steadyPalette([], inventory, placeableIds, 1)[0] ?? null;
+    armed = steadyPalette([], inventory, placeableIds, { n: 1 })[0] ?? null;
     const three = scene.three;
     if (three && hasAtlas(scene)) {
       view = createBuilderView({
@@ -693,7 +730,7 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
       left = true;
       emit(session.end(ctx.clock.now()));
       if (summary === null) return;
-      const last = edited ? patch() : null;
+      const last = edited || slotsMoved() ? patch() : null;
       ctx.finish({
         summary,
         loot: {},

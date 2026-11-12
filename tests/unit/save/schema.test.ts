@@ -12,6 +12,7 @@ const NAMES = [
   "pinky-weak",
   "veteran-builder",
   "a11y-contrast",
+  "full-bag-miner",
 ] as const;
 
 function fixture(name: string): Profile {
@@ -205,6 +206,25 @@ describe("profileProblem rejects damaged profiles", () => {
     const fresh = fixture("fresh-sprout");
     expect(fresh.progress.placement).toBeUndefined();
     expect(profileProblem(fresh)).toBeNull();
+  });
+
+  it("an island may keep Builder's palette slots: up to 6 ids (M4-FIX-1, additive)", () => {
+    const island = {
+      grid: { sx: 1, sy: 1, sz: 1, rle: [0, 1] },
+      expansions: 0,
+      lastEdited: 1,
+    };
+    const withSlots = (palette: unknown) => ({ ...json(good), island: { ...island, palette } });
+    expect(profileProblem({ ...json(good), island })).toBeNull();
+    expect(profileProblem(withSlots(["grass", "dirt"]))).toBeNull();
+    expect(profileProblem(withSlots([]))).toBeNull();
+    // Unknown ids pass here; Builder drops what it can't show (`restorePalette`).
+    expect(profileProblem(withSlots(["not-a-block"]))).toBeNull();
+    expect(profileProblem(withSlots(["a", "b", "c", "d", "e", "f", "g"]))).toContain(
+      "profile.island.palette",
+    );
+    expect(profileProblem(withSlots("grass"))).toContain("profile.island.palette");
+    expect(profileProblem(withSlots([7]))).toContain("profile.island.palette");
   });
 
   it("rejects non-finite numbers, which JSON could not keep", () => {

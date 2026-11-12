@@ -18,6 +18,7 @@ interface Saved {
   island: {
     grid: { sx: number; sy: number; sz: number; rle: number[] };
     expansions: number;
+    palette?: string[];
   } | null;
   inventory: Record<string, number>;
   found?: Record<string, number>;
@@ -133,36 +134,51 @@ test("planks, put, east 2, put, undo: the island grid and the inventory", async 
   expect(errors).toEqual([]);
 });
 
-test("dig grass with no grass in the bag: it shows in the palette, is saved, and is there on the next visit (M4-FIX-1)", async ({
+test("a full palette: dig grass and dirt, both get a slot, are saved, and are there next visit (M4-FIX-1)", async ({
   page,
 }) => {
   test.slow();
-  const errors = await openIsland(page, "meadow-done-miner");
+  // Six kinds, no grass and no dirt: the palette is full before the first dig.
+  const errors = await openIsland(page, "full-bag-miner");
   await expect(hud(page)).toBeVisible();
-  // The bag has planks and cobble, no grass. The cursor starts just above the clearing's grass.
+  const palette = page.locator('[data-builder="palette"] li');
+  await expect(palette).toHaveCount(6);
   await expect(slot(page, "grass")).toHaveCount(0);
+  // The cursor starts just above the clearing's grass; the dirt is under it.
   await typeWord(page, "dig ");
   await expect(slot(page, "grass")).toHaveAttribute("data-count", "1");
-  await expect(slot(page, "oak-planks")).toHaveAttribute("data-count", "12");
-  await expect(slot(page, "cobble")).toHaveAttribute("data-count", "30");
+  await typeWord(page, "dig ");
+  await expect(slot(page, "dirt")).toHaveAttribute("data-count", "1");
+  await expect(slot(page, "grass")).toHaveAttribute("data-count", "1");
+  await expect(palette).toHaveCount(6);
 
-  // Saved with the island: a pause writes both.
+  // Saved with the island: a pause writes the island, the bag and the palette's slots.
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Back to the map" })).toBeVisible();
-  await expect.poll(async () => (await profile(page)).inventory["grass"] ?? 0).toBe(1);
+  await expect.poll(async () => (await profile(page)).inventory["dirt"] ?? 0).toBe(1);
   const p = await profile(page);
-  expect(p.inventory).toEqual({ "oak-planks": 12, cobble: 30, grass: 1 });
+  expect(p.inventory).toMatchObject({ grass: 1, dirt: 1, cobble: 30 });
   expect(cell(p, START.x, START.y - 1, START.z)).toBe(0);
+  expect(cell(p, START.x, START.y - 2, START.z)).toBe(0);
+  expect(p.island?.palette).toEqual(expect.arrayContaining(["grass", "dirt"]));
   // Digging is never a find: lifetime finds stay what the bag held before.
-  expect(p.found).toEqual({ "oak-planks": 12, cobble: 30 });
+  expect(p.found).toEqual({
+    cobble: 30,
+    "oak-planks": 20,
+    stone: 18,
+    brick: 14,
+    glass: 12,
+    sand: 10,
+  });
 
-  // Leave and come back: the island opens from the save, and the grass is still in the palette.
+  // Leave and come back: the island opens from the save with the same slots.
   await page.getByRole("button", { name: "Back to the map" }).click();
   await expectScreen(page, "map");
   await page.getByRole("button", { name: "My Island" }).click();
   await expectScreen(page, "play");
   await expect(slot(page, "grass")).toHaveAttribute("data-count", "1");
-  // And it can go back where it came from.
+  await expect(slot(page, "dirt")).toHaveAttribute("data-count", "1");
+  // And a dug block can go back where it came from.
   await typeWord(page, "grass put");
   await expect(slot(page, "grass")).toHaveAttribute("data-count", "0");
   expect(errors).toEqual([]);

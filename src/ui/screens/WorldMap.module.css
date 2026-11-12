@@ -33,7 +33,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2) var(--sp-4);
-  max-width: 72%;
+  /* Clear of the corner buttons: their width comes from WorldMap.tsx (M4-FIX-1). */
+  max-width: min(72%, calc(100% - var(--corner-w, 0px) - var(--sp-4) * 2 - var(--sp-3)));
 }
 
 .map[data-mode="flat"] .top {
@@ -109,12 +110,12 @@
   }
 
   /*
-   * The words come back as a tip under the picture on hover, on keyboard focus, and while a
-   * finger presses the button (a `title` shows only on mouse hover; M4-07 review N-D).
+   * The words come back as a tip under the picture on hover, on keyboard focus, and after a tap
+   * (`data-tip`, set by `CornerButton`; a `title` shows only on mouse hover; M4-07 review N-D).
    */
   .corner [data-nav]:hover .cornerText,
   .corner [data-nav]:focus-within .cornerText,
-  .corner [data-nav]:active .cornerText {
+  .corner [data-nav][data-tip="open"] .cornerText {
     top: calc(100% + var(--sp-2));
     right: 0;
     width: auto;
