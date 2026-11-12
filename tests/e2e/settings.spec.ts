@@ -57,8 +57,8 @@ test("every setting survives a reload, and the look changes at once", async ({ p
   const errors = collectErrors(page);
   await newPlayerToMap(page, "Juniper");
   await openSettings(page);
-  // Keyboard first: Down from the selected tab reaches the first control.
-  await page.getByRole("tab", { name: "Play" }).focus();
+  // Keyboard first: the screen opens on the chosen tab, and Down reaches the first control.
+  await expect(page.getByRole("tab", { name: "Play" })).toBeFocused();
   await page.keyboard.press("ArrowDown");
   await expect(page.getByRole("switch", { name: "Show the keyboard" })).toBeFocused();
   await expectNoAxeViolations(page, "settings: play");
@@ -143,8 +143,9 @@ test("the danger zone needs the grown-up word", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Delete Basil" })).toHaveCount(0);
   await expectNoAxeViolations(page, "settings: parent gate");
 
-  // A wrong word: a kind note, and still no danger zone.
-  await page.keyboard.type("pebbles");
+  // A wrong word (the shown one plus "zz", never a gate word): a kind note, no danger zone yet.
+  const shown = (await page.locator("[data-gate-word]").textContent())?.trim() ?? "";
+  await page.keyboard.type(`${shown}zz`);
   await page.keyboard.press("Enter");
   await expect(page.getByText(/That's not quite it/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete Basil" })).toHaveCount(0);

@@ -53,7 +53,7 @@ describe("gate words", () => {
         "utf8",
       ),
     );
-    for (const text of lists) expect(text).toMatch(/band=builder/);
+    for (const list of lists) expect(list).toMatch(/band=builder/);
     for (const w of GATE_WORDS) expect(w).toMatch(/^[a-z]{6,8}$/);
   });
 
@@ -99,54 +99,53 @@ describe("gate tries and the cool-down", () => {
   });
 });
 
-describe("ParentGate", () => {
-  function renderGate(opts: { now: () => number; tracker: ReturnType<typeof createGateTracker> }) {
-    const root = document.createElement("div");
-    document.body.append(root);
-    const onPass = vi.fn();
-    const onCancel = vi.fn();
-    void act(() =>
-      render(
-        <ParentGate
-          action="deleteProfile"
-          onPass={onPass}
-          onCancel={onCancel}
-          rng={createRng(3)}
-          words={["lantern", "harbors"]}
-          {...opts}
-        />,
-        root,
-      ),
-    );
-    const field = (): HTMLInputElement => {
-      const el = root.querySelector("input");
-      if (!el) throw new Error("no field");
-      return el;
-    };
-    const tryWord = (w: string): void => {
-      void act(() => {
-        field().value = w;
-        field().dispatchEvent(new Event("input", { bubbles: true }));
-      });
-      void act(() => {
-        root.querySelector("form")?.dispatchEvent(new Event("submit", { cancelable: true }));
-      });
-    };
-    const word = (): string => text(root.querySelector("[data-gate-word]"));
-    return {
+function renderGate(opts: { now: () => number; tracker: ReturnType<typeof createGateTracker> }) {
+  const root = document.createElement("div");
+  document.body.append(root);
+  const onPass = vi.fn();
+  const onCancel = vi.fn();
+  void act(() =>
+    render(
+      <ParentGate
+        action="deleteProfile"
+        onPass={onPass}
+        onCancel={onCancel}
+        rng={createRng(3)}
+        words={["lantern", "harbors"]}
+        {...opts}
+      />,
       root,
-      onPass,
-      onCancel,
-      field,
-      tryWord,
-      word,
-      done: () => {
-        void act(() => render(null, root));
-        root.remove();
-      },
-    };
-  }
-
+    ),
+  );
+  const field = (): HTMLInputElement => {
+    const el = root.querySelector("input");
+    if (!el) throw new Error("no field");
+    return el;
+  };
+  const tryWord = (w: string): void => {
+    void act(() => {
+      field().value = w;
+      field().dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    void act(() => {
+      root.querySelector("form")?.dispatchEvent(new Event("submit", { cancelable: true }));
+    });
+  };
+  const word = (): string => text(root.querySelector("[data-gate-word]"));
+  return {
+    root,
+    onPass,
+    onCancel,
+    field,
+    tryWord,
+    word,
+    done: () => {
+      void act(() => render(null, root));
+      root.remove();
+    },
+  };
+}
+describe("ParentGate", () => {
   it("shows a grown-up the word as text, focuses the field and passes on the word", () => {
     const g = renderGate({ now: () => 0, tracker: createGateTracker() });
     expect(text(g.root)).toContain(t("settings.gate.ask"));
@@ -176,10 +175,14 @@ describe("ParentGate", () => {
     expect(g.onPass).not.toHaveBeenCalled();
 
     now = 20_000;
-    void act(() => vi.advanceTimersByTime(1000));
+    void act(() => {
+      vi.advanceTimersByTime(1000);
+    });
     expect(text(g.root)).toContain(t("settings.gate.rest", { seconds: 10 }));
     now = 30_000;
-    void act(() => vi.advanceTimersByTime(1000));
+    void act(() => {
+      vi.advanceTimersByTime(1000);
+    });
     expect(g.field().disabled).toBe(false);
     // A new word after the rest.
     expect(g.word()).not.toBe(first);
@@ -356,7 +359,8 @@ describe("Settings screen", () => {
 
   it("keyboard: Down from the tab reaches the controls; arrows inside a slider stay there", async () => {
     const s = await openSettings();
-    void act(() => tab(s, "play").focus());
+    // The screen opens with the cursor on the chosen tab.
+    expect(active()).toBe(tab(s, "play"));
     await s.press("ArrowDown");
     expect(active()).toBe(toggle(s, t("settings.play.keyboard")));
     await s.press("ArrowUp");

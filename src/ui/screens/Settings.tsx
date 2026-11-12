@@ -15,7 +15,7 @@
  * Up/Down between controls, Tab as usual, Escape back. Arrows inside a slider, a radio group or a
  * text field belong to that control.
  */
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import type { AppApi, ScreenProps } from "@/app/types";
 import type { Bus } from "@/audio/types";
 import { LAYOUTS } from "@/content/layouts";
@@ -434,6 +434,11 @@ function SettingsScreen({ app, start }: { app: AppApi; start: Profile }) {
   const focusTab = (): void => {
     root.current?.querySelector<HTMLElement>("[role='tab'][aria-selected='true']")?.focus();
   };
+
+  // Like every menu screen, arrive with the keyboard cursor on something: the chosen tab.
+  useEffect(() => {
+    focusTab();
+  }, []);
 
   const toTab = (id: SettingsTab): void => {
     setTab(id);
