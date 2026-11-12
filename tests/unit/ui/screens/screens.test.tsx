@@ -84,7 +84,8 @@ describe("Splash", () => {
 describe("Profiles", () => {
   it("lists players; arrows move focus; Enter picks and goes to the map", async () => {
     const pip = fixture("fresh-sprout");
-    const rook = fixture("fresh-builder");
+    // Rook has played, so picking Rook doesn't offer the placement test again.
+    const rook = { ...fixture("fresh-builder"), sessionCounter: 1 };
     const s = await open({ initial: { id: "profiles" }, profiles: [pip, rook] });
     expect(text(s.root.querySelector("h1"))).toBe(t("profiles.title"));
     const players = [...s.root.querySelectorAll("li button")];
@@ -101,6 +102,23 @@ describe("Profiles", () => {
     await s.press("Enter");
     expect(s.route().id).toBe("map");
     expect(s.shell.api.profile()?.id).toBe(rook.id);
+  });
+
+  it("offers a new player's placement test once more, then never again (M3-FIX-3 N4)", async () => {
+    // Pip quit the test (or reloaded) before it ended: no start settled, nothing played.
+    const pip = fixture("fresh-sprout");
+    expect(pip.progress.placement).toBeUndefined();
+    const s = await open({ initial: { id: "profiles" }, profiles: [pip] });
+    await s.press("Enter");
+    expect(s.route().id).toBe("placement");
+    // The offer itself settles the start at the Meadow, and it is saved.
+    await s.settle();
+    expect((await s.store.load(pip.id))?.progress.placement?.startBiome).toBe("meadow");
+    // Quit again: the next visit goes straight to the map.
+    s.shell.api.navigate({ id: "profiles" });
+    await s.settle();
+    await s.press("Enter");
+    expect(s.route().id).toBe("map");
   });
 
   it("with no players: a kind line and New player", async () => {

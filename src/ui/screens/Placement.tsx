@@ -1,14 +1,15 @@
 /**
  * Placement test screen (task M3-05, PLAN.md §3.2.8): "Find your level".
  *
- * Shown once, right after a new player is made. Before the test it explains it in two lines and
+ * Shown right after a new player is made, and once more on the next visit if that test was quit or
+ * lost to a reload (`shouldOfferPlacement`, M3-FIX-3 N4). Before the test it explains it in two lines and
  * offers "Let's dig!" and a clear Skip (Skip = start at Meadow Home; Escape skips too). After the
  * test (`route.lesson` is set) it says where the player starts, never a score, and goes on to the
  * world map.
  */
 import type { RefObject } from "preact";
 import { useEffect, useRef } from "preact/hooks";
-import { placementEstimateOf } from "@/app/progress";
+import { isTestedOut, placementEstimateOf, settleAtMeadow } from "@/app/progress";
 import type { ScreenProps } from "@/app/types";
 import { t } from "@/i18n";
 import { PLACEMENT_LESSON_ID } from "@/modes/placement/lesson";
@@ -36,7 +37,7 @@ export function outcomeLines(profile: Readonly<Profile>, result: ModeResult | nu
   } else if (start === "meadow") {
     lines.push(t("placement.meadow"));
   }
-  const testedOut = Object.values(profile.progress.lessons).some((rec) => rec.plays === 0);
+  const testedOut = Object.values(profile.progress.lessons).some(isTestedOut);
   if (testedOut) lines.push(t("placement.testedOut"));
   return lines;
 }
@@ -53,7 +54,13 @@ function Intro({ app }: { app: App }) {
   const actions = useFocusFirst();
   const start = (): void =>
     app.navigate({ id: "play", lesson: PLACEMENT_LESSON_ID }, { replace: true });
-  const skip = (): void => app.navigate({ id: "map" }, { replace: true });
+  const skip = (): void => {
+    // Skip settles the start, so a reload later doesn't offer the test again (M3-FIX-3 N4).
+    const p = app.profile();
+    if (p !== null && p.progress.placement === undefined)
+      void app.saveProfile(settleAtMeadow(p, Date.now()));
+    app.navigate({ id: "map" }, { replace: true });
+  };
 
   useScreenInput(app, (i) => {
     if (i.kind !== "control") return false;

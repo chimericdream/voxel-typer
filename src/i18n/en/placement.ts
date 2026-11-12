@@ -6,7 +6,8 @@ export default {
   // The lesson title of the test (the play host's lesson record).
   title: "Find your level",
   intro: "Break blocks for a little while, and we will find the best place for you to start.",
-  howTo: "Type the letter or word on each block. The blocks get harder as you go. That is fine!",
+  howTo:
+    "Type the letter or word on each block. The blocks get harder as you go. It is OK to miss some!",
   start: "Let's dig!",
   skip: "Skip",
   skipHint: "Skip starts you at Meadow Home.",
