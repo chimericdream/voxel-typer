@@ -16,7 +16,7 @@ import { parseModel } from "../../../src/render/models/validate";
 import { BIOME_ORDER } from "../../../src/types/core";
 import type { AgeBand } from "../../../src/types/core";
 import { loadAllPools } from "../../../tools/sim-defense";
-import { blocklistHits, loadBlocklist } from "../../../tools/validate-wordlists";
+import { biomeKeys, blocklistHits, loadBlocklist } from "../../../tools/validate-wordlists";
 
 const IDS = [
   "slimeling",
@@ -30,9 +30,12 @@ const IDS = [
 ];
 const BANDS: readonly AgeBand[] = ["sprout", "miner", "builder"];
 const LOWER = "abcdefghijklmnopqrstuvwxyz";
-/** IP terms that must never appear (CLAUDE.md), on top of the blocklist's `ip` category. */
+const ALL_LETTERS = new Set(LOWER + LOWER.toUpperCase());
+/** IP terms that must never appear (CLAUDE.md), on top of the blocklist's trademark categories. */
 const BANNED = ["creeper", "enderman", "redstone", "nether", "steve", "minecraft", "mojang"];
 /** Words that would make a mob sound scary or the game sound like a fight. */
+/** The blocklist's trademark categories, as `IP_CATEGORIES` in `tools/validate-wordlists.ts`. */
+const TRADEMARK_CATEGORIES = new Set(["ip", "brands"]);
 const UNFRIENDLY = /\b(kill|dead|die|dies|attack|fight|enemy|enemies|scary|evil|hurt|bite)\b/i;
 
 const pools = loadAllPools();
@@ -47,18 +50,12 @@ function text(key: string): string | undefined {
 }
 
 /**
- * How many of a mob's flavor words a learner in `band` could be given in the mob's home biome.
- * Letters only; capitals count from the Deep Mines on, where Shift is taught (the Mines lists are
- * capitalised on purpose).
+ * How many single words of the band's Defense length the mob's flavor pools hold, when the learner
+ * may use `keys`. The director needs `minFlavorWords` of them, or it uses lesson words.
  */
-function flavorWords(mob: MobDef, band: AgeBand): number {
+function flavorWords(mob: MobDef, band: AgeBand, keys: ReadonlySet<string>): number {
   const bandPools = pools.filter((p) => p.band === band || p.band === "all");
-  const shift = BIOME_ORDER.indexOf(mob.home) >= BIOME_ORDER.indexOf("mines");
-  return usableWords(
-    flavorPools(bandPools, mob.flavor),
-    new Set(shift ? LOWER + LOWER.toUpperCase() : LOWER),
-    DIRECTOR_CONSTANTS.wordLength[band],
-  );
+  return usableWords(flavorPools(bandPools, mob.flavor), keys, DIRECTOR_CONSTANTS.wordLength[band]);
 }
 
 describe("the roster", () => {
@@ -107,7 +104,9 @@ describe("the roster", () => {
       for (const term of BANNED) expect(lower.includes(term), `"${s}" has "${term}"`).toBe(false);
       // "Imp" and "Bat" are plain creature words; the blocklist is for words kids type.
       expect(
-        blocklistHits(s.replaceAll("-", " "), blocklist).filter((h) => h.category === "ip"),
+        blocklistHits(s.replaceAll("-", " "), blocklist).filter((h) =>
+          TRADEMARK_CATEGORIES.has(h.category),
+        ),
         s,
       ).toEqual([]);
     }
@@ -205,12 +204,29 @@ describe.each(MOBS.map((m) => [m.id, m] as const))("%s", (_id, mob) => {
     expect(animator.animating).toBe(false);
   });
 
-  it("has a speed class and a flavor with at least 8 words in every band", () => {
+  it("has a speed class, and its flavor pools hold at least 8 band-length words", () => {
     expect(["slow", "medium", "fast"]).toContain(mob.speedClass);
+    // Every letter, small and capital: the size of the pool, not what one learner can type.
     for (const band of BANDS) {
-      expect(flavorWords(mob, band), `${mob.flavor} / ${band}`).toBeGreaterThanOrEqual(
+      expect(flavorWords(mob, band, ALL_LETTERS), `${mob.flavor} / ${band}`).toBeGreaterThanOrEqual(
         DIRECTOR_CONSTANTS.minFlavorWords,
       );
+    }
+  });
+
+  it("carries its flavor words in its home biome, except the Slimeling in the Meadow", () => {
+    // With only the keys taught up to the mob's home biome. The Meadow's ten keys can't spell
+    // 8 food words, so the Slimeling carries lesson words there: the director's designed fallback.
+    const keys = biomeKeys(mob.home);
+    for (const band of BANDS) {
+      const count = flavorWords(mob, band, keys);
+      if (mob.id === "slimeling") {
+        expect(count, band).toBeLessThan(DIRECTOR_CONSTANTS.minFlavorWords);
+      } else {
+        expect(count, `${mob.flavor} / ${band}`).toBeGreaterThanOrEqual(
+          DIRECTOR_CONSTANTS.minFlavorWords,
+        );
+      }
     }
   });
 });
