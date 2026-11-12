@@ -68,6 +68,8 @@ export interface Shell {
   readonly playStatus: ReadonlySignal<PlayStatus>;
   readonly notices: ReadonlySignal<readonly Notice[]>;
   readonly play: PlayHost;
+  /** The HUD bridge modes write to; the play view draws it (M2-14). */
+  readonly hud: HudStore;
   readonly router: InputRouter;
   /** For `SaveStoreOptions.onProblem`. */
   onSaveProblem(p: SaveProblem): void;
@@ -249,6 +251,7 @@ export function createShell(deps: ShellDeps): Shell {
     playStatus,
     notices,
     play,
+    hud: deps.hud,
     router,
     onSaveProblem(p) {
       if (p.kind === "newerVersion" && p.profileId !== null) readOnly.add(p.profileId);
