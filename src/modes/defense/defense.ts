@@ -82,6 +82,7 @@ import {
   SHIELD_SEGMENTS,
   baselineAccuracy,
   bonkShield,
+  clearOfBanner,
   emptyTally,
   fieldEmpty,
   fitLaneView,
@@ -315,7 +316,7 @@ export function create(ctx: ModeContext): DefenseInstance {
       progress01: summary
         ? 1
         : nightProgress(wavesDone, waveCount, waveGone, wave?.mobs.length ?? 0),
-      nextKey: phase === "night" ? nextKeyFor(v.active, field) : null,
+      nextKey: phase === "night" || phase === "dusk" ? nextKeyFor(v.active, field) : null,
     });
   };
 
@@ -530,6 +531,11 @@ export function create(ctx: ModeContext): DefenseInstance {
     view?.setGlow(GLOW[timeOfDay]);
   };
 
+  /**
+   * Dusk starts the night: the first wave starts with it, so its first mob sets out while the
+   * announcement is still up and the field is never empty for long (M4-FIX-2). The sky turns to
+   * night once the announcement has had its time.
+   */
   const toDusk = (): void => {
     phase = "dusk";
     phaseLeft = DUSK_MS;
@@ -537,13 +543,29 @@ export function create(ctx: ModeContext): DefenseInstance {
     nextWave = director.nextWave();
     announce(nextWave, DUSK_MS);
     audio.sfx("whoosh", { gain: 0.4 });
+    emptyMs = 0;
+    startWave();
   };
 
   const toNight = (): void => {
     phase = "night";
     setTime("night");
-    emptyMs = 0;
-    startWave();
+    // The start hint waits for the dusk announcement to go.
+    if (!typedOnce && !hintUp && field.length > 0) {
+      setBanner("defense.start", "info", undefined, START_HINT_MS);
+      hintUp = true;
+    }
+  };
+
+  /** One frame of the waves and the pauses between them (dusk and night). */
+  const stepNight = (dtMs: Ms): void => {
+    emptyMs = fieldEmpty(field) ? emptyMs + dtMs : 0;
+    if (wave === null) {
+      intermissionLeft -= dtMs;
+      if (intermissionLeft <= 0) startWave();
+    } else {
+      runWave(dtMs);
+    }
   };
 
   function toDawn(): void {
@@ -751,7 +773,11 @@ export function create(ctx: ModeContext): DefenseInstance {
         order: locked ? -1 : (seqOf.get(mob.id) ?? 0),
       });
     }
-    plates.sync(items, bounds);
+    // The HUD's message (the dusk announcement, a banner, the Caps Lock hint) sits over the top
+    // of the stage: plates stay below it.
+    const message = stageCanvas?.ownerDocument.querySelector('[data-hud="stage"] output');
+    const box = message?.getBoundingClientRect();
+    plates.sync(items, clearOfBanner(bounds, box && box.height > 0 ? box : null));
   };
 
   const ready = (): void => {
@@ -788,7 +814,7 @@ export function create(ctx: ModeContext): DefenseInstance {
   };
 
   const offHear = bus.on(HEAR_AGAIN_EVENT, () => {
-    if (phase !== "night") return;
+    if (phase !== "night" && phase !== "dusk") return;
     // The locked word, or else the word of the visitor nearest the camp.
     const active = session.view().active;
     const near = field
@@ -824,7 +850,8 @@ export function create(ctx: ModeContext): DefenseInstance {
         if (dayRan >= DAY_HOLD_MS) phaseLeft = Math.min(phaseLeft, DAY_SKIP_MS);
         return;
       }
-      if (phase !== "night") return;
+      // Dusk is part of the night: its first mob sets out while the announcement is up.
+      if (phase !== "night" && phase !== "dusk") return;
       const v = session.view();
       // With no visitor on the field there is nothing to type: the key is dropped, not a slip.
       if (!field.some((m) => m.state === "walking" || m.state === "waiting")) return;
@@ -858,16 +885,11 @@ export function create(ctx: ModeContext): DefenseInstance {
         phaseLeft -= dtMs;
         if (phaseLeft <= 0) toDusk();
       } else if (phase === "dusk") {
+        stepNight(dtMs);
         phaseLeft -= dtMs;
-        if (phaseLeft <= 0) toNight();
+        if (phase === "dusk" && phaseLeft <= 0) toNight();
       } else if (phase === "night") {
-        emptyMs = fieldEmpty(field) ? emptyMs + dtMs : 0;
-        if (wave === null) {
-          intermissionLeft -= dtMs;
-          if (intermissionLeft <= 0) startWave();
-        } else {
-          runWave(dtMs);
-        }
+        stepNight(dtMs);
       } else if (phase === "dawn") {
         phaseLeft -= dtMs;
         if (phaseLeft <= 0) finishNow();

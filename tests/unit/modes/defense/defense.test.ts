@@ -303,7 +303,33 @@ describe("the night's flow", () => {
     }
   });
 
-  it("never leaves the field empty for longer than maxIdleMs, from the first wave to dawn", async () => {
+  it("sends the first visitor while the dusk banner is still up, and it can be typed then", async () => {
+    for (const profile of [sprout, miner, builder]) {
+      forgetNights();
+      const r = await started(profile);
+      expect(r.until("dusk")).toBe(true);
+      const duskAt = r.now;
+      const announcement = r.hud.get().banner?.key;
+      expect(announcement).toMatch(/^defense\.onTheWay/);
+      let firstAt: number | null = null;
+      while (firstAt === null && r.instance.phase() === "dusk") {
+        r.run(16);
+        if ((r.instance.session()?.targets.length ?? 0) > 0) firstAt = r.now;
+      }
+      expect(firstAt, profile.ageBand).not.toBeNull();
+      expect((firstAt ?? 0) - duskAt).toBeLessThanOrEqual(DIRECTOR_CONSTANTS.maxIdleMs);
+      // Still dusk, the announcement still up, and the visitor's first letter is lit and types.
+      expect(r.instance.phase()).toBe("dusk");
+      expect(r.hud.get().banner?.key).toBe(announcement);
+      const key = r.hud.get().nextKey;
+      expect(key).not.toBeNull();
+      r.type(key ?? "", 50);
+      expect(r.instance.session()?.active?.typed).toBe(1);
+      expect(r.events.some((e) => e.type === "wrong")).toBe(false);
+    }
+  });
+
+  it("never leaves the field empty for longer than maxIdleMs, from dusk to dawn", async () => {
     // The owner's playtest: never more than about 2–3 s of empty field.
     expect(DIRECTOR_CONSTANTS.maxIdleMs).toBeLessThanOrEqual(3000);
     // A quick typist, a slow one, a Sprout's calm night, and a child who never types (Miner and
@@ -319,12 +345,14 @@ describe("the night's flow", () => {
     for (const { profile, gapMs } of cases) {
       forgetNights();
       const r = await started(profile);
-      expect(r.until("night")).toBe(true);
+      // From the first frame of dusk: that is when the night starts.
+      expect(r.until("dusk", 60_000)).toBe(true);
       let empty = 0;
       let longest = 0;
       // Empty: no mob on the field still needs typing (a popping or bonking one doesn't count).
       r.afterFrame = () => {
-        if (r.instance.phase() !== "night") return;
+        const phase = r.instance.phase();
+        if (phase !== "dusk" && phase !== "night") return;
         const open = r.instance.session()?.targets.filter((v) => !v.complete).length ?? 0;
         empty = open === 0 ? empty + 16 : 0;
         longest = Math.max(longest, empty);
@@ -369,8 +397,8 @@ describe("typing", () => {
 
   it("drops a habit space and keys pressed at an empty field: no slip, no broken streak", async () => {
     const r = await started(miner);
-    r.until("night");
-    // Before the first visitor is out: nothing to type.
+    // The start of dusk, before the first visitor is out: nothing to type.
+    r.until("dusk");
     r.type("q", 16);
     r.type(" ", 16);
     while (r.hud.get().nextKey === null) r.run(160);

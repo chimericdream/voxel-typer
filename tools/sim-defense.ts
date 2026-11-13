@@ -158,6 +158,11 @@ export interface RowResult {
   swampedEarly: number;
   /** The longest stretch of empty field in any learner's night (dawn not counted), in ms. */
   idleMax: Ms;
+  /**
+   * The longest opening stretch: from the start of the night (the first frame of dusk, when the
+   * first wave starts) to its first mob, over every learner.
+   */
+  openingMax: Ms;
 }
 
 /** How a wave starts, and where it reports the empty stretches it measured. */
@@ -371,6 +376,7 @@ export function playNight(
   waves: number,
   rng: Rng,
   idle?: Ms[],
+  opening?: Ms[],
 ): { baseline: number; feedback: WaveFeedback[]; difficulty: number[] } {
   const profile = PACING_TYPISTS[spec.typist];
   if (profile === undefined) throw new Error(`unknown typist ${spec.typist}`);
@@ -396,11 +402,15 @@ export function playNight(
   for (let w = 0; w < waves; w++) {
     const wave = director.nextWave();
     difficulty.push(wave.difficulty);
-    // The first wave starts the night (after dusk); each later one after the game's pause, which
-    // ends `maxIdleMs` after the field emptied. The sim's field is empty as a wave ends.
+    // The first wave starts the night, with the dusk announcement still up; each later one after
+    // the game's pause, which ends `maxIdleMs` after the field emptied. The sim's field is empty as
+    // a wave ends.
     const emptyBeforeMs = w === 0 ? 0 : breakMs(0, wave.mobs[0]?.spawnAtMs ?? 0);
-    const pacing: WavePacing = idle === undefined ? { emptyBeforeMs } : { emptyBeforeMs, idle };
+    const stretches: Ms[] = [];
+    const pacing: WavePacing = { emptyBeforeMs, idle: stretches };
     const f = playWave(wave, profile, spec.pressure, rng.fork(`wave:${w}`), practice, pacing);
+    idle?.push(...stretches);
+    if (w === 0 && stretches[0] !== undefined) opening?.push(stretches[0]);
     feedback.push(f);
     director.observe(f);
   }
@@ -474,8 +484,16 @@ export function simulateRow(
 ): RowResult {
   const root = createRng(opts.seed);
   const idle: Ms[] = [];
+  const opening: Ms[] = [];
   const nights = Array.from({ length: opts.runs }, (_, r) =>
-    playNight(spec, pools, opts.waves, root.fork(`${spec.typist}:${spec.band}:run:${r}`), idle),
+    playNight(
+      spec,
+      pools,
+      opts.waves,
+      root.fork(`${spec.typist}:${spec.band}:run:${r}`),
+      idle,
+      opening,
+    ),
   );
   const perWave = (f: (n: (typeof nights)[number], w: number) => number): number[] =>
     Array.from({ length: opts.waves }, (_, w) => median(nights.map((n) => f(n, w))) ?? 0);
@@ -497,6 +515,7 @@ export function simulateRow(
       (f) => f.accuracy < 0.75 || reachedShare(f) > 0.3,
     ),
     idleMax: Math.max(0, ...idle),
+    openingMax: Math.max(0, ...opening),
   };
 }
 

@@ -106,6 +106,10 @@ describe("defense sim", () => {
       for (const r of rows) {
         const label = `${r.spec.label} ${r.spec.typist} ${r.spec.band}`;
         expect(r.idleMax, label).toBeLessThanOrEqual(limit);
+        // The night's opening counts too: from the first frame of dusk, when the first wave
+        // starts, to its first mob (the dusk announcement is still up).
+        expect(r.openingMax, label).toBeGreaterThan(0);
+        expect(r.openingMax, label).toBeLessThanOrEqual(DIRECTOR_CONSTANTS.maxIdleMs);
         // The measure sees the pauses: the field does empty between mobs and waves.
         expect(r.idleMax, label).toBeGreaterThan(1000);
       }

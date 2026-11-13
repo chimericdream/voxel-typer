@@ -29,6 +29,7 @@ import {
   projectLane,
   stepMobs,
   fieldEmpty,
+  clearOfBanner,
   waveAnnouncement,
   waveFeedback,
 } from "../../../../src/modes/defense/logic";
@@ -222,6 +223,44 @@ describe("mobs", () => {
       complete: false,
     };
     expect(nextKeyFor(active, [far, near])).toBe("a");
+  });
+});
+
+describe("plates and the banner (M4-FIX-2)", () => {
+  const bounds = { left: 0, top: 50, right: 800, bottom: 500 };
+  it("moves the plates' top below a banner that reaches into their room", () => {
+    expect(clearOfBanner(bounds, null)).toEqual(bounds);
+    // A one-line banner fits the room the layout keeps already.
+    expect(clearOfBanner(bounds, { bottom: 40 })).toEqual(bounds);
+    // A taller one pushes the plates down, a gap clear of it.
+    expect(clearOfBanner(bounds, { bottom: 90 }, 4)).toEqual({ ...bounds, top: 94 });
+    // Never past the bottom, and a bad rectangle changes nothing.
+    expect(clearOfBanner(bounds, { bottom: 900 }).top).toBe(500);
+    expect(clearOfBanner(bounds, { bottom: Number.NaN })).toEqual(bounds);
+  });
+
+  it("lays every plate out below the banner when there is room (property)", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.tuple(fc.integer({ min: 0, max: 800 }), fc.integer({ min: 0, max: 500 })), {
+          maxLength: 4,
+        }),
+        fc.integer({ min: 0, max: 200 }),
+        (spots, bannerBottom) => {
+          const b = clearOfBanner(bounds, { bottom: bannerBottom });
+          const wishes = spots.map(([x, y], i) => ({
+            id: `p${i}`,
+            x,
+            y,
+            width: 80,
+            height: 28,
+            order: i,
+          }));
+          for (const p of layoutPlates(wishes, b)) expect(p.top).toBeGreaterThan(bannerBottom);
+        },
+      ),
+      { seed: 11, numRuns: 300 },
+    );
   });
 });
 

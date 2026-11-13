@@ -389,7 +389,9 @@ for at most `maxIdleMs` (2,500 ms, every band). When it empties, the wave's next
 of the wave with it, is brought forward (`idlePullMs`). The pause between two waves ends so the next
 wave's first mob comes `maxIdleMs` after the field emptied (`breakMs`). The sim plays the same
 rules, in event order, and measures every empty stretch ("Empty max", in seconds; the dawn isn't
-counted).
+counted). The night's first wave starts with dusk, so its first mob sets out 1.2 s into the dusk
+announcement, not 1.2 s after it: the sim's first wave starts at the night's start, and the test
+checks that opening stretch too.
 
 - **Before:** the longest empty stretch was 5.9–8.3 s at 50 WPM, 12–19 s at 25 WPM, 19–21 s at
   10 WPM, 21–26 s for a new profile and 10–18 s in calm mode. At 5 WPM it reached 86 s. A slow
@@ -407,8 +409,8 @@ counted).
 - **5 WPM, outside the pins.** These learners struggle as much as before (the numbers are the same
   with and without the pacing): their learner mean is 82–87 % (73 % for a new Builder), 37–52 % of
   their waves are under 85 %, and 11–20 % are swamped (46 % for a new Builder). M1-07's `slow`
-  profile at 5 WPM is a guess, and a 5 WPM Builder (11–13) is rare. It is a question for the owner's
-  next playtest, not a pacing effect.
+  profile at 5 WPM is a guess, and a 5 WPM Builder (11–13) is rare. A follow-up card looks at it;
+  it is not a pacing effect.
 
 `tests/unit/sim/sim-defense.test.ts` pins these results:
 
@@ -423,7 +425,8 @@ counted).
 - reached base ≤ 20 % on the main rows;
 - calm mode: `d ≤ 1.2`;
 - pacing: no stretch of empty field is longer than `maxIdleMs` + 250 ms, on the main rows and on
-  every band at 5–60 WPM (with a baseline, new and calm; 6 learners and 5 waves a row);
+  every band at 5–60 WPM (with a baseline, new and calm; 6 learners and 5 waves a row), and the
+  night's opening (dusk to its first mob) is at most `maxIdleMs`;
 - the report is the same for the same seed.
 
 **What the model can't show.** In M1-07's typist the slip rate depends on the key and on pressure,
