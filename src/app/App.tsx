@@ -37,6 +37,13 @@ function Soon({ shell }: { shell: Shell }) {
   );
 }
 
+/** Tells the shell when `route`'s screen has drawn (M3-FIX-13; see `Shell.screenDrawn`). */
+function useScreenDrawn(shell: Shell, route: Route, drawn: boolean): void {
+  useEffect(() => {
+    if (drawn) shell.screenDrawn(route);
+  }, [shell, route, drawn]);
+}
+
 function ScreenView({ shell, route }: { shell: Shell; route: Route }) {
   const loader = screens[route.id];
   const [loaded, setLoaded] = useState<{
@@ -55,6 +62,10 @@ function ScreenView({ shell, route }: { shell: Shell; route: Route }) {
       live = false;
     };
   }, [route.id, loader, shell.api]);
+
+  // Tell the shell once this route's screen is up, so Escape before then isn't a step back.
+  const drawn = loader === undefined || loaded?.id === route.id;
+  useScreenDrawn(shell, route, drawn);
 
   if (loader === undefined) return <Soon shell={shell} />;
   if (loaded === null || loaded.id !== route.id) return null;

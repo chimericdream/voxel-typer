@@ -195,9 +195,11 @@ for (const view of [
     await setScale(page, 2);
     await firstLesson(page);
     await page.waitForTimeout(RESULTS_ARM_MS);
-    // No room under the buttons at this size: it never shows on Results, nor on Lesson Intro.
-    expect(await watchToast(page, view, 6000), "a badge toast on Results").toBe(false);
-    await waitsPastLessonIntro(page, 5000);
+    // A toast that shows covers nothing (watchToast checks). Since the buttons stand beside the
+    // card (M3-FIX-13), the dock is under both, and on the wider window a toast may fit there.
+    // When none fits, it never shows on Results, nor on Lesson Intro: it waits for the map.
+    const shown = await watchToast(page, view, 6000);
+    if (!shown) await waitsPastLessonIntro(page, 5000);
     expect(errors).toEqual([]);
   });
 }

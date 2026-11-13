@@ -11,7 +11,13 @@
  * Finger labels are never smaller than 12 px (M3-FIX-12). A label wider than its key is hidden
  * (`data-label-off`, measured), so labels never run into each other; the hint line under the hands
  * still names the finger, and the zone keeps its color and pattern.
+ *
+ * Nothing printed on a key is smaller than 12 px either (M3-FIX-13). Backspace, Caps Lock, Tab,
+ * Enter and Shift show an icon (named through `t()`), not a word. A key with two chars (digits and
+ * symbols) shows both when two lines of 12 px fit on it; on a smaller key (`data-face-tight`,
+ * measured) it shows one: the char to type when the key is lit with Shift, else the plain char.
  */
+import type { ComponentChildren } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { allowFlash } from "@/a11y/flashes";
 import type { LayoutDef } from "@/content/layouts/types";
@@ -19,6 +25,7 @@ import { t } from "@/i18n";
 import { KeyCap } from "@/ui/kit/KeyCap";
 import type { Ms } from "@/types/core";
 import { Hands } from "./Hands";
+import { KeyIcon } from "./KeyIcon";
 import {
   WOBBLE_IDLE,
   WOBBLE_MS,
@@ -58,11 +65,22 @@ export interface OnScreenKeyboardProps {
   now?: () => Ms;
 }
 
-function glyphOf(key: BoardKey): string {
+function glyphOf(key: BoardKey): ComponentChildren {
   const face = faceOf(key);
   if (face.kind === "blank") return "";
-  if (face.kind === "named") return t(`keyboard.key.${face.name}`);
-  if (face.kind === "dual") return `${face.top}\n${face.bottom}`;
+  if (face.kind === "named") {
+    return face.name === "space" ? t("keyboard.key.space") : <KeyIcon name={face.name} />;
+  }
+  if (face.kind === "dual") {
+    // Two lines; on a small key (`data-face-tight`) the CSS shows one of the two.
+    return (
+      <>
+        <span data-dual="top">{face.top}</span>
+        {"\n"}
+        <span data-dual="bottom">{face.bottom}</span>
+      </>
+    );
+  }
   return face.glyph;
 }
 
@@ -134,17 +152,47 @@ export function fitLabels(board: Element): void {
     if (text === null || room === 0) continue;
     slot.toggleAttribute("data-label-off", text.getBoundingClientRect().width > room);
   }
+  fitFaces(board);
+}
+
+const px = (v: string): number => Number.parseFloat(v) || 0;
+
+/** Line height of a key's two chars (`.slot[data-face="dual"]` in the CSS). */
+const DUAL_LINE = 1.05;
+
+/**
+ * Marks each two-char key too short for its two lines (`data-face-tight`); the CSS then shows one
+ * char. The room is the key cap less its outer outline (one bevel unit a side) and the lift that
+ * clears a finger label. It is read from the key cap, whose size and padding `data-face-tight`
+ * doesn't change, so a fit never undoes itself. Runs after the labels are fitted: a hidden label
+ * gives its lift back.
+ */
+export function fitFaces(board: Element): void {
+  for (const slot of board.querySelectorAll('[data-face="dual"]')) {
+    const cap = slot.querySelector("kbd");
+    const height = cap?.getBoundingClientRect().height ?? 0;
+    if (!cap || height === 0) continue;
+    const css = getComputedStyle(cap);
+    const edge = px(css.getPropertyValue("--bevel-unit")) || 3;
+    const room = height - 2 * edge - px(css.paddingTop) - px(css.paddingBottom);
+    slot.toggleAttribute("data-face-tight", 2 * px(css.fontSize) * DUAL_LINE > room);
+  }
 }
 
 /**
  * Keeps `fitLabels` true: after the keys are drawn, when the board changes size (the key unit
- * follows the window and the text scale) and when fonts finish loading.
+ * follows the window and the text scale), when fonts finish loading, and when the lit key or the
+ * labels change (a lit key lifts its glyph clear of its label, which leaves less room).
  */
 function useLabelFit(
   board: { current: HTMLElement | null },
   layoutId: string,
   show: boolean,
+  lit: { nextKey: string | null; labels: boolean },
 ): void {
+  useLayoutEffect(() => {
+    if (show && board.current) fitLabels(board.current);
+  }, [board, show, lit.nextKey, lit.labels]);
   useLayoutEffect(() => {
     const el = board.current;
     if (!show || !el) return undefined;
@@ -174,7 +222,7 @@ export function OnScreenKeyboard({
 }: OnScreenKeyboardProps) {
   const wobble = useWobble(layout, nextKey, wrong, now);
   const board = useRef<HTMLDivElement>(null);
-  useLabelFit(board, layout.id, show);
+  useLabelFit(board, layout.id, show, { nextKey, labels });
   if (!show) return null;
   const keys = boardKeys(layout);
   const target = targetFor(layout, nextKey);
@@ -195,6 +243,8 @@ export function OnScreenKeyboard({
             const next =
               target?.code === k.code ? "key" : target?.shiftCode === k.code ? "shift" : undefined;
             const face = faceOf(k);
+            // Lit for its Shift char: a small two-char key shows that char (see `fitFaces`).
+            const shifted = target?.code === k.code && target.shiftCode !== null;
             return (
               <div
                 key={k.id}
@@ -205,6 +255,7 @@ export function OnScreenKeyboard({
                 data-hand={handOf(k.finger)}
                 data-face={face.kind}
                 data-next={next}
+                data-shifted={shifted ? "1" : undefined}
                 data-wobble={wobble === k.code ? "1" : undefined}
                 style={{ "--x": k.x, "--w": k.w, "--r": k.row }}
               >

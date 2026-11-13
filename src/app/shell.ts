@@ -106,6 +106,13 @@ export interface Shell {
   quitPlay(): void;
   /** Resolves once everything the current screen asked to wait for has settled. */
   ready(): Promise<void>;
+  /**
+   * The app drew `route`'s screen (M3-FIX-13). Until the current route's screen has drawn, an
+   * Escape that no screen takes is dropped, not a step back in history: pressed just after "Back
+   * to the map", before the map had loaded, it went back to Lesson Intro. Nothing is held back
+   * until the first call, so a shell without the app (unit tests) goes back at once.
+   */
+  screenDrawn(route: Route): void;
 }
 
 /** Settings before any profile is picked: Miner defaults, with speech off. */
@@ -438,6 +445,15 @@ export function createShell(deps: ShellDeps): Shell {
     enter(route.value);
   }
 
+  // The route whose screen the app last drew; undefined until the app first says so.
+  let drawn: Route | undefined;
+  /** Escape with no screen to take it: back, but only once the route's screen is up. */
+  const unhandledBack = (): void => {
+    const now = route.value;
+    // Play has no lazy screen (the app draws its view at once), so it is always up.
+    if (drawn === undefined || drawn === now || now.id === "play") back();
+  };
+
   const back = (): void => {
     const prev = history.pop();
     if (route.value.id === "play" && play.status() !== "finished") play.quit();
@@ -454,7 +470,7 @@ export function createShell(deps: ShellDeps): Shell {
       const top = handlers.at(-1);
       return top === undefined ? false : top(i);
     },
-    back,
+    back: unhandledBack,
     focusOnControl: () => deps.focusOnControl(),
     band: () => profile.value?.ageBand ?? null,
   });
@@ -549,6 +565,9 @@ export function createShell(deps: ShellDeps): Shell {
     async ready() {
       // A settled promise can start more work (a screen loads, then its assets); wait until quiet.
       while (pending.size > 0) await Promise.all(pending);
+    },
+    screenDrawn(r) {
+      drawn = r;
     },
   };
 }

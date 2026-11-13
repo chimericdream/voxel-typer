@@ -1,0 +1,47 @@
+{
+  "id": "00000000-0000-4000-8000-000000000015",
+  "name": "Pip",
+  "ageBand": "sprout",
+  "avatar": {
+    "skin": "moss"
+  },
+  "createdAt": 1788274800000,
+  "settings": {
+    "textScale": 1,
+    "showKeyboard": true,
+    "showHands": true,
+    "calmMode": true,
+    "tts": true,
+    "reducedMotion": "system",
+    "font": "pixel",
+    "highContrast": false,
+    "volume": {
+      "master": 0.8,
+      "music": 0.5,
+      "sfx": 0.8,
+      "voice": 1
+    },
+    "quality": "auto",
+    "breakReminderMin": 15,
+    "layout": "en-US"
+  },
+  "progress": {
+    "lessons": {},
+    "unlockedBiomes": ["meadow"]
+  },
+  "sessionCounter": 0,
+  "keyStats": {},
+  "bigramStats": {},
+  "inventory": {},
+  "island": null,
+  "cosmetics": {
+    "unlocked": []
+  },
+  "achievements": {},
+  "daily": {
+    "streakDates": []
+  },
+  "history": [],
+  "weekly": [],
+  "schemaVersion": 1
+}
