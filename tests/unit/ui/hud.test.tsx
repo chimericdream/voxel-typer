@@ -256,6 +256,24 @@ describe("parts", () => {
     ]).toEqual(["0:42", "0:42", "1:01", "0:00", "0:00"]);
   });
 
+  it("with labels on and the hands off, the hint line still names the finger (M3-FIX-12)", () => {
+    const hud = createHudStore();
+    hud.set({ nextKey: "f" });
+    const props = { fields: hud.fields, layout: EN_US } as const;
+    const handsOff = { ...defaultSettings("sprout"), showHands: false };
+    mount(<Hud {...props} band="sprout" settings={handsOff} />);
+    const keys = host.querySelector('[data-hud="keyboard"]');
+    expect(keys?.getAttribute("data-hands-caption")).toBe("1");
+    expect(keys?.querySelectorAll("svg")).toHaveLength(0);
+    expect(keys?.textContent).toContain("Use your left pointer finger.");
+    // Labels off too: no hint line, as before.
+    mount(<Hud {...props} band="sprout" settings={handsOff} labels={false} />);
+    expect(host.querySelector('[data-hud="keyboard"]')?.hasAttribute("data-hands-caption")).toBe(
+      false,
+    );
+    expect(host.textContent).not.toContain("Use your");
+  });
+
   it("the timer is hidden for Sprout and calm mode", () => {
     expect(timerHidden("sprout", { calmMode: false })).toBe(true);
     expect(timerHidden("miner", { calmMode: true })).toBe(true);
@@ -394,7 +412,8 @@ describe("parts", () => {
   it("the hint line is never forced on: without the hands setting there is none", () => {
     const hud = createHudStore();
     hud.set({ nextKey: "a", custom: { [HANDS_SLICE]: "caption" } });
-    mount(<HudKeyboard fields={hud.fields} layout={EN_US} hands={false} labels />);
+    // (With finger labels on it shows anyway, to name the finger: M3-FIX-12, tested above.)
+    mount(<HudKeyboard fields={hud.fields} layout={EN_US} hands={false} labels={false} />);
     expect(host.querySelector('[data-hud="keyboard"]')?.hasAttribute("data-hands-caption")).toBe(
       false,
     );

@@ -12,11 +12,26 @@
  *   up is put away and shown again, in full, when the modal closes.
  * - The toast sits below anything marked `data-toast-clear` (the World Map's corner buttons),
  *   measured, because at large text that row wraps and grows.
+ *
+ * M3-FIX-12:
+ * - A screen can ask the toast to wait with `data-toast-hold` (Results does while its stars fill
+ *   in). It is held like a modal: not drawn, read or timed until the mark goes.
+ * - A screen with a `data-toast-dock` element gets the toast there instead of in the window's
+ *   corner: centred on the dock, just below its top, and following it as the page scrolls. Results
+ *   puts its dock under its buttons, so the toast never covers the card or the buttons. When the
+ *   whole toast wouldn't fit between the dock and the window's bottom (a short window, large
+ *   text), it isn't shown or read there at all: it stays queued for the next screen. A silent,
+ *   hidden copy is measured first, because the kit Toast reads itself out as it mounts. A docked
+ *   toast is the compact kind (one line, a smaller icon, less padding), so it fits more often.
+ * - With `needsPlace` (the app sets it), a toast shows only on a screen that made room for it: a
+ *   dock, or a corner the screen keeps clear (`data-toast-corner`, the World Map). Anywhere else
+ *   (Lesson Intro, say, where the corner holds the lesson card) it waits, like under a modal.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { achievementById } from "@/content/achievements";
 import { t } from "@/i18n";
 import { Toast } from "@/ui/kit/Toast";
+import toastStyles from "@/ui/kit/Toast.module.css";
 import type { AchievementId } from "@/types/core";
 import { BadgeIcon } from "./BadgeIcon";
 import styles from "./Badge.module.css";
@@ -30,17 +45,63 @@ export interface AchievementToastProps {
   open: boolean;
   /** The first badge has been shown long enough. */
   onShown: () => void;
+  /**
+   * Show only on a screen with a dock or a `data-toast-corner` (M3-FIX-12). The app sets it; off,
+   * the toast shows anywhere (the component on its own, in tests).
+   */
+  needsPlace?: boolean;
 }
 
-/** An open modal dialog: the page outside it is inert. */
-const MODAL = "dialog[open]";
+/**
+ * What holds a toast back: an open modal dialog (the page outside it is inert), or a screen's
+ * `data-toast-hold` mark (Results while its stars fill in, M3-FIX-12).
+ */
+const HOLD = "dialog[open], [data-toast-hold]";
+/** Where a screen wants the toast drawn, in its own layout (M3-FIX-12). */
+const DOCK = "[data-toast-dock]";
+/** A screen whose top-right corner is kept clear for the toast (M3-FIX-12). */
+const CORNER = "[data-toast-corner]";
 
-/** True while a modal dialog is open in `doc`. Watches the page only while `watch` is true. */
-export function useModalOpen(doc: Document, watch: boolean): boolean {
-  const [modal, setModal] = useState(() => doc.querySelector(MODAL) !== null);
+export interface ToastPage {
+  /** A modal is open, or a screen asks the toast to wait. */
+  held: boolean;
+  /** The screen's toast dock, or null for the window's corner. */
+  dock: Element | null;
+  /** The screen keeps its corner clear for the toast. */
+  corner: boolean;
+}
+
+function readPage(doc: Document): ToastPage {
+  return {
+    held: doc.querySelector(HOLD) !== null,
+    dock: doc.querySelector(DOCK),
+    corner: doc.querySelector(CORNER) !== null,
+  };
+}
+
+/**
+ * Holds and docks in `doc`, read fresh on every render (so the render where `watch` turns true
+ * never draws, or reads out, a toast that a hold should stop). While `watch` is true the page is
+ * watched, and a change renders again.
+ */
+export function useToastPage(doc: Document, watch: boolean): ToastPage {
+  const page = readPage(doc);
+  const [, redraw] = useState(0);
   useEffect(() => {
     if (!watch) return undefined;
-    const check = (): void => setModal(doc.querySelector(MODAL) !== null);
+    // The first check always draws again, in case the page changed after the render.
+    let last: ToastPage | null = null;
+    const check = (): void => {
+      const now = readPage(doc);
+      const same =
+        last !== null &&
+        now.held === last.held &&
+        now.dock === last.dock &&
+        now.corner === last.corner;
+      if (same) return;
+      last = now;
+      redraw((n) => n + 1);
+    };
     check();
     const view = doc.defaultView;
     if (!view || typeof view.MutationObserver !== "function") return undefined;
@@ -49,11 +110,16 @@ export function useModalOpen(doc: Document, watch: boolean): boolean {
       subtree: true,
       childList: true,
       attributes: true,
-      attributeFilter: ["open"],
+      attributeFilter: ["open", "data-toast-hold"],
     });
     return () => watcher.disconnect();
   }, [doc, watch]);
-  return modal;
+  return page;
+}
+
+/** True while a modal dialog is open in `doc`, or a screen holds toasts back. */
+export function useModalOpen(doc: Document, watch: boolean): boolean {
+  return useToastPage(doc, watch).held;
 }
 
 /** What the toast stays below. */
@@ -79,11 +145,32 @@ export function clearBelow(doc: Document, span?: { left: number; right: number }
 }
 
 /**
- * Keeps `ref`'s top below the `data-toast-clear` elements while it is shown: again when the window
- * or one of them resizes, and when the page changes (the map's corner comes back when an island's
- * lesson path closes).
+ * Where the toast goes on a screen with a dock: its top just below the dock's top, its middle on
+ * the dock's middle (M3-FIX-12). The dock is an empty mark the screen lays out where there is room.
  */
-function useClearTop(ref: { current: HTMLElement | null }, shown: boolean): void {
+export function dockPlace(dock: Element): { top: number; center: number } {
+  const r = dock.getBoundingClientRect();
+  return { top: Math.round(r.top) + DOCK_GAP_PX, center: Math.round(r.left + r.width / 2) };
+}
+
+/** Room between a dock and its toast, in px. */
+const DOCK_GAP_PX = 8;
+
+/**
+ * Places `ref` while it is shown. With a dock, on the dock (and again as the page scrolls).
+ * Otherwise its top stays below the `data-toast-clear` elements. Either is placed again when the
+ * window or one of the watched elements resizes, and when the page changes (the map's corner comes
+ * back when an island's lesson path closes).
+ */
+function usePlace(
+  ref: { current: HTMLElement | null },
+  shown: boolean,
+  dock: Element | null,
+  /** Changes when a new element may be drawn (the hidden copy gives way to the toast). */
+  phase: string,
+  /** A docked toast no longer fits (the window shrank, or the page scrolled the dock down). */
+  onNoRoom?: () => void,
+): void {
   useLayoutEffect(() => {
     const el = ref.current;
     if (!shown || !el) return undefined;
@@ -92,13 +179,21 @@ function useClearTop(ref: { current: HTMLElement | null }, shown: boolean): void
     const sizes = typeof ResizeObserver === "function" ? new ResizeObserver(() => place()) : null;
     let watched: Element[] = [];
     function place(): void {
-      const self = el?.getBoundingClientRect();
-      const bottom = clearBelow(doc, self && self.width > 0 ? self : undefined);
-      if (bottom === null) el?.style.removeProperty("top");
-      else el?.style.setProperty("top", `${Math.ceil(bottom) + CLEAR_GAP_PX}px`);
+      if (!el) return;
+      if (dock !== null) {
+        const at = dockPlace(dock);
+        el.style.setProperty("top", `${at.top}px`);
+        el.style.setProperty("left", `${at.center}px`);
+        if (onNoRoom && !fitsUnder(dock, el.getBoundingClientRect().height, view)) onNoRoom();
+        return;
+      }
+      const self = el.getBoundingClientRect();
+      const bottom = clearBelow(doc, self.width > 0 ? self : undefined);
+      if (bottom === null) el.style.removeProperty("top");
+      else el.style.setProperty("top", `${Math.ceil(bottom) + CLEAR_GAP_PX}px`);
     }
     const rewatch = (): void => {
-      const now = [...doc.querySelectorAll(CLEAR)];
+      const now = dock === null ? [...doc.querySelectorAll(CLEAR)] : [dock];
       if (now.length === watched.length && now.every((c, i) => c === watched[i])) return;
       watched = now;
       sizes?.disconnect();
@@ -108,6 +203,8 @@ function useClearTop(ref: { current: HTMLElement | null }, shown: boolean): void
     rewatch();
     place();
     view?.addEventListener("resize", place);
+    // The dock is in a screen that may scroll; the toast follows it.
+    if (dock !== null) doc.addEventListener("scroll", place, { capture: true, passive: true });
     const changes =
       view && typeof view.MutationObserver === "function"
         ? new view.MutationObserver(rewatch)
@@ -115,36 +212,111 @@ function useClearTop(ref: { current: HTMLElement | null }, shown: boolean): void
     changes?.observe(doc.body, { subtree: true, childList: true });
     return () => {
       view?.removeEventListener("resize", place);
+      doc.removeEventListener("scroll", place, { capture: true });
+      el.style.removeProperty("left");
       sizes?.disconnect();
       changes?.disconnect();
     };
-  }, [ref, shown]);
+    // `onNoRoom` is read fresh from each render's closure; a new one needs no new watch.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- reason: see the line above
+  }, [ref, shown, dock, phase]);
 }
 
-export function AchievementToast({ queue, open, onShown }: AchievementToastProps) {
+/** Room kept between a docked toast and the window's bottom edge, in px. */
+const EDGE_PX = 4;
+
+/** Whether a toast `height` px tall fits between `dock` and the bottom of `view`. */
+export function fitsUnder(dock: Element, height: number, view: Window | null): boolean {
+  const bottom = view?.innerHeight ?? Number.POSITIVE_INFINITY;
+  return dockPlace(dock).top + height <= bottom - EDGE_PX;
+}
+
+/** What the last measure found, for one badge on one dock. */
+interface Room {
+  id: AchievementId;
+  dock: Element;
+  fits: boolean;
+}
+
+export function AchievementToast({
+  queue,
+  open,
+  onShown,
+  needsPlace = false,
+}: AchievementToastProps) {
   const id = queue[0];
   const def = id === undefined ? null : achievementById(id);
-  const modal = useModalOpen(document, open && id !== undefined);
-  const showing = open && id !== undefined && !modal;
+  const { held, dock, corner } = useToastPage(document, open && id !== undefined);
+  const placed = !needsPlace || dock !== null || corner;
+  const showing = open && id !== undefined && !held && placed;
+  // On a dock, a badge shows only if it fits there; until it is measured, it doesn't show.
+  const [room, setRoom] = useState<Room | null>(null);
+  const fits =
+    dock === null ? true : room !== null && room.id === id && room.dock === dock ? room.fits : null;
+  const probing = showing && def !== null && dock !== null && fits === null;
+  const visible = showing && def !== null && fits === true;
   const wrap = useRef<HTMLDivElement>(null);
-  useClearTop(wrap, showing && def !== null);
+  const noRoomNow =
+    visible && dock !== null && id !== undefined
+      ? () => setRoom({ id, dock, fits: false })
+      : undefined;
+  usePlace(wrap, visible || probing, dock, probing ? "probe" : "toast", noRoomNow);
+
+  useLayoutEffect(() => {
+    const el = wrap.current;
+    if (!probing || !el || dock === null || id === undefined) return;
+    const height = el.getBoundingClientRect().height;
+    setRoom({ id, dock, fits: fitsUnder(dock, height, el.ownerDocument.defaultView) });
+  }, [probing, dock, id]);
+
+  // A badge with no room may get some when the window grows: measure again.
+  const noRoom = showing && dock !== null && fits === false;
+  useEffect(() => {
+    if (!noRoom) return undefined;
+    const again = (): void => setRoom(null);
+    window.addEventListener("resize", again);
+    return () => window.removeEventListener("resize", again);
+  }, [noRoom]);
 
   useEffect(() => {
-    if (!showing) return undefined;
     // An id with no definition (an older or newer build's badge) is skipped at once.
-    const timer = setTimeout(onShown, def === null ? 0 : BADGE_TOAST_MS);
+    if (showing && def === null) {
+      const skip = setTimeout(onShown, 0);
+      return () => clearTimeout(skip);
+    }
+    if (!visible) return undefined;
+    const timer = setTimeout(onShown, BADGE_TOAST_MS);
     return () => clearTimeout(timer);
     // `queue` changes identity on every push; restart only when the shown badge changes.
-  }, [showing, id, def, onShown]);
+  }, [showing, visible, id, def, onShown]);
 
-  if (!showing || def === null) return null;
-  return (
-    <div class={styles.toastWrap} data-testid="badge-toast" ref={wrap}>
-      <Toast key={def.id} tone="cheer">
-        <span class={styles.toastBody}>
-          <BadgeIcon icon={def.icon} />
-          <span>{t("achievements.toast", { name: t(def.nameKey) })}</span>
+  if (def === null || !(visible || probing)) return null;
+  const body = (
+    <span class={styles.toastBody}>
+      <BadgeIcon icon={def.icon} />
+      <span>{t("achievements.toast", { name: t(def.nameKey) })}</span>
+    </span>
+  );
+  if (probing) {
+    // The same box as the toast below, hidden and silent, to measure (see the file comment).
+    return (
+      <div class={styles.toastWrap} data-docked="1" data-probe="1" aria-hidden="true" ref={wrap}>
+        <span class={toastStyles.toast} data-tone="cheer">
+          <span class={toastStyles.mark}>★</span>
+          <span>{body}</span>
         </span>
+      </div>
+    );
+  }
+  return (
+    <div
+      class={styles.toastWrap}
+      data-testid="badge-toast"
+      data-docked={dock === null ? undefined : "1"}
+      ref={wrap}
+    >
+      <Toast key={def.id} tone="cheer">
+        {body}
       </Toast>
     </div>
   );

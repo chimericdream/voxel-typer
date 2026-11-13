@@ -7,8 +7,12 @@
  * a thick ring and a lift; when it needs Shift, the opposite hand's Shift lights up too. F and J
  * have bumps. A wrong key gets a gentle wobble and a short dashed outline; with reduced motion,
  * only the outline. Sizes follow `--text-scale` but never overflow the container.
+ *
+ * Finger labels are never smaller than 12 px (M3-FIX-12). A label wider than its key is hidden
+ * (`data-label-off`, measured), so labels never run into each other; the hint line under the hands
+ * still names the finger, and the zone keeps its color and pattern.
  */
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { allowFlash } from "@/a11y/flashes";
 import type { LayoutDef } from "@/content/layouts/types";
 import { t } from "@/i18n";
@@ -119,6 +123,45 @@ function useWobble(
 
 const defaultNow = (): Ms => performance.now();
 
+/**
+ * Marks each key whose finger label is wider than the key (`data-label-off`). Keys not laid out
+ * (no width yet) are left alone.
+ */
+export function fitLabels(board: Element): void {
+  for (const slot of board.querySelectorAll("[data-code]")) {
+    const text = slot.querySelector("[data-finger-label] > span");
+    const room = slot.getBoundingClientRect().width;
+    if (text === null || room === 0) continue;
+    slot.toggleAttribute("data-label-off", text.getBoundingClientRect().width > room);
+  }
+}
+
+/**
+ * Keeps `fitLabels` true: after the keys are drawn, when the board changes size (the key unit
+ * follows the window and the text scale) and when fonts finish loading.
+ */
+function useLabelFit(
+  board: { current: HTMLElement | null },
+  layoutId: string,
+  show: boolean,
+): void {
+  useLayoutEffect(() => {
+    const el = board.current;
+    if (!show || !el) return undefined;
+    const fit = (): void => fitLabels(el);
+    fit();
+    const sizes = typeof ResizeObserver === "function" ? new ResizeObserver(fit) : null;
+    sizes?.observe(el);
+    const doc = el.ownerDocument;
+    const fonts = "fonts" in doc ? doc.fonts : null;
+    fonts?.addEventListener("loadingdone", fit);
+    return () => {
+      sizes?.disconnect();
+      fonts?.removeEventListener("loadingdone", fit);
+    };
+  }, [board, layoutId, show]);
+}
+
 export function OnScreenKeyboard({
   layout,
   nextKey,
@@ -130,6 +173,8 @@ export function OnScreenKeyboard({
   now = defaultNow,
 }: OnScreenKeyboardProps) {
   const wobble = useWobble(layout, nextKey, wrong, now);
+  const board = useRef<HTMLDivElement>(null);
+  useLabelFit(board, layout.id, show);
   if (!show) return null;
   const keys = boardKeys(layout);
   const target = targetFor(layout, nextKey);
@@ -137,6 +182,7 @@ export function OnScreenKeyboard({
     <div class={styles.root} data-labels={labels ? "1" : undefined}>
       <div class={styles.frame}>
         <div
+          ref={board}
           class={styles.board}
           // oxlint-disable-next-line jsx-a11y/prefer-tag-over-role -- reason: the keys and their labels together are one picture, named by aria-label
           role="img"
@@ -163,7 +209,7 @@ export function OnScreenKeyboard({
                 style={{ "--x": k.x, "--w": k.w, "--r": k.row }}
               >
                 <KeyCap glyph={glyphOf(k)} bump={k.bump} />
-                <span class={styles.label} aria-hidden="true">
+                <span class={styles.label} data-finger-label aria-hidden="true">
                   <span>{t(`keyboard.zone.${zone}`)}</span>
                 </span>
               </div>
