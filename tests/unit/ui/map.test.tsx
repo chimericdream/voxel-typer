@@ -139,6 +139,24 @@ describe("map logic", () => {
     });
     expect(recommendedLesson(skipped, meadow)?.order).toBe(challenge.order + 2);
 
+    // The fewest-stars fallback never points back at a skipped challenge (M3-FIX-7 review):
+    // every other Meadow lesson played, the mastery check at 1 star, the challenge unplayed.
+    const mastery = meadow.find((l) => l.tags?.includes("mastery") === true);
+    if (!mastery) throw new Error("Meadow has no mastery lesson");
+    const allButChallenge = meadow
+      .filter((l) => l.id !== challenge.id)
+      .reduce(
+        (p, l) =>
+          applyResult(
+            p,
+            l,
+            result({ stars: l.id === mastery.id ? 1 : 3, summary: summary({ lessonId: l.id }) }),
+            1,
+          ),
+        sprout,
+      );
+    expect(recommendedLesson(allButChallenge, meadow)?.id).toBe(mastery.id);
+
     // Before any lesson that comes ahead of it is played, nothing opens past it.
     const fresh = lessonNodes(sprout, meadow, "meadow");
     expect(fresh.filter((n) => n.open).map((n) => n.n)).toEqual([1]);

@@ -42,6 +42,8 @@ fall salad". Several Birch, Shore and Frosty phrase lessons repeated items under
 `generator.test.ts › "M3-FIX-7: when only one item keeps the comfort cap…"` uses the exact weights
 from that profile.
 
+- **Review fixes (orchestrator, review on #187):** Mine's focus adds `reviewKeys` only when they are a real subset of the allowed keys (`focusKeys`). In 26 lessons review lists every key, which flattened the weights and switched off weak-key practice. The map's fewest-stars fallback no longer points at a skipped "No Peeking!". The no-repeat window is now 4, not 8: a run of 5 in a row is still all different, and the comfort cap gives way less often. `docs/curriculum.md` was regenerated. Tightening placement for home-row-only Sprouts (a per-key accuracy floor on the letter rungs) moves to M3-FIX-10.
+
 ## Acceptance
 
 - [x] A test that replays every lesson 3 times with new seeds and checks for at least 5 distinct

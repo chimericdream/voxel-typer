@@ -10,29 +10,29 @@ a middle dot (`·`) when they have spaces inside them (phrases and sentences).
 
 ## Meadow Home (`meadow`)
 
-| Lesson      | Title               | New keys | Kind                              | Mode | Length   | Targets      | Sample                                      |
-| ----------- | ------------------- | -------- | --------------------------------- | ---- | -------- | ------------ | ------------------------------------------- |
-| `meadow-01` | Find F and J        | `f j`    | letters                           | mine | 50 chars | accuracy 85% | `j f f f j j j f j j f f f j j f f f j f …` |
-| `meadow-02` | Hello, D and K      | `d k`    | letters                           | mine | 50 chars | accuracy 85% | `j j f j f d d d j k f f j d k d f f j j …` |
-| `meadow-03` | Hello, S and L      | `s l`    | syllables                         | mine | 55 chars | accuracy 85% | `dl jd ss ksk lk sk kds sk dl kjf sfs sj …` |
-| `meadow-04` | Hello, A and ;      | `a ;`    | letters                           | mine | 60 chars | accuracy 85% | `s d j k f a l a l a f f d s a k f f d d …` |
-| `meadow-05` | Home Row Words      |          | words                             | mine | 60 chars | accuracy 85% | `as fads fall add adds ads fad lad ad …`    |
-| `meadow-06` | Words Together      |          | phrases                           | mine | 55 chars | accuracy 85% | `add a salad · all dads ask · dad adds …`   |
-| `meadow-07` | Hello, G and H      | `g h`    | letters                           | mine | 60 chars | accuracy 85% | `l d d s f ; a ; a g f f d s g s j j d d …` |
-| `meadow-08` | Home Row Sounds     |          | syllables                         | mine | 65 chars | accuracy 85% | `aa sad aa a; ;aa ak saa kas ada jas ;al …` |
-| `meadow-09` | G and H Words       |          | words                             | mine | 65 chars | accuracy 85% | `dads glad had ads ash ask gas flash lad …` |
-| `meadow-10` | Glad Words Together |          | phrases                           | mine | 65 chars | accuracy 85% | `dad adds · a lad has a flag …`             |
-| `meadow-11` | No Peeking!         |          | letters (challenge-hide-keyboard) | mine | 60 chars | accuracy 85% | `; d j k f a l a l g f f d s ; s j j d d …` |
-| `meadow-12` | Home Row Review     |          | words                             | mine | 70 chars | accuracy 85% | `dads glad had ads ash ask gas flash lad …` |
-| `meadow-13` | Show What You Know  |          | phrases (mastery)                 | mine | 90 s     | accuracy 90% | `a fall salad · lads ask dad …`             |
-| `meadow-14` | The Cobble Colossus |          | phrases (boss)                    | boss | 70 chars | accuracy 85% | `dad adds · a lad has a flag …`             |
+| Lesson      | Title               | New keys | Kind                              | Mode | Length   | Targets      | Sample                                       |
+| ----------- | ------------------- | -------- | --------------------------------- | ---- | -------- | ------------ | -------------------------------------------- |
+| `meadow-01` | Find F and J        | `f j`    | letters                           | mine | 50 chars | accuracy 85% | `j f f f j j j f j j f f f j j f f f j f …`  |
+| `meadow-02` | Hello, D and K      | `d k`    | letters                           | mine | 50 chars | accuracy 85% | `j j f j f d d d j k f f j d k d f f j j …`  |
+| `meadow-03` | Hello, S and L      | `s l`    | syllables                         | mine | 55 chars | accuracy 85% | `dl jd ss ksk lk sk kds sk dl kjf sfs sj …`  |
+| `meadow-04` | Hello, A and ;      | `a ;`    | letters                           | mine | 60 chars | accuracy 85% | `s d j k f a l a l a f f d s a k f f d d …`  |
+| `meadow-05` | Home Row Words      |          | words                             | mine | 60 chars | accuracy 85% | `as fads fall add adds as ads fads fad …`    |
+| `meadow-06` | Words Together      |          | phrases                           | mine | 55 chars | accuracy 85% | `add a salad · all dads ask · dad adds …`    |
+| `meadow-07` | Hello, G and H      | `g h`    | letters                           | mine | 60 chars | accuracy 85% | `l d d s f ; a ; a g f f d s g s j j d d …`  |
+| `meadow-08` | Home Row Sounds     |          | syllables                         | mine | 65 chars | accuracy 85% | `aa sad aa a; ;aa ak saa kas ada jas ;al …`  |
+| `meadow-09` | G and H Words       |          | words                             | mine | 65 chars | accuracy 85% | `dads glad had ads ash dads ask gas flash …` |
+| `meadow-10` | Glad Words Together |          | phrases                           | mine | 65 chars | accuracy 85% | `dad adds · a lad has a flag …`              |
+| `meadow-11` | No Peeking!         |          | letters (challenge-hide-keyboard) | mine | 60 chars | accuracy 85% | `; d j k f a l a l g f f d s ; s j j d d …`  |
+| `meadow-12` | Home Row Review     |          | words                             | mine | 70 chars | accuracy 85% | `dads glad had ads ash dads ask gas flash …` |
+| `meadow-13` | Show What You Know  |          | phrases (mastery)                 | mine | 90 s     | accuracy 90% | `a fall salad · lads ask dad …`              |
+| `meadow-14` | The Cobble Colossus |          | phrases (boss)                    | boss | 70 chars | accuracy 85% | `dad adds · a lad has a flag …`              |
 
 ## Birch Forest (`birch`)
 
 | Lesson     | Title              | New keys | Kind                            | Mode    | Length   | Targets      | Sample                                       |
 | ---------- | ------------------ | -------- | ------------------------------- | ------- | -------- | ------------ | -------------------------------------------- |
 | `birch-01` | Hello, E and I     | `e i`    | letters                         | mine    | 60 chars | accuracy 85% | `; k d s f g ; g ; e f f k l h l j j k k …`  |
-| `birch-02` | E and I Words      |          | words                           | mine    | 70 chars | accuracy 85% | `field ideas ladles desk eagles feel hide …` |
+| `birch-02` | E and I Words      |          | words                           | mine    | 70 chars | accuracy 85% | `field ideas ladles desk eagles feel …`      |
 | `birch-03` | Hello, R and U     | `r u`    | syllables                       | mine    | 65 chars | accuracy 85% | `ii sik ia ug guu as suu sul eku jal ga; …`  |
 | `birch-04` | Key Hunt           |          | letters                         | mine    | 65 chars | accuracy 85% | `h k d l j h g h ; i f f k a e a j j k k …`  |
 | `birch-05` | R and U Words      |          | words                           | mine    | 70 chars | accuracy 85% | `fir idea ladder digs ears figs fed huge …`  |

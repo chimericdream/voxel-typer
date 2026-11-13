@@ -118,6 +118,7 @@ export function recommendedLesson(profile: Profile, lessons: readonly Lesson[]):
   if (fresh) return fresh;
   let best: Lesson | null = null;
   for (const lesson of open) {
+    if (skipped(profile, lessons, lesson)) continue;
     const stars = starsOf(profile, lesson.id);
     if (stars < 3 && (best === null || stars < starsOf(profile, best.id))) best = lesson;
   }

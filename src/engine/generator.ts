@@ -67,7 +67,7 @@ export const GENERATOR_CONSTANTS = {
    * Word-like targets: an item is not picked again within this many picks, capped at half the
    * candidate items so a small pool keeps its weighting (M3-FIX-7).
    */
-  recentItems: 8,
+  recentItems: 4,
   /** Tries per syllable before falling back to a single comfortable char. */
   syllableTries: 20,
   /** `letters`: the longest allowed run of one char. */
