@@ -16,8 +16,12 @@ import { collectErrors, ready, state, waitForLesson } from "./helpers/vt";
 /** Under reduced motion "at once" means a frame or two, with room for CI's slow renderer. */
 const AT_ONCE_MS = 500;
 const SOON_MS = 1500;
-/** How long the Mine cases hold back the Results chunk. */
-const SLOW_CHUNK_MS = 2500;
+/**
+ * How long the Mine cases hold back the Results chunk. Without the preload the fetch starts at the
+ * route change, so the lines come at least this late, past both limits (1.5 s and 0.5 s).
+ */
+const SLOW_CHUNK_MS = 2000;
+const CHUNK = /\/Results-[^/]*\.js$/;
 
 /** Waits for Results, then checks when the heading and the lines came. */
 async function expectResultsBy(page: Page, limitMs: number): Promise<void> {
@@ -31,6 +35,10 @@ async function expectResultsBy(page: Page, limitMs: number): Promise<void> {
     type: "Results lines after the route change",
     description: `${t.lines} ms`,
   });
+  // In the CI log too, for the handoff.
+  console.log(
+    `[M4-FIX-7] ${test.info().title}: Results lines ${t.lines} ms after the route change`,
+  );
   expect(t.heading, "the Results heading").not.toBe(null);
   expect(t.lines ?? Infinity, "the Results lines").toBeLessThanOrEqual(limitMs);
   // The lines never trail the heading: they are drawn with it.
@@ -78,9 +86,17 @@ for (const [name, viewport, motion, limit] of [
     test("the Results lines show with the heading", async ({ page }) => {
       test.slow();
       const errors = collectErrors(page);
-      // A slow server: the Results chunk takes 2.5 s to come. Fetched as the lesson starts, it is
-      // here long before the end; fetched only at the end, Results would be 2.5 s late.
-      await page.route(/\/Results-[^/]*\.js$/, async (route) => {
+      // A slow server: the Results chunk takes 2 s to come. Fetched as the lesson starts, it is
+      // here before the end; fetched only at the end, Results would be 2 s late.
+      let asked = false;
+      let arrived = false;
+      page.on("request", (r) => {
+        if (CHUNK.test(r.url())) asked = true;
+      });
+      page.on("requestfinished", (r) => {
+        if (CHUNK.test(r.url())) arrived = true;
+      });
+      await page.route(CHUNK, async (route) => {
         await new Promise((r) => setTimeout(r, SLOW_CHUNK_MS));
         await route.continue();
       });
@@ -88,6 +104,10 @@ for (const [name, viewport, motion, limit] of [
       await waitForLesson(page);
       // A Miner's Results has the aim line (a Sprout's shows stars only).
       await watchResults(page, ["Great aim"]);
+      // If the lesson's start asked for the chunk, let it arrive before typing, so a fast runner's
+      // short lesson can't end first. If nothing asked for it (no preload), don't wait: the fetch
+      // then starts at the end and is held back, and the check below fails.
+      if (asked) await expect.poll(() => arrived, { timeout: 15_000 }).toBe(true);
       for (let now = await state(page); now.next !== null; now = await state(page)) {
         await page.keyboard.press(now.next === " " ? "Space" : now.next);
         await page.waitForTimeout(40);

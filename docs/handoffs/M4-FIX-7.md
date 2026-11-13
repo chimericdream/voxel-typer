@@ -6,6 +6,23 @@ Two items. The M4-FIX-4 worker saw Night Defense's Results line ("… sent home"
 the route switched to Results on a clean origin/main. The #213 review (N3) saw word plates sit over
 _other_ mobs' heads ("shade" plate over the "rugs" mob), so a child reads that mob as gone.
 
+## Rework (review on #218 at 53c6c16)
+
+| #   | What the review found                                                                                      | What changed                                                                                                                                                                                                               |
+| --- | ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B1  | The 0.7 fade on a covering plate drops white-on-plate contrast to about 4.2:1, and fades high contrast too | No fade. `covers` is only a data mark (`data-covers`). New DOM test: the plate, its layer and its letters stay at full opacity, locked or not. The comment and the Decisions entry are corrected (white text, dark plate). |
+| 2   | The Mine cases' 2.5 s hold from `play` leaves 1–3 s of margin; a fast runner could fail the 500 ms case    | The test waits for the preloaded chunk before typing, so the margin no longer depends on the runner. Hold 2 s, so the preload-off run still fails both limits (see Tests).                                                 |
+| 3   | Plates jump about 66 px diagonally when the nearest choice flips                                           | Hysteresis: last frame's slide is kept while it fits (`side` in and out of `layoutPlates`). Unit test.                                                                                                                     |
+| 4   | `h(screen, …)` in `App.tsx`                                                                                | `<Screen …/>`. Oxlint's `react/static-components` flags it (the component is read, not declared), so the line carries a disable with its reason.                                                                           |
+| 5   | Put the CI-measured times in the handoff                                                                   | The specs print them (`[M4-FIX-7] …`) in the CI log. See "CI-measured times" below.                                                                                                                                        |
+
+## CI-measured times
+
+The specs print each measurement as `[M4-FIX-7] …: Results lines N ms after the route change`.
+CI's run on the first fix (`849d2f5`, preload only): Miner night **1940 ms**, retry **2001 ms**
+(failed the 1.5 s check; that led to the screen cache). The run on this head is recorded in the
+PR description once it finishes.
+
 ## Item 1: the slow Results line
 
 **Cause: a stalled fetch of the Results screen's lazy chunk.** I put an in-page probe on the
@@ -67,10 +84,15 @@ Built on #213's layout (`clearOfBanner`, the stage floor), merged in first.
     Then down, as before. With no free spot it is placed by the old rule (clear of plates only)
     and marked `covers` if it lies on another mob's head. Without heads the result is the same as
     before, and every existing layout test passes unchanged.
+  - Hysteresis (review note 3): `PlatePlace.side` says whether the plate slid left (−1) or right
+    (1), and `PlateWish.side` passes last frame's side back. While that slide still fits it is
+    kept over a nearer spot, so a plate doesn't jump between a slide and a lift as mobs walk.
+    (Left and right can never both fit: a slid plate must span its mob's middle, and the head in
+    the way covers it. So the jumps were between a slide and "up".)
 - `src/modes/defense/plates.ts`: each wish gets its mob's head from `mobHead` when the feet are
-  known (Defense always passes them). A plate marked `covers` is drawn at `COVER_OPACITY` (0.7)
-  with `data-covers="1"`, so the mob shows through. **The locked plate is never faded:** its word
-  and its double frame stay at full strength.
+  known (Defense always passes them), and the side it slid to last frame. A plate marked
+  `covers` gets `data-covers="1"` for the e2e and **stays fully opaque**, locked or not (review
+  B1). The covered mob still has its own plate and stem, so the child doesn't read it as gone.
 
 ## Tests
 
@@ -83,16 +105,21 @@ Built on #213's layout (`clearOfBanner`, the stage floor), merged in first.
   and still spans its mob); a head too wide to slide by sends the plate up; order (a locked far
   plate keeps its spot, and the near one works round it); with no room the plate is marked
   `covers` and still touches no plate; a property test (seed 7216, 400 runs) that plates never
-  overlap and any plate on another mob's head is marked; a three-lane night has at most one faded
-  plate.
-- `tests/unit/dom/defense-view.test.ts`: a plate that must lie on a head gets `data-covers` and
-  opacity 0.7. Locked, it doesn't. With room it moves off and isn't faded.
+  overlap and any plate on another mob's head is marked; a three-lane night has at most one
+  covering plate; last frame's slide is kept while it fits, and let go once the head has gone.
+- `tests/unit/dom/defense-view.test.ts`: a plate that must lie on a head gets `data-covers`, and
+  it stays fully opaque: no opacity on the plate or its layer, and every letter not typed yet at
+  opacity 1. The same when it is locked. With room it moves off and the mark goes.
 - `tests/e2e/results-lines.spec.ts` (new):
   - Night Defense under reduced motion at 1024×600: the night's lines ("sent home", "Best streak")
     within 500 ms of the route change, in the same render as the heading.
   - Mine (`meadow-01`, a Miner), at 1280×720 with motion (≤ 1.5 s) and at 1024×600 under reduced
-    motion (≤ 500 ms). Here **`page.route` holds the Results chunk back 2.5 s**, a slow server on
-    purpose. With the preload removed, both cases fail (2568 ms measured). With it, both pass.
+    motion (≤ 500 ms). Here **`page.route` holds the Results chunk back 2 s**, a slow server on
+    purpose. If the lesson's start asked for the chunk (the preload), the test lets it arrive
+    before typing, so a short lesson on a fast runner can't end first (review note 2). If nothing
+    asked for it, the test doesn't wait: the fetch starts at the route change and is held 2 s, so
+    the lines come 2 s or more late and both cases fail (≥ 2000 ms against 1500 and 500). Before
+    this rework, with a 2.5 s hold and no wait, the preload-off run measured 2568 ms (local).
 - `tests/e2e/defense.spec.ts`: the Miner night (with motion) now asserts its lines come within
   1.5 s of the route change, with the heading. The timing is recorded in the page
   (`tests/e2e/helpers/results-timing.ts`), so a slow runner doesn't blur it.
@@ -115,10 +142,10 @@ Local runs (07:00–07:23, one worker, private port 4559, temp config since dele
 - [x] **Fix it.** The end screen's chunk is fetched as the lesson starts (`preloadScreen`).
 - [x] **e2e: Results lines within 1.5 s of the route change, at once under reduced motion.**
       `defense.spec.ts` (motion), `results-lines.spec.ts` (Defense reduced motion; Mine both
-      ways, with a 2.5 s chunk delay that fails without the fix).
+      ways, with a 2 s chunk delay that fails without the fix).
 - [x] **Check Mine's Results too.** Same path, same fix, `results-lines.spec.ts`.
-- [x] **Plates avoid every mob's head; order and lock frame readable**, or fade a covering plate.
-      Both: nudge first, fade (0.7) only when there is no free spot, never the locked plate.
+- [x] **Plates avoid every mob's head; order and lock frame readable.** Nudged clear of every
+      head. With no free spot the plate stays fully opaque and is only marked (`data-covers`).
 - [x] **Unit test on the layout function.** `logic.test.ts` and `defense-view.test.ts`.
 - [x] **e2e at 1024×600 and 1280×720.** `defense-plates.spec.ts`.
 - [x] Built on #213's code (merged origin/main at `9bfbd8a` first).
@@ -136,8 +163,12 @@ Local runs (07:00–07:23, one worker, private port 4559, temp config since dele
 - **Sideways only past heads.** A plate in the way of another plate is still passed by going up,
   as M4-04's card asks ("nudges them vertically"). Sideways is allowed only for heads, and only
   while the plate still spans its own mob's middle.
-- **Fade to 0.7, not lower.** It is a typing target: dark text on the light plate stays readable,
-  and the mob behind shows through. It happens only when no free spot exists.
+- **No fade (review B1).** The plates are `--c-plate: rgba(20,20,24,0.8)` with **white** text
+  (`themes.ts`). Fully opaque over a white backdrop the plate comes to about (67, 67, 70), and
+  white text on it is about 9.9:1; over black, about 18:1; the high-contrast plate (0.9 black)
+  over white, about 17.5:1. The earlier 0.7 fade brought white-over-pale down to about 4.2:1, under
+  4.5:1 on a word a child must read and type, and faded the high-contrast theme too. A word plate
+  is never faded now.
 
 ## New dependencies
 
@@ -147,8 +178,12 @@ Local runs (07:00–07:23, one worker, private port 4559, temp config since dele
 
 - Every lesson now fetches its end screen's code as it starts. A new mode with its own end screen
   should extend `endScreenOf` in `shell.ts`, which `onFinished` also uses.
-- `layoutPlates` takes an optional `head` on each wish, and `PlatePlace` has `covers`.
-  `data-covers="1"` marks a faded plate for the e2e.
+- `layoutPlates` takes an optional `head` and `side` on each wish, and `PlatePlace` has `covers`
+  and `side`. `data-covers="1"` marks a plate on another mob's head for the e2e; it is never
+  faded.
+- Follow-up (orchestrator's card): a failed lazy screen load shows a blank page with no retry,
+  and some browsers keep a failed module fetch, so the "tried again when shown" comment in
+  `main.ts` may be optimistic. A friendly "Try again" panel would fix both.
 - The `vite preview` stall (10.0 s on one request, others queued behind it) can still hit any
   lazy chunk fetched mid-test, such as `AchievementToast` at boot. Screens fetched from a menu
   are not covered by this fix.

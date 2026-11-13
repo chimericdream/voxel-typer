@@ -243,6 +243,7 @@ test("a Miner's night plays from day to dawn inside the draw-call budget", async
     type: "Results lines after the route change",
     description: `${timing.lines} ms`,
   });
+  console.log(`[M4-FIX-7] Miner night: Results lines ${timing.lines} ms after the route change`);
   expect(timing.lines ?? Infinity).toBeLessThanOrEqual(1500);
   expect(timing.lines).toBe(timing.heading);
   // The stars and the loot fill in one by one.

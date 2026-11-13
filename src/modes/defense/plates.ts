@@ -22,11 +22,6 @@ import type { PlateBounds, PlateWish } from "./logic";
 
 /** How much bigger the locked plate is drawn. */
 export const LOCKED_SCALE = 1.2;
-/**
- * A plate that has to lie on another mob's head is drawn this strong, so the mob shows through
- * (M4-FIX-7). Only when no free spot was found; the text stays dark on light and readable.
- */
-export const COVER_OPACITY = 0.7;
 /** The space kept between a mob's head and its plate, CSS pixels. */
 const HEAD_GAP = 6;
 
@@ -75,8 +70,10 @@ interface Plate {
   seen: boolean;
   /** The mob's box last written to `data-mob`. */
   mob: string;
-  /** Faded because it covers another mob's head. */
-  faded: boolean;
+  /** Marked as lying on another mob's head (`data-covers`). */
+  covers: boolean;
+  /** The side the layout slid it to last frame (0: none), passed back so it keeps that side. */
+  side: -1 | 0 | 1;
 }
 
 const FONT_SIZE = "min(calc(22px * var(--text-scale, 1)), 5.4dvh)";
@@ -168,7 +165,8 @@ export function createPlateLayer(opts: PlateLayerOptions): PlateLayer {
       height: box.height > 0 ? box.height : 32,
       seen: true,
       mob: "",
-      faded: false,
+      covers: false,
+      side: 0,
     };
     return p;
   };
@@ -237,6 +235,7 @@ export function createPlateLayer(opts: PlateLayerOptions): PlateLayer {
           height: p.height * scale,
           order: item.order,
           ...(box === null ? {} : { head: box }),
+          ...(p.side === 0 ? {} : { side: p.side }),
         });
       }
       for (const [id, p] of plates) {
@@ -254,13 +253,13 @@ export function createPlateLayer(opts: PlateLayerOptions): PlateLayer {
         // The element keeps its own size; the scale grows it about its middle.
         const cx = place.left + place.width / 2;
         const cy = place.top + place.height / 2;
-        // A plate that found no spot clear of another mob's head fades, so that mob shows
-        // through. Never the locked plate: its word and frame stay at full strength.
-        const fade = place.covers && !p.locked;
-        if (fade !== p.faded) {
-          p.faded = fade;
-          p.el.style.opacity = fade ? String(COVER_OPACITY) : "";
-          if (fade) p.el.dataset["covers"] = "1";
+        // A plate that found no spot clear of another mob's head is marked for the e2e. It stays
+        // fully opaque: it is a word to read and type, white on the dark plate, and fading it would
+        // drop its contrast (M4-FIX-7 review). The covered mob still has its own plate and stem.
+        p.side = place.side;
+        if (place.covers !== p.covers) {
+          p.covers = place.covers;
+          if (place.covers) p.el.dataset["covers"] = "1";
           else delete p.el.dataset["covers"];
         }
         p.el.style.transform = `translate3d(${(cx - p.width / 2).toFixed(1)}px, ${(cy - p.height / 2).toFixed(1)}px, 0) scale(${scale})`;

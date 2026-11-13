@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { MOBS, rosterFor } from "../../../src/content/mobs";
 import { arenaLayout } from "../../../src/content/worldgen/defense-arena";
 import type { FieldMob } from "../../../src/modes/defense/logic";
-import { COVER_OPACITY, LOCKED_SCALE, createPlateLayer } from "../../../src/modes/defense/plates";
+import { LOCKED_SCALE, createPlateLayer } from "../../../src/modes/defense/plates";
 import type { PlateItem } from "../../../src/modes/defense/plates";
 import {
   NIGHT_LIFT,
@@ -323,7 +323,7 @@ describe("word plates", () => {
     plates.dispose();
   });
 
-  it("fades a plate that has to lie on another mob's head, never the locked one (M4-FIX-7)", () => {
+  it("marks a plate that has to lie on another mob's head, and keeps it fully opaque (M4-FIX-7)", () => {
     const { plates, host } = layer();
     // Too little room to move: the near mob's plate (90 × 32 here) can only sit on the far mob's
     // head, right behind it.
@@ -333,16 +333,29 @@ describe("word plates", () => {
     const far = item("rugs", { word: "rugs", x: 400, y: 262, feet: 330, order: 1 });
     const el = (word: string): HTMLElement | null =>
       host.querySelector<HTMLElement>(`.vt-defense-plate[data-word="${word}"]`);
+    // White letters on the dark plate must keep their contrast: no opacity on the plate, and every
+    // letter not typed yet at full strength.
+    const opaque = (word: string): void => {
+      const plate = el(word);
+      expect(plate?.style.opacity).toBe("");
+      // Nor on the layer around it.
+      expect(plate?.closest<HTMLElement>(".vt-defense-plates")?.style.opacity).toBe("");
+      const typed = Number(plate?.dataset["typed"] ?? 0);
+      const chars = [...(plate?.querySelectorAll<HTMLElement>("span") ?? [])];
+      expect(chars.length).toBe(word.length);
+      chars.forEach((c, i) => expect(c.style.opacity).toBe(i < typed ? "0.55" : "1"));
+    };
     plates.sync([near(), far], tight);
     expect(el("shade")?.dataset["covers"]).toBe("1");
-    expect(el("shade")?.style.opacity).toBe(String(COVER_OPACITY));
-    // Locked, its word and frame stay at full strength.
-    plates.sync([near({ locked: true, order: -1 }), far], tight);
-    expect(el("shade")?.hasAttribute("data-covers")).toBe(false);
-    expect(el("shade")?.style.opacity).toBe("");
-    // With room, it moves off the head instead, and is not faded.
+    opaque("shade");
+    // Locked, the same: marked, and its word and frame at full strength.
+    plates.sync([near({ locked: true, typed: 2, order: -1 }), far], tight);
+    expect(el("shade")?.dataset["covers"]).toBe("1");
+    opaque("shade");
+    // With room, it moves off the head instead, and the mark goes.
     plates.sync([near(), far], bounds);
     expect(el("shade")?.hasAttribute("data-covers")).toBe(false);
+    opaque("shade");
     plates.dispose();
   });
 

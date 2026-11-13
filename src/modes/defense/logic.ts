@@ -383,6 +383,11 @@ export interface PlateWish {
    * over another mob's head hides that mob, and a child reads it as gone. Optional.
    */
   readonly head?: PlateBounds;
+  /**
+   * The side this plate slid to last frame, if it did (`PlatePlace.side`). While that side still
+   * fits it is kept, so a plate doesn't jump from one side of a head to the other as mobs walk.
+   */
+  readonly side?: -1 | 1;
 }
 
 /** Where a plate went: its top-left corner. */
@@ -393,10 +398,12 @@ export interface PlatePlace {
   readonly width: number;
   readonly height: number;
   /**
-   * True when no free spot was found and the plate covers another mob's head: the plate layer
-   * fades it so that mob shows through. The layer never fades the locked plate.
+   * True when no free spot was found and the plate covers another mob's head. The plate layer
+   * marks it (`data-covers`) and leaves it fully opaque: it is a word to read.
    */
   readonly covers: boolean;
+  /** Slid sideways past a head: left (−1) or right (1); 0 when it wasn't. */
+  readonly side: -1 | 0 | 1;
 }
 
 export interface PlateBounds {
@@ -499,6 +506,7 @@ export function layoutPlates(
       width: w.width,
       height: w.height,
       covers: false,
+      side: 0,
     });
     const wish = at(wishTop);
     // The point a sideways plate must still span: the mob's middle, or as near it as the bounds let.
@@ -538,7 +546,7 @@ export function layoutPlates(
           dir < 0
             ? Math.min(...hit.map((q) => q.left)) - w.width
             : Math.max(...hit.map((q) => q.left + q.width));
-        return at(p.top, left);
+        return { ...at(p.top, left), side: dir };
       };
     const fits = (p: PlatePlace | null): p is PlatePlace =>
       p !== null &&
@@ -550,9 +558,11 @@ export function layoutPlates(
       middle <= p.left + p.width + EPS;
     const moved = (p: PlatePlace): number => Math.hypot(p.left - wish.left, p.top - wish.top);
 
-    const near = [settle(true, up), settle(true, side(-1)), settle(true, side(1))]
-      .filter(fits)
-      .toSorted((a, b) => moved(a) - moved(b))[0];
+    const options = [settle(true, up), settle(true, side(-1)), settle(true, side(1))].filter(fits);
+    // The side used last frame wins while it still fits; otherwise the nearest spot.
+    const near =
+      options.find((p) => w.side !== undefined && p.side === w.side) ??
+      options.toSorted((a, b) => moved(a) - moved(b))[0];
     const clear = near ?? settle(true, down);
     if (fits(clear)) {
       placed.push(clear);
@@ -594,6 +604,7 @@ function boxOf(id: string, b: PlateBounds): PlatePlace {
     width: b.right - b.left,
     height: b.bottom - b.top,
     covers: false,
+    side: 0,
   };
 }
 

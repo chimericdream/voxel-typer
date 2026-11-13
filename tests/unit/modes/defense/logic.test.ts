@@ -431,6 +431,24 @@ describe("plates and other mobs' heads (M4-FIX-7)", () => {
     expect(placed.get("rugs")).toMatchObject({ left: 484, top: 214, covers: false });
   });
 
+  it("keeps last frame's slide while it still fits, instead of jumping to a nearer spot", () => {
+    // Up is nearer here (36 px) than the slide left (42.5 px).
+    const head = { left: 502.5, top: 262, right: 537.5, bottom: 270 };
+    const fresh = layoutPlates([shade(), rugs(head)], bounds).find((p) => p.id === "shade");
+    expect(fresh).toMatchObject({ left: 455, top: 262 - PLATE_GAP - 30, side: 0 });
+    // Slid left last frame: it stays slid while that still fits.
+    const kept = layoutPlates([shade({ side: -1 }), rugs(head)], bounds).find(
+      (p) => p.id === "shade",
+    );
+    expect(kept).toMatchObject({ left: 412.5, top: 264, side: -1, covers: false });
+    // Once the head has moved away, the slide is let go and the plate goes back over its mob.
+    const away = { left: 800, top: 262, right: 835, bottom: 270 };
+    const back = layoutPlates([shade({ side: -1 }), rugs(away)], bounds).find(
+      (p) => p.id === "shade",
+    );
+    expect(back).toMatchObject({ left: 455, top: 264, side: 0 });
+  });
+
   it("moves up past a head too wide to slide by, keeping its x", () => {
     const head = { left: 440, top: 270, right: 560, bottom: 290 };
     const placed = new Map(

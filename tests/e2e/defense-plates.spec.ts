@@ -5,7 +5,7 @@
  * Visitors are left to gather untyped, so several share the field, and the plates are checked
  * every 250 ms. Each plate carries its mob's box as `data-mob="x head feet"` (`plates.ts`); a
  * mob's head is the top 40 % of it, 70 % of its height wide (`mobHead` in `logic.ts`). A plate
- * may lie on another mob's head only when there was no free spot, and then it is faded
+ * may lie on another mob's head only when there was no free spot, and then it is marked
  * (`data-covers`). Plates never overlap each other.
  */
 import { expect, test } from "@playwright/test";
@@ -19,7 +19,7 @@ interface Sample {
   plates: number;
   /** Plates on another mob's head that are not marked as covering it. */
   unmarked: string[];
-  /** Plates marked as covering a head (faded). */
+  /** Plates marked as covering a head (`data-covers`; they stay fully opaque). */
   covers: number;
   /** Pairs of plates that overlap. */
   overlaps: number;
@@ -109,7 +109,10 @@ for (const [profile, scale, width, height] of CASES) {
       await page.waitForTimeout(250);
     }
     info.annotations.push({ type: "most plates at once", description: String(peak) });
-    info.annotations.push({ type: "faded plates (most at once)", description: String(covers) });
+    info.annotations.push({
+      type: "plates on a head, marked (most at once)",
+      description: String(covers),
+    });
     await info.attach(`${profile}-${width}x${height}`, {
       body: await page.screenshot(),
       contentType: "image/png",

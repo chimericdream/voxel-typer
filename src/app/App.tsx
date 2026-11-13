@@ -4,7 +4,6 @@
  * remount it.
  */
 import type { ReadonlySignal } from "@preact/signals";
-import { h } from "preact";
 import type { ComponentType } from "preact";
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { fingerLabelsOn, hearAgainKey, hearAgainShown } from "@/a11y/options";
@@ -58,14 +57,14 @@ function ScreenView({ shell, route }: { shell: Shell; route: Route }) {
     };
   }, [route.id, loader, shell.api]);
 
-  if (loader === undefined) return <Soon shell={shell} />;
   // A screen whose code is already here (a lesson's end screen, fetched as it started) draws in
-  // this very render, not after an effect and a promise (M4-FIX-7).
-  // The component comes from the cache or from state, never made here, so it is the same one on
-  // each render and keeps its state.
-  const screen = loaded?.id === route.id ? loaded.Screen : loadedScreen(loader);
-  if (screen === null) return null;
-  return h(screen, { app: shell.api, route });
+  // this very render, not after an effect and a promise (M4-FIX-7). It comes from state or from
+  // the cache, never made here, so it is the same component on each render and keeps its state.
+  const Screen = loaded?.id === route.id ? loaded.Screen : loadedScreen(loader);
+  if (loader === undefined) return <Soon shell={shell} />;
+  if (Screen === null) return null;
+  // oxlint-disable-next-line react/static-components -- reason: Screen is a module's default export, read from state or the screen cache; it is never created here
+  return <Screen app={shell.api} route={route} />;
 }
 
 /**
