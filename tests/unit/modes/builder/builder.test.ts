@@ -27,6 +27,7 @@ import {
   HINT_MS,
   RING_MS,
   SWEEP_MS,
+  TURN_MS,
   create,
 } from "../../../../src/modes/builder/builder";
 import type { BuilderInstance } from "../../../../src/modes/builder/builder";
@@ -1029,6 +1030,18 @@ const hut = (): BuilderBlueprint => {
   return { typedName: "hut", nameKey: "builder.title", grid };
 };
 
+/** Empties everything above the ground, so nothing but `wall` can hide the build. */
+const clearSky = (g: VoxelGrid): void => {
+  for (let y = START.y; y < g.sy; y++)
+    for (let z = 0; z < g.sz; z++) for (let x = 0; x < g.sx; x++) g.set(x, y, z, 0);
+};
+/** A tall wall south of the cursor: between the build and the starting camera (view 0). */
+const wallSouth = (g: VoxelGrid): void => {
+  for (let y = START.y; y < START.y + 14; y++)
+    for (let z = START.z + 3; z <= START.z + 4; z++)
+      for (let x = START.x - 2; x <= START.x + 3; x++) g.set(x, y, z, num("cobble"));
+};
+
 describe("builder: blueprints (the M4-08 hook)", () => {
   it("stamps centered on the cursor, pays for it, and undoes as one step", async () => {
     const v = await visit(miner, { blueprints: [hut()] });
@@ -1053,6 +1066,43 @@ describe("builder: blueprints (the M4-08 hook)", () => {
     expect(v.grid().get(START.x, START.y, START.z)).toBe(0);
     expect(v.dirty).toHaveLength(18);
     expect(v.hud().palette.find((p) => p.block === "oak-planks")?.count).toBe(12);
+  });
+
+  describe("a clear view of the new build (M4-FIX-5)", () => {
+    it("nothing in the way: the camera stays where the player put it", async () => {
+      const v = await visit(miner, { blueprints: [hut()], frozen: false });
+      clearSky(v.grid());
+      const moves = v.moves.length;
+      v.type("hut");
+      expect(v.hud().hint).toMatchObject({ key: "builder.hint.built" });
+      expect(v.moves).toHaveLength(moves);
+      expect(v.hud().facing).toBe("north");
+    });
+
+    it("a wall in front: one gentle quarter turn, and [ ] carry on from there", async () => {
+      const v = await visit(miner, { blueprints: [hut()], frozen: false });
+      clearSky(v.grid());
+      wallSouth(v.grid());
+      v.type("hut");
+      expect(v.hud().hint).toMatchObject({ key: "builder.hint.built" });
+      const glide = v.moves.at(-1);
+      expect(glide?.durationMs).toBe(TURN_MS);
+      const after = v.hud().facing;
+      expect(["east", "west"]).toContain(after);
+      // The camera keys turn from the new view, not the old one.
+      v.type("]");
+      expect(v.hud().facing).toBe(after === "east" ? "south" : "north");
+    });
+
+    it("reduced motion: a cut, not a swing", async () => {
+      const still = { ...miner, settings: { ...miner.settings, reducedMotion: true } };
+      const v = await visit(still, { blueprints: [hut()], frozen: false });
+      clearSky(v.grid());
+      wallSouth(v.grid());
+      v.type("hut");
+      expect(v.hud().facing).not.toBe("north");
+      expect(v.moves.at(-1)?.durationMs).toBe(0);
+    });
   });
 
   it("says what is still missing, and changes nothing", async () => {

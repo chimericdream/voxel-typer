@@ -266,6 +266,10 @@ test("Sprout: dig a block, then arm it with the key caps' letters", async ({ pag
   await expect(line(page)).toHaveAttribute("data-text", "so");
   await page.keyboard.press("Backspace");
   await page.keyboard.press("Backspace");
+  // Sprout help is short: no direction words, no layer or compass line (M4-FIX-5).
+  await expect(page.locator('[data-builder="help"]')).toContainText("Arrow keys move.");
+  await expect(page.locator('[data-builder="help"]')).not.toContainText("north south");
+  await expect(page.locator('[data-builder="layer"]')).toHaveCount(0);
   await expectNoAxeViolations(page, "builder, sprout");
   // The command line, the palette and the help sit inside the window.
   for (const part of [
@@ -323,8 +327,11 @@ test("a grown island: plans by name, a house stamped and saved, and a photo (M4-
     "data-text",
     "well house tower",
   );
+  await expect(page.locator('[data-builder="layer"]')).toContainText("North is at the top");
   await typeWord(page, "house");
   await expect(page.locator("#app").getByText("You built a House!")).toBeVisible();
+  // The big trees in front hid the house, so the camera turned a quarter to show it (M4-FIX-5).
+  await expect(page.locator('[data-builder="layer"]')).not.toContainText("North is at the top");
   // A pause saves the island and the bag together.
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Back to the map" })).toBeVisible();
@@ -347,6 +354,37 @@ test("a grown island: plans by name, a house stamped and saved, and a photo (M4-
   expect(await canvas.evaluate((c: HTMLCanvasElement) => [c.width, c.height])).toEqual(size);
   const origin = new URL(page.url()).origin;
   expect(requests.filter((u) => !u.startsWith(origin) && !u.startsWith("blob:"))).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
+test("text scale 2 at 1024×600: the count badges keep to the slot's corner (M4-FIX-5)", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1024, height: 600 });
+  const errors = await openIsland(page, "island-builder");
+  await expect(hud(page)).toBeVisible();
+  await page.evaluate(() => document.documentElement.style.setProperty("--text-scale", "2"));
+  const items = page.locator('[data-builder="palette"] li');
+  await expect(items).toHaveCount(5);
+  for (const li of await items.all()) {
+    const picture = li.locator('[role="img"]');
+    const badge = picture.locator("span").last();
+    const s = await picture.boundingBox();
+    const b = await badge.boundingBox();
+    if (s === null || b === null) throw new Error("no slot or badge");
+    // The picture is the most of the slot: the badge takes at most a quarter of it.
+    expect((b.width * b.height) / (s.width * s.height)).toBeLessThanOrEqual(0.25);
+    expect(b.height).toBeLessThanOrEqual(s.height * 0.4);
+    // The slot grew with the letters (it was 60 px).
+    expect(s.height).toBeGreaterThan(64);
+  }
+  // The palette and the command line still fit the window.
+  for (const part of ['[data-builder="palette"]', '[data-builder="line"]']) {
+    const box = await page.locator(part).boundingBox();
+    expect(box, part).not.toBeNull();
+    expect((box?.y ?? -1) >= 0 && (box?.y ?? 0) + (box?.height ?? 0) <= 600, part).toBe(true);
+    expect((box?.x ?? -1) >= 0 && (box?.x ?? 0) + (box?.width ?? 0) <= 1024, part).toBe(true);
+  }
   expect(errors).toEqual([]);
 });
 

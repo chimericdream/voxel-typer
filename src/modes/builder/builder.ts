@@ -64,6 +64,7 @@ import {
   arrowDirection,
   boxOfCell,
   cameraPose,
+  clearestView,
   createTouchLog,
   digCell,
   facing,
@@ -98,7 +99,7 @@ export const HABIT_MS: Readonly<Record<AgeBand, Ms>> = { sprout: 3000, miner: 20
 export const HINT_MS: Ms = 5000;
 /** Camera glides: following the cursor, and a quarter turn. Snaps under reduced motion. */
 const FOLLOW_MS: Ms = 220;
-const TURN_MS: Ms = 360;
+export const TURN_MS: Ms = 360;
 /**
  * The expansion ceremony (M4-08): the camera sweeps out to show the whole island, each new ring
  * appears in turn, and the camera comes back. All of it is instant under reduced motion.
@@ -145,6 +146,11 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
   const defById = new Map<BlockId, BlockDef>(blocks.map((b) => [b.id, b]));
   const placeable = blocks.filter((b) => b.tags.includes("placeable"));
   const placeableIds = placeable.map((b) => b.id);
+  /** Block numbers that hide what is behind them: not air, and not a thin flower. */
+  const sprigs = new Set(
+    blocks.filter((b) => b.shape === "sprig").map((b) => lookup.numOf(b.id) ?? 0),
+  );
+  const occludes = (n: number): boolean => n !== 0 && !sprigs.has(n);
   const blueprints = opts.blueprints ?? blueprintsFor(profile);
   const vocab = buildVocabulary({
     blocks: placeable,
@@ -616,6 +622,21 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
     say(null);
   };
 
+  /**
+   * After a stamp (M4-FIX-5): when trees or hills hide the new build, the camera turns to the
+   * nearest quarter that shows it. It is the same turn as `[` `]`, so those keys carry on from
+   * the new view. Reduced motion (and `?frozen`) cut straight to it.
+   */
+  const showBuild = (box: CellBox): void => {
+    if (editor === null) return;
+    const next = clearestView(editor.grid, box, target, quarter, zoom, occludes);
+    if (next === quarter) return;
+    const steps = next === turn(quarter, 1) || next === turn(quarter, -1) ? 1 : 2;
+    quarter = next;
+    applyCamera(frozen || reduced() ? 0 : TURN_MS * steps);
+    scene.requestRender();
+  };
+
   const stamp = (name: string): void => {
     const bp = blueprints.find((b) => b.typedName === name);
     if (editor === null || bp === undefined) return;
@@ -634,6 +655,7 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
     audio.sfx("star", { gain: 0.35 });
     say({ key: "builder.hint.built", params: { name: t(bp.nameKey) } }, "cheer");
     afterEdit(box);
+    showBuild(box);
   };
 
   /** True while a picture is being made, so a second `photo` waits for it. */

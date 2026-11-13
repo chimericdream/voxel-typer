@@ -18,7 +18,9 @@ import {
   ZOOM_MAX,
   ZOOM_MIN,
   arrowDirection,
+  cameraPoint,
   cameraPose,
+  clearestView,
   createTouchLog,
   digCell,
   facing,
@@ -34,8 +36,10 @@ import {
   ringsToAdd,
   steadyPalette,
   turn,
+  VIEW_TOLERANCE,
+  viewBlockage,
 } from "../../../../src/modes/builder/logic";
-import type { Quarter } from "../../../../src/modes/builder/logic";
+import type { CellBox, Quarter } from "../../../../src/modes/builder/logic";
 import { VoxelGrid } from "../../../../src/render/mesher/voxel-grid";
 import { fixture } from "../../app/helpers";
 
@@ -185,6 +189,142 @@ describe("camera", () => {
       y: 4,
       z: 10 + FOLLOW_SLACK.xz,
     });
+  });
+});
+
+/** An empty island grid, the size of the real one. */
+const emptyIsland = (): VoxelGrid => new VoxelGrid(48, 32, 48);
+
+describe("a clear view of a new build (M4-FIX-5)", () => {
+  const WOOD = 3;
+  const FLOWER = 9;
+  const solid = (n: number): boolean => n !== 0 && n !== FLOWER;
+  // A 3×3×3 build in the middle of a 48×32×48 island, the camera looking at its base.
+  const box: CellBox = { min: { x: 23, y: 4, z: 23 }, max: { x: 25, y: 6, z: 25 } };
+  const target = { x: 24, y: 4, z: 24 };
+  const ZOOM = 2;
+  /** A tall wall of `block` in the cells between x0..x1 and z0..z1. */
+  const wall = (
+    g: VoxelGrid,
+    x0: number,
+    x1: number,
+    z0: number,
+    z1: number,
+    block = WOOD,
+  ): void => {
+    for (let y = 0; y < 20; y++)
+      for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) g.set(x, y, z, block);
+  };
+  const blockage = (g: VoxelGrid, q: Quarter): [number, number] => {
+    const [hidden, cells] = viewBlockage(g, box, cameraPose(target, q, ZOOM), solid);
+    return [hidden, cells];
+  };
+  /** A tall wall just outside the build, on the side the camera sits for view `q`. */
+  const wallFacing = (g: VoxelGrid, q: Quarter, block = WOOD): void => {
+    const eye = cameraPoint(cameraPose(target, q, ZOOM));
+    const dx = eye.x - target.x;
+    const dz = eye.z - target.z;
+    if (Math.abs(dz) >= Math.abs(dx)) {
+      const z = dz > 0 ? box.max.z + 2 : box.min.z - 2;
+      wall(
+        g,
+        box.min.x - 1,
+        box.max.x + 1,
+        Math.min(z, z + Math.sign(dz)),
+        Math.max(z, z + Math.sign(dz)),
+        block,
+      );
+    } else {
+      const x = dx > 0 ? box.max.x + 2 : box.min.x - 2;
+      wall(
+        g,
+        Math.min(x, x + Math.sign(dx)),
+        Math.max(x, x + Math.sign(dx)),
+        box.min.z - 1,
+        box.max.z + 1,
+        block,
+      );
+    }
+  };
+
+  it("puts the camera where the render rig does", () => {
+    const eye = cameraPoint({ target, yaw: 0, pitch: Math.PI / 4, distance: 10, fov: 35 });
+    expect(eye.x).toBeCloseTo(24);
+    expect(eye.y).toBeCloseTo(4 + 10 * Math.SQRT1_2);
+    expect(eye.z).toBeCloseTo(24 + 10 * Math.SQRT1_2);
+  });
+
+  it("an open island keeps the view the player chose", () => {
+    const g = emptyIsland();
+    for (const q of [0, 1, 2, 3] as const) {
+      expect(blockage(g, q)).toEqual([0, 0]);
+      expect(clearestView(g, box, target, q, ZOOM, solid)).toBe(q);
+    }
+  });
+
+  it("the build's own blocks never count as in the way", () => {
+    const g = emptyIsland();
+    wall(g, box.min.x, box.max.x, box.min.z, box.max.z);
+    expect(clearestView(g, box, target, 0, ZOOM, solid)).toBe(0);
+  });
+
+  it("a wall between the camera and the build: the nearest clear quarter", () => {
+    const g = emptyIsland();
+    wallFacing(g, 0);
+    expect(blockage(g, 0)[0]).toBeGreaterThan(0);
+    const q = clearestView(g, box, target, 0, ZOOM, solid);
+    expect(q === turn(0, 1) || q === turn(0, -1)).toBe(true);
+    expect(blockage(g, q)).toEqual([0, 0]);
+  });
+
+  it("turns half way round only when both nearer quarters are blocked", () => {
+    const g = emptyIsland();
+    wallFacing(g, 0);
+    wallFacing(g, 1);
+    wallFacing(g, 3);
+    expect(clearestView(g, box, target, 0, ZOOM, solid)).toBe(2);
+  });
+
+  it("blocked all round: the quarter with the least in the way", () => {
+    const g = emptyIsland();
+    for (const q of [0, 1, 3] as const) wallFacing(g, q);
+    // A short wall on the far side: only its top sight lines clear it.
+    for (let y = 0; y < 8; y++) for (let x = 22; x <= 26; x++) g.set(x, y, 21, WOOD);
+    const scores = ([0, 1, 2, 3] as const).map((q) => blockage(g, q));
+    const q = clearestView(g, box, target, 0, ZOOM, solid);
+    for (const s of scores) {
+      const mine = scores[q] ?? [0, 0];
+      expect(mine[0] < s[0] || (mine[0] === s[0] && mine[1] <= s[1])).toBe(true);
+    }
+  });
+
+  it("one leaf in front of a house-sized build is no reason to turn", () => {
+    const g = emptyIsland();
+    // 5×5×5, about a house: 61 cells face the camera.
+    const house: CellBox = { min: { x: 22, y: 4, z: 22 }, max: { x: 26, y: 8, z: 26 } };
+    const pose = cameraPose(target, 0, ZOOM);
+    const eye = cameraPoint(pose);
+    // One block a few cells out in front of the build's top corner nearest the camera.
+    const from = { x: 26.5, y: 8.5, z: 26.5 };
+    const len = Math.hypot(eye.x - from.x, eye.y - from.y, eye.z - from.z);
+    const k = 4 / len;
+    g.set(
+      Math.floor(from.x + (eye.x - from.x) * k),
+      Math.floor(from.y + (eye.y - from.y) * k),
+      Math.floor(from.z + (eye.z - from.z) * k),
+      WOOD,
+    );
+    const [hidden, , faces] = viewBlockage(g, house, pose, solid);
+    expect(faces).toBe(61);
+    expect(hidden).toBeGreaterThan(0);
+    expect(hidden).toBeLessThanOrEqual(faces * VIEW_TOLERANCE);
+    expect(clearestView(g, house, target, 0, ZOOM, solid)).toBe(0);
+  });
+
+  it("flowers don't hide anything", () => {
+    const g = emptyIsland();
+    wallFacing(g, 0, FLOWER);
+    expect(clearestView(g, box, target, 0, ZOOM, solid)).toBe(0);
   });
 });
 
