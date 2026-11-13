@@ -63,7 +63,8 @@ test("every heat step, the letter pairs and big enough key labels at 1280 px", a
     .evaluateAll((els) =>
       [...new Set(els.map((el) => el.getAttribute("data-bin") ?? ""))].toSorted(),
     );
-  expect(bins).toEqual(["0", "1", "2", "3", "4"]);
+  // Every step shows; keys with no presses (digits, say) are "none".
+  expect(bins.filter((b) => b !== "none")).toEqual(["0", "1", "2", "3", "4"]);
   // The keys that stand out, worst first: Z (28 %), ; (24 %), Q (21 %).
   const weak = keys.locator("[data-weak-keys] li");
   await expect(weak.first()).toHaveText("Z: 28% mistakes");

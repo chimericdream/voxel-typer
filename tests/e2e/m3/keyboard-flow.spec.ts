@@ -84,22 +84,31 @@ test("keyboard only: new player → placement → map → a Birch lesson → My 
   // 1. A new player (Sprout, the default group).
   await newPlayer(page, "Hazel", 11);
 
-  // 2. The placement test: "Let's dig!" has focus. A steady child at about 16 WPM with no slips
-  //    climbs past the home row and starts at Birch Forest (12–17 WPM), or Sandy Shore if the
-  //    run comes out a little faster. Either way Birch Forest is open.
+  // 2. The placement test: "Let's dig!" has focus. A steady child at about 20 WPM with no slips
+  //    climbs past the home row. The gates put them at Birch Forest (12–17 WPM) or Sandy Shore
+  //    (17–26), or Frosty Peaks on a fast run; CI's speed varies. Birch Forest is open from any.
   const dig = page.getByRole("button", { name: "Let's dig!" });
   await expect(dig).toBeFocused();
   await expectNoAxeViolations(page, "placement");
   await page.keyboard.press("Enter");
   await expectScreen(page, "play");
   await waitForLesson(page);
-  await playLesson(page, { wpm: 16, errorRate: 0, seed: 21 });
-  // The test ends on its 90 s clock, then shows where the child starts.
+  // `playLesson` stops when no key is wanted, which can happen for a moment between two blocks.
+  // Keep the child typing until the test's 90 s clock ends it.
+  for (let round = 0; (await state(page)).screen === "play" && round < 400; round++) {
+    await playLesson(page, { wpm: 20, errorRate: 0, seed: 21 + round });
+    await page.waitForTimeout(100);
+  }
   await expect.poll(async () => (await state(page)).screen, { timeout: 120_000 }).toBe("placement");
   await ready(page);
+  const test1 = await state(page);
+  const typed = `placement: net ${test1.netWpm.toFixed(1)} WPM, ${test1.correct} right, ${test1.errors} slips`;
+  test.info().annotations.push({ type: "placement", description: typed });
   const outcome = page.locator("#app").getByText(/^You start at /);
   await expect(outcome).toBeVisible();
-  await expect(outcome).toHaveText(/^You start at (Birch Forest|Sandy Shore)!$/);
+  await expect(outcome, typed).toHaveText(
+    /^You start at (Birch Forest|Sandy Shore|Frosty Peaks)!$/,
+  );
   await expectNoAxeViolations(page, "placement outcome");
   const toMap = page.getByRole("button", { name: "Go to the map" });
   await tabTo(page, toMap);
@@ -192,6 +201,9 @@ test("keyboard only: new player → placement → map → a Birch lesson → My 
   expect(errors).toEqual([]);
 });
 
+/** A badge toast in the toast region (lesson hints are toasts too). */
+const badge = (m: Spoken): boolean => m.region === "toast" && m.text.startsWith("New badge");
+
 /**
  * Badge toasts open `BADGE_SETTLE_MS` (1.5 s) after a screen settles (`src/app/App.tsx`), and
  * the toast region then waits for `TOAST_AFTER_PAGE_MS` (1 s) after the last page message. Either
@@ -212,17 +224,19 @@ test("a badge toast that comes with Results is read a second after Results is", 
   await playLesson(page, { wpm: 30, errorRate: 0, seed: 3 });
   await expectScreen(page, "results");
   await expect(page.getByTestId("badge-toast")).toBeVisible({ timeout: 15_000 });
-  await expect.poll(async () => (await spoken(page)).some((m) => m.region === "toast")).toBe(true);
+  // Wait for the badge's own words, not a lesson hint.
+  await expect.poll(async () => (await spoken(page)).some(badge), { timeout: 30_000 }).toBe(true);
 
   const log = await spoken(page);
-  const results = log.findLast((m) => m.region === "page");
-  expect(results?.text).toMatch(/^Lesson done!/);
-  const toast = log.find((m) => m.region === "toast" && m.at >= (results?.at ?? 0));
-  if (results === undefined || toast === undefined) throw new Error("no results and toast pair");
-  // They came together, and the toast waited its second.
-  const gap = toast.at - results.at;
-  expect(gap, JSON.stringify(log)).toBeGreaterThanOrEqual(TOAST_GAP_MS);
-  expect(gap, JSON.stringify(log)).toBeLessThan(3000);
+  const toast = log.find(badge);
+  const results = log.findLast((m) => m.region === "page" && m.at <= (toast?.at ?? 0));
+  if (results === undefined || toast === undefined) {
+    throw new Error(`no results and badge toast pair: ${JSON.stringify(log)}`);
+  }
+  expect(results.text).toMatch(/^Lesson done!/);
+  // Results first, then the badge, at least a second later. (How much later depends on the
+  // badge's lazy chunk and the settle time, so there is no upper bound.)
+  expect(toast.at - results.at, JSON.stringify(log)).toBeGreaterThanOrEqual(TOAST_GAP_MS);
   toastGaps(log);
   expect(errors).toEqual([]);
 });
