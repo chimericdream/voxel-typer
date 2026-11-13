@@ -12,6 +12,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
+import { parseCsv } from "../../src/app/csv";
 import { expectNoAxeViolations, expectScreen } from "./helpers/slice";
 import { collectErrors, ready } from "./helpers/vt";
 
@@ -63,6 +64,16 @@ async function viaSettings(page: Page, look: { scale: number; contrast?: boolean
   await expect(page.locator("[data-gate]")).toHaveCount(0);
 }
 
+/**
+ * A panel taller than the window can't be shot whole inside the page's scroll area, so panel
+ * shots use a tall window of the same width (panels don't depend on the window's height).
+ */
+async function tall(page: Page): Promise<void> {
+  const width = page.viewportSize()?.width ?? 1280;
+  await page.setViewportSize({ width, height: 2000 });
+  await still(page);
+}
+
 async function still(page: Page): Promise<void> {
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
   await page.waitForTimeout(300);
@@ -96,6 +107,7 @@ test.describe("Parent Dashboard", () => {
     await expectNoAxeViolations(page, "parent dashboard");
     await still(page);
     await expect(page).toHaveScreenshot("parent-1280.png", { timeout: 30_000 });
+    await tall(page);
     const panels = page.locator("[data-parent] section");
     for (const [i, name] of ["trend", "minutes", "keys", "pairs", "lessons"].entries()) {
       await expect(panels.nth(i)).toHaveScreenshot(`parent-1280-${name}.png`, { timeout: 30_000 });
@@ -118,14 +130,23 @@ test.describe("Parent Dashboard", () => {
     ]);
     expect(download.suggestedFilename()).toBe("voxel-typer-sessions-captain-quill-2026-12-10.csv");
     const path = await download.path();
-    const csv = (await readFile(path, "utf8")).replace(/^﻿/, "");
-    const lines = csv.trimEnd().split("\r\n");
-    expect(lines[0]).toBe("Player,Date,Time,Activity,Minutes,Speed (WPM),Accuracy (%)");
+    const csv = parseCsv(await readFile(path, "utf8"));
+    expect(csv[0]).toEqual([
+      "Player",
+      "Date",
+      "Time",
+      "Activity",
+      "Minutes",
+      "Speed (WPM)",
+      "Accuracy (%)",
+    ]);
     const rows = await page.locator("[data-sessions] tbody tr").all();
-    const last = lines.slice(-rows.length).toReversed();
+    const last = csv.slice(-rows.length).toReversed();
     for (const [i, row] of rows.entries()) {
       const cells = await row.locator("th, td").allTextContents();
-      const [, , , activity, minutes, wpm, accuracy] = (last[i] ?? "").split(",");
+      const [player, , time, activity, minutes, wpm, accuracy] = last[i] ?? [];
+      expect(player).toBe("Captain Quill");
+      expect(cells[0]).toContain(time);
       expect(cells.slice(1)).toEqual([activity, minutes, wpm, `${accuracy}%`]);
     }
     expect(outside).toEqual([]);
@@ -154,6 +175,7 @@ test.describe("Parent Dashboard at text scale 2", () => {
     await expectNoAxeViolations(page, "parent dashboard, text scale 2");
     await still(page);
     await expect(page).toHaveScreenshot("parent-1024x600-scale2.png", { timeout: 30_000 });
+    await tall(page);
     await expect(page.locator("[data-parent] section").nth(2)).toHaveScreenshot(
       "parent-1024x600-scale2-keys.png",
       { timeout: 30_000 },
@@ -167,7 +189,7 @@ test.describe("Parent Dashboard at text scale 2", () => {
     await viaSettings(page, { scale: 2, contrast: true });
     await expectNoSideScroll(page);
     await expectNoAxeViolations(page, "parent dashboard, strong colors");
-    await still(page);
+    await tall(page);
     for (const [i, name] of ["trend", "minutes", "keys"].entries()) {
       await expect(page.locator("[data-parent] section").nth(i)).toHaveScreenshot(
         `parent-contrast-scale2-${name}.png`,

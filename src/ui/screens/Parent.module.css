@@ -25,6 +25,7 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(26rem * var(--text-scale))), 1fr));
+  align-items: start;
   gap: var(--sp-4);
   box-sizing: border-box;
   width: min(100%, 72rem);

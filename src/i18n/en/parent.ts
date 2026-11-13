@@ -58,11 +58,12 @@ export default {
   },
   keys: {
     title: "Keys to practice",
-    caption: "Recent mistakes for each key, out of every 100 presses. Lighter keys are going well.",
+    caption:
+      "Recent mistakes for each key, out of every 100 presses. The steps above show what each color means.",
     summary: "Keyboard map of recent mistakes. Keys to practice most: {list}.",
-    summaryNone: "Keyboard map of recent mistakes. No key stands out yet.",
+    summaryNone: "Keyboard map of recent mistakes. No key stands out.",
     top: "Keys to practice most",
-    topNone: "No key stands out yet. Nice and even!",
+    topNone: "No key stands out. Mistakes are spread evenly across the keys.",
     item: "{key}: {pct}% mistakes",
     empty: "Keys show up here after a little more practice.",
     tip: "{key}: {pct}% recent mistakes",
@@ -80,7 +81,7 @@ export default {
   pairs: {
     title: "Letter pairs to practice",
     caption: "Two letters typed one after the other, with the most recent mistakes.",
-    empty: "No letter pairs stand out yet.",
+    empty: "No letter pair stands out yet.",
     item: "{pair}: {pct}% mistakes",
     space: "space",
   },

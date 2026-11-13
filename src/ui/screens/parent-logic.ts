@@ -12,6 +12,8 @@
  *   file holds exactly the numbers on screen.
  */
 import { isTestedOut } from "@/app/progress";
+import { median } from "@/engine/stats";
+import { isRemedialId } from "@/engine/remedial";
 import type { CsvCell } from "@/app/csv";
 import type { LayoutDef } from "@/content/layouts/types";
 import type { Lesson } from "@/content/lessons/types";
@@ -36,10 +38,10 @@ export const MIN_BIGRAM_ATTEMPTS = 10;
 /** How many weak keys and letter pairs are listed. */
 export const TOP_WEAK = 5;
 /**
- * Remedial practice lesson ids (M3-06's `REMEDIAL_PREFIX` in `src/engine/remedial.ts`). Kept here
- * until that module lands on main; the two must match.
+ * How far above the player's typical key (the median) a key's recent mistake rate must be to
+ * count as a key to practice. With every key alike, no key stands out and none is listed.
  */
-export const REMEDIAL_PREFIX = "remedial-";
+export const STAND_OUT = 0.02;
 /** Sessions shorter than this have no rates (contracts §3.5), so they stay out of trends. */
 const MIN_RATED_MS = 1000;
 
@@ -81,9 +83,6 @@ export function shortDate(date: string): string {
 // ---------------------------------------------------------------------------------------------
 
 export type ActivityKind = "lesson" | "practice" | "placement" | "daily";
-
-export const isRemedialId = (id: string | undefined): boolean =>
-  id?.startsWith(REMEDIAL_PREFIX) === true;
 
 /** The curriculum lessons by id. Remedial lessons are never curriculum lessons. */
 export function curriculum(lessons: readonly Lesson[]): Map<string, Lesson> {
@@ -307,9 +306,21 @@ export function keyHeat(profile: Profile, layout: LayoutDef): HeatKey[] {
 }
 
 /** The keys to practice: highest recent mistake rate first, at most {@link TOP_WEAK}. */
+/** Rates that stand out: at least {@link STAND_OUT} above the median of all `rates`. */
+function standsOut(rates: readonly number[]): (rate: number) => boolean {
+  const typical = median(rates) ?? 0;
+  return (rate) => rate - typical >= STAND_OUT - 1e-9;
+}
+
+/**
+ * The keys to practice: keys that stand out above the player's typical key, highest recent
+ * mistake rate first, at most {@link TOP_WEAK}.
+ */
 export function weakKeys(heat: readonly HeatKey[]): HeatKey[] {
-  return heat
-    .filter((k): k is HeatKey & { rate: number } => k.rate !== null && roundPct(k.rate) > 0)
+  const known = heat.filter((k): k is HeatKey & { rate: number } => k.rate !== null);
+  const high = standsOut(known.map((k) => k.rate));
+  return known
+    .filter((k) => high(k.rate))
     .toSorted((a, b) => b.rate - a.rate || b.attempts - a.attempts)
     .slice(0, TOP_WEAK);
 }
@@ -320,10 +331,17 @@ export interface WeakPair {
   attempts: number;
 }
 
-/** The letter pairs to practice (Builder band): highest recent mistake rate first. */
+/**
+ * The letter pairs to practice (Builder band): pairs that stand out above the player's typical
+ * pair, highest recent mistake rate first.
+ */
 export function weakBigrams(profile: Profile): WeakPair[] {
-  return Object.entries(profile.bigramStats)
-    .filter(([, s]) => s.attempts >= MIN_BIGRAM_ATTEMPTS && roundPct(s.recentErrRate) > 0)
+  const known = Object.entries(profile.bigramStats).filter(
+    ([, s]) => s.attempts >= MIN_BIGRAM_ATTEMPTS,
+  );
+  const high = standsOut(known.map(([, s]) => s.recentErrRate));
+  return known
+    .filter(([, s]) => high(s.recentErrRate))
     .toSorted(
       ([a, x], [b, y]) =>
         y.recentErrRate - x.recentErrRate || y.attempts - x.attempts || (a < b ? -1 : 1),

@@ -17,7 +17,12 @@ import { niceTicks } from "../../../src/ui/charts/ChartFrame";
 import { KeyHeatmap } from "../../../src/ui/charts/KeyHeatmap";
 import { LineChart } from "../../../src/ui/charts/LineChart";
 import { ParentDashboard } from "../../../src/ui/screens/Parent";
-import { keyHeat, RECENT_SESSIONS } from "../../../src/ui/screens/parent-logic";
+import {
+  keyHeat,
+  RECENT_SESSIONS,
+  weakBigrams,
+  weakKeys,
+} from "../../../src/ui/screens/parent-logic";
 import type { Harness } from "./screens/harness";
 import { buttonByText, fixture, mount, text } from "./screens/harness";
 
@@ -157,6 +162,38 @@ describe("KeyHeatmap", () => {
   });
 });
 
+describe("keys and pairs to practice", () => {
+  it("none stand out when every key is alike (the veteran fixture: all 3%)", () => {
+    expect(weakKeys(keyHeat(fixture("veteran-builder"), EN_US))).toEqual([]);
+  });
+
+  it("lists only keys well above the typical key, highest first", () => {
+    const base = fixture("veteran-builder");
+    const p: Profile = {
+      ...base,
+      keyStats: {
+        ...base.keyStats,
+        q: { ...stat(), attempts: 100, recentErrRate: 0.12 },
+        p: { ...stat(), attempts: 100, recentErrRate: 0.06 },
+        z: { ...stat(), attempts: 100, recentErrRate: 0.045 },
+      },
+    };
+    expect(weakKeys(keyHeat(p, EN_US)).map((k) => k.char)).toEqual(["q", "p"]);
+  });
+
+  it("pairs follow the same rule", () => {
+    const p: Profile = {
+      ...fixture("veteran-builder"),
+      bigramStats: { th: pair(0.02), he: pair(0.02), in: pair(0.02), qu: pair(0.1) },
+    };
+    expect(weakBigrams(p).map((x) => [x.pair, x.ratePct])).toEqual([["qu", 10]]);
+  });
+});
+
+function pair(rate: number) {
+  return { ...stat(), attempts: 40, recentErrRate: rate };
+}
+
 function stat() {
   return {
     attempts: 0,
@@ -194,6 +231,9 @@ describe("Parent Dashboard", () => {
     expect(root.querySelector("[data-empty='trend']")).toBeNull();
     // Builder band: the letter-pair panel is there (the fixture has no pair stats yet).
     expect(root.querySelector("[data-empty='pairs']")).not.toBeNull();
+    // Every key is at 3% in the fixture, so none is singled out.
+    expect(root.querySelector("[data-weak-keys]")).toBeNull();
+    expect(text(root)).toContain(t("parent.keys.topNone"));
     // Every label in the charts and tables went through t(): no raw keys on the page.
     expect(text(root)).not.toMatch(/parent\.[a-z]+\./);
   });
