@@ -435,7 +435,7 @@ the director could use for fast learners (longer words as `d` rises) once real p
 The first real numbers will come from the owner's playtest: the mode sends each wave's feedback
 and the new difficulty on the bus as `defense:waveEnd`.
 
-## Progression study (`tools/sim-progression.ts`, M3-13)
+## Progression study (`tools/sim-progression.ts`, M3-13, rerun in M3-FIX-11)
 
 This study plays synthetic children through the whole shipped curriculum: Meadow, Birch Forest,
 Sandy Shore and Frosty Peaks, 55 lessons. It answers four questions (`PLAN.md` §8 Phase 3, §9.3).
@@ -443,23 +443,32 @@ How many sessions does each biome take? What stars do children get? How often do
 fire, and do they help the weak keys? Does anyone get stuck?
 
 ```sh
-npm run tool -- sim-progression --study --runs 40 --seed 1        # the tables below (about 2 min)
-npm run tool -- sim-progression --runs 40 --camps skip            # one configuration
+npm run tool -- sim-progression --study --runs 40 --seed 1        # the tables below (about 5 min)
+npm run tool -- sim-progression --sweep --runs 40 --seed 1        # the camp-rule sweep (about 4 min)
+npm run tool -- sim-progression --runs 40 --err-scale 0.7         # one configuration
 npm run tool -- sim-progression --trace sprout:slow:0 --max 60    # one learner, session by session
 ```
 
-| Flag       | Default | Meaning                                                                    |
-| ---------- | ------- | -------------------------------------------------------------------------- |
-| `--runs`   | `40`    | Learners per band and pace                                                 |
-| `--seed`   | `1`     | Root seed. Same arguments give byte-identical output                       |
-| `--max`    | `300`   | A learner stops after this many sessions                                   |
-| `--camps`  | `take`  | `take`: play every camp `recommendNext` offers. `skip`: pass every camp by |
-| `--policy` | `game`  | `game`: the shipped recommendation. `mastery-first`: a what-if (below)     |
-| `--study`  | off     | Print the three configurations below: game, camps passed by, mastery-first |
-| `--trace`  | off     | `band:pace:run`: print that learner's sessions                             |
+| Flag             | Default | Meaning                                                                                                                |
+| ---------------- | ------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `--runs`         | `40`    | Learners per band and pace                                                                                             |
+| `--seed`         | `1`     | Root seed. Same arguments give byte-identical output                                                                   |
+| `--max`          | `300`   | A learner stops after this many sessions                                                                               |
+| `--camps`        | `take`  | `take`: play every camp `recommendNext` offers. `skip`: pass every camp by                                             |
+| `--policy`       | `game`  | `game`: as shipped. `alternate`: the same rule, named. `fewest`: the rule before M3-FIX-11. `mastery-first`: a what-if |
+| `--err-scale`    | `1`     | Multiplies every learner's `err0` (slips on a new key)                                                                 |
+| `--lat-scale`    | `1`     | Multiplies every learner's `lat0` (gap on a new key), never below its floor                                            |
+| `--relative`     | `1.5`   | Camp rule: a key must weigh this many times the median allowed key. `0`: no relative check                             |
+| `--every`        | `4`     | Camp rule: at most one offer in this many sessions                                                                     |
+| `--sprout-speed` | `on`    | `off`: leave slowness out of the Sprout camp trigger                                                                   |
+| `--study`        | off     | Print the configurations below (game, before M3-FIX-11, camps passed by) and the sensitivity rows                      |
+| `--sweep`        | off     | Print the camp-rule sweep for slow and average learners                                                                |
+| `--trace`        | off     | `band:pace:run`: print that learner's sessions                                                                         |
 
-`tests/unit/sim/progression.test.ts` runs a few learners (about 2 s) and checks that the output
-is the same for the same seed.
+`tests/unit/sim/progression.test.ts` runs a few learners (a few seconds). It checks that the output
+is the same for the same seed, and it pins the Phase 3 target (`PLAN.md` §8): the median of five
+average Miners finishes biomes 1–4 in 40–90 sessions, so a curriculum change that breaks it fails
+CI.
 
 ### What one session does
 
@@ -469,13 +478,13 @@ Every step except the typing is the game's own code:
    or else the next curriculum lesson. Its unlock rules, the optional "No Peeking!" challenge
    (decision 104) and the remedial rate limit (M3-06) all apply. With `--camps skip` the learner
    plays `nextCurriculumLesson` instead. The offer still counts for the rate limit.
-2. The session is built the way Mine's `plan()` builds it, from `src/modes/mine/logic.ts`:
-   `allowedKeys`, `lengthPlan` (calm mode for Sprouts, as their default settings say),
-   `keyWeights` with `focusKeys`, `poolsFor`, `generateTargets`, `blockTargets`, `policyFor` and
-   `caseSensitiveFor`. `focusKeys` is copied from `mine.ts`, which loads Vite-only modules, and
-   a test checks the copy against the real one for every lesson. The learner types on the real
-   `TypingSession`.
-3. `computeStars` with the band (decision 80) and the profile's own baseline.
+2. The session is built by `planLesson` (`src/modes/mine/logic.ts`), the same function Mine's
+   `plan()` calls (M3-FIX-11), so the two can't drift. It covers `allowedKeys`, `lengthPlan`
+   (calm mode for Sprouts, as their default settings say), `keyWeights` with `focusKeys`,
+   `poolsFor`, `generateTargets`, `blockTargets`, `policyFor` and `caseSensitiveFor`. The learner
+   types on the real `TypingSession`.
+3. `lessonStars` (`src/modes/mine/logic.ts`, also shared with Mine): `computeStars` with the
+   band (decision 80) and the profile's own baseline.
 4. `applyResult` (`src/app/progress.ts`) folds the session into the profile: key and bigram
    stats, history, best stars and unlocks.
 
@@ -490,7 +499,10 @@ Mine sessions of the same words, with Mine's stars. The director and the "send v
 part of `nightStars` are left out. Any play of a Defense night opens the next lesson, so they
 never gate a biome. Boss lessons run as Mine, as they do in the game until M5. The learner
 never quits, never takes a break, never forgets, and always plays the lesson it is
-recommended. The placement test is not used.
+recommended. A real child can pick any open stone on the map. So a "stuck run" stands in for
+the risk that a child gives up; it doesn't describe real behaviour. Because the learner never
+forgets, the main value of spaced, focused practice (holding on to a key) can't show up here.
+The placement test is not used.
 
 ### The learner (`tools/sim/learner.ts`)
 
@@ -532,10 +544,32 @@ These numbers are assumptions. They come from rough figures for 2nd-, 4th- and 7
 about 5–8, 10–15 and 20–30 WPM after some practice, at 85–95 % accuracy. They were set before
 the first run and **not tuned to make the curriculum pass**. Real play data should replace them.
 
-### Results (`--study --runs 40 --seed 1`)
+### Results (`--study --runs 40 --seed 1`, M3-FIX-11)
 
-**The game as shipped** (camps taken). Sessions to finish each biome: median [10th–90th
+"game" is the game as shipped after M3-FIX-11: the alternating mastery retry and the camp rule
+weight ≥ 4 **and** ≥ 1.5 × the median allowed key, at most every 4 sessions. "before" is the game
+as M3-13 measured it: fewest-stars replays, weight ≥ 4 only, every 3. Every finding is given as a
+range over `err0` × 0.5, 0.7 and 1.0 (the sensitivity table), because the slow-learner numbers
+lean on that one guessed parameter. The M3-13 review found the slow Sprout's first home-row
+lessons (56–74 %) below the 85–95 % the learner table cites, so × 1.0 is probably pessimistic and
+× 0.7 is the likelier middle.
+
+**Sessions to finish each biome (game).** Cumulative from the first session: median [10th–90th
 percentile].
+
+| Band    | Learner |     meadow |      birch |      shore |     frosty | Not done |
+| ------- | ------- | ---------: | ---------: | ---------: | ---------: | -------: |
+| sprout  | slow    | 15 [13–20] | 35 [30–40] | 52 [45–61] | 69 [59–77] |       0% |
+| sprout  | avg     | 13 [13–15] | 31 [28–34] | 48 [44–53] | 63 [59–68] |       0% |
+| sprout  | fast    | 13 [13–14] | 29 [28–30] | 43 [42–46] | 56 [55–60] |       0% |
+| miner   | slow    | 13 [13–17] | 30 [29–35] | 46 [43–52] | 60 [56–66] |       0% |
+| miner   | avg     | 13 [13–14] | 30 [28–32] | 47 [44–50] | 62 [57–66] |       0% |
+| miner   | fast    | 13 [13–14] | 28 [28–29] | 42 [42–44] | 55 [54–58] |       0% |
+| builder | slow    | 13 [13–16] | 30 [28–34] | 46 [43–50] | 59 [57–64] |       0% |
+| builder | avg     | 13 [13–14] | 30 [28–31] | 46 [44–48] | 60 [58–63] |       0% |
+| builder | fast    | 13 [13–13] | 28 [28–29] | 42 [42–43] | 54 [54–55] |       0% |
+
+**The same, before M3-FIX-11.**
 
 | Band    | Learner |     meadow |      birch |        shore |        frosty | Not done |
 | ------- | ------- | ---------: | ---------: | -----------: | ------------: | -------: |
@@ -549,143 +583,236 @@ percentile].
 | builder | avg     | 14 [13–16] | 32 [29–34] |   50 [46–53] |    65 [60–68] |       0% |
 | builder | fast    | 13 [13–13] | 28 [28–29] |   42 [42–44] |    54 [54–57] |       0% |
 
-Stars on curriculum plays (camps not included). "Replays" counts plays of a lesson already
-played, other than the mastery lesson. "Mastery plays" counts the plays of each biome's mastery
+**Stars of curriculum plays (game).** All plays, then first plays, and plays of each mastery
 lesson until it gave 2 stars (median).
 
 | Band    | Learner | All: 1★ / 2★ / 3★ | First play: 1★ / 2★ / 3★ | Replays | Longest 1★ run (median / max) | Mastery plays (meadow / birch / shore / frosty) |
 | ------- | ------- | ----------------- | ------------------------ | ------: | ----------------------------- | ----------------------------------------------- |
-| sprout  | slow    | 59% / 26% / 15%   | 67% / 21% / 12%          |      32 | 10 / 20                       | 1.5 / 2 / 2 / 1                                 |
-| sprout  | avg     | 44% / 29% / 27%   | 47% / 28% / 25%          |       8 | 6 / 13                        | 1 / 1 / 1 / 1                                   |
-| sprout  | fast    | 19% / 30% / 51%   | 19% / 30% / 51%          |       0 | 2 / 8                         | 1 / 1 / 1 / 1                                   |
-| miner   | slow    | 45% / 41% / 14%   | 49% / 40% / 11%          |      10 | 6 / 12                        | 1 / 1 / 1 / 1                                   |
-| miner   | avg     | 20% / 48% / 32%   | 20% / 48% / 32%          |       0 | 2 / 7                         | 1 / 1 / 1 / 1                                   |
-| miner   | fast    | 5% / 35% / 60%    | 5% / 35% / 60%           |       0 | 1 / 4                         | 1 / 1 / 1 / 1                                   |
-| builder | slow    | 27% / 53% / 20%   | 28% / 53% / 19%          |       0 | 4 / 9                         | 1 / 1 / 1 / 1                                   |
-| builder | avg     | 6% / 45% / 49%    | 6% / 45% / 49%           |       0 | 1 / 3                         | 1 / 1 / 1 / 1                                   |
-| builder | fast    | 1% / 22% / 78%    | 1% / 22% / 78%           |       0 | 0 / 2                         | 1 / 1 / 1 / 1                                   |
+| sprout  | slow    | 76% / 17% / 7%    | 79% / 16% / 5%           |       4 | 12 / 21                       | 2 / 2 / 2.5 / 1.5                               |
+| sprout  | avg     | 52% / 28% / 20%   | 53% / 28% / 19%          |       0 | 7 / 12                        | 1 / 1 / 1 / 1                                   |
+| sprout  | fast    | 19% / 30% / 50%   | 19% / 30% / 50%          |       0 | 2 / 8                         | 1 / 1 / 1 / 1                                   |
+| miner   | slow    | 58% / 35% / 7%    | 59% / 34% / 7%           |     0.5 | 7 / 19                        | 1 / 2 / 1 / 1                                   |
+| miner   | avg     | 21% / 49% / 30%   | 21% / 49% / 30%          |       0 | 2.5 / 8                       | 1 / 1 / 1 / 1                                   |
+| miner   | fast    | 4% / 36% / 60%    | 4% / 36% / 60%           |       0 | 1 / 4                         | 1 / 1 / 1 / 1                                   |
+| builder | slow    | 34% / 50% / 16%   | 34% / 50% / 16%          |       0 | 4 / 12                        | 1 / 1 / 1 / 1                                   |
+| builder | avg     | 6% / 46% / 48%    | 6% / 46% / 48%           |       0 | 1 / 3                         | 1 / 1 / 1 / 1                                   |
+| builder | fast    | 0% / 22% / 78%    | 0% / 22% / 78%           |       0 | 0 / 2                         | 1 / 1 / 1 / 1                                   |
 
-Remedial camps and stuck runs. "Camp keys among 3 truly weakest" is the share of a camp's focus
-keys that were among the learner's three worst keys by the model's true slip chance. "Before →
-after" is the true slip chance on those keys just before and just after the camp. "Weakest-2 at
-the end" is the mean true slip chance of the learner's two worst known keys after their last
-session.
+**Remedial camps and stuck runs (game).** A stuck run is 5 or more sessions in a row with no new
+lesson or biome opened.
 
 | Band    | Learner | Camps offered (median) | Share of sessions | Camp keys among 3 truly weakest | Slip chance on camp keys: before → after | Learners with a stuck run | Longest run without an unlock (median / max) | Weakest-2 slip chance at the end |
 | ------- | ------- | ---------------------: | ----------------: | ------------------------------: | ---------------------------------------- | ------------------------: | -------------------------------------------- | -------------------------------: |
-| sprout  | slow    |                     42 |               32% |                             34% | 24.2% → 24.0%                            |                       95% | 32 / 52                                      |                            34.6% |
-| sprout  | avg     |                     24 |               27% |                             34% | 20.4% → 20.2%                            |                       73% | 13 / 31                                      |                            30.0% |
-| sprout  | fast    |                    3.5 |                7% |                             41% | 16.4% → 16.0%                            |                        3% | 2 / 6                                        |                            21.5% |
-| miner   | slow    |                     31 |               32% |                             34% | 16.3% → 16.1%                            |                       75% | 16 / 32                                      |                            24.3% |
-| miner   | avg     |                     14 |               20% |                             38% | 12.7% → 12.4%                            |                        8% | 2 / 6                                        |                            17.2% |
-| miner   | fast    |                      2 |                4% |                             49% | 10.4% → 10.1%                            |                        0% | 1 / 2                                        |                            12.0% |
-| builder | slow    |                     26 |               31% |                             31% | 11.7% → 11.5%                            |                       33% | 2 / 16                                       |                            19.5% |
-| builder | avg     |                     11 |               17% |                             41% | 8.7% → 8.5%                              |                        0% | 2 / 2                                        |                            12.4% |
-| builder | fast    |                      0 |                2% |                             59% | 6.1% → 5.8%                              |                        0% | 1 / 2                                        |                             7.5% |
+| sprout  | slow    |                      3 |                5% |                             42% | 32.1% → 31.9%                            |                       65% | 7 / 24                                       |                            40.3% |
+| sprout  | avg     |                      7 |               11% |                             32% | 23.1% → 22.9%                            |                       10% | 2 / 10                                       |                            32.4% |
+| sprout  | fast    |                      2 |                5% |                             33% | 15.6% → 15.2%                            |                        0% | 2 / 2                                        |                            22.2% |
+| miner   | slow    |                      3 |                6% |                             51% | 21.3% → 21.1%                            |                       30% | 2.5 / 9                                      |                            26.9% |
+| miner   | avg     |                      8 |               12% |                             33% | 13.8% → 13.5%                            |                        0% | 2 / 2                                        |                            17.8% |
+| miner   | fast    |                      1 |                3% |                             46% | 9.6% → 9.2%                              |                        0% | 1 / 2                                        |                            12.4% |
+| builder | slow    |                    4.5 |                8% |                             36% | 14.6% → 14.4%                            |                        3% | 2 / 5                                        |                            21.0% |
+| builder | avg     |                      6 |               11% |                             34% | 8.7% → 8.4%                              |                        0% | 2 / 2                                        |                            12.8% |
+| builder | fast    |                      0 |                1% |                             52% | 6.0% → 5.7%                              |                        0% | 1 / 2                                        |                             7.5% |
 
-**Camps passed by** (`--camps skip`):
-
-| Band    | Learner |     meadow |      birch |       shore |       frosty | Not done |
-| ------- | ------- | ---------: | ---------: | ----------: | -----------: | -------: |
-| sprout  | slow    | 32 [13–39] | 56 [43–80] | 88 [71–108] | 102 [82–122] |       0% |
-| sprout  | avg     | 13 [13–24] | 39 [28–46] |  53 [42–66] |   68 [54–77] |       0% |
-| sprout  | fast    | 13 [13–13] | 28 [28–31] |  42 [42–46] |   54 [54–58] |       0% |
-| miner   | slow    | 13 [13–28] | 44 [28–51] |  60 [42–73] |   72 [54–85] |       0% |
-| miner   | avg     | 13 [13–13] | 28 [28–28] |  42 [42–47] |   54 [54–58] |       0% |
-| miner   | fast    | 13 [13–13] | 28 [28–28] |  42 [42–42] |   54 [54–54] |       0% |
-| builder | slow    | 13 [13–22] | 28 [28–40] |  47 [42–56] |   58 [54–68] |       0% |
-| builder | avg     | 13 [13–13] | 28 [28–28] |  42 [42–42] |   54 [54–54] |       0% |
-| builder | fast    | 13 [13–13] | 28 [28–28] |  42 [42–42] |   54 [54–54] |       0% |
-
-| Band    | Learner | Camps offered (median) | Share of sessions | Camp keys among 3 truly weakest | Slip chance on camp keys: before → after | Learners with a stuck run | Longest run without an unlock (median / max) | Weakest-2 slip chance at the end |
-| ------- | ------- | ---------------------: | ----------------: | ------------------------------: | ---------------------------------------- | ------------------------: | -------------------------------------------- | -------------------------------: |
-| sprout  | slow    |                     33 |                 · |                               · | ·                                        |                      100% | 27 / 45                                      |                            34.3% |
-| sprout  | avg     |                     19 |                 · |                               · | ·                                        |                       80% | 10.5 / 22                                    |                            32.1% |
-| sprout  | fast    |                      4 |                 · |                               · | ·                                        |                       10% | 1 / 9                                        |                            22.6% |
-| miner   | slow    |                     23 |                 · |                               · | ·                                        |                       88% | 15 / 21                                      |                            26.3% |
-| miner   | avg     |                     11 |                 · |                               · | ·                                        |                       10% | 1 / 7                                        |                            18.6% |
-| miner   | fast    |                      1 |                 · |                               · | ·                                        |                        0% | 1 / 1                                        |                            12.4% |
-| builder | slow    |                     18 |                 · |                               · | ·                                        |                       50% | 5 / 16                                       |                            20.5% |
-| builder | avg     |                      9 |                 · |                               · | ·                                        |                        0% | 1 / 2                                        |                            13.4% |
-| builder | fast    |                      0 |                 · |                               · | ·                                        |                        0% | 1 / 1                                        |                             7.7% |
-
-**What-if: mastery first** (`--policy mastery-first`, not the game). When the game would send
-the learner back to an old lesson while the biome's mastery lesson has been played with fewer
-than 2 stars, the learner replays the mastery lesson instead.
+**Camps passed by** (`--camps skip`, otherwise the game): sessions to finish each biome, and the
+camp and stuck-run table.
 
 | Band    | Learner |     meadow |      birch |      shore |     frosty | Not done |
 | ------- | ------- | ---------: | ---------: | ---------: | ---------: | -------: |
-| sprout  | slow    | 18 [17–23] | 45 [41–50] | 68 [63–74] | 87 [83–93] |       0% |
-| sprout  | avg     | 16 [14–20] | 38 [33–42] | 59 [53–63] | 77 [71–81] |       0% |
-| sprout  | fast    | 13 [13–14] | 29 [28–32] | 44 [42–48] | 58 [55–63] |       0% |
-| miner   | slow    | 18 [17–23] | 42 [41–47] | 65 [62–69] | 83 [80–86] |       0% |
-| miner   | avg     | 14 [13–16] | 33 [31–36] | 51 [48–56] | 68 [65–72] |       0% |
-| miner   | fast    | 13 [13–13] | 28 [28–29] | 43 [42–44] | 56 [54–58] |       0% |
-| builder | slow    | 17 [15–18] | 39 [38–44] | 62 [59–65] | 80 [77–81] |       0% |
-| builder | avg     | 14 [13–16] | 32 [29–34] | 50 [46–53] | 65 [60–68] |       0% |
-| builder | fast    | 13 [13–13] | 28 [28–29] | 42 [42–44] | 54 [54–57] |       0% |
-
-| Band    | Learner | All: 1★ / 2★ / 3★ | First play: 1★ / 2★ / 3★ | Replays | Longest 1★ run (median / max) | Mastery plays (meadow / birch / shore / frosty) |
-| ------- | ------- | ----------------- | ------------------------ | ------: | ----------------------------- | ----------------------------------------------- |
-| sprout  | slow    | 75% / 17% / 8%    | 77% / 16% / 7%           |       0 | 11 / 19                       | 1.5 / 3 / 2 / 1.5                               |
-| sprout  | avg     | 47% / 30% / 23%   | 48% / 29% / 23%          |       0 | 6 / 13                        | 1 / 1 / 1 / 1                                   |
-| sprout  | fast    | 19% / 31% / 51%   | 19% / 31% / 51%          |       0 | 2 / 8                         | 1 / 1 / 1 / 1                                   |
-| miner   | slow    | 53% / 37% / 10%   | 54% / 36% / 10%          |       0 | 6.5 / 12                      | 1 / 1 / 1 / 1                                   |
-| miner   | avg     | 20% / 48% / 32%   | 20% / 48% / 32%          |       0 | 2 / 7                         | 1 / 1 / 1 / 1                                   |
-| miner   | fast    | 5% / 35% / 60%    | 5% / 35% / 60%           |       0 | 1 / 4                         | 1 / 1 / 1 / 1                                   |
-| builder | slow    | 28% / 53% / 19%   | 28% / 53% / 19%          |       0 | 4 / 9                         | 1 / 1 / 1 / 1                                   |
-| builder | avg     | 6% / 45% / 49%    | 6% / 45% / 49%           |       0 | 1 / 3                         | 1 / 1 / 1 / 1                                   |
-| builder | fast    | 1% / 22% / 78%    | 1% / 22% / 78%           |       0 | 0 / 2                         | 1 / 1 / 1 / 1                                   |
+| sprout  | slow    | 15 [13–19] | 33 [29–41] | 51 [45–64] | 64 [58–78] |       0% |
+| sprout  | avg     | 13 [13–15] | 30 [28–33] | 45 [42–48] | 56 [54–61] |       0% |
+| sprout  | fast    | 13 [13–13] | 28 [28–30] | 42 [42–43] | 54 [54–56] |       0% |
+| miner   | slow    | 13 [13–15] | 30 [28–36] | 45 [42–52] | 57 [54–64] |       0% |
+| miner   | avg     | 13 [13–13] | 28 [28–28] | 42 [42–43] | 54 [54–55] |       0% |
+| miner   | fast    | 13 [13–13] | 28 [28–28] | 42 [42–42] | 54 [54–54] |       0% |
+| builder | slow    | 13 [13–15] | 28 [28–31] | 43 [42–45] | 55 [54–57] |       0% |
+| builder | avg     | 13 [13–13] | 28 [28–28] | 42 [42–42] | 54 [54–54] |       0% |
+| builder | fast    | 13 [13–13] | 28 [28–28] | 42 [42–42] | 54 [54–54] |       0% |
 
 | Band    | Learner | Camps offered (median) | Share of sessions | Camp keys among 3 truly weakest | Slip chance on camp keys: before → after | Learners with a stuck run | Longest run without an unlock (median / max) | Weakest-2 slip chance at the end |
 | ------- | ------- | ---------------------: | ----------------: | ------------------------------: | ---------------------------------------- | ------------------------: | -------------------------------------------- | -------------------------------: |
-| sprout  | slow    |                     28 |               32% |                             26% | 25.3% → 25.1%                            |                       65% | 5 / 14                                       |                            39.2% |
-| sprout  | avg     |                     23 |               28% |                             30% | 20.6% → 20.3%                            |                        5% | 2 / 5                                        |                            31.6% |
-| sprout  | fast    |                      4 |                8% |                             39% | 16.3% → 15.9%                            |                        0% | 2 / 2                                        |                            21.5% |
-| miner   | slow    |                     26 |               32% |                             30% | 16.6% → 16.4%                            |                       15% | 2 / 9                                        |                            25.7% |
-| miner   | avg     |                     14 |               21% |                             38% | 12.6% → 12.3%                            |                        0% | 2 / 2                                        |                            17.1% |
-| miner   | fast    |                      2 |                4% |                             49% | 10.4% → 10.1%                            |                        0% | 1 / 2                                        |                            12.0% |
-| builder | slow    |                     25 |               31% |                             31% | 11.8% → 11.6%                            |                        3% | 2 / 5                                        |                            19.7% |
-| builder | avg     |                     11 |               17% |                             41% | 8.7% → 8.5%                              |                        0% | 2 / 2                                        |                            12.4% |
-| builder | fast    |                      0 |                2% |                             59% | 6.1% → 5.8%                              |                        0% | 1 / 2                                        |                             7.5% |
+| sprout  | slow    |                      3 |                 · |                               · | ·                                        |                       73% | 5 / 17                                       |                            40.7% |
+| sprout  | avg     |                      6 |                 · |                               · | ·                                        |                       13% | 1 / 7                                        |                            34.2% |
+| sprout  | fast    |                      3 |                 · |                               · | ·                                        |                        0% | 1 / 3                                        |                            22.6% |
+| miner   | slow    |                      3 |                 · |                               · | ·                                        |                       35% | 3 / 7                                        |                            27.5% |
+| miner   | avg     |                      6 |                 · |                               · | ·                                        |                        0% | 1 / 3                                        |                            18.8% |
+| miner   | fast    |                      1 |                 · |                               · | ·                                        |                        0% | 1 / 1                                        |                            12.4% |
+| builder | slow    |                      5 |                 · |                               · | ·                                        |                        3% | 1 / 7                                        |                            21.2% |
+| builder | avg     |                      6 |                 · |                               · | ·                                        |                        0% | 1 / 1                                        |                            13.4% |
+| builder | fast    |                      0 |                 · |                               · | ·                                        |                        0% | 1 / 1                                        |                             7.7% |
+
+**Sensitivity.** Every learner's `err0` scaled. A row per band, pace, scale and rules.
+
+| Band    | Learner | err0 × | Rules  | Learners with a stuck run | 1★ share | Longest 1★ run (median) | Longest run without an unlock (median) | Camp share | meadow done (median) | frosty done (median) |
+| ------- | ------- | -----: | ------ | ------------------------: | -------: | ----------------------: | -------------------------------------: | ---------: | -------------------: | -------------------: |
+| sprout  | slow    |    0.5 | game   |                        0% |      21% |                       2 |                                      2 |         5% |                   13 |                   58 |
+| sprout  | slow    |    0.5 | before |                       20% |      18% |                       2 |                                      2 |        29% |                   17 |                   77 |
+| sprout  | slow    |    0.7 | game   |                        8% |      49% |                       5 |                                      2 |         5% |                   13 |                   59 |
+| sprout  | slow    |    0.7 | before |                       68% |      40% |                       5 |                                   11.5 |        31% |                   17 |                   89 |
+| sprout  | slow    |      1 | game   |                       65% |      76% |                      12 |                                      7 |         5% |                   15 |                   69 |
+| sprout  | slow    |      1 | before |                       95% |      59% |                      10 |                                     32 |        32% |                   18 |                  131 |
+| sprout  | avg     |    0.5 | game   |                        0% |       8% |                       1 |                                      2 |         9% |                   13 |                   59 |
+| sprout  | avg     |    0.5 | before |                        0% |       8% |                       1 |                                      2 |        12% |                   13 |                   60 |
+| sprout  | avg     |    0.7 | game   |                        0% |      23% |                       3 |                                      2 |        11% |                   13 |                   61 |
+| sprout  | avg     |    0.7 | before |                       18% |      21% |                       2 |                                      2 |        21% |                   14 |                   69 |
+| sprout  | avg     |      1 | game   |                       10% |      52% |                       7 |                                      2 |        11% |                   13 |                   63 |
+| sprout  | avg     |      1 | before |                       73% |      44% |                       6 |                                     13 |        27% |                   16 |                   86 |
+| sprout  | fast    |    0.5 | game   |                        0% |       1% |                       1 |                                      1 |         1% |                   13 |                   54 |
+| sprout  | fast    |    0.5 | before |                        0% |       1% |                       1 |                                      1 |         1% |                   13 |                   54 |
+| sprout  | fast    |    0.7 | game   |                        0% |       6% |                       1 |                                      1 |         2% |                   13 |                   55 |
+| sprout  | fast    |    0.7 | before |                        0% |       6% |                       1 |                                      1 |         3% |                   13 |                   55 |
+| sprout  | fast    |      1 | game   |                        0% |      19% |                       2 |                                      2 |         5% |                   13 |                   56 |
+| sprout  | fast    |      1 | before |                        3% |      19% |                       2 |                                      2 |         7% |                   13 |                   58 |
+| miner   | slow    |    0.5 | game   |                        0% |       9% |                       1 |                                      2 |         6% |                   13 |                   57 |
+| miner   | slow    |    0.5 | before |                        0% |       7% |                       1 |                                      2 |        27% |                   15 |                   74 |
+| miner   | slow    |    0.7 | game   |                        0% |      28% |                       3 |                                      2 |         6% |                   13 |                   58 |
+| miner   | slow    |    0.7 | before |                       28% |      24% |                       3 |                                      2 |        30% |                   17 |                   78 |
+| miner   | slow    |      1 | game   |                       30% |      58% |                       7 |                                    2.5 |         6% |                   13 |                   60 |
+| miner   | slow    |      1 | before |                       75% |      45% |                       6 |                                     16 |        32% |                   18 |                   96 |
+| miner   | avg     |    0.5 | game   |                        0% |       1% |                       0 |                                      2 |         5% |                   13 |                   56 |
+| miner   | avg     |    0.5 | before |                        0% |       1% |                       1 |                                      2 |         8% |                   13 |                   59 |
+| miner   | avg     |    0.7 | game   |                        0% |       6% |                       1 |                                      2 |         9% |                   13 |                   59 |
+| miner   | avg     |    0.7 | before |                        0% |       7% |                       1 |                                      2 |        12% |                   14 |                   61 |
+| miner   | avg     |      1 | game   |                        0% |      21% |                     2.5 |                                      2 |        12% |                   13 |                   62 |
+| miner   | avg     |      1 | before |                        8% |      20% |                       2 |                                      2 |        20% |                   14 |                   68 |
+| miner   | fast    |    0.5 | game   |                        0% |       0% |                       0 |                                      1 |         0% |                   13 |                   54 |
+| miner   | fast    |    0.5 | before |                        0% |       0% |                       0 |                                      1 |         0% |                   13 |                   54 |
+| miner   | fast    |    0.7 | game   |                        0% |       1% |                       0 |                                      1 |         1% |                   13 |                   54 |
+| miner   | fast    |    0.7 | before |                        0% |       1% |                       0 |                                      1 |         1% |                   13 |                   54 |
+| miner   | fast    |      1 | game   |                        0% |       4% |                       1 |                                      1 |         3% |                   13 |                   55 |
+| miner   | fast    |      1 | before |                        0% |       5% |                       1 |                                      1 |         4% |                   13 |                   56 |
+| builder | slow    |    0.5 | game   |                        0% |       3% |                       1 |                                      1 |         4% |                   13 |                   56 |
+| builder | slow    |    0.5 | before |                        0% |       2% |                       1 |                                      2 |        23% |                   15 |                   71 |
+| builder | slow    |    0.7 | game   |                        0% |      12% |                       2 |                                      2 |         6% |                   13 |                   57 |
+| builder | slow    |    0.7 | before |                        3% |       9% |                       2 |                                      2 |        28% |                   17 |                   77 |
+| builder | slow    |      1 | game   |                        3% |      34% |                       4 |                                      2 |         8% |                   13 |                   59 |
+| builder | slow    |      1 | before |                       33% |      27% |                       4 |                                      2 |        31% |                   17 |                   80 |
+| builder | avg     |    0.5 | game   |                        0% |       0% |                       0 |                                      1 |         4% |                   13 |                   56 |
+| builder | avg     |    0.5 | before |                        0% |       0% |                       0 |                                      2 |         6% |                   13 |                   57 |
+| builder | avg     |    0.7 | game   |                        0% |       2% |                       1 |                                      2 |         7% |                   13 |                   58 |
+| builder | avg     |    0.7 | before |                        0% |       1% |                     0.5 |                                      2 |        10% |                   13 |                   60 |
+| builder | avg     |      1 | game   |                        0% |       6% |                       1 |                                      2 |        11% |                   13 |                   60 |
+| builder | avg     |      1 | before |                        0% |       6% |                       1 |                                      2 |        17% |                   14 |                   65 |
+| builder | fast    |    0.5 | game   |                        0% |       0% |                       0 |                                      1 |         0% |                   13 |                   54 |
+| builder | fast    |    0.5 | before |                        0% |       0% |                       0 |                                      1 |         0% |                   13 |                   54 |
+| builder | fast    |    0.7 | game   |                        0% |       0% |                       0 |                                      1 |         0% |                   13 |                   54 |
+| builder | fast    |    0.7 | before |                        0% |       0% |                       0 |                                      1 |         0% |                   13 |                   54 |
+| builder | fast    |      1 | game   |                        0% |       0% |                       0 |                                      1 |         1% |                   13 |                   54 |
+| builder | fast    |      1 | before |                        0% |       1% |                       0 |                                      1 |         2% |                   13 |                   54 |
+
+### Camp-rule sweep (`--sweep --runs 40 --seed 1`)
+
+Slow and average learners under the alternating mastery retry. The first rule is the one before
+M3-FIX-11. "No speed" leaves slowness out of the Sprout trigger (the other bands keep it, so only
+Sprout rows are shown for it).
+
+| Camp rule                | Band    | Learner | Camps offered (median) | Camp keys among 3 truly weakest | Weakest-2 slip chance at the end | Learners with a stuck run | 1★ share | Longest 1★ run (median) | Longest run without an unlock (median) | Camp share | meadow done (median) | frosty done (median) |
+| ------------------------ | ------- | ------- | ---------------------: | ------------------------------: | -------------------------------: | ------------------------: | -------: | ----------------------: | -------------------------------------: | ---------: | -------------------: | -------------------: |
+| no relative, every 3     | sprout  | slow    |                     29 |                             26% |                            38.6% |                       90% |      74% |                      11 |                                      8 |        32% |                   18 |                   92 |
+| no relative, every 3     | sprout  | avg     |                     23 |                             31% |                            31.4% |                       20% |      47% |                       6 |                                      2 |        28% |                   16 |                   78 |
+| no relative, every 3     | miner   | slow    |                   26.5 |                             30% |                            25.9% |                       38% |      52% |                     6.5 |                                      2 |        32% |                   18 |                   83 |
+| no relative, every 3     | miner   | avg     |                     14 |                             38% |                            17.1% |                        0% |      20% |                       2 |                                      2 |        21% |                   14 |                   68 |
+| no relative, every 3     | builder | slow    |                     25 |                             31% |                            19.7% |                       10% |      28% |                       4 |                                      2 |        31% |                   17 |                   80 |
+| no relative, every 3     | builder | avg     |                     11 |                             41% |                            12.4% |                        0% |       6% |                       1 |                                      2 |        17% |                   14 |                   65 |
+| ×1.25, every 3           | sprout  | slow    |                     22 |                             29% |                            38.6% |                       88% |      74% |                      11 |                                      8 |        26% |                   17 |                   84 |
+| ×1.25, every 3           | sprout  | avg     |                     20 |                             29% |                            31.2% |                       23% |      49% |                       6 |                                      2 |        26% |                   15 |                   75 |
+| ×1.25, every 3           | miner   | slow    |                     20 |                             35% |                            25.7% |                       38% |      54% |                       7 |                                      2 |        26% |                   15 |                   75 |
+| ×1.25, every 3           | miner   | avg     |                     14 |                             40% |                            17.1% |                        0% |      20% |                       2 |                                      2 |        21% |                   14 |                   68 |
+| ×1.25, every 3           | builder | slow    |                     20 |                             31% |                            19.7% |                       15% |      32% |                       4 |                                      2 |        27% |                   15 |                   75 |
+| ×1.25, every 3           | builder | avg     |                     11 |                             39% |                            12.4% |                        0% |       6% |                       1 |                                      2 |        17% |                   14 |                   65 |
+| ×1.5, every 3            | sprout  | slow    |                    5.5 |                             37% |                            40.2% |                       70% |      76% |                      13 |                                      5 |         9% |                   15 |                   68 |
+| ×1.5, every 3            | sprout  | avg     |                   10.5 |                             36% |                            31.9% |                       15% |      51% |                       7 |                                      2 |        16% |                   14 |                   65 |
+| ×1.5, every 3            | miner   | slow    |                    5.5 |                             47% |                            27.1% |                       25% |      59% |                       8 |                                      2 |         9% |                   13 |                   62 |
+| ×1.5, every 3            | miner   | avg     |                     11 |                             36% |                            17.4% |                        0% |      21% |                       2 |                                      2 |        17% |                   13 |                   65 |
+| ×1.5, every 3            | builder | slow    |                      7 |                             39% |                            20.5% |                        5% |      33% |                     4.5 |                                      2 |        12% |                   13 |                   62 |
+| ×1.5, every 3            | builder | avg     |                      9 |                             35% |                            12.5% |                        0% |       5% |                       1 |                                      2 |        14% |                   13 |                   63 |
+| ×2, every 3              | sprout  | slow    |                      0 |                               · |                            40.7% |                       73% |      77% |                      12 |                                      5 |         0% |                   15 |                   64 |
+| ×2, every 3              | sprout  | avg     |                      0 |                             67% |                            34.2% |                       10% |      54% |                       6 |                                      2 |         1% |                   13 |                   57 |
+| ×2, every 3              | miner   | slow    |                      0 |                            100% |                            27.5% |                       35% |      58% |                     7.5 |                                      3 |         0% |                   13 |                   57 |
+| ×2, every 3              | miner   | avg     |                      0 |                             59% |                            18.6% |                        0% |      22% |                       2 |                                      1 |         2% |                   13 |                   55 |
+| ×2, every 3              | builder | slow    |                      0 |                             73% |                            21.1% |                        3% |      34% |                       5 |                                      1 |         0% |                   13 |                   55 |
+| ×2, every 3              | builder | avg     |                      2 |                             48% |                            13.1% |                        0% |       6% |                       1 |                                      1 |         4% |                   13 |                   56 |
+| ×1.25, every 4           | sprout  | slow    |                     15 |                             26% |                            39.6% |                       70% |      75% |                      12 |                                      7 |        19% |                   16 |                   78 |
+| ×1.25, every 4           | sprout  | avg     |                     13 |                             26% |                            32.1% |                        8% |      50% |                       6 |                                      2 |        19% |                   15 |                   68 |
+| ×1.25, every 4           | miner   | slow    |                     13 |                             34% |                            26.4% |                       25% |      56% |                     6.5 |                                      2 |        19% |                   15 |                   70 |
+| ×1.25, every 4           | miner   | avg     |                    9.5 |                             35% |                            17.6% |                        0% |      20% |                       2 |                                      2 |        15% |                   14 |                   64 |
+| ×1.25, every 4           | builder | slow    |                     14 |                             27% |                            20.1% |                        3% |      33% |                       4 |                                      2 |        20% |                   15 |                   68 |
+| ×1.25, every 4           | builder | avg     |                      8 |                             33% |                            12.6% |                        0% |       6% |                       1 |                                      2 |        12% |                   14 |                   62 |
+| ×1.5, every 4            | sprout  | slow    |                      3 |                             42% |                            40.3% |                       65% |      76% |                      12 |                                      7 |         5% |                   15 |                   69 |
+| ×1.5, every 4            | sprout  | avg     |                      7 |                             32% |                            32.4% |                       10% |      52% |                       7 |                                      2 |        11% |                   13 |                   63 |
+| ×1.5, every 4            | miner   | slow    |                      3 |                             51% |                            26.9% |                       30% |      58% |                       7 |                                    2.5 |         6% |                   13 |                   60 |
+| ×1.5, every 4            | miner   | avg     |                      8 |                             33% |                            17.8% |                        0% |      21% |                     2.5 |                                      2 |        12% |                   13 |                   62 |
+| ×1.5, every 4            | builder | slow    |                    4.5 |                             36% |                            21.0% |                        3% |      34% |                       4 |                                      2 |         8% |                   13 |                   59 |
+| ×1.5, every 4            | builder | avg     |                      6 |                             34% |                            12.8% |                        0% |       6% |                       1 |                                      2 |        11% |                   13 |                   60 |
+| ×2, every 4              | sprout  | slow    |                      0 |                               · |                            40.7% |                       73% |      77% |                      12 |                                      5 |         0% |                   15 |                   64 |
+| ×2, every 4              | sprout  | avg     |                      0 |                             67% |                            34.1% |                       10% |      54% |                       6 |                                      1 |         1% |                   13 |                   57 |
+| ×2, every 4              | miner   | slow    |                      0 |                            100% |                            27.6% |                       35% |      58% |                     7.5 |                                      3 |         0% |                   13 |                   57 |
+| ×2, every 4              | miner   | avg     |                      0 |                             45% |                            18.7% |                        0% |      22% |                       2 |                                      1 |         2% |                   13 |                   55 |
+| ×2, every 4              | builder | slow    |                      0 |                             73% |                            21.0% |                        3% |      33% |                     4.5 |                                      1 |         0% |                   13 |                   55 |
+| ×2, every 4              | builder | avg     |                      1 |                             49% |                            13.2% |                        0% |       6% |                       1 |                                      1 |         2% |                   13 |                   55 |
+| ×1.25, every 3, no speed | sprout  | slow    |                      7 |                             38% |                            39.6% |                       70% |      76% |                      12 |                                    6.5 |        11% |                   15 |                   69 |
+| ×1.25, every 3, no speed | sprout  | avg     |                      2 |                             42% |                            33.5% |                       10% |      53% |                       6 |                                    1.5 |         3% |                   13 |                   58 |
+| ×1.5, every 3, no speed  | sprout  | slow    |                      6 |                             36% |                            39.9% |                       73% |      75% |                      12 |                                      6 |        10% |                   15 |                   70 |
+| ×1.5, every 3, no speed  | sprout  | avg     |                      2 |                             40% |                            33.5% |                       10% |      54% |                       6 |                                      1 |         3% |                   13 |                   58 |
+| ×2, every 3, no speed    | sprout  | slow    |                      0 |                             56% |                            40.4% |                       70% |      77% |                      12 |                                      5 |         1% |                   15 |                   64 |
+| ×2, every 3, no speed    | sprout  | avg     |                      0 |                             45% |                            33.8% |                       10% |      54% |                       6 |                                    1.5 |         1% |                   13 |                   57 |
+| ×1.25, every 4, no speed | sprout  | slow    |                      6 |                             43% |                            39.7% |                       83% |      76% |                      12 |                                    7.5 |         8% |                   15 |                   72 |
+| ×1.25, every 4, no speed | sprout  | avg     |                      1 |                             51% |                            33.0% |                       13% |      53% |                       6 |                                    2.5 |         2% |                   13 |                   58 |
+| ×1.5, every 4, no speed  | sprout  | slow    |                    5.5 |                             35% |                            39.6% |                       80% |      76% |                      12 |                                      7 |         8% |                   15 |                   71 |
+| ×1.5, every 4, no speed  | sprout  | avg     |                      1 |                             51% |                            33.0% |                       13% |      53% |                       6 |                                    2.5 |         2% |                   13 |                   58 |
+| ×2, every 4, no speed    | sprout  | slow    |                      0 |                             54% |                            40.7% |                       70% |      77% |                    12.5 |                                      5 |         0% |                   15 |                   64 |
+| ×2, every 4, no speed    | sprout  | avg     |                      0 |                             50% |                            33.9% |                       10% |      53% |                       6 |                                      1 |         1% |                   13 |                   57 |
 
 ### Findings
 
-1. **The plausibility targets hold.** A median average Miner finishes the Meadow in 14 sessions
-   (target 8–20) and biomes 1–4 in 68 (target 40–90). Fast learners of every band need 54–58,
-   close to the fastest possible path of 54. Average Builders take 65, slow Builders 80 and slow
-   Miners 96.
-2. **A failed mastery check sends a child back to the start of the biome.** By the time the
-   mastery lesson is played with fewer than 2 stars and the boss is done, every lesson in the
-   biome has been played. `nextCurriculumLesson` then picks the open lesson with the fewest
-   stars, and the first one in curriculum order wins ties. So the child replays lesson 01, then
-   02, then 03, each until it gets past 1★, and only then does the mastery lesson come back. In
-   the trace of `sprout:slow:0` the Meadow mastery check gives 1★ at session 18. Then come 31
-   sessions of old Meadow lessons and camps (21 replays, 11 of them 1★, and 10 camps), until
-   meadow-13 gives 3★ at session 52. This is the main cause of stuck runs. 95 % of slow Sprouts,
-   73 % of average Sprouts and 75 % of slow Miners have one, and the longest lasts a median of
-   32, 13 and 16 sessions. Under mastery-first those shares fall to 65 %, 5 % and 15 %, and the
-   median longest run to 5, 2 and 2. Slow Sprouts then finish biomes 1–4 in 87 sessions instead
-   of 131, and slow Miners in 83 instead of 96. Faster learners don't change, because they pass
-   every mastery check the first time.
-3. **Remedial camps fire often and help little.** For slow learners every free slot fires:
-   31–32 % of all sessions are camps, the most the rate limit allows (1 in 3). For average
-   learners the share is 17–27 %. A camp is one 60-second session, so the true slip chance on its
-   keys drops by only 0.2–0.4 points, about what any session gives those keys. Only 31–49 % of
-   camp keys are among the learner's three truly weakest; chance would be about 12–30 %, with
-   10–26 keys allowed. Passing every camp by leaves the two weakest keys 0–2 points worse at the
-   end, and biomes 1–4 take about 14 fewer sessions (average Miner 54 against 68). Part of that
-   gap is just the extra practice the camps add. The weights find a weak key only roughly: with
-   α = 0.1, `recentErrRate` forgets fast, as M1-07 found. Camps do have a good side: in the
-   traces a camp is often the session where a struggling child gets 3★.
-4. **Slow Sprouts see a lot of 1★.** 59 % of their curriculum plays and 67 % of their first
-   plays get 1★, with a median longest run of 10 in a row (the worst: 20). For average Sprouts
-   the figures are 44 % and 6. This learner types new keys at 60–80 % accuracy, and Sprout's
-   second star needs 85 %. Stars are accuracy-only in these biomes for Sprouts, so shorter
-   lessons won't change them. Only the bar, or an easier first meeting with a key, would. No
-   other band shows this: average Miners get 1★ on 20 % of plays, and 2★ is their most common
-   result.
-5. **No dead ends.** Every learner in every configuration finishes Frosty Peaks within 300
+Ranges are over `err0` × 0.5–1.0, with × 1.0 last.
+
+1. **The plausibility targets hold.** The median average Miner finishes the Meadow in 13
+   sessions (target 8–20) and biomes 1–4 in 56–62 (target 40–90; 59–68 before). A test pins
+   this. Every band's fast learners need 54–56, against the fastest possible path of 54.
+   Slow learners gain the most from the fixes: biomes 1–4 take slow Sprouts 58–69 sessions
+   (77–131 before), slow Miners 57–60 (74–96) and slow Builders 56–59 (71–80).
+2. **Alternating mastery retries end the long detours, mostly.** Before, a failed mastery check
+   sent the child back to lesson 01 (a tie on stars goes to the first lesson), and every 1★
+   lesson came before the check came round again. That made long runs with nothing new: the
+   median longest run without an unlock for slow Sprouts was 2–32 sessions, now 2–7. Learners
+   with a stuck run (5 or more sessions):
+   - slow Sprouts 20–95 % before, **0–65 % now**;
+   - average Sprouts 0–73 % before, 0–10 % now;
+   - slow Miners 0–75 % before, 0–30 % now.
+
+   At × 1.0 a slow Sprout still fails the 85 % mastery bar two or three times in a row. With one
+   replay between attempts, three fails already make a 5-session run. That is the Sprout
+   second-star bar (finding 4), not the replay rule.
+
+3. **The new camp rule brings camps down to a side stop.** Before, slow learners got a camp in
+   every free slot: 23–32 % of their sessions, the rate limit's cap. A slow child is slow on
+   every key, and the absolute bar alone flagged all of them. Now slow learners' camp share is
+   4–8 %, and average learners’ 4–12 %. Slow Sprouts finish the Meadow in 13–15 sessions (17–18
+   before). Camp keys are more often among the learner's three truly weakest keys: 36–51 %,
+   against 31–34 % before (× 1.0). The sweep (above) shows why 1.5 and 4:
+   - × 1.25 keeps slow learners' share at 19–27 %, near or over the 20 % aim;
+   - × 2 switches camps off almost completely (0–4 %), so a child with one really weak key
+     would never be offered practice;
+   - every 3 against every 4 matters less than the multiplier;
+   - leaving speed out of the Sprout trigger gives slow Sprouts about the same share (8–11 %),
+     cuts average Sprouts' camps to 2–3 % and doesn’t lower stuck runs (70–83 % against 65–88 %).
+     So speed stays in for every band.
+4. **Slow Sprouts still see a lot of 1★.** 21–76 % of their curriculum plays get 1★ (18–59 %
+   before), with a median longest 1★ run of 2–12 in a row (2–10 before). The share went up at
+   × 1.0 because they now move on sooner: fewer old-lesson replays and fewer camps come between
+   new lessons, so more plays are first plays, and 79 % of those are 1★. At × 0.7 and × 0.5 the
+   longest run is the same as before (5 and 2). This learner types new keys at 60–80 % accuracy,
+   and Sprout's second star needs 85 %. Only the bar or an easier first meeting with a key would
+   change it. Lowering the second star to 80 % is an open owner decision (decision 80).
+5. **What camps do can't be measured here.** Camps fire at the cap for slow learners under the
+   old rule and are rare under the new one. Passing them all by changes little in this model:
+   biomes 1–4 take slow Sprouts 64 sessions instead of 69, and the two weakest keys end 0–2
+   points worse. But the learner never forgets, so the main value of spaced, focused practice,
+   which is holding on to a key, can't show up. The "truly weakest" ranking uses slip chance only,
+   while the game's weight also counts slowness, so that metric understates the game's choice.
+   Treat camp effects as unmeasured, not as small.
+6. **No dead ends.** Every learner in every configuration finishes Frosty Peaks within 300
    sessions. Nothing ever re-locks, and stars never fall.
 
-The handoff note (`docs/handoffs/M3-13.md`) has the proposed changes. None of them is applied.
+The M3-13 handoff note (`docs/handoffs/M3-13.md`) has the original proposals, and
+`docs/handoffs/M3-FIX-11.md` what was applied.
