@@ -176,8 +176,6 @@ export function renderModelPixels(
     type: THREE.UnsignedByteType,
     format: THREE.RGBAFormat,
   });
-  const { scene, camera, dispose } = snapshotScene(model, opts);
-
   const before = {
     target: renderer.getRenderTarget(),
     color: renderer.getClearColor(new THREE.Color()),
@@ -185,7 +183,12 @@ export function renderModelPixels(
     autoClear: renderer.autoClear,
   };
   const buf = new Uint8Array(big * big * 4);
+  // Built inside the `try`: `buildModel` can throw on a bad rig, and the target must still go.
+  let dispose: (() => void) | null = null;
   try {
+    const built = snapshotScene(model, opts);
+    dispose = built.dispose;
+    const { scene, camera } = built;
     renderer.setRenderTarget(target);
     renderer.setClearColor(0x000000, 0);
     renderer.autoClear = true;
@@ -196,7 +199,7 @@ export function renderModelPixels(
     renderer.setRenderTarget(before.target);
     renderer.setClearColor(before.color, before.alpha);
     renderer.autoClear = before.autoClear;
-    dispose();
+    dispose?.();
     target.dispose();
   }
   return downsampleToSrgb(buf, px, SUPERSAMPLE);

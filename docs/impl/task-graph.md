@@ -120,34 +120,43 @@ Waves are a schedule hint. The real rule is "dependencies merged" plus rules 2�
 | M2-GATE | **Go/no-go** | — | all M2 | passed (go with fixes) |
 | M3-01 | Curriculum validator + doc gen | S/B | M1-06, M2-12 | merged |
 | M3-02 | Word lists biomes 1–4 | L/A | M1-10 | merged |
-| M3-03 | Lessons biomes 1–4 | M/A | M3-01, M3-02, M2-12 | todo |
+| M3-03 | Lessons biomes 1–4 | M/A | M3-01, M3-02, M2-12 | merged |
 | M3-04 | ✦ World map | L/A | M2-01, M2-03, M2-11 | merged |
 | M3-05 | Placement test | M/B | M2-13 | merged |
-| M3-06 | Remedial + recommendations | M/B | M1-05, M3-03 | todo |
+| M3-06 | Remedial + recommendations | M/B | M1-05, M3-03 | merged |
 | M3-07 | Accessibility features | M/B | M2-07, M2-08, M2-09, M2-14 | merged |
-| M3-08 | Settings + parent gate | M/B | M2-11, M3-07 | todo |
+| M3-08 | Settings + parent gate | M/B | M2-11, M3-07 | merged |
 | M3-09 | Profiles + avatar | M/B | M2-11, M1-09 | merged |
-| M3-10 | Achievements v1 | M/B | M2-10 | todo |
-| M3-11 | Parent Dashboard v1 | L/B | M3-08, M1-04 | todo |
-| M3-12 | Migrations + import/export UI | S/B | M1-09, M3-08 | todo |
-| M3-13 | Progression sim study | M/A | M1-07, M3-03, M3-05, M3-06 | todo |
-| M3-14 | ⛩ E2E + a11y sweep | M/B | M3-04, M3-05, M3-08..12 | todo |
+| M3-10 | Achievements v1 | M/B | M2-10 | merged |
+| M3-11 | Parent Dashboard v1 | L/B | M3-08, M1-04 | merged |
+| M3-12 | Migrations + import/export UI | S/B | M1-09, M3-08 | merged |
+| M3-13 | Progression sim study | M/A | M1-07, M3-03, M3-05, M3-06 | merged |
+| M3-14 | ⛩ E2E + a11y sweep | M/B | M3-04, M3-05, M3-08..12 | merged |
 | M3-FIX-1 | World map polish | S/B | M3-04 | merged |
-| M3-FIX-2 | Pixel font legibility | S/B | M2-08 | todo |
-| M3-FIX-3 | Placement follow-ups | S/B | M3-05 | todo |
-| M3-FIX-4 | Map labels + a11y follow-ups | S/B | M3-FIX-1, M3-07 | todo |
-| M3-FIX-5 | Avatar onto the model runtime | S/B | M3-09, M4-01 | todo |
-| M3-GATE | Gate | — | all M3 | todo |
+| M3-FIX-2 | Pixel font legibility | S/B | M2-08 | merged |
+| M3-FIX-3 | Placement follow-ups | S/B | M3-05 | merged |
+| M3-FIX-4 | Map labels + a11y follow-ups | S/B | M3-FIX-1, M3-07 | merged |
+| M3-FIX-5 | Avatar onto the model runtime | S/B | M3-09, M4-01 | merged |
+| M3-FIX-6 | Letter groups safe when read aloud | S/A | — | merged |
+| M3-FIX-7 | Replay variety, optional No Peeking! | S/B | M3-03 | merged |
+| M3-FIX-8 | My Badges scroll cue + toasts | S/B | M3-10 | merged |
+| M3-FIX-9 | Import/export + two-tab safety | S/B | M3-12 | merged |
+| M3-FIX-10 | Placement small items + row floor | XS/C | M3-FIX-3 | merged |
+| M3-FIX-11 | Progression fixes from the sim study | M/B | M3-13, M3-06 | merged |
+| M3-GATE | Gate | — | all M3 | passed (no playtest; tag pending) |
 | M4-01 | Voxel model runtime | M/A | M2-01, M1-14 | merged |
-| M4-02 | Model Lab | S/C | M4-01 | todo |
-| M4-03 | ✦ Mobs wave 1 | L/A | M4-01, M4-02 | todo |
-| M4-04 | ✦ ⛩ Night Defense mode | L/A | M4-03, M4-05, M2-13, M2-02, M3-03 | todo |
-| M4-05 | Wave director | M/A | M1-04, M1-06, M1-07 | todo |
+| M4-02 | Model Lab | S/C | M4-01 | merged |
+| M4-03 | ✦ Mobs wave 1 | L/A | M4-01, M4-02 | merged |
+| M4-04 | ✦ ⛩ Night Defense mode | L/A | M4-03, M4-05, M2-13, M2-02, M3-03 | merged |
+| M4-05 | Wave director | M/A | M1-04, M1-06, M1-07 | merged |
 | M4-06 | Island data + persistence | S/B | M1-09, M1-13 | merged |
-| M4-07 | ✦ ⛩ Builder mode | L/A | M4-06, M2-13, M2-14 | todo |
-| M4-08 | Blueprints, expansion, snapshot | M/B | M4-07 | todo |
-| M4-09 | Inventory screen | M/B | M2-07, M2-04 | todo |
+| M4-07 | ✦ ⛩ Builder mode | L/A | M4-06, M2-13, M2-14 | merged |
+| M4-08 | Blueprints, expansion, snapshot | M/B | M4-07 | review (#204) |
+| M4-09 | Inventory screen | M/B | M2-07, M2-04 | review (#205) |
 | M4-10 | ⛩ No-failure invariants + E2E | M/B | M4-04, M4-07, M4-08, M4-09 | todo |
+| M4-FIX-1 | Builder: digging keeps every block | S/B | M4-07 | merged |
+| M4-FIX-2 | Night Defense pacing | S/B | M4-04, M4-05 | merged |
+| M4-FIX-3 | Night Defense for 5 WPM learners | S/B | M4-FIX-2 | merged |
 | M4-GATE | Gate | — | all M4 | todo |
 | M5-01 | ✦ ⛩ Minecart Run | L/A | M2-13, M4-01 | todo |
 | M5-02 | ⛩ Boss framework + DSL | M/A | M4-01, M4-04, M2-13 | todo |

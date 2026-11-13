@@ -17,6 +17,8 @@ import styles from "./charts.module.css";
 const UNITS = 15;
 const ROWS = 5;
 const GAP = 4;
+/** The smallest size of a key's percent label, in px. */
+export const SMALL_MIN_PX = 11;
 
 /** What a key shows: the letter in capitals, or a name for Space. */
 export function keyCapLabel(char: string): string {
@@ -52,7 +54,12 @@ function KeyHeatmapSvg(props: KeyHeatmapProps & { width: number }) {
   const w = unit * UNITS;
   const h = unit * ROWS;
   const big = Math.round(unit * 0.36);
-  const small = Math.round(unit * 0.28);
+  // The percent under each letter: at least 11 px (a half-width panel at 1280 px made it about
+  // 9 px, M3-11 review N4), but never wider than the key ("24%" is about 2.2 em).
+  const small = Math.min(
+    Math.max(SMALL_MIN_PX, Math.round(unit * 0.28)),
+    Math.floor((unit - GAP) / 2.2),
+  );
 
   return (
     <>

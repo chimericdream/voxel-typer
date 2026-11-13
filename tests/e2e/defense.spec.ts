@@ -181,8 +181,17 @@ test("a Miner's night plays from day to dawn inside the draw-call budget", async
     // The mid-wave picture: a few visitors out, one locked with a letter or two typed.
     if (!midShot && s.words.length >= 3) {
       await lockFirst(page, 2);
+      // Three or more visitors are out here, by design. The every-6-keys check below can miss
+      // them all: since M4-FIX-3's cautious start, visitors come one at a time and the quick
+      // typist clears each plate as it comes (main CI run 43365874228 saw 1 on both tries).
+      // So the plates are counted here, once the frame that draws them all has run (M3-14).
+      await expect
+        .poll(async () => (await plates(page)).count, { timeout: 15_000 })
+        .toBeGreaterThan(1);
       const p = await plates(page);
       expect(p.locked).toBe(1);
+      peakPlates = Math.max(peakPlates, p.count);
+      expect(p.overlaps, "word plates overlap").toBe(0);
       await expect(page.locator(".vt-defense-shield")).toHaveAttribute(
         "aria-label",
         "Shield: 5 of 5",
