@@ -7,7 +7,8 @@
  * 16 px and each kit size multiplies by the scale once (decision 74). Never scale the root font.
  *
  * Fonts (`Settings.font`), set as overrides of the `tokens.css` font tokens on the element:
- * - `pixel` (default): Pixelify Sans for headings, buttons and HUD chrome; Atkinson for the rest.
+ * - `pixel` (default): the `tokens.css` stacks. Since M3-FIX-2 `--font-pixel` is Atkinson too,
+ *   because Pixelify's capitals and digits misread (B as G or 8, C as O), so this looks like `clean`.
  * - `clean`: Atkinson everywhere, headings too.
  * - `dyslexic`: OpenDyslexic everywhere.
  * Typing targets always use `--font-body` (decision 68: Pixelify mirrors b/d and p/q), so no
