@@ -7,7 +7,7 @@ import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it } from "vitest";
 import { screens } from "../../../../src/app/routes";
 import type { Harness } from "./harness";
-import { mount } from "./harness";
+import { fixture, mount } from "./harness";
 
 let h: Harness | undefined;
 const found = screens.privacy;
@@ -56,5 +56,18 @@ describe("Escape before the screen is up (M3-FIX-13)", () => {
     await s.settle();
     await s.press("Escape");
     expect(s.route().id).toBe("splash");
+  });
+
+  it("is held from the start when the app opens straight on play", async () => {
+    const s = await mount({
+      initial: { id: "play", lesson: "meadow-01" },
+      initialProfile: fixture("fresh-sprout"),
+    });
+    h = s;
+    expect(s.route().id).toBe("play");
+    // "Back to the map" from the pause menu, and Escape before the map has drawn: nothing.
+    s.shell.quitPlay();
+    escape(s);
+    expect(s.route().id).toBe("map");
   });
 });

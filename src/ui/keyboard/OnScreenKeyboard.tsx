@@ -157,24 +157,35 @@ export function fitLabels(board: Element): void {
 
 const px = (v: string): number => Number.parseFloat(v) || 0;
 
+/** How far a shown finger label lifts the glyph: 0.8 of the label's size (see the CSS). */
+function labelLift(slot: Element): number {
+  const label = slot.querySelector("[data-finger-label]");
+  return label ? px(getComputedStyle(label).fontSize) * 0.8 : 0;
+}
+
 /** Line height of a key's two chars (`.slot[data-face="dual"]` in the CSS). */
 const DUAL_LINE = 1.05;
 
 /**
  * Marks each two-char key too short for its two lines (`data-face-tight`); the CSS then shows one
  * char. The room is the key cap less its outer outline (one bevel unit a side) and the lift that
- * clears a finger label. It is read from the key cap, whose size and padding `data-face-tight`
+ * clears a finger label (always counted when labels are on, since hover shows one). It is read from the key cap, whose size and padding `data-face-tight`
  * doesn't change, so a fit never undoes itself. Runs after the labels are fitted: a hidden label
  * gives its lift back.
  */
 export function fitFaces(board: Element): void {
+  const labelsOn = board.closest("[data-labels]") !== null;
   for (const slot of board.querySelectorAll('[data-face="dual"]')) {
     const cap = slot.querySelector("kbd");
     const height = cap?.getBoundingClientRect().height ?? 0;
     if (!cap || height === 0) continue;
     const css = getComputedStyle(cap);
     const edge = px(css.getPropertyValue("--bevel-unit")) || 3;
-    const room = height - 2 * edge - px(css.paddingTop) - px(css.paddingBottom);
+    // With labels on, a key that shows its label (lit or hovered, even on a short row that hides
+    // the others) lifts its glyph clear of it. Count that lift always, so the face never changes
+    // as the pointer passes over it.
+    const label = labelsOn && !slot.hasAttribute("data-label-off") ? labelLift(slot) : 0;
+    const room = height - 2 * edge - px(css.paddingTop) - Math.max(px(css.paddingBottom), label);
     slot.toggleAttribute("data-face-tight", 2 * px(css.fontSize) * DUAL_LINE > room);
   }
 }

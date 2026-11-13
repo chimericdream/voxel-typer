@@ -322,7 +322,7 @@ function tight(code: string): boolean {
 
 describe("fitFaces (M3-FIX-13)", () => {
   it("keeps both chars when two lines of the size fit, and one when they don't", () => {
-    mount(<OnScreenKeyboard layout={EN_US} nextKey="f" labels />);
+    mount(<OnScreenKeyboard layout={EN_US} nextKey="f" />);
     const board = one("[role=img][data-layout]");
     // 2 × 12 px × 1.05 = 25.2 px of text; a 40 px key has 34 px inside its outline.
     layOut(40, 12);
@@ -335,6 +335,21 @@ describe("fitFaces (M3-FIX-13)", () => {
     expect(tight("Semicolon")).toBe(true);
     // Letters are never two-char keys.
     expect(tight("KeyF")).toBe(false);
+  });
+
+  it("with labels on, counts the label's lift even while the key hides it (hover shows it)", () => {
+    mount(<OnScreenKeyboard layout={EN_US} nextKey="f" labels />);
+    const board = one("[role=img][data-layout]");
+    // A short row: the key's label is hidden and its lift is 0, until the pointer is over it.
+    layOut(40, 12, 0);
+    for (const label of all('[data-face="dual"] [data-finger-label]'))
+      label.style.fontSize = "12px";
+    fitFaces(board);
+    expect(tight("Digit1")).toBe(true);
+    // A label too wide for its key never shows, so it lifts nothing.
+    for (const slot of all('[data-face="dual"]')) slot.toggleAttribute("data-label-off", true);
+    fitFaces(board);
+    expect(tight("Digit1")).toBe(false);
   });
 
   it("shows the Shift char on a small key lit for it", () => {

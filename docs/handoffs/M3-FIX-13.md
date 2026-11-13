@@ -30,6 +30,9 @@ Status: done (CI is the e2e gate: no local e2e was run, by the owner's daytime r
   the draw and the shell hearing of it. A screen whose code fails to load (offline) counts as drawn
   too, so Escape still goes back (review). `AppApi.back()` (Back buttons) is never held back. Until
   the app first calls `screenDrawn`, nothing is held back, so shells in unit tests behave as before.
+- CodeRabbit fixes: `App` also tells the shell the play view is drawn, so a session that opens
+  straight on `play` holds Escape after "Back to the map" too; `fitFaces` always counts a shown
+  label's lift when labels are on, since hovering a key on a short row brings the lift back.
 - `.github/workflows/update-snapshots.yml`: `timeout-minutes` 30 → 50. Run 43441195360 was
   cancelled at the 30-minute limit before it committed `results.png` (review).
 - Fixtures: `small-text-sprout` (text scale 1), `big-text-sprout` (2), `big-text-builder` (2),

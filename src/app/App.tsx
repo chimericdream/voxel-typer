@@ -214,6 +214,9 @@ export interface AppProps {
 export function App({ shell, localVoice }: AppProps) {
   const route = shell.route.value;
   const voice = localVoice?.value ?? false;
+  // The play view draws at once (no lazy screen): it is up as soon as its route is. Said here too,
+  // so a session that starts on `play` turns the shell's Escape hold on (M3-FIX-13).
+  useScreenDrawn(shell, route, route.id === "play");
   return (
     <div class={styles.app} data-route={route.id}>
       <main class={styles.main}>
