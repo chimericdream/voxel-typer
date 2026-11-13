@@ -3,8 +3,10 @@
  * - the whole Results screen, heading first, fits 1024×600 and 1280×720 with nothing scrolled, at
  *   text scale 1 (Builder) and 1.5 (Sprout's default);
  * - a badge toast never covers the heading, the card or the buttons, at either size and at text
- *   scale 2. It shows under the buttons when it fits there whole, and otherwise waits for the next
- *   screen;
+ *   scale 2. It shows under the buttons, compact, when it fits there whole (a Sprout at 1024×600
+ *   with three stars and two rows of finds included), and otherwise waits;
+ * - a badge that waits never shows on Lesson Intro, whose corner holds the lesson card: it waits
+ *   for the World Map (review B2);
  * - toasts wait for the stars to fill in, and with reduced motion there is nothing to wait for.
  */
 import { expect, test } from "@playwright/test";
@@ -104,9 +106,32 @@ async function watchToast(page: Page, view: { width: number; height: number }, m
   return shown;
 }
 
+/**
+ * From Results: "Next lesson" to Lesson Intro, where no badge toast shows for `ms`; then back to
+ * the World Map, where the waiting badge shows.
+ */
+async function waitsPastLessonIntro(page: Page, ms: number): Promise<void> {
+  await page.getByRole("button", { name: "Next lesson" }).click();
+  await expectScreen(page, "lessonIntro");
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    expect(await toast(page).count(), "a badge toast on Lesson Intro").toBe(0);
+    await page.waitForTimeout(150);
+  }
+  await page.getByRole("button", { name: "Back to the map", exact: true }).click();
+  await expectScreen(page, "map");
+  // The map comes back with the island's lesson path open, and while it is open the corner (the
+  // toast's place) isn't drawn, so the badge still waits. Escape closes the path.
+  const corner = page.locator("[data-toast-corner]");
+  await expect(toast(page)).toHaveCount(0);
+  if ((await corner.count()) === 0) await page.keyboard.press("Escape");
+  await expect(corner).toBeVisible();
+  await expect(toast(page)).toBeVisible({ timeout: 15_000 });
+}
+
 const CASES = [
-  // Sprout reads at 1.5 by default. At 1024×600 the toast can't fit under the buttons whole.
-  { profile: "fresh-sprout", width: 1024, height: 600, onResults: false },
+  // Sprout reads at 1.5 by default: three stars and two rows of finds, and the compact toast fits.
+  { profile: "fresh-sprout", width: 1024, height: 600, onResults: true },
   { profile: "fresh-sprout", width: 1280, height: 720, onResults: true },
   { profile: "fresh-builder", width: 1024, height: 600, onResults: true },
   { profile: "fresh-builder", width: 1280, height: 720, onResults: true },
@@ -135,15 +160,25 @@ for (const c of CASES) {
 
     const shown = await watchToast(page, view, 6000);
     expect(shown, "a badge toast on Results").toBe(c.onResults);
-    if (!c.onResults) {
-      // Not lost: it waits for the next screen.
-      await page.getByRole("button", { name: "Map", exact: true }).click();
-      await expectScreen(page, "map");
-      await expect(toast(page)).toBeVisible({ timeout: 15_000 });
-    }
     expect(errors).toEqual([]);
   });
 }
+
+test("Sprout at 1024×600: a badge left on Results waits past Lesson Intro for the map", async ({
+  page,
+}) => {
+  test.slow();
+  await page.setViewportSize({ width: 1024, height: 600 });
+  const errors = collectErrors(page);
+  await page.goto("/?profile=fresh-sprout&screen=map&seed=1", { waitUntil: "domcontentloaded" });
+  await ready(page);
+  await firstLesson(page);
+  // "Next lesson" as soon as it takes presses, before the first toast's turn on Results.
+  await page.waitForTimeout(RESULTS_ARM_MS + 100);
+  expect(await toast(page).count()).toBe(0);
+  await waitsPastLessonIntro(page, 6000);
+  expect(errors).toEqual([]);
+});
 
 for (const view of [
   { width: 1280, height: 720 },
@@ -160,7 +195,9 @@ for (const view of [
     await setScale(page, 2);
     await firstLesson(page);
     await page.waitForTimeout(RESULTS_ARM_MS);
-    await watchToast(page, view, 6000);
+    // No room under the buttons at this size: it never shows on Results, nor on Lesson Intro.
+    expect(await watchToast(page, view, 6000), "a badge toast on Results").toBe(false);
+    await waitsPastLessonIntro(page, 5000);
     expect(errors).toEqual([]);
   });
 }

@@ -52,6 +52,26 @@
   translate: -50% 0;
 }
 
+/*
+ * The docked toast is compact (M3-FIX-12): the badge icon the height of the text, and
+ * less padding. The text keeps its size. It must fit under Results' buttons for a Sprout at
+ * 1024×600 with three stars and two rows of finds.
+ */
+.toastWrap[data-docked] > * {
+  padding-block: var(--sp-1);
+  line-height: 1.2;
+}
+
+.toastWrap[data-docked] .toastBody {
+  gap: var(--sp-2);
+}
+
+.toastWrap[data-docked] .icon {
+  width: 1.2em;
+  height: 1.2em;
+  font-size: 1em;
+}
+
 /* The hidden copy measured before a docked toast shows (`AchievementToast`). */
 .toastWrap[data-probe] {
   visibility: hidden;

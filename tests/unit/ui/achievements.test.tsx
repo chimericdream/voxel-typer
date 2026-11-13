@@ -374,7 +374,7 @@ describe("a screen can hold badge toasts back, and give them a dock (M3-FIX-12)"
     try {
       const wrap = s.root.querySelector<HTMLElement>("[data-testid='badge-toast']");
       expect(wrap?.hasAttribute("data-docked")).toBe(true);
-      expect(wrap?.style.top).toBe("512px");
+      expect(wrap?.style.top).toBe("508px");
       expect(wrap?.style.left).toBe("640px");
       expect(text(s.root)).toContain(t("achievements.firstWord.name"));
     } finally {
@@ -410,13 +410,38 @@ describe("a screen can hold badge toasts back, and give them a dock (M3-FIX-12)"
     }
   });
 
+  it("with needsPlace it waits for a screen with a dock or a toast corner (review B2)", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const root = document.createElement("div");
+    document.body.append(root);
+    const onShown = vi.fn();
+    void act(() =>
+      render(<AchievementToast queue={["first-word"]} open onShown={onShown} needsPlace />, root),
+    );
+    const corner = document.createElement("div");
+    try {
+      // Lesson Intro, say: no dock, no corner kept clear. Not drawn, read or timed.
+      expect(root.textContent).toBe("");
+      vi.advanceTimersByTime(BADGE_TOAST_MS * 2);
+      expect(onShown).not.toHaveBeenCalled();
+      // The World Map: its corner is kept clear.
+      corner.setAttribute("data-toast-corner", "");
+      document.body.append(corner);
+      await vi.waitFor(() => expect(text(root)).toContain(t("achievements.firstWord.name")));
+    } finally {
+      void act(() => render(null, root));
+      root.remove();
+      corner.remove();
+    }
+  });
+
   it("fitsUnder keeps a margin above the window's bottom", () => {
     const dock = dockAt(600);
     try {
       expect(window.innerHeight).toBe(768);
-      // 600 + 12 gap + 140 = 752 ≤ 768 − 8.
-      expect(fitsUnder(dock, 140, window)).toBe(true);
-      expect(fitsUnder(dock, 149, window)).toBe(false);
+      // 600 + 8 gap + 156 = 764 ≤ 768 − 4.
+      expect(fitsUnder(dock, 156, window)).toBe(true);
+      expect(fitsUnder(dock, 157, window)).toBe(false);
     } finally {
       dock.remove();
     }

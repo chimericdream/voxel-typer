@@ -761,7 +761,7 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
         ))}
       </ul>
       {openInfo === null ? (
-        <div class={styles.corner} ref={corner} data-toast-clear>
+        <div class={styles.corner} ref={corner} data-toast-clear data-toast-corner>
           <CornerButton
             icon="players"
             label={t("map.players")}

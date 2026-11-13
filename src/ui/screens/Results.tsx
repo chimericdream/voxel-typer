@@ -153,10 +153,11 @@ export default function Results({ app, route }: ScreenProps) {
     return (
       <div class={screen.screen}>
         <p class={styles.message}>{t("screens.results.none")}</p>
-        <div class={screen.actions} ref={actions}>
+        <div class={`${screen.actions} ${styles.actions}`} ref={actions}>
           <Button variant="primary" onClick={() => app.navigate({ id: "map" }, { replace: true })}>
             {t("screens.results.map")}
           </Button>
+          <div class={styles.toastDock} data-toast-dock aria-hidden="true" />
         </div>
       </div>
     );

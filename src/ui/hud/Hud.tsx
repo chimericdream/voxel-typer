@@ -140,13 +140,16 @@ export function HudKeyboard({ fields, layout, hands, labels }: HudKeyboardProps)
   const wrong = useComputed(() => wrongKeyOf(fields.custom.value)).value;
   // A mode may ask for the hint line without the drawn hands (M4-04). The row is then only as
   // tall as the keys and one line of text, which gives the stage the hands' height.
-  const caption = useComputed(() => hands && handsCaptionOnly(fields.custom.value)).value;
+  const modeCaption = useComputed(() => hands && handsCaptionOnly(fields.custom.value)).value;
+  // Finger labels on, hands off (M3-FIX-12): a label too wide for its key is hidden, so the hint
+  // line ("Use your left pointer finger.") stays, on its own, to name the finger.
+  const caption = modeCaption || (!hands && labels);
   return (
     <div class={styles.keyboard} data-hud="keyboard" data-hands-caption={caption ? "1" : undefined}>
       <OnScreenKeyboard
         layout={layout}
         nextKey={fields.nextKey.value}
-        hands={hands}
+        hands={hands || caption}
         handsCaptionOnly={caption}
         labels={labels}
         wrong={wrong}

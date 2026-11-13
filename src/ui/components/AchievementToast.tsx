@@ -21,7 +21,11 @@
  *   puts its dock under its buttons, so the toast never covers the card or the buttons. When the
  *   whole toast wouldn't fit between the dock and the window's bottom (a short window, large
  *   text), it isn't shown or read there at all: it stays queued for the next screen. A silent,
- *   hidden copy is measured first, because the kit Toast reads itself out as it mounts.
+ *   hidden copy is measured first, because the kit Toast reads itself out as it mounts. A docked
+ *   toast is the compact kind (one line, a smaller icon, less padding), so it fits more often.
+ * - With `needsPlace` (the app sets it), a toast shows only on a screen that made room for it: a
+ *   dock, or a corner the screen keeps clear (`data-toast-corner`, the World Map). Anywhere else
+ *   (Lesson Intro, say, where the corner holds the lesson card) it waits, like under a modal.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { achievementById } from "@/content/achievements";
@@ -41,6 +45,11 @@ export interface AchievementToastProps {
   open: boolean;
   /** The first badge has been shown long enough. */
   onShown: () => void;
+  /**
+   * Show only on a screen with a dock or a `data-toast-corner` (M3-FIX-12). The app sets it; off,
+   * the toast shows anywhere (the component on its own, in tests).
+   */
+  needsPlace?: boolean;
 }
 
 /**
@@ -50,16 +59,24 @@ export interface AchievementToastProps {
 const HOLD = "dialog[open], [data-toast-hold]";
 /** Where a screen wants the toast drawn, in its own layout (M3-FIX-12). */
 const DOCK = "[data-toast-dock]";
+/** A screen whose top-right corner is kept clear for the toast (M3-FIX-12). */
+const CORNER = "[data-toast-corner]";
 
 export interface ToastPage {
   /** A modal is open, or a screen asks the toast to wait. */
   held: boolean;
   /** The screen's toast dock, or null for the window's corner. */
   dock: Element | null;
+  /** The screen keeps its corner clear for the toast. */
+  corner: boolean;
 }
 
 function readPage(doc: Document): ToastPage {
-  return { held: doc.querySelector(HOLD) !== null, dock: doc.querySelector(DOCK) };
+  return {
+    held: doc.querySelector(HOLD) !== null,
+    dock: doc.querySelector(DOCK),
+    corner: doc.querySelector(CORNER) !== null,
+  };
 }
 
 /**
@@ -76,7 +93,12 @@ export function useToastPage(doc: Document, watch: boolean): ToastPage {
     let last: ToastPage | null = null;
     const check = (): void => {
       const now = readPage(doc);
-      if (last !== null && now.held === last.held && now.dock === last.dock) return;
+      const same =
+        last !== null &&
+        now.held === last.held &&
+        now.dock === last.dock &&
+        now.corner === last.corner;
+      if (same) return;
       last = now;
       redraw((n) => n + 1);
     };
@@ -128,8 +150,11 @@ export function clearBelow(doc: Document, span?: { left: number; right: number }
  */
 export function dockPlace(dock: Element): { top: number; center: number } {
   const r = dock.getBoundingClientRect();
-  return { top: Math.round(r.top) + CLEAR_GAP_PX, center: Math.round(r.left + r.width / 2) };
+  return { top: Math.round(r.top) + DOCK_GAP_PX, center: Math.round(r.left + r.width / 2) };
 }
+
+/** Room between a dock and its toast, in px. */
+const DOCK_GAP_PX = 8;
 
 /**
  * Places `ref` while it is shown. With a dock, on the dock (and again as the page scrolls).
@@ -143,6 +168,8 @@ function usePlace(
   dock: Element | null,
   /** Changes when a new element may be drawn (the hidden copy gives way to the toast). */
   phase: string,
+  /** A docked toast no longer fits (the window shrank, or the page scrolled the dock down). */
+  onNoRoom?: () => void,
 ): void {
   useLayoutEffect(() => {
     const el = ref.current;
@@ -157,6 +184,7 @@ function usePlace(
         const at = dockPlace(dock);
         el.style.setProperty("top", `${at.top}px`);
         el.style.setProperty("left", `${at.center}px`);
+        if (onNoRoom && !fitsUnder(dock, el.getBoundingClientRect().height, view)) onNoRoom();
         return;
       }
       const self = el.getBoundingClientRect();
@@ -189,11 +217,13 @@ function usePlace(
       sizes?.disconnect();
       changes?.disconnect();
     };
+    // `onNoRoom` is read fresh from each render's closure; a new one needs no new watch.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- reason: see the line above
   }, [ref, shown, dock, phase]);
 }
 
 /** Room kept between a docked toast and the window's bottom edge, in px. */
-const EDGE_PX = 8;
+const EDGE_PX = 4;
 
 /** Whether a toast `height` px tall fits between `dock` and the bottom of `view`. */
 export function fitsUnder(dock: Element, height: number, view: Window | null): boolean {
@@ -208,11 +238,17 @@ interface Room {
   fits: boolean;
 }
 
-export function AchievementToast({ queue, open, onShown }: AchievementToastProps) {
+export function AchievementToast({
+  queue,
+  open,
+  onShown,
+  needsPlace = false,
+}: AchievementToastProps) {
   const id = queue[0];
   const def = id === undefined ? null : achievementById(id);
-  const { held, dock } = useToastPage(document, open && id !== undefined);
-  const showing = open && id !== undefined && !held;
+  const { held, dock, corner } = useToastPage(document, open && id !== undefined);
+  const placed = !needsPlace || dock !== null || corner;
+  const showing = open && id !== undefined && !held && placed;
   // On a dock, a badge shows only if it fits there; until it is measured, it doesn't show.
   const [room, setRoom] = useState<Room | null>(null);
   const fits =
@@ -220,7 +256,11 @@ export function AchievementToast({ queue, open, onShown }: AchievementToastProps
   const probing = showing && def !== null && dock !== null && fits === null;
   const visible = showing && def !== null && fits === true;
   const wrap = useRef<HTMLDivElement>(null);
-  usePlace(wrap, visible || probing, dock, probing ? "probe" : "toast");
+  const noRoomNow =
+    visible && dock !== null && id !== undefined
+      ? () => setRoom({ id, dock, fits: false })
+      : undefined;
+  usePlace(wrap, visible || probing, dock, probing ? "probe" : "toast", noRoomNow);
 
   useLayoutEffect(() => {
     const el = wrap.current;
