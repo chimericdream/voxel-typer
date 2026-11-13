@@ -113,8 +113,8 @@ describe("World map 3D view rebuilds", () => {
 });
 
 const clickMap = async (harness: Harness, target?: Element): Promise<void> => {
-  const map = harness.root.querySelector("[data-mode]");
-  if (!map) throw new Error("no map");
+  const map = harness.root.querySelector("[data-stage]");
+  if (!map) throw new Error("no picture layer");
   (target ?? map).dispatchEvent(
     new MouseEvent("click", { bubbles: true, cancelable: true, clientX: 300, clientY: 200 }),
   );
@@ -143,16 +143,45 @@ describe("World map: the island's model is a target too (M3-FIX-4)", () => {
     expect(h.root.querySelector("h2")).toBeNull();
 
     // The same island again: the line is taken away, then put back a moment later (N4).
+    const note = h.root.querySelector("[data-note]");
+    if (!note) throw new Error("no note");
+    const seen: string[] = [];
+    const watch = new MutationObserver(() => seen.push(note.textContent ?? ""));
+    watch.observe(note, { childList: true, characterData: true, subtree: true });
     await clickMap(h);
-    expect(h.root.querySelector("[data-note]")?.textContent).toBe("");
     await new Promise((r) => setTimeout(r, 80));
     await h.settle();
-    expect(h.root.querySelector("[data-note]")?.textContent).toContain("Meadow Home");
+    watch.disconnect();
+    expect(seen).toContain("");
+    expect(seen.at(-1)).toContain("Meadow Home");
 
     // Meadow Home: its lesson path opens.
     picking.answer = "meadow";
     await clickMap(h);
     expect(h.root.querySelector("h2")?.textContent).toContain("Meadow Home");
+  });
+
+  it("only the picture layer listens: the map container has no click handler (review S3)", async () => {
+    h = await mount({
+      initial: { id: "map" },
+      initialProfile: fixture("fresh-sprout"),
+      acquireScene: () => Promise.resolve(sceneWithThree()),
+    });
+    await h.settle();
+    const stage = h.root.querySelector("[data-stage]");
+    expect(stage?.getAttribute("aria-hidden")).toBe("true");
+    picking.answer = "meadow";
+    // A click on the heading (bubbling through the container) asks nothing.
+    const heading = h.root.querySelector("h1");
+    if (!heading) throw new Error("no heading");
+    heading.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    await h.settle();
+    expect(picking.asked).toHaveLength(0);
+    expect(h.root.querySelector("h2")).toBeNull();
+    // With a path open, the layer is gone.
+    await clickMap(h);
+    expect(h.root.querySelector("h2")).not.toBeNull();
+    expect(h.root.querySelector("[data-stage]")).toBeNull();
   });
 
   it("a click on a label is the label's own; the picture isn't asked", async () => {

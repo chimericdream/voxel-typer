@@ -29,7 +29,7 @@ import { Slot } from "../../../src/ui/kit/Slot";
 import { Stars } from "../../../src/ui/kit/Stars";
 import { Tabs } from "../../../src/ui/kit/Tabs";
 import { Toast } from "../../../src/ui/kit/Toast";
-import { FIRST_ANNOUNCE_MS } from "../../../src/ui/kit/announce";
+import { FIRST_ANNOUNCE_MS, TOAST_AFTER_PAGE_MS, announce } from "../../../src/ui/kit/announce";
 import { Toggle } from "../../../src/ui/kit/Toggle";
 import {
   FOCUS_BACKDROPS,
@@ -507,6 +507,32 @@ describe("Toast", () => {
       vi.advanceTimersByTime(FIRST_ANNOUNCE_MS);
       expect(document.querySelectorAll("#vt-announcer-toast")).toHaveLength(1);
       expect(region?.textContent).toBe("Again");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("announce: page first, then toast (M3-FIX-4 review S2)", () => {
+  it("a toast that comes with a page message waits until a second after it", () => {
+    vi.useFakeTimers();
+    try {
+      announce(document, "Results. 2 stars.");
+      announce(document, "New badge!", "toast");
+      const page = document.getElementById("vt-announcer");
+      const toast = document.getElementById("vt-announcer-toast");
+      vi.advanceTimersByTime(FIRST_ANNOUNCE_MS);
+      expect(page?.textContent).toBe("Results. 2 stars.");
+      expect(toast?.textContent).toBe("");
+      vi.advanceTimersByTime(TOAST_AFTER_PAGE_MS - 10);
+      expect(toast?.textContent).toBe("");
+      vi.advanceTimersByTime(20);
+      expect(toast?.textContent).toBe("New badge!");
+      // Long after the page message, a toast is read at its usual pace.
+      vi.advanceTimersByTime(5000);
+      announce(document, "Again!", "toast");
+      vi.advanceTimersByTime(FIRST_ANNOUNCE_MS);
+      expect(toast?.textContent).toBe("Again!");
     } finally {
       vi.useRealTimers();
     }

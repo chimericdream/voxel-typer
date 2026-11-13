@@ -433,6 +433,32 @@ describe("world map view", () => {
     }
     // The empty sky in a corner is no island.
     expect(v.pick({ x: 4, y: 4 })).toBeNull();
+    // The outermost corner of an island's box on screen is sky, not island (review S4): the
+    // fallback is the ellipsoid inside the box, not the box.
+    const group = v.root.getObjectByName("island meadow");
+    if (group === undefined) throw new Error("no meadow");
+    v.root.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(group);
+    const mid = centers.get("meadow") ?? { x: 0, y: 0 };
+    let corner = { x: 0, y: 0 };
+    let far = -1;
+    for (const x of [bounds.min.x, bounds.max.x]) {
+      for (const y of [bounds.min.y, bounds.max.y]) {
+        for (const z of [bounds.min.z, bounds.max.z]) {
+          const p = new THREE.Vector3(x, y, z).project(f.stage.three.camera);
+          const onScreen = { x: (p.x * 0.5 + 0.5) * 1280, y: (1 - (p.y * 0.5 + 0.5)) * 720 };
+          const dist = Math.hypot(onScreen.x - mid.x, onScreen.y - mid.y);
+          if (dist > far) {
+            far = dist;
+            corner = onScreen;
+          }
+        }
+      }
+    }
+    // Just inside the corner, toward the middle: still inside the box, outside the ellipsoid.
+    const k = 0.97;
+    const nearCorner = { x: mid.x + (corner.x - mid.x) * k, y: mid.y + (corner.y - mid.y) * k };
+    expect(v.pick(nearCorner)).not.toBe("meadow");
     // A whole close view: the middle of the screen is the island the camera is on.
     v.show("meadow", { snap: true });
     f.pump();

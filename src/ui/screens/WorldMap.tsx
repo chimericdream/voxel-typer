@@ -236,6 +236,11 @@ export const LONG_PRESS_MS = 500;
  * button for {@link LONG_PRESS_MS} shows the words instead, and lifting it then does nothing, so a
  * child can find out what a picture means without going there. A tap anywhere else closes the
  * tip. A touch that turns into a scroll (`pointercancel`) leaves nothing behind (M3-FIX-4 (b)).
+ *
+ * The "held" mark that swallows the lift's click lives only until that click: it is cleared in a
+ * task right after the finger lifts (the lift's own click, if the browser makes one, comes first).
+ * So a later click with no pointer before it (TalkBack's double tap, Switch Access, Voice Access)
+ * always goes (M3-FIX-4 a11y review S1).
  */
 function CornerButton({
   icon,
@@ -252,11 +257,33 @@ function CornerButton({
   const pressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** A long press just showed the tip: the click its finger makes on lifting is not a tap. */
   const heldRef = useRef(false);
+  /** Clears {@link heldRef} once the lift's own click (if any) has run. */
+  const forgetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stopPress = (): void => {
     if (pressRef.current !== null) clearTimeout(pressRef.current);
     pressRef.current = null;
   };
-  useEffect(() => stopPress, []);
+  const stopForget = (): void => {
+    if (forgetRef.current !== null) clearTimeout(forgetRef.current);
+    forgetRef.current = null;
+  };
+  /** The finger is off the button: no long press now, and the held mark goes after this click. */
+  const release = (): void => {
+    stopPress();
+    if (!heldRef.current) return;
+    stopForget();
+    forgetRef.current = setTimeout(() => {
+      forgetRef.current = null;
+      heldRef.current = false;
+    }, 0);
+  };
+  useEffect(
+    () => () => {
+      stopPress();
+      stopForget();
+    },
+    [],
+  );
   useEffect(() => {
     if (!tip) return undefined;
     const close = (e: Event): void => {
@@ -274,6 +301,7 @@ function CornerButton({
       onPointerDown={(e) => {
         heldRef.current = false;
         stopPress();
+        stopForget();
         if (e.pointerType !== "touch" || !isNarrow()) return;
         pressRef.current = setTimeout(() => {
           pressRef.current = null;
@@ -281,11 +309,12 @@ function CornerButton({
           setTip(true);
         }, LONG_PRESS_MS);
       }}
-      onPointerUp={stopPress}
-      onPointerLeave={stopPress}
+      onPointerUp={release}
+      onPointerLeave={release}
       onPointerCancel={() => {
         // A scroll, or the system took the touch: no tap, no tip, and no flag left set.
         stopPress();
+        stopForget();
         heldRef.current = false;
       }}
       onContextMenu={(e) => {
@@ -643,17 +672,30 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
   };
 
   return (
-    // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- reason: a click on an island's picture is a pointer shortcut; each island's label is the button for keys and screen readers
     <div
       class={styles.map}
       ref={root}
       data-mode={mode}
       data-open={open ?? undefined}
       data-pointing={hovered === null ? undefined : "island"}
-      onPointerMove={onPointerMove}
-      onPointerLeave={() => hoverOn(null)}
-      onClick={onMapClick}
     >
+      {/*
+       * The 3D picture's own layer, under the heading, the labels and the corner buttons: clicks
+       * and hovers on the islands land here. Hidden from screen readers, and the container itself
+       * has no click handler, so nothing else on the map is announced as clickable (a11y review
+       * S3). Each island's label is the button for keys and screen readers.
+       */}
+      {picking ? (
+        // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- reason: a pointer shortcut on the picture, hidden from screen readers; each island's label is the button for keys and screen readers
+        <div
+          class={styles.stage}
+          data-stage=""
+          aria-hidden="true"
+          onPointerMove={onPointerMove}
+          onPointerLeave={() => hoverOn(null)}
+          onClick={onMapClick}
+        />
+      ) : null}
       <header class={styles.top} ref={top}>
         <h1 class={styles.title}>{t("map.title")}</h1>
         {open === null ? <p class={styles.hint}>{t("map.hint")}</p> : null}

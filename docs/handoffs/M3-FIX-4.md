@@ -1,11 +1,11 @@
 # M3-FIX-4 Map labels and accessibility follow-ups
 
-Status: done (CI e2e and the a11y review still to come; I ran no local e2e, because it was evening)
+Status: done. The a11y review's blocking items B1–B4 and its should-fix items S1–S4 are addressed (see "After the a11y review" below). I ran no local e2e, because it was evening; CI runs it.
 
 ## What changed
 
 - `src/render/map/view.ts`: three new methods on `WorldMapView`.
-  - `pick(point)` finds the island under a canvas point. It raycasts the island's meshes first. If that misses, it falls back to the island's bounding box, so a tap between two trees still counts.
+  - `pick(point)` finds the island under a canvas point. It raycasts the island's meshes first. If that misses, it falls back to the ellipsoid that fills the island's bounding box, so a tap between two trees still counts.
   - `hover(biome)` puts the hovered island's lit mesh on a second Lambert material at 1.3× color. It changes color only and moves nothing, so reduced motion is unaffected. It also calls `requestRender()` once and starts no frames.
   - `centers()` gives each island's middle on screen, for the e2e.
 - `src/ui/screens/WorldMap.tsx`:
@@ -63,7 +63,23 @@ Status: done (CI e2e and the a11y review still to come; I ran no local e2e, beca
     - a new test switches the OS to reduced motion mid-lesson and checks that the camera then holds still. This fails on a cached boolean;
     - "Hear it again" at text scale 2 at 1024×720, 1024×600 and 1280×720, with a stubbed local English voice. The key cap must show whole; the words must show whole or not at all, and whole at 1280 px; the progress bar must keep at least 110 px.
   - `tests/fixtures/profiles/voice-miner.json`: a new fixture, a Miner with read-aloud on and text size 2. It is a copy of `meadow-done-miner`.
-- Baselines: I deleted `map-new-player.png`, `map-all-open.png` and `map-narrow-corner.png`, so CI makes them again. The hint now wraps at 1280 px, and the labels may settle differently.
+- Baselines: after merging main (#186, every UI font is Atkinson), I deleted `map-new-player.png`, `map-all-open.png` and `map-narrow-corner.png` again, so CI makes them with the new font. The hint now wraps at 1280 px, and the labels may settle differently. I checked the other baselines and none show this change:
+  - the HUD hint shows only with a voice, which CI doesn't have;
+  - the progress bar's new minimum width is far below its width in the baselines;
+  - the lesson-path view hides the corner buttons and the labels, so `map-lesson-path.png` keeps main's version.
+
+## After the a11y review
+
+- **B1–B3** were fixed in c842ec5: the race in the re-announce test (now with an N4 unit test), My Island landing on `play`, and the "Hear it again" fit. The review's N1 (flaky shake control) is fixed the same way: the check now uses camera roll, not frame-to-frame jumps.
+- **B4:** merged origin/main (#186). Only the three map baselines conflicted; they are deleted and remade on CI. The "Hear it again" fit at text scale 2 is measured again by its e2e on this head, with the Atkinson font.
+- **S1, the long-press mark:** it is cleared in a task right after the finger lifts, so it can only swallow that lift's own click. A later click with no pointer before it (TalkBack's double tap, Switch Access, Voice Access) always goes. New unit test: long press, lift with no click, then a click with a detail → it goes.
+- **S2, two messages at once:** `announce` holds a toast until `TOAST_AFTER_PAGE_MS` (1 s) after the last page message, so the page speaks first and the toast follows. New unit test in `kit.test.tsx`.
+- **S3, the clickable container:** the click and hover handlers are no longer on the map container. They are on an `aria-hidden` stage layer (`data-stage`) under the heading, labels and corner buttons, present only while the whole map shows in 3D. New unit test: a click on the heading asks nothing, and the layer is gone while a path is open.
+- **S4, near misses:** the fallback is now the ellipsoid inside each island's box, not the box. The box's empty corners, where the review found its near misses, are no longer targets. Gaps between trees still are. New unit test: a point just inside the outermost on-screen corner of Meadow's box doesn't pick Meadow. I didn't repeat the review's grid measurement of near misses.
+
+## Owner check at the M3 gate
+
+- **GrayText contrast in Windows Contrast themes.** Typed letters (`data-mark="ok"` and `"fixed"`) use the system `GrayText` color under `forced-colors: active`. The documented palettes suggest at least 4.5:1, but nobody has looked on a real Windows Contrast theme. Please check all four themes (Aquatic, Desert, Dusk, Night sky) once in a lesson: typed letters should look dimmer than the letters still to type, and stay readable.
 
 ## Acceptance
 
@@ -78,7 +94,7 @@ Status: done (CI e2e and the a11y review still to come; I ran no local e2e, beca
   - (b) swallowed click: done (unit tests and e2e).
   - (c) hint from 1024 to 1920 px: done (e2e).
   - (d) 1024×600 fit check: done (e2e).
-  - GrayText: done. No automated forced-colors test; Chromium headless can't emulate it in our setup.
+  - GrayText: done. No automated forced-colors test; Chromium headless can't emulate it in our setup. Owner check at the gate (see above).
   - Banner flash guard: done (unit test).
   - Shared guard clock: done (unit test).
   - Reduced-motion e2e: done (both parts).
@@ -96,12 +112,12 @@ Status: done (CI e2e and the a11y review still to come; I ran no local e2e, beca
   - I chose a long press over showing the tip "briefly alongside the action", because every corner button leaves the map, so a tip shown with the action would vanish with the screen.
   - A long press lets a curious child find out what a picture means without going there. Lifting the finger after a long press does nothing.
   - Mouse users still get the tip on hover, and keyboard users on focus.
-- **(b):** the long-press flag is set only by the timer firing, and cleared on every `pointerdown`, `pointercancel` and click. Only a pointer click (`detail > 0`) is ever swallowed. A scroll can't leave anything set, and a key's click (`detail === 0`) always goes.
-- **Island picking:** the meshes come first, with a bounding-box fallback. Children aim loosely, and a gap between trees shouldn't be a miss. Where two boxes overlap on screen, the nearer one wins, and a real block hit always wins over a box. I didn't measure box overlap at every window size; the reviewer may want to try a few clicks between islands.
+- **(b):** the long-press flag is set only by the timer firing. It is cleared on every `pointerdown`, `pointercancel` and click, and in a task right after the lift (review S1). Only a pointer click (`detail > 0`) that comes with the lift is ever swallowed. A scroll can't leave anything set, and neither a key's click (`detail === 0`) nor a later assistive-tech click is swallowed.
+- **Island picking:** the meshes come first, with a fallback to the ellipsoid inside each island's box. Children aim loosely, and a gap between trees shouldn't be a miss. A real block hit always wins over the fallback, and between two fallbacks the nearer one wins. The reviewer measured that no two islands' boxes overlap along any ray at 10 sizes.
 - **Hover highlight** is a 1.3× brighter material plus the label's gold edge, with no lift. It works the same with or without reduced motion, and keyboard selection keeps its lift. Locked islands get no glow and no hand cursor, the same as their labels, but a click on one still gives the kind line.
 - **The hint's limit at all widths** uses the same `--corner-w` measure that M4-FIX-1 added for ≤ 1100 px. At 1280 px and above, the hint wraps under the title when the word buttons need the room.
 - **Label layout fallback:** if every greedy order leaves a label stuck, rows are used, even though they move some labels farther from their islands. Keeping every label readable and inside the window comes first.
-- **Toasts get their own live region.** I chose this over queueing because it's simpler, and the review offered it as one fix. I haven't tested how each screen reader orders two messages that arrive together; that's worth a check in the a11y review.
+- **Toasts get their own live region**, and a toast waits until 1 s after the last page message (review S2), so VoiceOver can't drop the first of two. I haven't run a screen reader on it; it's worth a listen at the gate.
 
 ## New dependencies
 
@@ -111,7 +127,8 @@ Status: done (CI e2e and the a11y review still to come; I ran no local e2e, beca
 
 - `WorldMapView` has new methods: `pick`, `hover` and `centers`. Any fake of it needs all three (see `map-rebuild.test.tsx`).
 - `allowFlash()` takes no argument now. Use `createFlashGuard` with your own clock for planned flashes.
-- `announce(doc, text, "toast")` is for toasts; the default channel is `"page"`. E2E checks of route announcements still use `#vt-announcer`, and toast text is in `#vt-announcer-toast`.
+- `announce(doc, text, "toast")` is for toasts; the default channel is `"page"`. A toast waits until `TOAST_AFTER_PAGE_MS` (1 s) after the last page message. E2E checks of route announcements still use `#vt-announcer`, and toast text is in `#vt-announcer-toast`.
+- The map's click and hover layer is `[data-stage]` (aria-hidden). It exists only while the whole map shows in 3D.
 - `useReducedMotion(setting)` in `src/ui/screens/nav.ts` is the live version of `prefersReducedMotion` for components.
 - Ownership: this card touched some shared files outside the map, as its a11y items needed:
   - `Hud.tsx` and `Hud.module.css`;

@@ -7,6 +7,10 @@
  * Two channels, two regions (M3-07 review N6): `page` for what the app says about where the child
  * is (route changes, Results), `toast` for Toasts. A route change and a toast a few milliseconds
  * apart each keep their own words instead of one overwriting the other.
+ *
+ * Some screen readers (VoiceOver especially) read only the later of two messages that arrive
+ * together, so a toast waits until {@link TOAST_AFTER_PAGE_MS} after the last page message: the
+ * page speaks first, then the toast (M3-FIX-4 a11y review S2).
  */
 export type AnnounceChannel = "page" | "toast";
 
@@ -18,6 +22,11 @@ const REGION_IDS: Record<AnnounceChannel, string> = {
 export const FIRST_ANNOUNCE_MS = 150;
 /** The wait between clearing and setting, so the same message twice is read twice. */
 export const NEXT_ANNOUNCE_MS = 30;
+/** How long after a page message a toast waits before it is read. */
+export const TOAST_AFTER_PAGE_MS = 1000;
+
+/** When each document's page region last got (or will get) its text, in `Date.now()` ms. */
+const pageSpokenAt = new WeakMap<Document, number>();
 
 const HIDDEN: Partial<CSSStyleDeclaration> = {
   position: "absolute",
@@ -60,11 +69,16 @@ export function announce(
     region.textContent = text;
     return () => {};
   }
-  const timer = view.setTimeout(
-    () => {
-      region.textContent = text;
-    },
-    fresh ? FIRST_ANNOUNCE_MS : NEXT_ANNOUNCE_MS,
-  );
+  const now = Date.now();
+  let wait = fresh ? FIRST_ANNOUNCE_MS : NEXT_ANNOUNCE_MS;
+  if (channel === "page") {
+    pageSpokenAt.set(doc, now + wait);
+  } else {
+    const page = pageSpokenAt.get(doc);
+    if (page !== undefined) wait = Math.max(wait, page + TOAST_AFTER_PAGE_MS - now);
+  }
+  const timer = view.setTimeout(() => {
+    region.textContent = text;
+  }, wait);
   return () => view.clearTimeout(timer);
 }

@@ -598,6 +598,12 @@
   }
 }
 
+/* The 3D picture's click layer (M3-FIX-4): fills the map, under everything else on it. */
+.stage {
+  position: absolute;
+  inset: 0;
+}
+
 /* The mouse is over an island's model (M3-FIX-4): the hand cursor, as over its label. */
 .map[data-pointing="island"] {
   cursor: pointer;

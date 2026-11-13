@@ -72,7 +72,9 @@ export interface WorldMapView {
   /**
    * The island under a point on the canvas (CSS pixels from its top left), or null. The island's
    * blocks are tested first; a click in a gap between them (between two trees, say) still finds
-   * the island through its bounding box, so a child never has to aim (M3-FIX-4).
+   * the island through the ellipsoid that fills its bounding box, so a child never has to aim
+   * (M3-FIX-4). The ellipsoid, not the box: a box's empty corners reached out into the sky and,
+   * near another island, sometimes took a click meant for it (a11y review S4).
    */
   pick(at: ScreenPoint): BiomeId | null;
   /**
@@ -405,7 +407,33 @@ export function createWorldMapView(stage: MapStage, opts: MapViewOptions): World
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const box = new THREE.Box3();
-  const hit = new THREE.Vector3();
+  const mid = new THREE.Vector3();
+  const half = new THREE.Vector3();
+  const o = new THREE.Vector3();
+  const d = new THREE.Vector3();
+
+  /**
+   * Where the ray first enters the ellipsoid that fills `b` (its distance along the ray), or null.
+   * Scaling the box to a unit cube turns the ellipsoid into the unit sphere; the distance along
+   * the ray stays the same.
+   */
+  const ellipsoidHit = (ray: THREE.Ray, b: THREE.Box3): number | null => {
+    b.getCenter(mid);
+    b.getSize(half).multiplyScalar(0.5);
+    if (half.x <= 0 || half.y <= 0 || half.z <= 0) return null;
+    o.copy(ray.origin).sub(mid).divide(half);
+    d.copy(ray.direction).divide(half);
+    const a = d.dot(d);
+    const bq = 2 * o.dot(d);
+    const c = o.dot(o) - 1;
+    const disc = bq * bq - 4 * a * c;
+    if (disc < 0) return null;
+    const spread = Math.sqrt(disc);
+    const near = (-bq - spread) / (2 * a);
+    const far = (-bq + spread) / (2 * a);
+    if (far < 0) return null;
+    return Math.max(0, near);
+  };
   let hovered: BiomeId | null = null;
 
   /** Projects a world point to canvas pixels. */
@@ -473,10 +501,10 @@ export function createWorldMapView(stage: MapStage, opts: MapViewOptions): World
       if (best !== null) return best;
       for (const [id, island] of islands) {
         box.setFromObject(island.group);
-        if (box.isEmpty() || raycaster.ray.intersectBox(box, hit) === null) continue;
-        const d = hit.distanceTo(raycaster.ray.origin);
-        if (d < nearest) {
-          nearest = d;
+        if (box.isEmpty()) continue;
+        const enter = ellipsoidHit(raycaster.ray, box);
+        if (enter !== null && enter < nearest) {
+          nearest = enter;
           best = id;
         }
       }

@@ -544,6 +544,31 @@ describe("World map", () => {
     }
   });
 
+  it("narrow: after a long press and its lift, a click from assistive tech goes (review S1)", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width: 1100px") }));
+    try {
+      const s = await openMap(fixture("fresh-sprout"));
+      const home = buttonByText(s.root, t("builder.title"));
+      await act(() => {
+        home.dispatchEvent(pointer("pointerdown"));
+      });
+      await act(() => wait(LONG_PRESS_MS + 50));
+      // The browser turned the long press into a gesture: the lift makes no click.
+      await act(() => {
+        home.dispatchEvent(pointer("pointerup"));
+      });
+      await act(() => wait(10));
+      // TalkBack's double tap: a click with a detail and no pointer before it.
+      await act(() => {
+        home.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
+      });
+      await s.settle();
+      expect(s.route()).toEqual({ id: "play", lesson: "builder" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("narrow: after a long press, a key's click still goes", async () => {
     vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width: 1100px") }));
     try {
