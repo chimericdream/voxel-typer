@@ -2,7 +2,8 @@
  * Screen-reader announcements for menu changes and lesson results (task M3-07, PLAN.md §4.6).
  *
  * When the route changes, the new screen's name is read out politely through the page's one live
- * region (`announce` in `src/ui/kit/announce.ts`, outside `#app`, shared with toasts). Results also
+ * region (`announce` in `src/ui/kit/announce.ts`, outside `#app`; toasts have their own region, so
+ * neither overwrites the other: M3-07 review N6). Results also
  * say the stars and the warm message, because Results moves focus to its first button and a
  * screen reader would otherwise read only that button.
  *

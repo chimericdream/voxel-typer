@@ -23,7 +23,8 @@ test("meadow-01 plays to Results inside the draw-call budget", async ({ page }) 
   // A wrong key: nothing is lost, and the kind banner shows.
   const before = await state(page);
   await page.keyboard.press("q");
-  // The banner is a Toast, so the same words are in the live region (#vt-announcer) outside #app.
+  // The banner is a Toast, so the same words are in its live region (#vt-announcer-toast) outside
+  // #app.
   await expect(page.locator("#app").getByText("Almost! Try that key again")).toBeVisible();
   expect(await state(page)).toMatchObject({ typed: before.typed, text: before.text });
 

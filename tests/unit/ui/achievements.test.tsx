@@ -110,7 +110,7 @@ describe("badge toast", () => {
   });
 });
 
-describe("badge toasts and the route announcer share the live region (review B1)", () => {
+describe("badge toasts and the route announcer, each in its own live region (review B1, M3-07 N6)", () => {
   it("never opens on the play route; on Results the stars are read first, then the badge", async () => {
     h = await mount({ initialProfile: fixture("fresh-sprout"), initial: { id: "map" } });
     const s = h;
@@ -125,12 +125,17 @@ describe("badge toasts and the route announcer share the live region (review B1)
         announce(document, msg);
       },
     });
-    const region = announcer(document).region;
-    const watch = new MutationObserver(() => {
-      const now = region.textContent ?? "";
-      if (now !== "" && spoken.at(-1) !== now) spoken.push(now);
+    const regions = [announcer(document).region, announcer(document, "toast").region];
+    const watch = new MutationObserver((records) => {
+      for (const r of records) {
+        const region = regions.find((el) => el.contains(r.target));
+        const now = region?.textContent ?? "";
+        if (now !== "" && spoken.at(-1) !== now) spoken.push(now);
+      }
     });
-    watch.observe(region, { childList: true, characterData: true, subtree: true });
+    for (const region of regions) {
+      watch.observe(region, { childList: true, characterData: true, subtree: true });
+    }
     try {
       // A badge earned as the lesson finishes, while the route is still `play`.
       s.shell.api.navigate({ id: "play", lesson: "meadow-01" });
