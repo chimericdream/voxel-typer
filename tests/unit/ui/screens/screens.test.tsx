@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { screens } from "../../../../src/app/routes";
 import type { AppApi } from "../../../../src/app/types";
 import { t } from "../../../../src/i18n";
 import en from "../../../../src/i18n/en";
@@ -518,15 +519,22 @@ describe("Privacy", () => {
 
 describe("ComingSoon", () => {
   it("routes without a screen offer the way back", async () => {
-    const s = await open({ initial: { id: "splash" }, initialProfile: fixture("fresh-sprout") });
-    s.shell.api.navigate({ id: "inventory" });
-    await s.settle();
-    expect(text(s.root)).toContain(t("screens.comingSoon.body"));
-    const h1 = s.root.querySelectorAll("h1");
-    expect(h1).toHaveLength(1);
-    expect(h1[0]?.textContent).toBe(t("screens.comingSoon.title"));
-    await s.press("Enter");
-    expect(s.route().id).toBe("splash");
+    // Every route has a screen now (M4-09 added the last, My Blocks), so take one away.
+    const loader = screens.inventory;
+    delete screens.inventory;
+    try {
+      const s = await open({ initial: { id: "splash" }, initialProfile: fixture("fresh-sprout") });
+      s.shell.api.navigate({ id: "inventory" });
+      await s.settle();
+      expect(text(s.root)).toContain(t("screens.comingSoon.body"));
+      const h1 = s.root.querySelectorAll("h1");
+      expect(h1).toHaveLength(1);
+      expect(h1[0]?.textContent).toBe(t("screens.comingSoon.title"));
+      await s.press("Enter");
+      expect(s.route().id).toBe("splash");
+    } finally {
+      if (loader) screens.inventory = loader;
+    }
   });
 });
 

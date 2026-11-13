@@ -29,6 +29,7 @@ import defense from "./defense";
 import remedial from "./remedial";
 import parent from "./parent";
 import blueprints from "./blueprints";
+import inventory from "./inventory";
 
 const en = {
   common,
@@ -55,6 +56,7 @@ const en = {
   remedial,
   parent,
   blueprints,
+  inventory,
 } as const;
 
 export default en;
