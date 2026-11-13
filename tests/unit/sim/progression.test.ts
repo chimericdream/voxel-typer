@@ -1,23 +1,26 @@
 /**
  * The progression study (`tools/sim-progression.ts`, `tools/sim/learner.ts`, task M3-13): the
- * learner's power-law curve, the tool's copies of game glue against the real code, and a small,
- * deterministic run. The full study (docs/sim.md) is behind the tool:
+ * learner's power-law curve, the tool's loaders against the game's, a small deterministic run, and
+ * the Phase 3 pin (PLAN.md §8: an average Miner finishes biomes 1–4 in 40–90 sessions). Mine and
+ * the tool build sessions with one function, `planLesson` (M3-FIX-11), so there is no copy to
+ * check. The full study (docs/sim.md) is behind the tool:
  * `npm run tool -- sim-progression --study --runs 40 --seed 1`.
  */
 import { describe, expect, it } from "vitest";
 import { lessons } from "../../../src/content/lessons";
 import { POOL_IDS, wordPools } from "../../../src/content/wordlists/pools";
-import { REMEDIAL_EVERY } from "../../../src/engine/remedial";
-import { allowedKeys } from "../../../src/modes/mine/logic";
-import { focusKeys as mineFocusKeys } from "../../../src/modes/mine/mine";
+import { median } from "../../../src/engine/stats";
+import { REMEDIAL_EVERY, REMEDIAL_RULES } from "../../../src/engine/remedial";
 import {
-  focusKeys,
+  configLabel,
   formatProgression,
   formatTrace,
   loadLessons,
   loadPools,
   parseProgressionArgs,
   playLearnerCurriculum,
+  rulesFor,
+  scaledProfile,
   simulateProgression,
 } from "../../../tools/sim-progression";
 import type { ProgressionOptions } from "../../../tools/sim-progression";
@@ -69,13 +72,6 @@ describe("learner", () => {
 });
 
 describe("the tool's game glue", () => {
-  it("copies Mine's focusKeys exactly, for every lesson", () => {
-    for (const lesson of lessons) {
-      const allowed = allowedKeys(lessons, lesson);
-      expect(focusKeys(lesson, allowed), lesson.id).toEqual(mineFocusKeys(lesson, allowed));
-    }
-  });
-
   it("loads the same lessons and pools as the game's aggregators", async () => {
     const loaded = await loadLessons();
     expect(loaded.map((l) => l.id).toSorted(byText)).toEqual(
@@ -116,6 +112,29 @@ describe("progression run", () => {
     expect(formatProgression(simulateProgression(other, data), other, lessons)).not.toBe(a);
     const trace = { ...parseProgressionArgs(["--trace", "sprout:slow:0", "--max", "20"]) };
     expect(formatTrace(trace, data)).toBe(formatTrace(trace, data));
+  });
+
+  it("meets the Phase 3 pin: average Miners finish biomes 1–4 in 40–90 sessions (median)", () => {
+    const opts: ProgressionOptions = {
+      ...base,
+      runs: 5,
+      max: 200,
+      bands: ["miner"],
+      paces: ["avg"],
+    };
+    const done = simulateProgression(opts, data).map((o) => o.finishedAt.frosty ?? Infinity);
+    const mid = median(done) ?? Infinity;
+    expect(mid).toBeGreaterThanOrEqual(40);
+    expect(mid).toBeLessThanOrEqual(90);
+  });
+
+  it("ships the alternate mastery retry: --policy alternate plays as the game does", () => {
+    const opts = { ...base, max: 120 };
+    const game = playLearnerCurriculum("sprout", "slow", 0, opts, data);
+    const alt = playLearnerCurriculum("sprout", "slow", 0, { ...opts, policy: "alternate" }, data);
+    expect(alt).toEqual(game);
+    const before = playLearnerCurriculum("sprout", "slow", 0, { ...opts, policy: "fewest" }, data);
+    expect(before).not.toEqual(game);
   });
 
   it("passes camps by with --camps skip, and the what-if never touches the game's picks", () => {
@@ -159,5 +178,41 @@ describe("parseProgressionArgs", () => {
     expect(() => parseProgressionArgs(["--camps", "maybe"])).toThrow();
     expect(() => parseProgressionArgs(["--trace", "adult:slow:0"])).toThrow();
     expect(() => parseProgressionArgs(["--bogus", "1"])).toThrow();
+    expect(() => parseProgressionArgs(["--policy", "sometimes"])).toThrow();
+    expect(() => parseProgressionArgs(["--err-scale", "-1"])).toThrow();
+    expect(() => parseProgressionArgs(["--sprout-speed", "maybe"])).toThrow();
+  });
+
+  it("reads the policy, the learner scales and the camp rules", () => {
+    const args = parseProgressionArgs([
+      "--policy",
+      "alternate",
+      "--err-scale",
+      "0.7",
+      "--lat-scale",
+      "1.3",
+      "--relative",
+      "2",
+      "--every",
+      "3",
+      "--sprout-speed",
+      "off",
+      "--sweep",
+    ]);
+    expect(args).toMatchObject({
+      policy: "alternate",
+      errScale: 0.7,
+      latScale: 1.3,
+      remedial: { relative: 2, every: 3 },
+      sproutSpeed: false,
+      sweep: true,
+    });
+    expect(rulesFor("miner", args)).toEqual({ ...REMEDIAL_RULES, relative: 2, every: 3 });
+    expect(rulesFor("sprout", args).speed).toBe(false);
+    expect(rulesFor("miner", {})).toEqual(REMEDIAL_RULES);
+    expect(configLabel(args)).toContain("err0 ×0.7");
+    const p = scaledProfile(LEARNER_PROFILES.sprout.slow, args);
+    expect(p.err0).toBeCloseTo(LEARNER_PROFILES.sprout.slow.err0 * 0.7, 10);
+    expect(p.lat0).toBeCloseTo(LEARNER_PROFILES.sprout.slow.lat0 * 1.3, 10);
   });
 });

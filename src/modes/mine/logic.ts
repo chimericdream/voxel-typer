@@ -8,11 +8,17 @@
 import type { BlockDef, Rarity } from "@/content/blocks/types";
 import type { Lesson } from "@/content/lessons/types";
 import type { LootTable } from "@/content/loot/types";
+import { keyWeights } from "@/engine/adaptive";
+import { generateTargets } from "@/engine/generator";
 import type { GenerateParams, WordPool } from "@/engine/generator";
 import { LOOT_THRESHOLDS } from "@/engine/loot";
 import type { LootDrop } from "@/engine/loot";
 import type { Rng } from "@/engine/rng";
+import { baselineNetWpm, computeStars } from "@/engine/stars";
+import type { StarCount } from "@/engine/stars";
+import type { SessionSummary } from "@/engine/stats";
 import type { SessionConfig, Target, TargetView, WrongKeyPolicy } from "@/engine/types";
+import type { Profile } from "@/save/schema";
 import { BIOME_ORDER } from "@/types/core";
 import type { AgeBand, BiomeId, BlockId, Ms } from "@/types/core";
 
@@ -527,6 +533,109 @@ export function lengthPlan(
 
 /** The biome whose blocks and loot a lesson uses. */
 export const biomeOf = (lesson: Pick<Lesson, "biome"> | null): BiomeId => lesson?.biome ?? "meadow";
+
+/**
+ * The keys a lesson leans on: its new keys, plus its review keys when they are a real subset of
+ * what it allows. Many lessons list every allowed key as review; focusing on all of them would
+ * flatten the weights and switch off weak-key practice (M3-FIX-7 review).
+ */
+export function focusKeys(
+  lesson: Pick<Lesson, "newKeys" | "reviewKeys">,
+  allowed: readonly string[],
+): string[] {
+  const allowedSet = new Set(allowed);
+  const review = lesson.reviewKeys.filter((k) => allowedSet.has(k));
+  const partial = new Set(review).size < allowedSet.size;
+  return partial ? [...lesson.newKeys, ...review] : [...lesson.newKeys];
+}
+
+/** A session's rules, without its seed, mode and lesson id. */
+export type SessionRules = Pick<SessionConfig, "policy" | "targeting" | "caseSensitive" | "end">;
+
+/** The session rules for a lesson (free play: `null`) and band. */
+export function sessionRules(
+  lesson: Pick<Lesson, "policy" | "kind" | "caseInsensitiveFor" | "biome"> | null,
+  band: AgeBand,
+  end: SessionConfig["end"],
+): SessionRules {
+  return {
+    policy: lesson ? policyFor(lesson, band) : "stay",
+    targeting: "sequential",
+    caseSensitive: lesson ? caseSensitiveFor(lesson, band) : false,
+    end,
+  };
+}
+
+/** What a Mine session of a lesson plays: its blocks, its time limit and its rules. */
+export interface LessonPlan {
+  targets: Target[];
+  /** The countdown, or `null` (an untimed lesson, or calm mode). */
+  limitMs: Ms | null;
+  rules: SessionRules;
+}
+
+/**
+ * Turns a lesson into a Mine session (M3-FIX-11: one copy, shared by `mine.ts` and the progression
+ * study in `tools/sim-progression.ts`, so the two can't drift). The targets come from
+ * `rng.fork("targets")`.
+ */
+export function planLesson(p: {
+  /** Every curriculum lesson (for the allowed keys). */
+  lessons: readonly Lesson[];
+  lesson: Lesson;
+  band: AgeBand;
+  profile: Pick<Profile, "history" | "keyStats" | "sessionCounter">;
+  calm: boolean;
+  pools: readonly WordPool[];
+  rng: Rng;
+}): LessonPlan {
+  const { lesson, band, profile } = p;
+  const allowed = allowedKeys(p.lessons, lesson);
+  const estWpm = baselineNetWpm(profile.history) ?? EST_WPM[band];
+  const size = lengthPlan(lesson, band, { calm: p.calm, estWpm });
+  const targets = generateTargets(
+    {
+      kind: lesson.kind,
+      allowed,
+      weights: keyWeights({
+        allowed,
+        focus: focusKeys(lesson, allowed),
+        stats: profile.keyStats,
+        sessionIndex: profile.sessionCounter,
+        targetLatencyMs: TARGET_LATENCY[band],
+      }),
+      pools: poolsFor(lesson, band, p.pools),
+      length: size.length,
+      capitalize: "none",
+    },
+    p.rng.fork("targets"),
+  );
+  return {
+    targets: blockTargets(targets),
+    limitMs: size.timeLimitMs,
+    rules: sessionRules(lesson, band, size.end),
+  };
+}
+
+/**
+ * A finished Mine session's stars (decision 80: by band), with the speed baseline from the
+ * history before it. Free play (`null`) uses an 85 % accuracy target. Shared with the study.
+ */
+export function lessonStars(
+  lesson: Pick<Lesson, "targets"> | null,
+  summary: Pick<SessionSummary, "accuracy" | "netWpm">,
+  history: Profile["history"],
+  band: AgeBand,
+): StarCount {
+  return computeStars({
+    completed: true,
+    accuracy: summary.accuracy,
+    netWpm: summary.netWpm,
+    targets: lesson?.targets ?? { accuracy: 0.85 },
+    baseline: baselineNetWpm(history),
+    band,
+  });
+}
 
 // ---------------------------------------------------------------------------------------------
 // Where the block goes on the screen

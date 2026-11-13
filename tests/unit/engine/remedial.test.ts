@@ -9,16 +9,19 @@ import {
   anchorLesson,
   campLabel,
   dueRemedial,
+  nextCurriculumLesson,
   recommendNext,
   remedialById,
   resetRemedials,
 } from "../../../src/app/recommend";
 import { lessons as shipped } from "../../../src/content/lessons";
+import { allowedKeysFor } from "../../../src/content/lessons/types";
 import type { Lesson } from "../../../src/content/lessons/types";
 import { EN_US } from "../../../src/content/layouts";
 import {
   REMEDIAL_EVERY,
   REMEDIAL_MIN_ATTEMPTS,
+  REMEDIAL_RULES,
   REMEDIAL_SECONDS,
   isRemedialId,
   remedialAllowed,
@@ -54,8 +57,8 @@ function input(over: Partial<RemedialInput> = {}): RemedialInput {
   return {
     allowed: HOME,
     stats: Object.fromEntries(HOME.map((k) => [k, stat(60, 0.02)])),
-    // An offer slot: with no remedial played yet, offers come at sessions 0, 3, 6, 9, …
-    sessionIndex: 9,
+    // An offer slot: with no remedial played yet, offers come at sessions 0, 4, 8, …
+    sessionIndex: 2 * REMEDIAL_EVERY,
     targetLatencyMs: 900,
     recent: [],
     ...over,
@@ -95,7 +98,7 @@ describe("suggestRemedial: when", () => {
       s: stat(80, 0.8),
       l: stat(80, 0.4),
       d: stat(80, 0.01, 5),
-      f: stat(80, 0.01, 9),
+      f: stat(80, 0.01, 8),
     });
     const s = suggestRemedial(input({ stats }));
     expect(s?.keys).toEqual(["s", "a"]);
@@ -108,31 +111,76 @@ describe("suggestRemedial: when", () => {
   });
 });
 
+describe("suggestRemedial: the relative trigger and its rules (M3-FIX-11)", () => {
+  it("a key as weak as every other key is not flagged; one that stands out is", () => {
+    // Every key at err 0.45 (weight about 5.3): heavy, but no heavier than the rest.
+    const allShaky = Object.fromEntries(HOME.map((k) => [k, stat(60, 0.45)]));
+    expect(suggestRemedial(input({ stats: allShaky }))).toBeNull();
+    // Without the relative check (the rule before M3-FIX-11) they all qualify.
+    const old = { ...REMEDIAL_RULES, relative: 0, every: 3 };
+    expect(suggestRemedial(input({ stats: allShaky, sessionIndex: 9, rules: old }))).not.toBeNull();
+    // One key well above comfortable others is flagged.
+    expect(suggestRemedial(input({ stats: withWeak({ a: stat(60, 0.6) }) }))?.keys).toEqual(["a"]);
+    // The bar is a multiple of the median: a high enough multiple turns it off.
+    const mild = withWeak({ a: stat(60, 0.4) });
+    expect(suggestRemedial(input({ stats: mild }))).not.toBeNull();
+    expect(
+      suggestRemedial(input({ stats: mild, rules: { ...REMEDIAL_RULES, relative: 5 } })),
+    ).toBeNull();
+  });
+
+  it("can leave slowness out of the trigger", () => {
+    // A few slips (weight about 2.8), and very slow (+2).
+    const slow = { ...stat(60, 0.2), latencyMedian: 2700, recentLatencies: [2700] };
+    const stats = withWeak({ a: slow });
+    expect(suggestRemedial(input({ stats }))?.keys).toEqual(["a"]);
+    expect(
+      suggestRemedial(input({ stats, rules: { ...REMEDIAL_RULES, speed: false } })),
+    ).toBeNull();
+  });
+
+  it("takes the spacing from the rules", () => {
+    const stats = withWeak({ a: stat(80, 0.6) });
+    const every3 = { ...REMEDIAL_RULES, every: 3 };
+    expect(suggestRemedial(input({ stats, sessionIndex: 6, rules: every3 }))).not.toBeNull();
+    expect(suggestRemedial(input({ stats, sessionIndex: 6 }))).toBeNull();
+  });
+});
+
+/** `n` curriculum sessions. */
+const plays = (n: number): string[] => Array.from({ length: n }, () => "m");
+
 describe("suggestRemedial: rate limit", () => {
   const stats = withWeak({ a: stat(80, 0.6) });
   const r = remedialId(["a"], 3);
   const at = (recent: string[]) =>
     suggestRemedial(input({ stats, sessionIndex: 50 + recent.length, recent }));
+  const E = REMEDIAL_EVERY;
 
-  it("after a remedial is played, waits for two other sessions", () => {
+  it("is offered every 4 sessions (M3-FIX-11; it was 3)", () => {
+    expect(E).toBe(4);
+  });
+
+  it("after a remedial is played, waits for every − 1 other sessions", () => {
     expect(at(["meadow-01", r])).toBeNull();
-    expect(at([r, "meadow-02"])).toBeNull();
-    expect(at([r, "meadow-02", "meadow-03"])).not.toBeNull();
+    for (let n = 1; n < E - 1; n++) expect(at([r, ...plays(n)])).toBeNull();
+    expect(at([r, ...plays(E - 1)])).not.toBeNull();
   });
 
-  it("a camp passed by does not come back for three sessions (M3-06 review B1)", () => {
-    // Offered after [r, x, x]; the child plays lessons instead.
-    expect(at([r, "m", "m", "m"])).toBeNull();
-    expect(at([r, "m", "m", "m", "m"])).toBeNull();
-    expect(at([r, "m", "m", "m", "m", "m"])).not.toBeNull();
-    // With no remedial ever played: sessions 0, 3, 6, …
+  it("a camp passed by does not come back for `every` sessions (M3-06 review B1)", () => {
+    // Offered after [r, m × (E − 1)]; the child plays lessons instead.
+    for (let n = E; n < 2 * E - 1; n++) expect(at([r, ...plays(n)])).toBeNull();
+    expect(at([r, ...plays(2 * E - 1)])).not.toBeNull();
+    // With no remedial ever played: sessions 0, 4, 8, …
     expect(remedialAllowed([], 0)).toBe(true);
-    expect(remedialAllowed(["m"], 1)).toBe(false);
-    expect(remedialAllowed(["m", "m"], 2)).toBe(false);
-    expect(remedialAllowed(["m", "m", "m"], 3)).toBe(true);
+    for (let n = 1; n < E; n++) expect(remedialAllowed(plays(n), n)).toBe(false);
+    expect(remedialAllowed(plays(E), E)).toBe(true);
+    // The spacing is a parameter (the progression study sweeps it).
+    expect(remedialAllowed(plays(3), 3, 3)).toBe(true);
+    expect(remedialAllowed(plays(3), 3, 4)).toBe(false);
   });
 
-  it("is offered at most once every 3 sessions, taken or not", () => {
+  it("is offered at most once every `every` sessions, taken or not", () => {
     fc.assert(
       fc.property(
         fc.array(fc.boolean(), { minLength: 1, maxLength: 40 }),
@@ -159,14 +207,23 @@ describe("suggestRemedial: rate limit", () => {
   });
 
   it("playing it again straight away is the child's choice; offers still wait their turn", () => {
-    // Replayed twice in a row from Results: the next offer waits two sessions after the last one.
+    // Replayed twice in a row from Results: the next offer waits `every − 1` sessions after it.
     expect(at([r, r])).toBeNull();
-    expect(at([r, r, "m"])).toBeNull();
-    expect(at([r, r, "m", "m"])).not.toBeNull();
+    for (let n = 1; n < E - 1; n++) expect(at([r, r, ...plays(n)])).toBeNull();
+    expect(at([r, r, ...plays(E - 1)])).not.toBeNull();
   });
 });
 
 describe("remedial ids and lessons", () => {
+  it("ids hash the scope too: the same keys and session in another scope give another id", () => {
+    const id = remedialId(["a"], 8, "kid-1:meadow-09:en-US");
+    expect(remedialId(["a"], 8, "kid-1:meadow-09:en-US")).toBe(id);
+    expect(remedialId(["a"], 8, "kid-2:meadow-09:en-US")).not.toBe(id);
+    expect(remedialId(["a"], 8, "kid-1:meadow-02:en-US")).not.toBe(id);
+    expect(remedialId(["a"], 8, "kid-1:meadow-09:en-GB")).not.toBe(id);
+    expect(remedialId(["a"], 8)).not.toBe(id);
+  });
+
   it("ids hash the keys and the session", () => {
     const id = remedialId(["a", "s"], 7);
     expect(id).toMatch(/^remedial-[0-9a-z]+$/);
@@ -231,8 +288,12 @@ function shakyA(upTo: number): Profile {
   const p = meadow
     .filter((l) => l.order <= upTo)
     .reduce((acc, l) => play(acc, l), fixture("fresh-sprout"));
-  // Session 6 is an offer slot (no remedial played yet: sessions 0, 3, 6, …).
-  return { ...p, sessionCounter: 6, keyStats: { ...p.keyStats, a: stat(80, 0.6) } };
+  // An offer slot (no remedial played yet: sessions 0, 4, 8, …).
+  return {
+    ...p,
+    sessionCounter: 2 * REMEDIAL_EVERY,
+    keyStats: { ...p.keyStats, a: stat(80, 0.6) },
+  };
 }
 
 afterEach(() => resetRemedials());
@@ -311,6 +372,128 @@ describe("recommendNext", () => {
   it("no remedial before any lesson is reached", () => {
     const p = fixture("fresh-sprout");
     expect(dueRemedial({ ...p, keyStats: { a: stat(80, 0.6) } }, shipped)).toBeNull();
+  });
+});
+
+/** A Sprout called `id` who played Meadow 1 to `upTo`, with a shaky `f`, at an offer slot. */
+function shakyF(id: string, upTo: number): Profile {
+  const p = meadow
+    .filter((l) => l.order <= upTo)
+    .reduce((acc, l) => play(acc, l), fixture("fresh-sprout"));
+  return {
+    ...p,
+    id,
+    sessionCounter: 2 * REMEDIAL_EVERY,
+    keyStats: { ...p.keyStats, f: stat(80, 0.6) },
+  };
+}
+
+describe("camps on a shared device (M3-FIX-11)", () => {
+  it("siblings with the same weak key at the same session each get their own camp", () => {
+    // The older child plays first in this page load, then the younger one picks their profile.
+    const older = shakyF("older", 9);
+    const younger = shakyF("younger", 2);
+    const a = dueRemedial(older, shipped);
+    const b = dueRemedial(younger, shipped);
+    if (a === null || b === null) throw new Error("no camp");
+    expect(a).toMatchObject({ order: 9, newKeys: ["f"] });
+    expect(b).toMatchObject({ order: 2, newKeys: ["f"] });
+    expect(b.id).not.toBe(a.id);
+    // The younger child's camp asks only for keys they have been taught.
+    const taught = new Set(allowedKeysFor(shipped, "meadow-02"));
+    for (const k of [...b.newKeys, ...b.reviewKeys]) expect(taught.has(k), k).toBe(true);
+    // And the shell finds each child's own camp by its id.
+    expect(remedialById(a.id)).toBe(a);
+    expect(remedialById(b.id)).toBe(b);
+  });
+
+  it("one child who reaches a new lesson gets a new camp, not the old one", () => {
+    const before = shakyF("kid", 2);
+    const after = { ...shakyF("kid", 3), sessionCounter: before.sessionCounter };
+    expect(dueRemedial(before, shipped)?.order).toBe(2);
+    expect(dueRemedial(after, shipped)?.order).toBe(3);
+  });
+});
+
+/** Meadow played in order (no No Peeking!), with these stars. The boss comes after the mastery. */
+function meadowWith(stars: (l: Lesson) => 0 | 1 | 2 | 3): Profile {
+  return meadow
+    .filter((l) => l.tags?.includes("challenge-hide-keyboard") !== true)
+    .reduce((acc, l) => play(acc, l, stars(l)), fixture("fresh-sprout"));
+}
+
+/** A stand-in remedial lesson (only its id matters to `applyResult`). */
+function remedialLike(): Lesson {
+  const l = meadow[0];
+  if (!l) throw new Error("no meadow");
+  return { ...l, id: "remedial-z" };
+}
+
+describe("after a failed mastery check (M3-FIX-11)", () => {
+  const mastery = meadow.find((l) => l.tags?.includes("mastery") === true);
+  if (mastery === undefined) throw new Error("Meadow has no mastery lesson");
+  const m = mastery;
+  const isM = (l: Lesson): boolean => l.id === m.id;
+  const at = (id: string): Lesson => {
+    const l = meadow.find((x) => x.id === id);
+    if (!l) throw new Error(`no ${id}`);
+    return l;
+  };
+
+  it("alternates the mastery check with one fewest-stars replay", () => {
+    // Meadow 3 has 1 star, the mastery 1, the rest 2. The boss came last.
+    let p = meadowWith((l) => (isM(l) || l.id === "meadow-03" ? 1 : 2));
+    expect(p.progress.unlockedBiomes).toEqual(["meadow"]);
+    expect(nextCurriculumLesson(p, shipped)?.id).toBe(m.id);
+    p = play(p, m, 1);
+    expect(nextCurriculumLesson(p, shipped)?.id).toBe("meadow-03");
+    p = play(p, at("meadow-03"), 1);
+    expect(nextCurriculumLesson(p, shipped)?.id).toBe(m.id);
+    // A camp in between is not the replay.
+    p = play(p, m, 1);
+    p = applyResult(p, remedialLike(), result({ summary: summary({ lessonId: "remedial-z" }) }), 3);
+    expect(nextCurriculumLesson(p, shipped)?.id).toBe("meadow-03");
+    // Passed: the next island opens, and Meadow is back to plain fewest stars.
+    p = play(play(p, at("meadow-03"), 1), m, 2);
+    expect(p.progress.unlockedBiomes).toContain("birch");
+    const meadowOnly = shipped.filter((l) => l.biome === "meadow");
+    expect(nextCurriculumLesson(p, meadowOnly)?.id).toBe("meadow-03");
+  });
+
+  it("on a tie the replay is the first lesson, never the mastery check twice in a row", () => {
+    let p = meadowWith(() => 1);
+    expect(nextCurriculumLesson(p, shipped)?.id).toBe(m.id);
+    p = play(p, m, 1);
+    expect(nextCurriculumLesson(p, shipped)?.id).toBe("meadow-01");
+  });
+
+  it("the old rule (the study's `fewest`) only replays the fewest stars", () => {
+    const p = meadowWith((l) => (isM(l) || l.id === "meadow-03" ? 1 : 2));
+    expect(nextCurriculumLesson(p, shipped, { masteryRetry: "fewest" })?.id).toBe("meadow-03");
+  });
+
+  it("keeps the No Peeking! skip rule, and leaves a tested-out mastery alone", () => {
+    const challenge = meadow.find((l) => l.tags?.includes("challenge-hide-keyboard") === true);
+    const p = play(
+      meadowWith((l) => (isM(l) ? 1 : 2)),
+      m,
+      1,
+    );
+    const next = nextCurriculumLesson(p, shipped);
+    expect(next?.id).not.toBe(challenge?.id);
+    expect(next?.id).toBe("meadow-01");
+    const tested: Profile = {
+      ...p,
+      progress: {
+        ...p.progress,
+        lessons: {
+          ...p.progress.lessons,
+          [m.id]: { bestStars: 1, bestNetWpm: 0, bestAccuracy: 0, plays: 0, lastPlayed: 1 },
+        },
+      },
+    };
+    expect(nextCurriculumLesson(tested, shipped)?.id).toBe("meadow-01");
+    expect(nextCurriculumLesson(play(tested, at("meadow-01"), 3), shipped)?.id).toBe("meadow-02");
   });
 });
 

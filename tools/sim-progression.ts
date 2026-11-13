@@ -35,24 +35,13 @@ import { isContentDataFile } from "../src/content/collect";
 import { lessonsFromModules } from "../src/content/lessons/load";
 import type { Lesson } from "../src/content/lessons/types";
 import { poolFromText } from "../src/content/wordlists/loader";
-import { keyWeights } from "../src/engine/adaptive";
-import { generateTargets } from "../src/engine/generator";
 import type { WordPool } from "../src/engine/generator";
-import { isRemedialId } from "../src/engine/remedial";
+import { REMEDIAL_RULES, isRemedialId } from "../src/engine/remedial";
+import type { RemedialRules } from "../src/engine/remedial";
 import { createRng, hashString } from "../src/engine/rng";
-import { baselineNetWpm, computeStars } from "../src/engine/stars";
 import type { StarCount } from "../src/engine/stars";
 import { median } from "../src/engine/stats";
-import {
-  EST_WPM,
-  TARGET_LATENCY,
-  allowedKeys,
-  blockTargets,
-  caseSensitiveFor,
-  lengthPlan,
-  policyFor,
-  poolsFor,
-} from "../src/modes/mine/logic";
+import { allowedKeys, lessonStars, planLesson } from "../src/modes/mine/logic";
 import { applyResult, settleAtMeadow } from "../src/app/progress";
 import {
   anchorLesson,
@@ -61,6 +50,7 @@ import {
   recommendNext,
   resetRemedials,
 } from "../src/app/recommend";
+import type { RecommendOptions } from "../src/app/recommend";
 import { SCHEMA_VERSION } from "../src/save/schema";
 import type { Profile } from "../src/save/schema";
 import { defaultSettings } from "../src/save/settings";
@@ -99,21 +89,6 @@ export function loadPools(): WordPool[] {
     }
   }
   return out;
-}
-
-/**
- * Mine's `focusKeys` (src/modes/mine/mine.ts), copied because mine.ts loads the Vite-only content
- * aggregators. `tests/unit/sim/progression.test.ts` checks the copy against the real one for every
- * lesson.
- */
-export function focusKeys(
-  lesson: Pick<Lesson, "newKeys" | "reviewKeys">,
-  allowed: readonly string[],
-): string[] {
-  const allowedSet = new Set(allowed);
-  const review = lesson.reviewKeys.filter((k) => allowedSet.has(k));
-  const partial = new Set(review).size < allowedSet.size;
-  return partial ? [...lesson.newKeys, ...review] : [...lesson.newKeys];
 }
 
 /** A new profile, as ProfileCreate's `newProfile` makes it, settled at the Meadow. */
@@ -163,37 +138,23 @@ export function playSession(
   },
 ): PlayedSession {
   const band = profile.ageBand;
-  const allowed = allowedKeys(ctx.lessons, lesson);
-  const estWpm = baselineNetWpm(profile.history) ?? EST_WPM[band];
-  const size = lengthPlan(lesson, band, { calm: profile.settings.calmMode, estWpm });
-  const targets = generateTargets(
-    {
-      kind: lesson.kind,
-      allowed,
-      weights: keyWeights({
-        allowed,
-        focus: focusKeys(lesson, allowed),
-        stats: profile.keyStats,
-        sessionIndex: profile.sessionCounter,
-        targetLatencyMs: TARGET_LATENCY[band],
-      }),
-      pools: poolsFor(lesson, band, ctx.pools),
-      length: size.length,
-      capitalize: "none",
-    },
-    ctx.rng.fork("targets"),
-  );
+  const plan = planLesson({
+    lessons: ctx.lessons,
+    lesson,
+    band,
+    profile,
+    calm: profile.settings.calmMode,
+    pools: ctx.pools,
+    rng: ctx.rng,
+  });
   const run = playLearner({
     config: {
-      policy: policyFor(lesson, band),
-      targeting: "sequential",
-      caseSensitive: caseSensitiveFor(lesson, band),
-      end: size.timeLimitMs === null ? { kind: "targets" } : { kind: "time", ms: size.timeLimitMs },
+      ...plan.rules,
       mode: lesson.mode === "defense" ? "defense" : "mine",
       seed: ctx.rng.seed,
       lessonId: lesson.id,
     },
-    targets: blockTargets(targets),
+    targets: plan.targets,
     learner,
     rng: ctx.rng.fork("learner"),
     ctx: {
@@ -202,14 +163,7 @@ export function playSession(
     },
   });
   const { summary } = run;
-  const stars = computeStars({
-    completed: true,
-    accuracy: summary.accuracy,
-    netWpm: summary.netWpm,
-    targets: lesson.targets,
-    baseline: baselineNetWpm(profile.history),
-    band,
-  });
+  const stars = lessonStars(lesson, summary, profile.history, band);
   const at: EpochMs = (profile.sessionCounter + 1) * DAY;
   const next = applyResult(profile, lesson, { summary, loot: {}, stars }, at);
   return { lesson, stars, accuracy: summary.accuracy, netWpm: summary.netWpm, profile: next };
@@ -259,19 +213,63 @@ export interface LearnerOutcome {
   weakErrEnd: number;
 }
 
+/**
+ * What comes after a failed mastery check:
+ * - `game`: `recommendNext` as shipped (since M3-FIX-11, the same as `alternate`);
+ * - `alternate`: the mastery check, then one fewest-stars replay, then the check again;
+ * - `fewest`: the rule before M3-FIX-11, the fewest-stars replay only (often lesson 01);
+ * - `mastery-first`: a what-if, not the game. Every replay of an old lesson becomes a replay of
+ *   the mastery check while it is played and under 2 stars.
+ */
+export type Policy = "game" | "alternate" | "fewest" | "mastery-first";
+export const POLICIES: readonly Policy[] = ["game", "alternate", "fewest", "mastery-first"];
+
 export interface ProgressionOptions {
   runs: number;
   seed: number;
   max: number;
   camps: "take" | "skip";
-  /**
-   * `game`: `recommendNext` as shipped. `mastery-first`: a what-if for the handoff note, not the
-   * game. When the game would send the learner back to replay an old lesson while their biome's
-   * mastery lesson is played but under 2 stars, they replay the mastery lesson instead.
-   */
-  policy: "game" | "mastery-first";
+  policy: Policy;
+  /** Scales every learner's `err0` (its slips on a new key). Default 1. */
+  errScale?: number;
+  /** Scales every learner's `lat0` (its gap on a new key; never below its floor). Default 1. */
+  latScale?: number;
+  /** Overrides of the remedial rules (`src/engine/remedial.ts`), for the sweep. */
+  remedial?: Partial<RemedialRules>;
+  /** Overrides `remedial.speed` for Sprouts only (the "no speed in the Sprout trigger" try). */
+  sproutSpeed?: boolean;
   bands?: readonly AgeBand[];
   paces?: readonly Pace[];
+}
+
+/** The remedial rules one learner plays under. */
+export function rulesFor(
+  band: AgeBand,
+  opts: Pick<ProgressionOptions, "remedial" | "sproutSpeed">,
+): RemedialRules {
+  const rules = { ...REMEDIAL_RULES, ...opts.remedial };
+  if (band === "sprout" && opts.sproutSpeed !== undefined) rules.speed = opts.sproutSpeed;
+  return rules;
+}
+
+/** The learner's profile with `err0` and `lat0` scaled (the sensitivity rows). */
+export function scaledProfile(
+  p: LearnerProfile,
+  opts: Pick<ProgressionOptions, "errScale" | "latScale">,
+): LearnerProfile {
+  return {
+    ...p,
+    err0: p.err0 * (opts.errScale ?? 1),
+    lat0: Math.max(p.latFloor, p.lat0 * (opts.latScale ?? 1)),
+  };
+}
+
+/** What the tool passes to `recommendNext` for a learner. */
+function recommendOptions(band: AgeBand, opts: ProgressionOptions): RecommendOptions {
+  const out: RecommendOptions = { remedial: rulesFor(band, opts) };
+  if (opts.policy === "alternate") out.masteryRetry = "alternate";
+  if (opts.policy === "fewest" || opts.policy === "mastery-first") out.masteryRetry = "fewest";
+  return out;
 }
 
 const meanOf = (xs: readonly number[]): number =>
@@ -307,14 +305,18 @@ export function playLearnerCurriculum(
   band: AgeBand,
   pace: Pace,
   run: number,
-  opts: Pick<ProgressionOptions, "seed" | "max" | "camps" | "policy">,
+  opts: ProgressionOptions,
   data: { lessons: readonly Lesson[]; pools: readonly WordPool[] },
   extra: { profile?: LearnerProfile; trace?: string[] } = {},
 ): LearnerOutcome {
   resetRemedials();
   const seed = hashString(`${opts.seed}:${band}:${pace}:${run}`);
   const rng = createRng(seed);
-  const learner = createLearner(extra.profile ?? LEARNER_PROFILES[band][pace], seed);
+  const learner = createLearner(
+    scaledProfile(extra.profile ?? LEARNER_PROFILES[band][pace], opts),
+    seed,
+  );
+  const recOpts = recommendOptions(band, opts);
   const biomes = biomesWithLessons(data.lessons);
   const last = biomes.at(-1);
   const mastery = new Map(
@@ -346,14 +348,14 @@ export function playLearnerCurriculum(
 
   const allDone = (): boolean => last !== undefined && out.finishedAt[last] !== undefined;
   while (out.sessions < opts.max && !allDone()) {
-    const recommended = recommendNext(profile, data.lessons);
+    const recommended = recommendNext(profile, data.lessons, recOpts);
     if (recommended === null) break;
     let lesson = recommended;
     const camp = isRemedialId(recommended.id);
     if (camp) {
       out.offers++;
       if (opts.camps === "skip") {
-        const next = nextCurriculumLesson(profile, data.lessons);
+        const next = nextCurriculumLesson(profile, data.lessons, recOpts);
         if (next === null) break;
         lesson = next;
       }
@@ -466,6 +468,23 @@ const groups = (
 /** Sessions until `biome` was finished, or +∞. */
 const doneAt = (o: LearnerOutcome, biome: BiomeId): number => o.finishedAt[biome] ?? Infinity;
 
+/** The configuration in words: camps, policy, remedial rules and learner scales. */
+export function configLabel(opts: ProgressionOptions): string {
+  const r = rulesFor("miner", opts);
+  const s = rulesFor("sprout", opts).speed;
+  const sprout = s === r.speed ? "" : `, Sprout speed ${onOff(s)}`;
+  const parts = [
+    `camps ${opts.camps}`,
+    `policy ${opts.policy}`,
+    `camp rule ×${r.relative} every ${r.every}${r.speed ? "" : " no speed"}${sprout}`,
+  ];
+  if ((opts.errScale ?? 1) !== 1) parts.push(`err0 ×${opts.errScale}`);
+  if ((opts.latScale ?? 1) !== 1) parts.push(`lat0 ×${opts.latScale}`);
+  return parts.join(", ");
+}
+
+const onOff = (on: boolean): string => (on ? "on" : "off");
+
 export function formatProgression(
   outcomes: readonly LearnerOutcome[],
   opts: ProgressionOptions,
@@ -473,7 +492,7 @@ export function formatProgression(
 ): string {
   const biomes = biomesWithLessons(lessons);
   const lines: string[] = [
-    `Progression study: ${opts.runs} learners per row, seed ${opts.seed}, at most ${opts.max} sessions, camps ${opts.camps}, policy ${opts.policy}`,
+    `Progression study: ${opts.runs} learners per row, seed ${opts.seed}, at most ${opts.max} sessions, ${configLabel(opts)}`,
     "",
     "Sessions to finish each biome (cumulative, from the first session): median [10th–90th percentile]",
     "",
@@ -548,12 +567,21 @@ export function formatProgression(
   return `${lines.join("\n")}\n`;
 }
 
-/** Command-line options: one configuration, the whole study, or one learner's trace. */
+/** Command-line options: one configuration, the whole study, the sweep, or one learner's trace. */
 export interface ProgressionArgs extends ProgressionOptions {
-  /** Print the three configurations of docs/sim.md instead of one. */
+  /** Print the configurations of docs/sim.md and the sensitivity rows instead of one. */
   study: boolean;
+  /** Print the remedial-rule sweep instead (slow and average learners). */
+  sweep: boolean;
   /** `band:pace:run`: print that learner's sessions instead. */
   trace: { band: AgeBand; pace: Pace; run: number } | null;
+}
+
+/** A number flag's value: finite, and at least `min`. */
+function numberOf(flag: string, value: string, min: number): number {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < min) throw new Error(`${flag} needs a number ≥ ${min}`);
+  return n;
 }
 
 export function parseProgressionArgs(args: readonly string[]): ProgressionArgs {
@@ -564,12 +592,14 @@ export function parseProgressionArgs(args: readonly string[]): ProgressionArgs {
     camps: "take",
     policy: "game",
     study: false,
+    sweep: false,
     trace: null,
   };
+  const remedial: Partial<RemedialRules> = {};
   for (let i = 0; i < args.length; i++) {
     const flag = args[i] ?? "";
-    if (flag === "--study") {
-      opts.study = true;
+    if (flag === "--study" || flag === "--sweep") {
+      opts[flag === "--study" ? "study" : "sweep"] = true;
       continue;
     }
     const value = args[++i];
@@ -578,10 +608,18 @@ export function parseProgressionArgs(args: readonly string[]): ProgressionArgs {
       if (value !== "take" && value !== "skip") throw new Error("--camps must be take or skip");
       opts.camps = value;
     } else if (flag === "--policy") {
-      if (value !== "game" && value !== "mastery-first") {
-        throw new Error("--policy must be game or mastery-first");
-      }
-      opts.policy = value;
+      const policy = POLICIES.find((p) => p === value);
+      if (policy === undefined) throw new Error(`--policy must be one of ${POLICIES.join(", ")}`);
+      opts.policy = policy;
+    } else if (flag === "--sprout-speed") {
+      if (value !== "on" && value !== "off") throw new Error("--sprout-speed must be on or off");
+      opts.sproutSpeed = value === "on";
+    } else if (flag === "--err-scale") {
+      opts.errScale = numberOf(flag, value, 0);
+    } else if (flag === "--lat-scale") {
+      opts.latScale = numberOf(flag, value, 0);
+    } else if (flag === "--relative") {
+      remedial.relative = numberOf(flag, value, 0);
     } else if (flag === "--trace") {
       const [b, p, r] = value.split(":");
       const band = BANDS.find((x) => x === b);
@@ -597,18 +635,183 @@ export function parseProgressionArgs(args: readonly string[]): ProgressionArgs {
       if (flag === "--runs") opts.runs = Math.max(1, n);
       else if (flag === "--seed") opts.seed = n;
       else if (flag === "--max") opts.max = Math.max(1, n);
+      else if (flag === "--every") remedial.every = Math.max(1, n);
       else throw new Error(`unknown flag ${flag}`);
     }
   }
+  if (Object.keys(remedial).length > 0) opts.remedial = remedial;
   return opts;
 }
 
-/** The configurations of the study in docs/sim.md: the game, camps passed by, mastery-first. */
+/** The camp rules and replay rule before M3-FIX-11: no relative check, every 3, fewest stars. */
+export const BEFORE: Pick<ProgressionOptions, "policy" | "remedial"> = {
+  policy: "fewest",
+  remedial: { relative: 0, every: 3 },
+};
+
+/** The configurations of the study in docs/sim.md: the game, the game before, camps passed by. */
 export const studyConfigs = (opts: ProgressionOptions): ProgressionOptions[] => [
   { ...opts, camps: "take", policy: "game" },
+  { ...opts, camps: "take", ...BEFORE },
   { ...opts, camps: "skip", policy: "game" },
-  { ...opts, camps: "take", policy: "mastery-first" },
 ];
+
+/** The learner scales of the sensitivity rows. */
+export const ERR_SCALES: readonly number[] = [0.5, 0.7, 1];
+
+/** The headline numbers of one group of learners. */
+export interface Headline {
+  /** Learners with a stuck run. */
+  stuck: number;
+  /** Share of curriculum plays with 1★. */
+  oneStar: number;
+  /** Median longest 1★ run. */
+  longestOneStar: number;
+  /** Median longest run without an unlock. */
+  longestNoUnlock: number;
+  /** Camps played, as a share of sessions. */
+  campShare: number;
+  /** Median sessions to finish the first biome, and the last (+∞: not done). */
+  first: number;
+  last: number;
+}
+
+export function headline(rows: readonly LearnerOutcome[], lessons: readonly Lesson[]): Headline {
+  const biomes = biomesWithLessons(lessons);
+  const plays = rows.reduce((n, o) => n + o.stars[1] + o.stars[2] + o.stars[3], 0);
+  const sessions = rows.reduce((n, o) => n + o.sessions, 0);
+  const at = (b: BiomeId | undefined): number =>
+    b === undefined
+      ? Infinity
+      : quantile(
+          rows.map((o) => doneAt(o, b)),
+          0.5,
+        );
+  return {
+    stuck: rows.filter((o) => o.stuckRuns > 0).length / Math.max(1, rows.length),
+    oneStar: rows.reduce((n, o) => n + o.stars[1], 0) / Math.max(1, plays),
+    longestOneStar: median(rows.map((o) => o.longestOneStar)) ?? 0,
+    longestNoUnlock: median(rows.map((o) => o.longestNoUnlock)) ?? 0,
+    campShare: rows.reduce((n, o) => n + o.camps.length, 0) / Math.max(1, sessions),
+    first: at(biomes[0]),
+    last: at(biomes.at(-1)),
+  };
+}
+
+const share = (x: number): string => `${Math.round(100 * x)}%`;
+
+/** One headline row: `| … | stuck | 1★ | longest 1★ | longest no unlock | camps | first | last |`. */
+function headlineCells(h: Headline, max: number): string {
+  return [
+    share(h.stuck),
+    share(h.oneStar),
+    String(h.longestOneStar),
+    String(h.longestNoUnlock),
+    share(h.campShare),
+    cellOf(h.first, max),
+    cellOf(h.last, max),
+  ].join(" | ");
+}
+
+const HEADLINE_HEAD = (lessons: readonly Lesson[]): string => {
+  const biomes = biomesWithLessons(lessons);
+  return `Learners with a stuck run | 1★ share | Longest 1★ run (median) | Longest run without an unlock (median) | Camp share | ${biomes[0] ?? "first"} done (median) | ${biomes.at(-1) ?? "last"} done (median)`;
+};
+
+/**
+ * The sensitivity rows: the game and the game before M3-FIX-11, with every learner's `err0`
+ * scaled by each of {@link ERR_SCALES}. `known` holds runs already made (scale 1), by config.
+ */
+export function formatSensitivity(
+  opts: ProgressionOptions,
+  data: { lessons: readonly Lesson[]; pools: readonly WordPool[] },
+  known: ReadonlyMap<string, readonly LearnerOutcome[]> = new Map(),
+): string {
+  const configs: { name: string; opts: ProgressionOptions }[] = [
+    { name: "game", opts: { ...opts, camps: "take", policy: "game" } },
+    { name: "before", opts: { ...opts, camps: "take", ...BEFORE } },
+  ];
+  const lines = [
+    `Sensitivity: every learner's err0 scaled (${opts.runs} learners per row, seed ${opts.seed}). "before" is the game before M3-FIX-11 (${configLabel({ ...opts, ...BEFORE })}).`,
+    "",
+    `| Band | Learner | err0 × | Rules | ${HEADLINE_HEAD(data.lessons)} |`,
+    "|---|---|---:|---|---:|---:|---:|---:|---:|---:|---:|",
+  ];
+  const results = new Map<string, LearnerOutcome[]>();
+  for (const scale of ERR_SCALES) {
+    for (const c of configs) {
+      const o = { ...c.opts, errScale: scale };
+      const key = `${c.name}@${scale}`;
+      results.set(key, [...(known.get(key) ?? simulateProgression(o, data))]);
+    }
+  }
+  for (const band of opts.bands ?? BANDS) {
+    for (const pace of opts.paces ?? PACES) {
+      for (const scale of ERR_SCALES) {
+        for (const c of configs) {
+          const rows = (results.get(`${c.name}@${scale}`) ?? []).filter(
+            (o) => o.band === band && o.pace === pace,
+          );
+          lines.push(
+            `| ${band} | ${pace} | ${scale} | ${c.name} | ${headlineCells(headline(rows, data.lessons), opts.max)} |`,
+          );
+        }
+      }
+    }
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+/** The remedial rules the sweep tries: `relative` × `every`, then Sprouts without speed. */
+export function sweepConfigs(opts: ProgressionOptions): ProgressionOptions[] {
+  const out: ProgressionOptions[] = [{ ...opts, ...BEFORE, policy: "game" }];
+  for (const every of [3, 4]) {
+    for (const relative of [1.25, 1.5, 2]) {
+      out.push({ ...opts, policy: "game", remedial: { relative, every } });
+    }
+  }
+  for (const every of [3, 4]) {
+    for (const relative of [1.25, 1.5, 2]) {
+      out.push({
+        ...opts,
+        policy: "game",
+        remedial: { relative, every },
+        sproutSpeed: false,
+        bands: ["sprout"],
+      });
+    }
+  }
+  return out.map((o) => ({ ...o, paces: opts.paces ?? ["slow", "avg"] }));
+}
+
+/** The remedial-rule sweep, one row per rule and learner. */
+export function formatSweep(
+  opts: ProgressionOptions,
+  data: { lessons: readonly Lesson[]; pools: readonly WordPool[] },
+): string {
+  const lines = [
+    `Remedial-rule sweep: ${opts.runs} learners per row, seed ${opts.seed}, policy game (alternate). The first rule is the one before M3-FIX-11 (weight ≥ 4 only, every 3).`,
+    "",
+    `| Camp rule | Band | Learner | Camps offered (median) | Camp keys among 3 truly weakest | Weakest-2 slip chance at the end | ${HEADLINE_HEAD(data.lessons)} |`,
+    "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+  ];
+  for (const o of sweepConfigs(opts)) {
+    const r = rulesFor("miner", o);
+    const sprout = rulesFor("sprout", o);
+    const rule = `${r.relative === 0 ? "no relative" : `×${r.relative}`}, every ${r.every}${sprout.speed ? "" : ", no speed"}`;
+    for (const g of groups(simulateProgression(o, data))) {
+      const camps = g.rows.flatMap((x) => x.camps);
+      const hits = camps.length === 0 ? "·" : share(meanOf(camps.map((c) => c.hits)));
+      const weak = `${(100 * meanOf(g.rows.map((x) => x.weakErrEnd))).toFixed(1)}%`;
+      const offers = median(g.rows.map((x) => x.offers)) ?? 0;
+      const h = headline(g.rows, data.lessons);
+      lines.push(
+        `| ${rule} | ${g.band} | ${g.pace} | ${offers} | ${hits} | ${weak} | ${headlineCells(h, o.max)} |`,
+      );
+    }
+  }
+  return `${lines.join("\n")}\n`;
+}
 
 /** One learner's sessions as a table. */
 export function formatTrace(
@@ -620,7 +823,7 @@ export function formatTrace(
   const trace: string[] = [];
   playLearnerCurriculum(t.band, t.pace, t.run, args, data, { trace });
   return [
-    `Trace: ${t.band} ${t.pace} learner ${t.run}, seed ${args.seed}, camps ${args.camps}, policy ${args.policy}`,
+    `Trace: ${t.band} ${t.pace} learner ${t.run}, seed ${args.seed}, ${configLabel(args)}`,
     "",
     "| Session | Lesson | Stars | Accuracy | Net WPM |",
     "|---:|---|---|---:|---:|",
@@ -629,16 +832,34 @@ export function formatTrace(
   ].join("\n");
 }
 
+/** The whole study: the three configurations' tables, then the sensitivity rows. */
+export function formatStudy(
+  opts: ProgressionOptions,
+  data: { lessons: readonly Lesson[]; pools: readonly WordPool[] },
+): string {
+  const [game, before, skip] = studyConfigs(opts);
+  const out: string[] = [];
+  const known = new Map<string, readonly LearnerOutcome[]>();
+  for (const [name, o] of [
+    ["game", game],
+    ["before", before],
+    ["skip", skip],
+  ] as const) {
+    if (o === undefined) continue;
+    const rows = simulateProgression(o, data);
+    if (name !== "skip") known.set(`${name}@1`, rows);
+    out.push(formatProgression(rows, o, data.lessons));
+  }
+  out.push(formatSensitivity(opts, data, known));
+  return out.join("\n");
+}
+
 if (resolve(argv[1] ?? "") === fileURLToPath(import.meta.url)) {
   const args = parseProgressionArgs(argv.slice(2));
   const lessons = await loadLessons();
   const data = { lessons, pools: loadPools() };
-  if (args.trace !== null) {
-    process.stdout.write(formatTrace(args, data));
-  } else {
-    const configs = args.study ? studyConfigs(args) : [args];
-    process.stdout.write(
-      configs.map((o) => formatProgression(simulateProgression(o, data), o, lessons)).join("\n"),
-    );
-  }
+  if (args.trace !== null) process.stdout.write(formatTrace(args, data));
+  else if (args.sweep) process.stdout.write(formatSweep(args, data));
+  else if (args.study) process.stdout.write(formatStudy(args, data));
+  else process.stdout.write(formatProgression(simulateProgression(args, data), args, lessons));
 }
