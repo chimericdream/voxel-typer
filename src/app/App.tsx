@@ -173,7 +173,8 @@ function Badges({ shell }: { shell: Shell }) {
     void import("@/ui/components/AchievementToast").then((m) => setView(() => m.AchievementToast));
   }, [want, View]);
   if (View === null) return null;
-  return <View queue={queue} open={!onPlay && settledOn === route} onShown={onShown} />;
+  // needsPlace (M3-FIX-12): only on a screen that made room for it (Results' dock, the map's corner).
+  return <View queue={queue} open={!onPlay && settledOn === route} onShown={onShown} needsPlace />;
 }
 
 export interface AppProps {

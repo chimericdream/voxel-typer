@@ -28,7 +28,7 @@ import {
   zoneOf,
 } from "../../../src/ui/keyboard/model";
 import type { BoardKey, WobbleGate } from "../../../src/ui/keyboard/model";
-import { OnScreenKeyboard } from "../../../src/ui/keyboard/OnScreenKeyboard";
+import { OnScreenKeyboard, fitLabels } from "../../../src/ui/keyboard/OnScreenKeyboard";
 import type { WrongKey } from "../../../src/ui/keyboard/OnScreenKeyboard";
 import en from "../../../src/i18n/en";
 import {
@@ -477,6 +477,15 @@ describe("keyboard stylesheets", () => {
     expect(css).toContain("font-family: var(--font-body)");
   });
 
+  it("never draws a finger label under 12 px, and hides one that doesn't fit (M3-FIX-12)", () => {
+    expect(css).toContain("--label-size: max(12px, calc(var(--u) * 0.2));");
+    expect(css).toContain("font-size: var(--label-size);");
+    expect(css).not.toMatch(/max\(10px/);
+    const at = css.indexOf(".root .slot[data-label-off] .label {");
+    expect(at).toBeGreaterThan(-1);
+    expect(css.slice(at, css.indexOf("}", at))).toContain("visibility: hidden");
+  });
+
   it("wobble only with motion on; the dashed outline shows either way", () => {
     const at = css.indexOf(".slot[data-wobble] > kbd {");
     const block = css.slice(at, css.indexOf("}", at));
@@ -596,6 +605,37 @@ describe("OnScreenKeyboard", () => {
     );
     mount(<OnScreenKeyboard layout={EN_US} nextKey={null} />);
     expect(one("[role=img][data-layout]").getAttribute("aria-label")).toBe("Keyboard");
+  });
+
+  it("hides a finger label wider than its key, and keeps one that fits (M3-FIX-12)", () => {
+    mount(<OnScreenKeyboard layout={EN_US} nextKey="f" labels />);
+    const board = one("[role=img][data-layout]");
+    const keyWidth = 40;
+    for (const slot of board.querySelectorAll<HTMLElement>("[data-code]")) {
+      const wide = slot.dataset["code"]?.startsWith("Shift") === true ? 2.25 : 1;
+      slot.getBoundingClientRect = () => new DOMRect(0, 0, keyWidth * wide, keyWidth);
+      const span = slot.querySelector<HTMLElement>("[data-finger-label] > span");
+      if (!span) throw new Error("no label");
+      // About 7 px a letter at 12 px: "pointer" is 49 px, "pinky" 35 px.
+      const width = (span.textContent ?? "").length * 7;
+      span.getBoundingClientRect = () => new DOMRect(0, 0, width, 12);
+    }
+    fitLabels(board);
+    const off = (code: string): boolean =>
+      one(`[data-code="${code}"]`).hasAttribute("data-label-off");
+    expect(off("KeyF")).toBe(true); // pointer, the lit key too
+    expect(off("KeyA")).toBe(false); // pinky
+    expect(off("KeyS")).toBe(false); // ring
+    expect(off("ShiftLeft")).toBe(false);
+    // The key grows (a wider window): the label comes back.
+    one('[data-code="KeyF"]').getBoundingClientRect = () => new DOMRect(0, 0, 60, 60);
+    fitLabels(board);
+    expect(off("KeyF")).toBe(false);
+  });
+
+  it("leaves labels alone before the keys are laid out", () => {
+    mount(<OnScreenKeyboard layout={EN_US} nextKey="f" labels />);
+    expect(all("[data-label-off]")).toHaveLength(0);
   });
 });
 

@@ -14,6 +14,8 @@
  * already, and rem would apply the scale twice.
  */
 .frame {
+  /* The finger label's size (see `.label`). */
+  --label-size: max(12px, calc(var(--u) * 0.2));
   --u: min(
     calc(40px * var(--text-scale)),
     var(--keyboard-max-unit, 100vw),
@@ -105,7 +107,11 @@
   --zone: var(--c-zone-thumb);
 }
 
-/* The tiny finger label sits over the bottom edge, on a plain patch of the zone color. */
+/*
+ * The small finger label sits over the bottom edge, on a plain patch of the zone color. Never under
+ * 12 px (M3-FIX-12): a label too wide for its key at that size is hidden (`data-label-off`, set by
+ * `fitLabels`), and the hint line under the hands names the finger instead.
+ */
 .label {
   position: absolute;
   right: 0;
@@ -116,7 +122,7 @@
   justify-content: center;
   visibility: hidden;
   font-family: var(--font-body);
-  font-size: max(10px, calc(var(--u) * 0.2));
+  font-size: var(--label-size);
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
@@ -137,7 +143,15 @@
 /* Labels on: lift the glyph clear of the label. */
 .root[data-labels] .slot > kbd,
 .slot[data-next] > kbd {
-  padding-bottom: calc(var(--u) * 0.16);
+  padding-bottom: calc(var(--label-size) * 0.8);
+}
+
+/* A label that doesn't fit its key stays hidden, even on the lit key, and the glyph stays centred. */
+.root .slot[data-label-off] .label {
+  visibility: hidden;
+}
+.root .slot[data-label-off] > kbd {
+  padding-bottom: 0;
 }
 
 /*
