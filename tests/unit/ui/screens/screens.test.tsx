@@ -522,6 +522,9 @@ describe("ComingSoon", () => {
     s.shell.api.navigate({ id: "inventory" });
     await s.settle();
     expect(text(s.root)).toContain(t("screens.comingSoon.body"));
+    const h1 = s.root.querySelectorAll("h1");
+    expect(h1).toHaveLength(1);
+    expect(h1[0]?.textContent).toBe(t("screens.comingSoon.title"));
     await s.press("Enter");
     expect(s.route().id).toBe("splash");
   });

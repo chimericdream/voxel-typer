@@ -76,6 +76,25 @@ describe("snapshotScene", () => {
     dispose();
   });
 
+  it("draws every part with a plain Lambert material: no map, no glow (the portrait lights rely on it)", () => {
+    // `portraitLights` shades each face by a directional light of intensity π × shade, which
+    // is exact only for a plain Lambert surface. A Standard material (specular), an emissive
+    // color or a texture map would shift every portrait without any other test noticing.
+    const { scene, dispose } = snapshotScene(BASE_AVATAR, {});
+    const parts = meshes(scene);
+    expect(parts.size).toBe(BASE_AVATAR.parts.length);
+    for (const [name, mesh] of parts) {
+      const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+      for (const m of materials) {
+        expect(m, name).toBeInstanceOf(THREE.MeshLambertMaterial);
+        if (!(m instanceof THREE.MeshLambertMaterial)) continue;
+        expect(m.emissive.getHex(), `${name} emissive`).toBe(0x000000);
+        expect(m.map, `${name} map`).toBeNull();
+      }
+    }
+    dispose();
+  });
+
   it("frames the whole model by default and a given y range when asked", () => {
     const whole = snapshotScene(BASE_AVATAR, {}).camera;
     const bust = snapshotScene(BASE_AVATAR, { frameY: [10, 27] }).camera;
@@ -192,6 +211,37 @@ describe("renderModelPixels", () => {
     expect(clear.getHex()).toBe(0x123456);
     expect(alpha).toBe(1);
     expect(renderer.autoClear).toBe(false);
+  });
+
+  it("frees its render target and restores the renderer when the model can't be built", () => {
+    const freed = vi.spyOn(THREE.WebGLRenderTarget.prototype, "dispose");
+    const before = { name: "app target" };
+    let target: unknown = before;
+    const renderer = {
+      autoClear: false,
+      getContext: () => ({ isContextLost: () => false }),
+      getRenderTarget: () => target,
+      setRenderTarget: vi.fn((t: unknown) => {
+        target = t;
+      }),
+      getClearColor: (c: THREE.Color) => c.set(0x123456),
+      getClearAlpha: () => 1,
+      setClearColor: vi.fn(),
+      clear: vi.fn(),
+      render: vi.fn(),
+      readRenderTargetPixels: vi.fn(),
+    };
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- reason: a stand-in with only the renderer methods the snapshot uses
+    const r = renderer as unknown as THREE.WebGLRenderer;
+    const [first, ...rest] = BASE_AVATAR.parts;
+    if (first === undefined) throw new Error("no parts");
+    const broken = { ...BASE_AVATAR, parts: [{ ...first, parent: "no-such-part" }, ...rest] };
+    expect(() => renderModelPixels(r, broken, { px: 4 })).toThrow(/unknown parent/);
+    expect(freed).toHaveBeenCalledTimes(1);
+    expect(renderer.render).not.toHaveBeenCalled();
+    expect(target).toBe(before);
+    expect(renderer.autoClear).toBe(false);
+    freed.mockRestore();
   });
 
   it("draws nothing when the context is lost", () => {

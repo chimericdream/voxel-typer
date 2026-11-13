@@ -662,6 +662,37 @@ describe("World map", () => {
     }
   });
 
+  it("narrow: a busy page that sends the lift's click late still doesn't go (M3-14)", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width: 1100px") }));
+    try {
+      const s = await openMap(fixture("fresh-sprout"));
+      const home = buttonByText(s.root, t("builder.title"));
+      const wrap = home.closest("[data-nav]");
+      await act(() => {
+        home.dispatchEvent(pointer("pointerdown"));
+      });
+      await act(() => wait(LONG_PRESS_MS + 50));
+      expect(wrap?.getAttribute("data-tip")).toBe("open");
+      const up = pointer("pointerup");
+      await act(() => {
+        home.dispatchEvent(up);
+      });
+      // The page was busy: the held mark is long gone when the click comes. Chrome stamps that
+      // click with the lift's own time (checked with CDP touch input under an 800 ms busy loop).
+      await act(() => wait(30));
+      const click = new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 });
+      Object.defineProperty(click, "timeStamp", { value: up.timeStamp });
+      await act(() => {
+        home.dispatchEvent(click);
+      });
+      await s.settle();
+      expect(s.route()).toEqual({ id: "map" });
+      expect(wrap?.getAttribute("data-tip")).toBe("open");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("narrow: after a long press, a key's click still goes", async () => {
     vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width: 1100px") }));
     try {
