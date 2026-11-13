@@ -393,6 +393,10 @@ PRs, and the orchestrator's rulings in those PRs.
       new field.
     - A biome with no lessons falls back to the furthest earlier island that has lessons.
     - Follow-ups are in M3-FIX-3, before Birch lessons ship.
+    - The Birch–Deep Mines gates are judged in practice on everything up to the end of the words
+      rung (the letter rungs are under the 60-key floor), and the Marsh gate up to the end of the
+      capitals. A start past Birch needs ≥ 88 % first-try on the top row, and past the Shore on the
+      top and bottom rows together, so no home-row-only child skips a row (M3-FIX-10, PR #195).
 93. **Accessibility (M3-07, PR #156).**
     - One app-wide reduced-motion flag (`src/a11y/motion.ts`); `'system'` follows the OS setting
       live.
@@ -482,3 +486,24 @@ PRs, and the orchestrator's rulings in those PRs.
 107.  **Builder rules (M4-07, PR #173).** One habit Space after an auto-run word is ignored (now a
       per-band window, decision 102). Builder records a practice session. A damaged island is never
       written. The map corner uses picture buttons at ≤ 1100 px.
+108.  **Avatar on the model runtime (M3-FIX-5, PR #193).** - The avatar's data follows §8.4: 1 model pixel = 1 face pixel (26 px tall), whole-pixel sizes;
+      the jaw row is the `head` part and holds the neck joint. - The snapshot is built by `buildModel(def, null)`. Face shading comes from six axis-aligned
+      directional lights in the snapshot scene (intensity π × shade), not vertex colours. - The avatar keeps 50 parts, over `MAX_PARTS` (32): the cap is a draw-call budget for live models,
+      and the avatar is drawn once per skin into a cached PNG. It must fit in 32 (face as one
+      atlas-tiled part) before it is drawn live.
+109.  **Two tabs never overwrite each other (M3-FIX-9, PR #194).** The guard is the in-transaction
+      compare (`saveIfUnchanged`, contracts §15); BroadcastChannel messages and Web Locks are extras.
+      A stale tab redoes lesson, placement, badge and Builder saves on the newer copy until saved, and
+      refuses plain saves made from an old copy. Two Builder windows that both change the island: the
+      second keeps the other's island and inventory but still saves its session and badges. Players-screen
+      edits of a non-active player use the same compare. Two data-safety reviews plus 240-run races.
+110.  **Remedial camps (M3-06, PR #196).** After a session, a key with weight ≥ 4 and ≥ 30 attempts
+      can suggest a 60 s practice camp, drawn as a side stop on the next lesson's island; the map's
+      "next" cue always stays on the curriculum lesson. A remedial writes no lesson record, so it can't
+      unlock anything or change stars. Offers come at most once every 3 sessions, played or not
+      (M3-FIX-11 may retune this from the M3-13 study).
+111.  **Night Defense for slow learners (M4-FIX-3, PR #197).** New profiles start cautious (about
+      3.5 WPM) and step up once to their typed speed after a good first wave; walks may take up to 90 s;
+      waves hold at least 16/24/30 keys; nights end after 4 min (Sprout) or 5 min (Miner, Builder),
+      finishing the running wave. Pins: ≤ 5 % swamped waves in waves 1–3 for every row, new profiles
+      included; 5 WPM ≤ 30 % of waves under 85 % from wave 4; 10 WPM ≤ 22 %.
