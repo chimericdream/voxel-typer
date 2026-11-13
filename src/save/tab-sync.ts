@@ -2,14 +2,16 @@
  * Two-tab safety (task M3-FIX-9). Two tabs of the game share one IndexedDB, so without this a tab
  * holding an old copy of a player could save it over newer progress from another tab.
  *
- * - {@link announcingStore} wraps the store: after every save, remove and import it posts a small
- *   message on a `BroadcastChannel`, so the other tabs fetch the newest copy at once.
- * - {@link ProfileLocks} runs each tab's check-then-save for one player under a Web Lock (when the
- *   browser has them), so a check and its write can't interleave with another tab's.
+ * - The guard itself is `SaveStore.saveIfUnchanged`: the shell (`src/app/shell.ts`) saves only if
+ *   the stored record is still the one it last saw, checked inside the write's own transaction.
+ *   So a stale tab never writes over a newer record, with or without the extras below.
+ * - {@link guardedStore} wraps the store. After every save and remove it posts a small message on
+ *   a `BroadcastChannel`, so the other tabs fetch the newest copy at once. And every write of one
+ *   player (the shell's, an import's, the Players screen's, a remove) holds that player's Web Lock
+ *   when the browser has them: an extra guard on top of the transaction.
  *
- * The shell does the rest (`src/app/shell.ts`): before each save it compares the stored record with
- * the one it last saw, and a stale tab never writes over a newer one. Messages carry only a
- * profile id; they stay inside this browser on this device. Nothing goes over the network.
+ * Messages carry only a profile id; they stay inside this browser on this device. Nothing goes
+ * over the network.
  */
 import type { SaveStore } from "./store";
 
@@ -42,7 +44,7 @@ export interface TabSync {
   tabId: string;
   /** Null when the browser has no `BroadcastChannel`: the save-time check still guards. */
   channel: TabChannel | null;
-  /** Default: no cross-tab lock (the shell still runs its own saves one at a time). */
+  /** Web Locks, when the browser has them. Only {@link guardedStore} uses them. */
   locks?: ProfileLocks;
 }
 
@@ -123,25 +125,35 @@ export function browserLocks(
 }
 
 /**
- * The store, telling the other tabs after every write. Posting happens only after the write
- * succeeded; a failed write posts nothing. Reads are unchanged.
+ * The store, telling the other tabs after every write, with each player's writes under its lock.
+ * Posting happens only after the write succeeded; a failed write posts nothing. Reads are
+ * unchanged. `importAll` takes no lock: it never writes over a stored id (a clash gets a new one).
  */
-export function announcingStore(store: SaveStore, channel: TabChannel, tabId: string): SaveStore {
+export function guardedStore(store: SaveStore, sync: TabSync): SaveStore {
+  const { channel, tabId, locks } = sync;
+  const locked = <T>(id: string, fn: () => Promise<T>): Promise<T> =>
+    locks === undefined ? fn() : locks.run(id, fn);
+  const post = (m: TabMessage): void => channel?.post(m);
   return {
     listProfiles: () => store.listProfiles(),
     load: (id) => store.load(id),
     async save(p) {
-      await store.save(p);
-      channel.post({ v: 1, type: "saved", id: p.id, from: tabId });
+      await locked(p.id, () => store.save(p));
+      post({ v: 1, type: "saved", id: p.id, from: tabId });
+    },
+    async saveIfUnchanged(p, expected) {
+      const json = await locked(p.id, () => store.saveIfUnchanged(p, expected));
+      post({ v: 1, type: "saved", id: p.id, from: tabId });
+      return json;
     },
     async remove(id) {
-      await store.remove(id);
-      channel.post({ v: 1, type: "removed", id, from: tabId });
+      await locked(id, () => store.remove(id));
+      post({ v: 1, type: "removed", id, from: tabId });
     },
     exportAll: () => store.exportAll(),
     async importAll(file) {
       const out = await store.importAll(file);
-      if (out.imported > 0) channel.post({ v: 1, type: "changed", from: tabId });
+      if (out.imported > 0) post({ v: 1, type: "changed", from: tabId });
       return out;
     },
   };

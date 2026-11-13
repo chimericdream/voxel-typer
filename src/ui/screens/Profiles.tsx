@@ -141,6 +141,9 @@ export default function Profiles({ app }: ScreenProps) {
       !app.placementOffered().has(profile.id) &&
       !app.readOnlyProfiles().has(profile.id)
     ) {
+      // Picked first, so the save starts from the copy just loaded, not one this tab saw earlier
+      // (M3-FIX-9: the two-tab check would refuse that save, and the mark would be lost).
+      app.setProfile(profile);
       void app.saveProfile(settleAtMeadow(profile, Date.now()));
       app.navigate({ id: "placement" });
       return;

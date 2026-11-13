@@ -27,7 +27,7 @@ import { isProfile } from "@/save/schema";
 import type { Profile } from "@/save/schema";
 import { createIdbStore, createMemoryStore } from "@/save/store";
 import type { SaveStore } from "@/save/store";
-import { announcingStore, browserLocks, openTabChannel } from "@/save/tab-sync";
+import { browserLocks, guardedStore, openTabChannel } from "@/save/tab-sync";
 import type { TabSync } from "@/save/tab-sync";
 import { newId } from "@/save/id";
 import type { SaveProblem } from "@/save/problems";
@@ -76,13 +76,13 @@ async function boot(host: HTMLElement): Promise<void> {
   const memory = debug.nosave || debug.profile !== null;
   // Two-tab safety (M3-FIX-9): only the shared IndexedDB store; a memory store is this tab's own.
   // Messages and locks stay inside this browser. Nothing is sent off the device.
-  const channel = memory ? null : openTabChannel();
   const tabs: TabSync | undefined = memory
     ? undefined
-    : { tabId: newId(), channel, ...withLocks(browserLocks()) };
-  const idb = memory ? createMemoryStore(storeOptions) : createIdbStore(undefined, storeOptions);
+    : { tabId: newId(), channel: openTabChannel(), ...withLocks(browserLocks()) };
   const store: SaveStore =
-    channel !== null && tabs !== undefined ? announcingStore(idb, channel, tabs.tabId) : idb;
+    tabs === undefined
+      ? createMemoryStore(storeOptions)
+      : guardedStore(createIdbStore(undefined, storeOptions), tabs);
 
   let firstProfile: Profile | null = null;
   if (debug.profile !== null) {

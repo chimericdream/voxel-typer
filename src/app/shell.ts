@@ -17,7 +17,7 @@ import type { SaveProblem, SaveProblemKind } from "@/save/problems";
 import type { Profile } from "@/save/schema";
 import { defaultSettings } from "@/save/settings";
 import type { Settings } from "@/save/settings";
-import { NewerSaveError } from "@/save/store";
+import { NewerSaveError, StaleSaveError } from "@/save/store";
 import type { SaveStore } from "@/save/store";
 import type { TabSync } from "@/save/tab-sync";
 import type { AchievementDef } from "@/engine/achievements";
@@ -184,40 +184,28 @@ export function createShell(deps: ShellDeps): Shell {
     else if (before?.settings !== p.settings) applySettings(p.settings);
   };
 
-  // Two-tab safety (M3-FIX-9). Every save first checks that the stored record is still the one
-  // this tab last saw. If another tab saved since, this tab takes the newer copy first: a lesson's
-  // result or a Builder save is then added to that copy (`updateProfile`), and a plain save made
-  // from the old copy is refused. The other tab's message makes this happen early, so the screen
-  // shows the newest progress too. A stale tab never writes over a newer record.
+  // Two-tab safety (M3-FIX-9). With `tabs`, every save is `store.saveIfUnchanged`: it writes only
+  // if the stored record is still the one this tab last wrote or read, checked inside the write's
+  // own transaction. If another tab saved since, this tab takes that newer copy: a lesson result,
+  // badges or a Builder save is added to it again (`updateProfile`), and a plain save made from
+  // the old copy is refused. A player removed elsewhere is never written back. A damaged record
+  // is nobody's save, so the store lets this tab's save repair it. The other tab's message makes
+  // the same happen at once, so the screen shows the newest progress too.
   const tabs = deps.tabs ?? null;
   /** Per player: the stored record (JSON) this tab last wrote or read. Tabs mode only. */
   const known = new Map<string, string>();
-  /** Players a grown-up removed in another tab: never written again from this tab. */
+  /** Players removed in another tab: never written again from this tab (until picked again). */
   const gone = new Set<string>();
   /** Bumped whenever this tab takes another tab's copy: plain saves asked for before are stale. */
   let generation = 0;
   let chain: Promise<unknown> = Promise.resolve();
 
-  /** Runs this tab's saves one at a time, each under the player's lock across tabs. */
-  const serial = <T>(id: string, fn: () => Promise<T>): Promise<T> => {
-    const locked = (): Promise<T> => (tabs?.locks ? tabs.locks.run(id, fn) : fn());
-    const next = chain.then(locked, locked);
+  /** This tab's saves, one at a time, so `known` always matches the last write. */
+  const serial = <T>(fn: () => Promise<T>): Promise<T> => {
+    const next = chain.then(fn, fn);
     chain = next.catch(() => undefined);
     whenReady(next);
     return next;
-  };
-
-  /** Whether another tab changed the player since this tab last saw it, and its copy now. */
-  const diskCopy = async (
-    id: string,
-  ): Promise<{ stale: false } | { stale: true; fresh: Profile | null }> => {
-    if (gone.has(id)) return { stale: true, fresh: null };
-    const seen = known.get(id);
-    if (seen === undefined) return { stale: false };
-    const fresh = await deps.store.load(id);
-    // Nothing readable (a newer game's record, or damaged): `save` has its own rules for those.
-    if (fresh === null) return { stale: false };
-    return recordOf(fresh) === seen ? { stale: false } : { stale: true, fresh };
   };
 
   /** True while the Home Island visit is the route. */
@@ -226,8 +214,8 @@ export function createShell(deps: ShellDeps): Shell {
     return r.id === "play" && r.lesson === BUILDER_LESSON_ID;
   };
 
-  /** Takes another tab's copy of a player (null: a grown-up removed it there). */
-  const adopt = (id: string, fresh: Profile | null): void => {
+  /** Takes another tab's copy of a player (null: removed there). */
+  const adopt = (id: string, fresh: Profile | null, record: string | null): void => {
     generation += 1;
     const active = profile.value?.id === id ? profile.value : null;
     if (fresh === null) {
@@ -239,12 +227,12 @@ export function createShell(deps: ShellDeps): Shell {
       go({ id: "profiles" }, true);
       return;
     }
-    known.set(id, recordOf(fresh));
+    known.set(id, record ?? recordOf(fresh));
     if (active === null) return;
     setProfile(fresh);
     notify("otherTab");
     // Builder holds its own island, and two islands can't be merged, so this visit ends. Its
-    // saves are refused (`patchOnto` in the play host), and the other tab's island stays.
+    // last save keeps the other tab's island and inventory (`patchOnto` in the play host).
     if (onIsland() && JSON.stringify(active.island) !== JSON.stringify(fresh.island)) {
       go({ id: "map" }, true);
     }
@@ -252,9 +240,12 @@ export function createShell(deps: ShellDeps): Shell {
 
   /** Looks again after another tab's message. */
   const refresh = (id: string): Promise<void> =>
-    serial(id, async () => {
-      const disk = await diskCopy(id);
-      if (disk.stale) adopt(id, disk.fresh);
+    serial(async () => {
+      if (profile.value?.id !== id) return;
+      const fresh = await deps.store.load(id);
+      if (fresh === null) return; // A removal says so itself; newer and damaged: `save` decides.
+      const record = recordOf(fresh);
+      if (record !== known.get(id)) adopt(id, fresh, record);
     });
 
   /** Picks a player from outside (the Players screen, an import, a fixture). */
@@ -266,21 +257,50 @@ export function createShell(deps: ShellDeps): Shell {
     setProfile(p);
   };
 
+  type Put = { kind: "saved" } | { kind: "failed" } | { kind: "stale"; fresh: Profile | null };
+
+  /** One write. A stale one is adopted here; a failed one was reported. */
+  const put = async (p: Profile): Promise<Put> => {
+    if (readOnly.has(p.id)) return { kind: "failed" };
+    const expected = tabs === null ? undefined : known.get(p.id);
+    try {
+      if (expected === undefined) {
+        await deps.store.save(p);
+        if (tabs !== null) known.set(p.id, recordOf(p));
+      } else {
+        known.set(p.id, await deps.store.saveIfUnchanged(p, expected));
+      }
+      return { kind: "saved" };
+    } catch (err) {
+      if (err instanceof StaleSaveError) {
+        adopt(p.id, err.current, err.record);
+        return { kind: "stale", fresh: err.current };
+      }
+      // Autosave never crashes the game and never retries in a loop (M1-09 notes).
+      if (err instanceof NewerSaveError) {
+        readOnly.add(p.id);
+        notify("newerVersion");
+      } else {
+        console.warn("[app] save failed", err);
+        notify("storageError");
+      }
+      return { kind: "failed" };
+    }
+  };
+
   const saveProfile = async (p: Profile): Promise<boolean> => {
     setProfile(p);
-    if (tabs === null) return write(p);
+    if (tabs === null) return (await put(p)).kind === "saved";
     const asked = generation;
-    return serial(p.id, async () => {
+    return serial(async () => {
       // Made from a copy that another tab's newer one has since replaced here: not written.
       if (asked !== generation || gone.has(p.id)) return false;
-      const disk = await diskCopy(p.id);
-      if (disk.stale) {
-        adopt(p.id, disk.fresh);
-        return false;
-      }
-      return write(p);
+      return (await put(p)).kind === "saved";
     });
   };
+
+  /** Most times one change is added to a newer copy before giving up (each try is a real save). */
+  const MAX_TRIES = 5;
 
   const updateProfile = async (
     base: Profile,
@@ -291,42 +311,27 @@ export function createShell(deps: ShellDeps): Shell {
     if (tabs === null) {
       const next = derive(now());
       if (next === null) return null;
-      await saveProfile(next);
-      return next;
+      return (await saveProfile(next)) ? next : null;
     }
-    return serial(id, async () => {
-      if (gone.has(id)) return null;
-      const disk = await diskCopy(id);
-      if (disk.stale) adopt(id, disk.fresh);
-      if (disk.stale && disk.fresh === null) return null;
-      const from =
-        disk.stale && disk.fresh !== null && profile.value?.id !== id ? disk.fresh : now();
-      const next = derive(from);
-      if (next === null) return null;
-      setProfile(next);
-      await write(next);
-      return next;
+    return serial(async () => {
+      let from = now();
+      for (let i = 0; i < MAX_TRIES; i++) {
+        if (gone.has(id)) return null;
+        const next = derive(from);
+        if (next === null) return null;
+        const out = await put(next);
+        if (out.kind === "stale") {
+          if (out.fresh === null) return null;
+          from = profile.value?.id === id ? profile.value : out.fresh;
+          continue;
+        }
+        // Saved, or kept on screen after a failed write (the next save tries again).
+        setProfile(next);
+        return out.kind === "saved" ? next : null;
+      }
+      return null;
     });
   };
-
-  async function write(p: Profile): Promise<boolean> {
-    if (readOnly.has(p.id)) return false;
-    try {
-      await deps.store.save(p);
-      if (tabs !== null) known.set(p.id, recordOf(p));
-      return true;
-    } catch (err) {
-      // Autosave never crashes the game and never retries in a loop (M1-09 notes).
-      if (err instanceof NewerSaveError) {
-        readOnly.add(p.id);
-        notify("newerVersion");
-      } else {
-        console.warn("[app] save failed", err);
-        notify("storageError");
-      }
-      return false;
-    }
-  }
 
   const removeProfile = async (id: string): Promise<boolean> => {
     if (readOnly.has(id)) return false;
@@ -483,8 +488,8 @@ export function createShell(deps: ShellDeps): Shell {
     }
     if (m.type === "removed") {
       if (m.id === active) {
-        void serial(m.id, () => {
-          adopt(m.id, null);
+        void serial(() => {
+          adopt(m.id, null, null);
           return Promise.resolve();
         });
       } else {

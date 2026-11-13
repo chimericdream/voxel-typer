@@ -82,8 +82,10 @@ export interface PlayHostDeps {
   /**
    * Saves a change made to the player (M3-FIX-9, two-tab safety). `derive` gets the newest copy
    * the app has, which another tab may have changed since `base`, and returns the profile to
-   * save, or null to save nothing. Resolves with what was saved (and is now shown), or null when
-   * nothing was. Never rejects. Default: `derive` on the app's profile, then {@link saveProfile}.
+   * save, or null to save nothing. It may run more than once (once per newer copy), so it must
+   * not change anything itself. Resolves with what was saved, or null when nothing was (refused,
+   * read-only or a storage failure). Never rejects. Default: `derive` on the app's profile, then
+   * {@link saveProfile}.
    */
   updateProfile?(base: Profile, derive: (b: Profile) => Profile | null): Promise<Profile | null>;
   /** Every shipped lesson, for the placement test's unlocks (M3-05). Default: none. */
@@ -143,8 +145,12 @@ interface Run {
   bus: Emitter<GameEvents> | null;
   ach: RunTracker | null;
   log: KeyInput[];
-  /** Builder: the island and inventory this visit's last save (or its start) was made from. */
-  built: { island: Profile["island"]; inventory: Readonly<Record<BlockId, number>> };
+  /**
+   * Builder: every island this visit started with or handed out to save (as JSON), with the
+   * inventory that went with it. A stored island on this list is this visit's own; any other one
+   * was changed by another tab.
+   */
+  islands: Map<string, Readonly<Record<BlockId, number>>>;
 }
 
 /** Same counts, key by key (a missing key is 0). */
@@ -233,8 +239,7 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
     const now = deps.currentProfile?.() ?? null;
     const next = derive(now?.id === base.id ? now : base);
     if (next === null) return null;
-    await deps.saveProfile(next);
-    return next;
+    return (await deps.saveProfile(next)) ? next : null;
   };
 
   /**
@@ -243,26 +248,18 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
    * islands can't be merged, and a damaged or stale island is never written over a newer one.
    */
   const patchOnto = (r: Run, b: Profile, patch: IslandPatch): Profile | null => {
-    const from = r.built;
-    if (b.island !== from.island && JSON.stringify(b.island) !== JSON.stringify(from.island)) {
-      return null;
-    }
-    const inventory = sameCounts(b.inventory, from.inventory)
+    const from = r.islands.get(JSON.stringify(b.island));
+    if (from === undefined) return null;
+    const inventory = sameCounts(b.inventory, from)
       ? patch.inventory
-      : rebaseCounts(b.inventory, from.inventory, patch.inventory);
+      : rebaseCounts(b.inventory, from, patch.inventory);
     return withIslandPatch(b, { island: patch.island, inventory });
   };
 
-  /** `derive` for a Builder save: once it is used, the next save starts from `patch`. */
-  const builderDerive =
-    (r: Run, patch: IslandPatch | null, make: (b: Profile) => Profile | null) =>
-    (b: Profile): Profile | null => {
-      const out = make(b);
-      if (out !== null && patch !== null) {
-        r.built = { island: patch.island, inventory: patch.inventory };
-      }
-      return out;
-    };
+  /** Notes a Builder patch as this visit's own, before it is saved. */
+  const handOut = (r: Run, patch: IslandPatch): void => {
+    r.islands.set(JSON.stringify(patch.island), patch.inventory);
+  };
 
   /** Lets a mode that is being left finish first (see {@link InspectableMode.leave}). */
   const leave = (r: Run): void => {
@@ -323,18 +320,19 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
       const kept = r.ach?.abandon() ?? {};
       r.ach = null;
       const patch = islandPatchOf(result.extra?.[BUILDER_ISLAND_EXTRA]);
-      const visit = (b: Profile): Profile | null => {
-        const built = patch === null ? b : patchOnto(r, b, patch);
-        if (built === null) return null;
+      // When another tab changed the island itself (`patchOnto` is null), that tab's island and
+      // inventory stay, so every block is still counted once; this visit's practice session and
+      // the badges the child already saw are still saved (review B2).
+      const visit = (b: Profile): Profile => {
+        const built = patch === null ? b : (patchOnto(r, b, patch) ?? b);
         const applied = typed ? applyResult(built, null, result, at) : built;
         return Object.keys(kept).length > 0 ? withUnlocks(applied, kept) : applied;
       };
       const first = visit(base);
-      updated = first ?? base;
-      // A visit that changed nothing writes nothing; nor does one whose island another tab
-      // changed meanwhile (`patchOnto`).
-      changed = first !== null && updated !== base;
-      derive = builderDerive(r, patch, (b) => (b === base ? first : visit(b)));
+      updated = first;
+      // A visit that changed nothing writes nothing.
+      changed = updated !== base;
+      derive = (b) => (b === base ? first : visit(b));
     } else {
       const apply = (b: Profile): Profile =>
         isPlacementLesson(r.lesson)
@@ -384,7 +382,7 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
         bus: null,
         ach: null,
         log: [],
-        built: { island: profile.island, inventory: profile.inventory },
+        islands: new Map([[JSON.stringify(profile.island), profile.inventory]]),
       };
       run = r;
       setStatus("loading");
@@ -406,10 +404,10 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
         const offSave = bus.on(BUILDER_SAVE_EVENT, (e) => {
           const patch = islandPatchOf(e);
           if (patch === null || r !== run || r.finished || r.disposed) return;
-          void update(
-            liveProfile(r),
-            builderDerive(r, patch, (b) => patchOnto(r, b, patch)),
-          );
+          const base = liveProfile(r);
+          const derive = (b: Profile): Profile | null => patchOnto(r, b, patch);
+          handOut(r, patch);
+          void update(base, derive);
         });
         r.unBus = () => {
           offEngine();

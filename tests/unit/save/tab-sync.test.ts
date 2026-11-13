@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createMemoryStore } from "../../../src/save/store";
 import {
   TAB_CHANNEL,
-  announcingStore,
+  guardedStore,
   browserLocks,
   isTabMessage,
   lockName,
@@ -91,10 +91,10 @@ describe("browserLocks", () => {
   });
 });
 
-describe("announcingStore", () => {
+describe("guardedStore", () => {
   it("tells other tabs after a save or remove succeeds, and only then", async () => {
     const ch = recorder();
-    const store = announcingStore(createMemoryStore(), ch, "tab-a");
+    const store = guardedStore(createMemoryStore(), { channel: ch, tabId: "tab-a" });
     const p = fixture("fresh-sprout");
     await store.save(p);
     await store.remove(p.id);
@@ -109,7 +109,7 @@ describe("announcingStore", () => {
 
   it("an import that added someone says any player may have changed", async () => {
     const ch = recorder();
-    const store = announcingStore(createMemoryStore(), ch, "tab-a");
+    const store = guardedStore(createMemoryStore(), { channel: ch, tabId: "tab-a" });
     const file = new Blob([
       JSON.stringify({ app: "voxel-typer", version: 1, profiles: [fixture("fresh-sprout")] }),
     ]);

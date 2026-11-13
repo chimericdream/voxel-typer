@@ -199,12 +199,12 @@ export function lastPlayed(p: Profile): EpochMs {
   return at;
 }
 
-/** Lessons with at least one star. */
 /** True when the player has a Home Island (review N4: the check says which copy has one). */
 export function hasIsland(p: Profile): boolean {
   return p.island !== null;
 }
 
+/** Lessons with at least one star. */
 export function lessonsDone(p: Profile): number {
   return Object.values(p.progress.lessons).filter((l) => l.bestStars > 0).length;
 }
