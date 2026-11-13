@@ -70,8 +70,17 @@ for (const mode of MODES) {
       const keys = page.locator('[data-hud="keyboard"]');
       await expect(keys.locator("[data-code]").first()).toBeVisible({ timeout: 30_000 });
       await page.evaluate(() => document.fonts.ready.then(() => undefined));
-      // The hint line names the finger, whatever the labels do.
-      await expect(keys.getByText(/^Use your /)).toBeVisible({ timeout: 30_000 });
+      // The hint line names the finger, whatever the labels do. A night has no next key until a
+      // key moves the day along (seen for 1.5 s of game time, which CI draws slowly), so keep
+      // pressing one, as defense.spec does.
+      const hint = keys.getByText(/^Use your /);
+      if (mode.lesson === "birch-08") {
+        await expect(async () => {
+          await page.keyboard.press("f");
+          await expect(hint).toBeVisible({ timeout: 1500 });
+        }).toPass({ timeout: 90_000 });
+      }
+      await expect(hint).toBeVisible({ timeout: 30_000 });
 
       const check = await labels(page);
       expect(check.shown + check.hidden).toBeGreaterThan(40);
