@@ -304,13 +304,27 @@ describe("the shield", () => {
 describe("scoring a wave", () => {
   it("gives the director the wave's own accuracy and counts", () => {
     const t = emptyTally();
-    expect(waveFeedback(t)).toEqual({ accuracy: 1, reachedBase: 0, wordsDone: 0, activeMs: 0 });
-    Object.assign(t, { keystrokes: 20, correct: 18, wordsDone: 4, reachedBase: 2, activeMs: 9000 });
+    expect(waveFeedback(t)).toEqual({
+      accuracy: 1,
+      reachedBase: 0,
+      wordsDone: 0,
+      activeMs: 0,
+      pulledMs: 0,
+    });
+    Object.assign(t, {
+      keystrokes: 20,
+      correct: 18,
+      wordsDone: 4,
+      reachedBase: 2,
+      activeMs: 9000,
+      pulledMs: 1500,
+    });
     expect(waveFeedback(t)).toEqual({
       accuracy: 0.9,
       reachedBase: 2,
       wordsDone: 4,
       activeMs: 9000,
+      pulledMs: 1500,
     });
   });
 

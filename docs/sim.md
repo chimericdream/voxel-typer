@@ -191,10 +191,10 @@ forgets fast: the fold applies α = 0.1 per attempt, so a key with 15 attempts k
    keep the old `srs`. Keys mostly pass that bar (7–60 attempts a session here), so in practice it
    only changes bigrams. `stats.ts` is not part of this task, so this is a proposal only.
 
-## Night Defense wave director (`tools/sim-defense.ts`, M4-05, retuned in M4-04, paced in M4-FIX-2)
+## Night Defense wave director (`tools/sim-defense.ts`, M4-05, retuned in M4-04, paced in M4-FIX-2, slow learners in M4-FIX-3)
 
 ```sh
-npm run tool -- sim-defense --runs 50 --waves 10 --seed 1 --sweep 1
+npm run tool -- sim-defense --runs 50 --waves 10 --seed 1 --sweep 1 --slow 1
 ```
 
 | Flag      | Default | Meaning                                                       |
@@ -203,6 +203,7 @@ npm run tool -- sim-defense --runs 50 --waves 10 --seed 1 --sweep 1
 | `--waves` | `10`    | Waves per night (at least 4)                                  |
 | `--seed`  | `1`     | Root seed. Same arguments give byte-identical output          |
 | `--sweep` | `0`     | `1` also prints the plant sweep (below)                       |
+| `--slow`  | `0`     | `1` also prints the 5 WPM rows (`slowRows()`, M4-FIX-3)       |
 
 The tool plays nights of Defense through the real director (`src/modes/defense/director.ts`) and
 the real typing engine in `lockOn` targeting with the `stay` policy. The typists are M1-07's
@@ -238,14 +239,16 @@ controller does not depend on the exact model.
 
 ### The controller
 
-`d ∈ [0.3, 2.0]` scales time against the learner's reference speed (the baseline, or 5/10/15 WPM
+`d ∈ [0.2, 2.0]` scales time against the learner's reference speed (the baseline, or 5/10/15 WPM
 for a new Sprout/Miner/Builder). At `d = 1` a mob spawns every "reaction + word at the reference
-speed" (reaction 1400/900/650 ms by band) and walks its lane in three of those. Below `d = 1` the
+speed" (reaction 1400/900/650 ms by band, or one key at the reference speed if that is longer)
+and walks its lane in three of those. Below `d = 1` the
 spawn gap is `base / d`; above it, `base / d^0.3`. Travel time is always `3 × base / d^1.5`, kept
-inside 4–40 s, and fast mobs walk 1.25× faster, slow ones 0.8×. **Mobs reach the base in spawn
+inside 4–90 s, and fast mobs walk 1.25× faster, slow ones 0.8×. **Mobs reach the base in spawn
 order, a spawn gap apart:** a mob that would catch up with the one before it sets out a little
 later. Each wave lasts about 20/25/30 s by band (3 s longer per wave up to the fourth), so a fast
-learner gets more mobs, never a longer wave. A night starts at `d = 0.8` (0.7 for a new profile),
+learner gets more mobs, never a longer wave. A wave holds at least 16/24/30 keys of middle-length
+words, so a slow learner's wave is long enough to measure. A night starts at `d = 0.8` (0.7 for a new profile),
 or where the player's last night in the same sitting ended.
 
 After each wave:
@@ -262,7 +265,10 @@ After each wave:
    −8 % / +5 %. While the average is under 85 %, a step down may still be the full 15 %.
 4. **Relief.** A wave under 75 %, or with more than 30 % of its mobs at the base, makes the next
    one 15 % easier.
-5. `d ← clamp(d × (1 + step), 0.3, 2.0)`. In calm mode: a pace of 0.75×, at most
+5. **A new profile's reset.** The first wave of a new profile with more than 10 % of its mobs at
+   the base sets `d` to at most `0.8 × measured / reference`, where `measured` is the WPM of the
+   words it typed in that wave (`throughputWpm`). Once only: that wave also ends the search.
+6. `d ← clamp(d × (1 + step), 0.2, 2.0)`. In calm mode: a pace of 0.75×, at most
    `d = 1.2`, at most +8 % a wave, and at most 10 mobs. Calm mobs never reach the base, so calm
    mode reads time instead: a wave that took more than 1.5× its planned span holds the pace, and
    one that took more than 2.25× eases it by 8 %.
@@ -326,51 +332,51 @@ about 3 % of their waves fall under 75 % by chance at any pace (measured at fixe
 
 | Row         | Typist | Band    | Baseline |   1 |   2 |   3 |   4 |   5 |   6 |   7 |   8 |   9 |  10 | Range 4+   | Learner mean 4+ | In band | Reached 4+ | Swamped 4+ | Crowded 4+ | Low 4+ | Swamped 1-3 | Empty max | d first→last | Converged |
 | ----------- | ------ | ------- | -------: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | ---------- | --------------: | ------: | ---------: | ---------: | ---------: | -----: | ----------: | --------: | ------------ | --------- |
-| main        | 10wpm  | sprout  |      8.2 |  89 |  94 |  90 |  91 |  91 |  91 |  90 |  91 |  92 |  92 | 90.5-91.7  |            90.4 |     96% |       0.5% |         4% |         1% |    16% |          3% |       2.5 | 0.80→0.84    | yes       |
-| main        | 10wpm  | miner   |      8.3 |  93 |  90 |  94 |  89 |  93 |  91 |  91 |  91 |  90 |  91 | 89.1-92.6  |            89.7 |     96% |       0.5% |         4% |         1% |    23% |          1% |       2.5 | 0.80→0.83    | yes       |
-| main        | 10wpm  | builder |      8.2 |  91 |  90 |  89 |  89 |  91 |  91 |  91 |  91 |  91 |  90 | 88.6-91.4  |            89.3 |     98% |       0.7% |         3% |         1% |    21% |          2% |       2.5 | 0.80→0.80    | yes       |
+| main        | 10wpm  | sprout  |      8.2 |  92 |  92 |  92 |  91 |  92 |  92 |  91 |  92 |  92 |  92 | 91.3-92.0  |            90.6 |     98% |       0.6% |         4% |         1% |    15% |          1% |       2.5 | 0.80→0.84    | yes       |
+| main        | 10wpm  | miner   |      8.2 |  91 |  91 |  91 |  91 |  93 |  91 |  90 |  91 |  91 |  92 | 90.0-93.3  |            90.4 |     96% |       0.2% |         1% |         0% |    19% |          0% |       2.5 | 0.80→0.89    | yes       |
+| main        | 10wpm  | builder |      8.2 |  91 |  91 |  90 |  91 |  92 |  92 |  92 |  91 |  91 |  90 | 89.6-92.2  |            90.3 |     98% |       0.2% |         2% |         0% |    16% |          1% |       2.5 | 0.80→0.90    | yes       |
 | main        | 25wpm  | sprout  |     22.0 |  92 |  93 |  97 |  94 |  95 |  95 |  94 |  93 |  94 |  95 | 92.7-95.1  |            93.8 |     86% |       0.2% |         1% |         0% |     3% |          0% |       2.5 | 0.80→0.91    | no        |
-| main        | 25wpm  | miner   |     22.2 |  93 |  94 |  94 |  95 |  93 |  93 |  94 |  93 |  93 |  94 | 92.9-95.1  |            93.4 |     90% |       0.3% |         1% |         0% |     6% |          0% |       2.5 | 0.80→0.86    | no        |
+| main        | 25wpm  | miner   |     22.2 |  93 |  94 |  94 |  95 |  93 |  93 |  94 |  93 |  93 |  94 | 93.2-95.1  |            93.4 |     90% |       0.3% |         1% |         0% |     6% |          0% |       2.5 | 0.80→0.86    | no        |
 | main        | 25wpm  | builder |     21.7 |  94 |  94 |  95 |  94 |  92 |  93 |  93 |  93 |  93 |  94 | 91.7-93.7  |            92.2 |     96% |       0.2% |         1% |         0% |     8% |          0% |       2.5 | 0.80→0.89    | yes       |
-| main        | 50wpm  | sprout  |     46.9 | 100 |  97 |  98 |  98 |  98 |  96 |  98 |  97 |  96 |  96 | 95.6-98.0  |            96.4 |     14% |       0.1% |         0% |         0% |     1% |          0% |       2.5 | 0.80→1.10    | no        |
+| main        | 50wpm  | sprout  |     46.9 | 100 |  97 |  98 |  98 |  98 |  96 |  98 |  97 |  96 |  96 | 95.6-98.1  |            96.4 |     14% |       0.1% |         0% |         0% |     1% |          0% |       2.5 | 0.80→1.10    | no        |
 | main        | 50wpm  | miner   |     46.6 |  98 |  97 |  96 |  97 |  97 |  95 |  96 |  95 |  95 |  96 | 94.8-97.3  |            94.9 |     52% |       1.3% |         2% |         3% |     4% |          0% |       2.5 | 0.80→1.03    | no        |
-| main        | 50wpm  | builder |     46.4 |  97 |  97 |  97 |  96 |  96 |  95 |  95 |  95 |  94 |  95 | 93.8-96.4  |            93.4 |     88% |       2.6% |         3% |         5% |    10% |          0% |       2.5 | 0.80→0.91    | no        |
-| new profile | 10wpm  | miner   |     none |  93 |  90 |  92 |  88 |  92 |  92 |  91 |  92 |  90 |  92 | 88.2-92.2  |            89.2 |     86% |       0.8% |         5% |         1% |    23% |          2% |       2.5 | 0.70→0.73    | yes       |
-| new profile | 25wpm  | miner   |     none |  95 |  96 |  95 |  96 |  94 |  94 |  94 |  94 |  95 |  94 | 94.0-96.3  |            94.1 |     80% |       0.4% |         0% |         0% |     5% |          0% |       2.5 | 0.70→1.31    | no        |
-| new profile | 50wpm  | miner   |     none | 100 |  98 | 100 |  97 | 100 |  97 |  97 |  97 |  97 |  96 | 95.5-100.0 |            97.3 |      2% |       0.0% |         0% |         0% |     1% |          0% |       2.5 | 0.70→2.00    | no        |
-| calm        | 10wpm  | sprout  |      8.2 |  92 |  92 |  89 |  94 |  94 |  93 |  94 |  94 |  94 |  95 | 93.3-94.9  |            92.5 |     84% |       0.0% |         0% |         0% |    10% |          1% |       2.5 | 0.80→0.99    | yes       |
-| calm        | 25wpm  | sprout  |     22.0 |  95 |  95 |  96 |  96 |  96 |  96 |  97 |  96 |  97 |  97 | 96.1-96.8  |            95.6 |     36% |       0.0% |         0% |         0% |     0% |          0% |       2.5 | 0.80→1.05    | no        |
+| main        | 50wpm  | builder |     46.4 |  97 |  97 |  97 |  96 |  96 |  95 |  95 |  95 |  93 |  95 | 93.4-96.4  |            93.2 |     90% |       2.8% |         3% |         5% |    10% |          0% |       2.5 | 0.80→0.92    | no        |
+| new profile | 10wpm  | miner   |     none |  91 |  91 |  91 |  89 |  92 |  91 |  90 |  91 |  93 |  93 | 89.3-93.1  |            90.5 |     96% |       0.5% |         2% |         1% |    19% |          1% |       2.5 | 0.70→0.74    | yes       |
+| new profile | 25wpm  | miner   |     none |  96 |  96 |  96 |  97 |  94 |  94 |  93 |  94 |  94 |  94 | 93.4-96.6  |            93.9 |     76% |       0.4% |         0% |         0% |     3% |          0% |       2.5 | 0.70→1.26    | no        |
+| new profile | 50wpm  | miner   |     none | 100 |  97 | 100 |  99 | 100 |  97 |  97 |  97 |  97 |  97 | 96.9-100.0 |            97.2 |      2% |       0.0% |         0% |         0% |     0% |          0% |       2.5 | 0.70→2.00    | no        |
+| calm        | 10wpm  | sprout  |      8.2 |  92 |  92 |  92 |  95 |  92 |  92 |  95 |  95 |  92 |  95 | 92.0-95.5  |            93.1 |     80% |       0.0% |         0% |         0% |     7% |          0% |       2.5 | 0.80→1.01    | no        |
+| calm        | 25wpm  | sprout  |     22.0 |  96 |  96 |  96 |  96 |  96 |  96 |  97 |  96 |  97 |  97 | 96.1-96.8  |            95.5 |     34% |       0.0% |         0% |         0% |     0% |          0% |       2.5 | 0.80→1.04    | no        |
 | calm        | 50wpm  | sprout  |     46.9 | 100 | 100 |  97 |  99 |  98 | 100 |  99 | 100 |  98 | 100 | 97.5-100.0 |            98.2 |      0% |       0.0% |         0% |         0% |     0% |          0% |       2.5 | 0.80→1.19    | no        |
-| slope 0.2   | 10wpm  | miner   |      8.3 |  94 |  91 |  94 |  92 |  93 |  92 |  92 |  92 |  89 |  91 | 89.4-92.8  |            90.9 |     94% |       0.1% |         1% |         0% |    17% |          0% |       2.5 | 0.80→0.89    | yes       |
+| slope 0.2   | 10wpm  | miner   |      8.2 |  92 |  91 |  93 |  91 |  93 |  91 |  91 |  91 |  93 |  93 | 90.6-93.1  |            91.1 |     96% |       0.0% |         0% |         0% |    13% |          0% |       2.5 | 0.80→0.94    | yes       |
 | slope 0.2   | 25wpm  | miner   |     22.2 |  94 |  94 |  94 |  96 |  94 |  94 |  95 |  94 |  94 |  95 | 93.6-95.6  |            94.0 |     76% |       0.2% |         0% |         0% |     2% |          0% |       2.5 | 0.80→0.92    | no        |
 | slope 0.2   | 50wpm  | miner   |     46.6 |  98 |  98 |  97 |  97 |  98 |  97 |  96 |  96 |  96 |  97 | 95.6-97.6  |            96.3 |     12% |       0.4% |         0% |         0% |     1% |          0% |       2.5 | 0.80→1.12    | no        |
-| slope 0.8   | 10wpm  | miner   |      8.3 |  91 |  89 |  91 |  87 |  90 |  89 |  89 |  90 |  89 |  91 | 87.1-91.1  |            88.2 |     76% |       1.3% |         8% |         2% |    29% |          5% |       2.5 | 0.80→0.71    | yes       |
-| slope 0.8   | 25wpm  | miner   |     22.2 |  91 |  92 |  93 |  94 |  93 |  91 |  93 |  94 |  93 |  93 | 90.9-93.6  |            92.4 |     98% |       0.7% |         2% |         1% |     7% |          3% |       2.5 | 0.80→0.75    | yes       |
-| slope 0.8   | 50wpm  | miner   |     46.6 |  96 |  96 |  95 |  96 |  95 |  94 |  96 |  95 |  96 |  95 | 94.0-96.2  |            92.3 |     80% |       3.5% |         7% |         7% |    12% |          3% |       2.5 | 0.80→0.83    | no        |
+| slope 0.8   | 10wpm  | miner   |      8.2 |  90 |  90 |  91 |  88 |  91 |  90 |  90 |  90 |  93 |  92 | 87.7-92.9  |            89.1 |     86% |       1.3% |         5% |         3% |    26% |          2% |       2.5 | 0.80→0.76    | yes       |
+| slope 0.8   | 25wpm  | miner   |     22.2 |  91 |  92 |  93 |  94 |  93 |  91 |  93 |  94 |  93 |  94 | 90.9-93.6  |            92.4 |     98% |       0.9% |         2% |         2% |     7% |          3% |       2.5 | 0.80→0.75    | yes       |
+| slope 0.8   | 50wpm  | miner   |     46.6 |  96 |  96 |  95 |  96 |  95 |  94 |  96 |  95 |  96 |  95 | 94.0-96.4  |            92.3 |     80% |       3.5% |         7% |         7% |    12% |          3% |       2.5 | 0.80→0.83    | no        |
 
 | Typist |  d 0.5 |  d 0.6 |  d 0.7 |  d 0.8 |  d 0.9 |  d 1.0 |  d 1.1 |   d 1.2 |   d 1.3 |   d 1.4 |   d 1.5 |   d 1.6 |
 | ------ | -----: | -----: | -----: | -----: | -----: | -----: | -----: | ------: | ------: | ------: | ------: | ------: |
-| 10wpm  | 93 / 0 | 92 / 0 | 92 / 0 | 92 / 0 | 90 / 0 | 86 / 3 | 82 / 9 | 76 / 19 | 68 / 33 | 64 / 44 | 58 / 56 | 54 / 62 |
-| 25wpm  | 95 / 0 | 94 / 0 | 94 / 0 | 94 / 0 | 92 / 0 | 90 / 1 | 84 / 9 | 77 / 23 | 71 / 36 | 64 / 49 | 59 / 61 | 52 / 71 |
-| 50wpm  | 98 / 0 | 98 / 0 | 98 / 0 | 97 / 0 | 96 / 0 | 94 / 1 | 90 / 6 | 84 / 16 | 77 / 30 | 69 / 44 | 63 / 56 | 59 / 63 |
+| 10wpm  | 93 / 0 | 93 / 0 | 93 / 0 | 92 / 0 | 90 / 0 | 88 / 1 | 85 / 5 | 80 / 12 | 74 / 22 | 68 / 35 | 64 / 44 | 59 / 54 |
+| 25wpm  | 95 / 0 | 94 / 0 | 94 / 0 | 94 / 0 | 92 / 0 | 90 / 1 | 84 / 9 | 77 / 23 | 71 / 36 | 64 / 49 | 59 / 62 | 53 / 71 |
+| 50wpm  | 98 / 0 | 98 / 0 | 98 / 0 | 97 / 0 | 96 / 0 | 94 / 1 | 90 / 6 | 84 / 16 | 76 / 30 | 69 / 45 | 63 / 56 | 59 / 63 |
 
 - **10 WPM converges in every band** by the card's strict reading: the median accuracy is in
-  85–95 % at wave 4 and every later wave (88.6–92.6 %).
+  85–95 % at wave 4 and every later wave (89.6–93.3 %).
 - **25 WPM sits at 92–95 %.** Its target is 92–93 % (3 points under a Mine accuracy of 95–96 %), so
   two per-wave medians touch 95.1 % and the strict "Converged" column says no for Sprout and
   Miner. Each learner's own mean from wave 4 on is 92.2–93.8 %, and 86–96 % of learners are in
   band.
-- **50 WPM errs on the easy side, on purpose.** Learner means are 93.4–96.4 %. A fast typist is
+- **50 WPM errs on the easy side, on purpose.** Learner means are 93.2–96.4 %. A fast typist is
   capped at a 93 % target and climbs at most 5 % a wave from `d = 0.8`, so a Sprout-band 50 WPM
   typist (short words, a long reaction allowance) is still climbing at wave 10. The M4-05
   review judged that a few too-easy waves are safer for a child than one in four with half the
   mobs at the base, and the M4-04 brief asked for that fix. The second night in a sitting starts where the first
   ended, so the climb carries on.
-- **Swamped waves: 0–4 % on the main rows** from wave 4 on (the 10 WPM floor is about 3 %), 0–3 %
+- **Swamped waves: 0–4 % on the main rows** from wave 4 on (the 10 WPM floor is about 3 %), 0–1 %
   in waves 1–3, and at most 5 % of waves have more than a fifth of the mobs at the base. At most
-  2.6 % of mobs reach the base.
+  2.8 % of mobs reach the base.
 - **New profiles start slow on purpose.** A 10 WPM new player converges. A 25 or 50 WPM one is
-  still climbing at wave 10 (`d` reaches 1.31 and 2.00), because the default reference is
+  still climbing at wave 10 (`d` reaches 1.26 and 2.00), because the default reference is
   10 WPM and steps are at most +15 % a wave. Defense lessons come after Mine lessons and the
   placement test, so in practice a baseline exists.
 - **Calm mode keeps `d ≤ 1.2`.** That ceiling leaves 25 and 50 WPM Sprouts above 95 %: calm mode
@@ -403,14 +409,104 @@ checks that opening stretch too.
   `d` path is the same as before, digit for digit, and so is the plant sweep. A mob is only brought
   forward while the field is empty, so the pressure on the typist is zero during the time cut. The
   spawn gaps and arrival order after it stay as planned, and the typist's random draws are per key,
-  not per millisecond. The slow typists' dips are still 16–23 % of waves under 85 % (pinned at 25 %).
+  not per millisecond. The slow typists' dips were still 16–23 % of waves under 85 % (pinned at 25 %; 15–19 % after M4-FIX-3).
   What changed is the wall time: a Miner night typed at 300 ms a key went from 124 s to 82 s in the
   mode's own test rig.
-- **5 WPM, outside the pins.** These learners struggle as much as before (the numbers are the same
-  with and without the pacing): their learner mean is 82–87 % (73 % for a new Builder), 37–52 % of
-  their waves are under 85 %, and 11–20 % are swamped (46 % for a new Builder). M1-07's `slow`
-  profile at 5 WPM is a guess, and a 5 WPM Builder (11–13) is rare. A follow-up card looks at it;
-  it is not a pacing effect.
+- **5 WPM, outside the pins.** These learners struggled as much as before (the numbers were the
+  same with and without the pacing): their learner mean was 82–87 % (73 % for a new Builder),
+  37–52 % of their waves were under 85 %, and 11–20 % were swamped (46 % for a new Builder). It was
+  not a pacing effect. M4-FIX-3 (below) tuned for them.
+
+### Slow learners: 5 WPM (M4-FIX-3)
+
+M4-FIX-2 left 5 WPM learners, the slowest 6-year-olds, struggling: 37–52 % of their waves under
+85 % and up to 20 % swamped, and a brand-new Builder had 46 % of waves swamped. The 10 WPM pin
+(at most 25 % of waves under 85 %) had little room left either: 26.7 % for Miner in a 30-learner
+run. Four changes, each for its own cause, found with a per-wave trace:
+
+- **The walk may take up to 90 s, not 40 s.** At 5 WPM three words' time is 45–80 s, so the 40 s
+  cap made their mobs walk about twice as fast as anyone else's, measured against their own typing.
+  Nobody else is near the cap: at 10 WPM it only applied below `d ≈ 0.6–0.7`.
+- **A wave holds at least 16/24/30 keys** (Sprout/Miner/Builder, at the middle word length; about
+  the chars a wave that `nightWaves` counts on). A slow Sprout's wave was 3 words of 3 letters: one
+  slip in 10 keys is 90 %, two are under 85 %. Most of their "low" waves were that noise. The cost
+  is time: a fresh Sprout's night in the mode's rig (1 s a key) went from 3 to 6 mobs a wave, and
+  from 58 s to 118 s. The e2e Miner night is unchanged (6–8 mobs a wave already, 85 s).
+- **Finding the first key takes at least one key's time.** The reaction allowance is the band's
+  (1400/900/650 ms) or one key at the reference speed, whichever is longer. At 5 WPM a key is
+  2.4 s; at 25 WPM and up, the band's allowance stands, so those rows don't move.
+- **A new profile starts again from what it typed.** Its reference is a guess (5/10/15 WPM), and a
+  5 WPM Builder can't keep up at 0.7 × 15 WPM. Easing 15 % a wave took most of the night. Now the
+  first wave with more than 10 % of its mobs at the base sets `d` to `0.8 × measured / reference`
+  (`throughputWpm`: words done × mean length over active time), once. `dMin` went from 0.3 to 0.2
+  so a 5 WPM Builder's pace fits (0.2 × 15 = 3 WPM). That first wave is still hard: its median
+  accuracy is 42 % for a new 5 WPM Builder and 59 % for a Miner. It is one wave, not three.
+
+Calm mode's "wave was slow" signal (the #188 review): the pull cut the waiting time out of
+`activeMs`, so calm waves read a third less slow than they were (a typical wave's time over plan
+went from 0.63 to 0.44). The mode now reports how far the pull brought the wave forward
+(`WaveFeedback.pulledMs`), and the director adds it back: a pulled wave reads exactly as it would
+have without the pull (0.63 again, for 5, 10 and 25 WPM calm Sprouts).
+
+How each change moved the numbers (seed 1, 50 learners, waves 4 on unless named):
+
+| Step                                | 5 WPM low, baseline S/M/B | 5 WPM low, new S/M/B | 5 WPM swamped, worst | New 5 WPM swamped 1-3, M/B | 10 WPM low, worst |
+| ----------------------------------- | ------------------------: | -------------------: | -------------------: | -------------------------: | ----------------: |
+| M4-FIX-2 as merged                  |                  40/37/52 |             40/41/65 |                 46 % |                    65/97 % |              25 % |
+| + walk up to 90 s                   |                  32/23/26 |             34/28/32 |                  8 % |                    41/82 % |              23 % |
+| + at least 16/24/30 keys a wave     |                  27/21/21 |             30/20/29 |                  8 % |                    53/85 % |              21 % |
+| + a new profile's reset, `dMin` 0.2 |                  27/21/21 |               27/9/9 |                  5 % |                    33/34 % |              21 % |
+| + first key at least one key's time |                  24/18/18 |              26/10/8 |                  4 % |                    31/34 % |              19 % |
+
+Before and after on three seeds (1, 2, 3) of 100 learners each, the range over the seeds:
+
+| Typist | Band    | Profile  |       Learner mean 4+ |            Low 4+ |      Swamped 4+ |       Swamped 1-3 |
+| ------ | ------- | -------- | --------------------: | ----------------: | --------------: | ----------------: |
+| 5wpm   | sprout  | baseline | 87.1–88.7 → 90.0–90.3 | 33–38 % → 18–21 % |  9–12 % → 1–2 % |     7–8 % → 0–1 % |
+| 5wpm   | sprout  | new      | 86.9–88.2 → 90.0–90.2 | 34–38 % → 18–23 % |  9–13 % → 3–4 % |    8–11 % → 1–2 % |
+| 5wpm   | sprout  | calm     | 90.7–91.6 → 92.2–92.8 |   20–26 % → 8–9 % |     2–4 % → 0 % |       1–4 % → 0 % |
+| 5wpm   | miner   | baseline | 86.0–86.8 → 89.8–90.3 | 34–38 % → 17–19 % | 10–11 % → 1–2 % |        12 % → 0 % |
+| 5wpm   | miner   | new      | 84.1–85.1 → 91.9–92.1 | 41–44 % → 10–11 % | 15–18 % → 0–1 % | 59–63 % → 29–32 % |
+| 5wpm   | builder | baseline | 82.5–83.1 → 90.1–90.5 | 49–52 % → 15–18 % | 19–21 % → 1–2 % |     17–24 % → 0 % |
+| 5wpm   | builder | new      | 73.7–74.8 → 91.4–91.7 | 64–67 % → 10–13 % |   43–46 % → 0 % |    97 % → 33–34 % |
+| 10wpm  | sprout  | baseline | 89.9–90.5 → 89.9–90.6 | 17–21 % → 17–20 % |   3–5 % → 3–5 % |         2 % → 1 % |
+| 10wpm  | sprout  | new      | 91.2–91.9 → 91.7–92.3 |  17–23 % → 9–12 % |   1–2 % → 0–1 % |       1–3 % → 0 % |
+| 10wpm  | sprout  | calm     | 92.4–92.7 → 92.4–93.0 |  10–14 % → 8–10 % |       0 % → 0 % |       0–2 % → 0 % |
+| 10wpm  | miner   | baseline | 89.9–90.1 → 90.3–90.8 | 20–22 % → 15–18 % |     3 % → 1–2 % |       1 % → 0–1 % |
+| 10wpm  | miner   | new      | 89.7–90.2 → 90.3–90.7 | 19–23 % → 17–19 % |   3–4 % → 2–4 % |     1–2 % → 0–2 % |
+| 10wpm  | builder | baseline | 89.4–90.1 → 90.4–90.9 | 19–24 % → 15–17 % |   2–3 % → 1–2 % |     1–3 % → 0–1 % |
+| 10wpm  | builder | new      | 88.3–89.5 → 90.0–90.8 | 24–28 % → 15–18 % |     5–6 % → 3 % | 15–20 % → 12–17 % |
+
+The 5 WPM rows of the report (`--slow 1`, 50 learners, seed 1):
+
+| Row         | Typist | Band    | Baseline |   1 |   2 |   3 |   4 |   5 |   6 |   7 |   8 |   9 |  10 | Range 4+  | Learner mean 4+ | In band | Reached 4+ | Swamped 4+ | Crowded 4+ | Low 4+ | Swamped 1-3 | Empty max | d first→last | Converged |
+| ----------- | ------ | ------- | -------: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --: | --------- | --------------: | ------: | ---------: | ---------: | ---------: | -----: | ----------: | --------: | ------------ | --------- |
+| main        | 5wpm   | sprout  |      4.1 |  94 |  92 |  92 |  90 |  88 |  92 |  92 |  92 |  89 |  89 | 88.5-91.8 |            88.8 |     98% |       0.1% |         2% |         0% |    24% |          1% |       2.5 | 0.80→0.86    | yes       |
+| main        | 5wpm   | miner   |      4.2 |  92 |  93 |  91 |  91 |  91 |  91 |  89 |  91 |  90 |  91 | 89.4-91.5 |            89.5 |     98% |       0.1% |         1% |         0% |    18% |          1% |       2.5 | 0.80→0.86    | yes       |
+| main        | 5wpm   | builder |      4.2 |  92 |  92 |  93 |  92 |  93 |  90 |  90 |  91 |  90 |  91 | 89.6-93.2 |            90.2 |    100% |       0.1% |         2% |         0% |    18% |          0% |       2.5 | 0.80→0.92    | yes       |
+| new profile | 5wpm   | sprout  |     none |  92 |  92 |  92 |  88 |  89 |  92 |  92 |  92 |  91 |  92 | 88.0-92.0 |            89.1 |     92% |       0.8% |         4% |         1% |    26% |          2% |       2.5 | 0.70→0.72    | yes       |
+| new profile | 5wpm   | miner   |     none |  59 |  93 |  91 |  93 |  93 |  91 |  91 |  93 |  93 |  93 | 90.6-93.3 |            91.6 |     98% |       0.0% |         0% |         0% |    10% |         31% |       2.5 | 0.70→0.23    | yes       |
+| new profile | 5wpm   | builder |     none |  42 |  93 |  92 |  92 |  93 |  90 |  92 |  92 |  92 |  93 | 90.2-93.3 |            92.0 |    100% |       0.0% |         0% |         0% |     8% |         34% |       2.5 | 0.70→0.22    | yes       |
+| calm        | 5wpm   | sprout  |      4.1 |  96 |  92 |  92 |  92 |  92 |  94 |  92 |  92 |  92 |  92 | 91.7-93.9 |            91.8 |     90% |       0.0% |         0% |         0% |    12% |          0% |       2.5 | 0.80→1.01    | yes       |
+| calm        | 5wpm   | miner   |      4.2 |  93 |  94 |  93 |  93 |  93 |  93 |  91 |  93 |  92 |  94 | 91.0-93.8 |            92.4 |     96% |       0.0% |         0% |         0% |     6% |          0% |       2.5 | 0.80→1.04    | yes       |
+| calm        | 5wpm   | builder |      4.2 |  94 |  93 |  93 |  94 |  95 |  91 |  92 |  93 |  93 |  94 | 91.3-95.1 |            92.9 |     96% |       0.0% |         0% |         0% |     7% |          0% |       2.5 | 0.80→1.06    | no        |
+
+- **Every acceptance number holds with room.** 5 WPM: at most 23 % of waves under 85 % (pin 30 %),
+  at most 4 % swamped (the 10 WPM rows' chance floor is about 3 %). 10 WPM: at most 20 % under
+  85 % on every seed (pin 25 %, now 22 %). The reviewer's 30-learner Miner row went from 26.7 % to
+  20.5 %.
+- **25 and 50 WPM didn't move,** within 0.2 points: their keys are quicker than the band's
+  reaction allowance, their walks are far under 40 s, and their waves hold more keys than the
+  minimum. The 50 WPM learner means are 93.2–96.4 % (pin 90–97 %).
+- **The star gate.** Fewer mobs reach the base everywhere: at most 0.8 % from wave 4 on at 5 WPM
+  (it was up to 23 %). Share of learners whose night passes the gate (half the visitors sent home
+  for 2 stars, four fifths for 3; seed 1, 50 learners, a 3-wave night), before → after: every
+  5 WPM row with a baseline and every 10 WPM row reaches 2 stars (100 %), and 3 stars for 86–100 %
+  before, 100 % after (a new 10 WPM Builder: 90 → 94 %). New profiles at 5 WPM: Sprout 98 → 100 % for 3 stars; Miner 92 → 100 % for
+  2 and 34 → 68 % for 3; Builder **0 → 100 %** for 2 and 0 → 22 % for 3. The new Builder's first
+  wave is the one that costs the third star. `nightStars` is unchanged.
+- **The 10 WPM sweep is a little softer** (88 % at `d = 1`, was 86 %), because a 10 WPM key
+  (1.2 s) is longer than a Miner's 900 ms reaction allowance.
 
 `tests/unit/sim/sim-defense.test.ts` pins these results:
 
@@ -421,7 +517,12 @@ checks that opening stretch too.
   looser than the M4-05 card's literal 85–95 % (the Sprout row's mean is 96.4 %), on purpose;
 - **stability, on every main row:** at most 6 % of waves from wave 4 on are swamped, at most 8 %
   have more than a fifth of the mobs at the base, and at most 5 % of waves 1–3 are swamped. At
-  10 WPM, at most 25 % of waves from wave 4 on are under 85 % (15–23 % today);
+  10 WPM, at most 22 % of waves from wave 4 on are under 85 % (15–19 % today; 25 % before
+  M4-FIX-3);
+- **5 WPM, every band, with a baseline, new and calm** (M4-FIX-3): at most 30 % of waves from wave
+  4 on under 85 %, at most 5 % swamped and 5 % crowded, a learner mean of at least 88 %, at most
+  5 % of waves 1–3 swamped with a baseline and 36 % for a new profile (its first wave), and the
+  empty-field bound;
 - reached base ≤ 20 % on the main rows;
 - calm mode: `d ≤ 1.2`;
 - pacing: no stretch of empty field is longer than `maxIdleMs` + 250 ms, on the main rows and on

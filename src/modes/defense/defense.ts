@@ -119,6 +119,11 @@ const CALM_MAX_LIVE = 4;
 const BANNER_ROOM = 46;
 /** Room kept above the far end of the field for a locked word plate, in CSS pixels (× scale). */
 const PLATE_ROOM = 56;
+/**
+ * Frames the HUD message's box is measured after it changes: the HUD renders on a later frame,
+ * and the message's pop-in (`--t-med`) has to end. About half a second at 60 fps.
+ */
+const MESSAGE_SETTLE_FRAMES = 30;
 /** Keys a free-play night uses when there is no lesson. */
 const FREE_PLAY_KEYS = ["f", "j", "d", "k", "s", "l", "a", ";"];
 
@@ -511,8 +516,11 @@ export function create(ctx: ModeContext): DefenseInstance {
     if (!w.calm || field.length < CALM_MAX_LIVE) spawnClock += dtMs;
     // An empty field brings the next mob forward, and the rest of the wave with it.
     const upcoming = w.mobs[nextSpawn];
-    if (upcoming !== undefined)
-      spawnClock += idlePullMs(upcoming.spawnAtMs - spawnClock, fieldEmpty(field) ? emptyMs : null);
+    if (upcoming !== undefined) {
+      const pull = idlePullMs(upcoming.spawnAtMs - spawnClock, fieldEmpty(field) ? emptyMs : null);
+      spawnClock += pull;
+      tally.pulledMs += pull;
+    }
     while (nextSpawn < w.mobs.length) {
       const m = w.mobs[nextSpawn];
       if (m === undefined || m.spawnAtMs > spawnClock) break;
@@ -692,6 +700,14 @@ export function create(ctx: ModeContext): DefenseInstance {
   /** Where plates may go, and where the shield bar sits: the open stage, on the page. */
   let bounds = { left: 0, top: 0, right: 0, bottom: 0 };
   let shieldAt = { left: 0, top: 0 };
+  /**
+   * The HUD message's box on the page (null: no message). Measuring it forces a layout, so it is
+   * measured only for {@link MESSAGE_SETTLE_FRAMES} frames after the message or the layout changed
+   * (the HUD renders a frame later, and the message pops in), then kept.
+   */
+  let messageBox: DOMRect | null = null;
+  let messageOf: { banner: unknown; caps: boolean } | null = null;
+  let measureFrames = 0;
 
   /**
    * Frames the field in the space the HUD leaves (`fitLaneView`). It measures the page, so it runs
@@ -725,6 +741,8 @@ export function create(ctx: ModeContext): DefenseInstance {
     const key = [free.left, free.top, free.width, free.height, layoutW, layoutH]
       .map(Math.round)
       .join(",");
+    // The message may have moved too (a font loaded, the page resized): measure it again.
+    measureFrames = MESSAGE_SETTLE_FRAMES;
     if (key === layoutKey) return;
     layoutKey = key;
     const fit = fitLaneView(
@@ -775,9 +793,18 @@ export function create(ctx: ModeContext): DefenseInstance {
     }
     // The HUD's message (the dusk announcement, a banner, the Caps Lock hint) sits over the top
     // of the stage: plates stay below it.
-    const message = stageCanvas?.ownerDocument.querySelector('[data-hud="stage"] output');
-    const box = message?.getBoundingClientRect();
-    plates.sync(items, clearOfBanner(bounds, box && box.height > 0 ? box : null));
+    const { banner, capsLock } = hud.get();
+    if (messageOf === null || messageOf.banner !== banner || messageOf.caps !== capsLock) {
+      messageOf = { banner, caps: capsLock };
+      measureFrames = MESSAGE_SETTLE_FRAMES;
+    }
+    if (measureFrames > 0) {
+      measureFrames--;
+      const message = stageCanvas?.ownerDocument.querySelector('[data-hud="stage"] output');
+      const box = message?.getBoundingClientRect();
+      messageBox = box && box.height > 0 ? box : null;
+    }
+    plates.sync(items, clearOfBanner(bounds, messageBox));
   };
 
   const ready = (): void => {

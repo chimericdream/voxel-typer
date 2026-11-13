@@ -2,6 +2,7 @@
  * Night Defense wave simulator (task M4-05, PLAN.md §3.2.2, §8 Phase 4).
  *
  *   npm run tool -- sim-defense --runs 50 --waves 10 --seed 1
+ *   npm run tool -- sim-defense --runs 100 --seed 2 --slow 1   (also the 5 WPM rows, M4-FIX-3)
  *
  * Plays nights of Defense with M1-07's synthetic typists (`tools/sim/typist.ts`) at 10, 25 and 50
  * WPM, through the real wave director (`src/modes/defense/director.ts`) and the real typing engine
@@ -366,6 +367,7 @@ export function playWave(
     reachedBase: reached,
     wordsDone: end.summary.targetsCompleted,
     activeMs: end.summary.activeMs,
+    pulledMs: shift,
   };
 }
 
@@ -455,6 +457,23 @@ export function reportRows(): RowSpec[] {
         pressure: { ...P, slope },
         label: `slope ${slope}`,
       });
+  return rows;
+}
+
+/**
+ * The slow learners' rows (M4-FIX-3): a 5 WPM typist in every band, with a baseline, as a new
+ * profile, and calm.
+ */
+export function slowRows(): RowSpec[] {
+  const rows: RowSpec[] = [];
+  const bands: readonly AgeBand[] = ["sprout", "miner", "builder"];
+  for (const [label, calm, baseline] of [
+    ["main", false, true],
+    ["new profile", false, false],
+    ["calm", true, true],
+  ] as const)
+    for (const band of bands)
+      rows.push({ typist: "5wpm", band, calm, baseline, pressure: DEFAULT_PRESSURE, label });
   return rows;
 }
 
@@ -652,10 +671,12 @@ export function formatSweep(points: readonly SweepPoint[], opts: DefenseSimOptio
 export interface DefenseSimArgs extends DefenseSimOptions {
   /** Also print the plant sweep. */
   sweep: boolean;
+  /** Also print the 5 WPM rows ({@link slowRows}). */
+  slow: boolean;
 }
 
 export function parseDefenseArgs(args: readonly string[]): DefenseSimArgs {
-  const opts: DefenseSimArgs = { runs: 50, waves: 10, seed: 1, sweep: false };
+  const opts: DefenseSimArgs = { runs: 50, waves: 10, seed: 1, sweep: false, slow: false };
   for (let i = 0; i < args.length; i += 2) {
     const flag = args[i];
     const value = Number(args[i + 1]);
@@ -665,6 +686,7 @@ export function parseDefenseArgs(args: readonly string[]): DefenseSimArgs {
     else if (flag === "--waves") opts.waves = Math.max(4, value);
     else if (flag === "--seed") opts.seed = value;
     else if (flag === "--sweep") opts.sweep = value !== 0;
+    else if (flag === "--slow") opts.slow = value !== 0;
     else throw new Error(`unknown flag ${flag ?? ""}`);
   }
   return opts;
@@ -673,5 +695,8 @@ export function parseDefenseArgs(args: readonly string[]): DefenseSimArgs {
 if (resolve(argv[1] ?? "") === fileURLToPath(import.meta.url)) {
   const opts = parseDefenseArgs(argv.slice(2));
   process.stdout.write(formatDefense(simulateDefense(opts), opts));
+  if (opts.slow)
+    process.stdout.write(`
+${formatDefense(simulateDefense(opts, slowRows()), opts)}`);
   if (opts.sweep) process.stdout.write(`\n${formatSweep(sweepPlant(opts), opts)}`);
 }

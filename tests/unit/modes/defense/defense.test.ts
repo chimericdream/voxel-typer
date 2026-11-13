@@ -58,6 +58,7 @@ interface WaveEnd {
   reachedBase: number;
   wordsDone: number;
   activeMs: number;
+  pulledMs: number;
   difficulty: number;
 }
 const isWaveEnd = (v: unknown): v is WaveEnd =>
@@ -298,7 +299,11 @@ describe("the night's flow", () => {
       r.ends.forEach((e, i) => {
         expect(e).toMatchObject({ accuracy: 1, reachedBase: 0, wordsDone: r.waves[i] });
         expect(e.activeMs).toBeGreaterThan(2000);
+        expect(e.pulledMs).toBeGreaterThanOrEqual(0);
       });
+      // A quick typist empties the field, and the mode tells the director how far that brought
+      // the wave forward (calm mode's slowness adds it back, M4-FIX-3).
+      expect(r.ends.some((e) => e.pulledMs > 0)).toBe(true);
       expect(result?.summary.targetsCompleted).toBe(sum(r.waves));
     }
   });

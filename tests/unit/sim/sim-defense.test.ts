@@ -18,6 +18,7 @@ import {
   parseDefenseArgs,
   reportRows,
   simulateDefense,
+  slowRows,
 } from "../../../tools/sim-defense";
 import type { RowResult } from "../../../tools/sim-defense";
 
@@ -86,8 +87,32 @@ describe("defense sim", () => {
         // Waves 1–3 are the whole night for many children.
         expect(r.swampedEarly, label).toBeLessThanOrEqual(0.05);
         // The youngest children are the slow typists: at most a quarter of their waves may fall
-        // under 85 % (15–23 % today; a wave of theirs is only about 20 keys).
-        if (r.spec.typist === "10wpm") expect(r.low, label).toBeLessThanOrEqual(0.25);
+        // under 85 % (M4-04). M4-FIX-3 gave the pin headroom: 15–19 % here, and at most 20 % on
+        // seeds 1–3 with 100 learners (`docs/sim.md`), so the pin is now 22 %.
+        if (r.spec.typist === "10wpm") expect(r.low, label).toBeLessThanOrEqual(0.22);
+      }
+    },
+    TIMEOUT,
+  );
+
+  it(
+    "5 WPM (M4-FIX-3): at most 30 % of waves under 85 %, and no more swamped waves than chance, in every band, new profile and calm included",
+    () => {
+      for (const r of simulateDefense(opts, slowRows())) {
+        const label = `${r.spec.label} ${r.spec.band}`;
+        // 9–23 % today. Before M4-FIX-3: 33–67 %.
+        expect(r.low, label).toBeLessThanOrEqual(0.3);
+        // "Swamped" is the director's relief mark (under 75 %, or over 30 % at the base). About
+        // 3 % of a slow typist's waves fall under 75 % by chance at any pace, so this is the main
+        // rows' bound: 0–4 % today, and 10–46 % before.
+        expect(r.swamped, label).toBeLessThanOrEqual(0.05);
+        expect(r.crowded, label).toBeLessThanOrEqual(0.05);
+        expect(r.learnerMean, label).toBeGreaterThanOrEqual(0.88);
+        // A new profile's first wave is played at a guess (the band's slow default); a 5 WPM
+        // Miner or Builder can't keep up with it. The director then starts again from what they
+        // typed, so it is that one wave and no more (a third of waves 1–3).
+        expect(r.swampedEarly, label).toBeLessThanOrEqual(r.spec.baseline ? 0.05 : 0.36);
+        expect(r.idleMax, label).toBeLessThanOrEqual(DIRECTOR_CONSTANTS.maxIdleMs + 250);
       }
     },
     TIMEOUT,
@@ -163,6 +188,7 @@ describe("defense sim", () => {
         waves: 10,
         seed: 2,
         sweep: true,
+        slow: false,
       });
       expect(() => parseDefenseArgs(["--nope", "1"])).toThrow(/unknown flag/);
     },

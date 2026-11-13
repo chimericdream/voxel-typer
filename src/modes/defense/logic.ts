@@ -238,6 +238,8 @@ export interface WaveTally {
   reachedBase: number;
   /** Frame time while the wave was live (paused time never reaches `frame`). */
   activeMs: Ms;
+  /** How far an empty field moved the wave's spawn clock forward (`idlePullMs`), in all. */
+  pulledMs: Ms;
 }
 
 export const emptyTally = (): WaveTally => ({
@@ -246,6 +248,7 @@ export const emptyTally = (): WaveTally => ({
   wordsDone: 0,
   reachedBase: 0,
   activeMs: 0,
+  pulledMs: 0,
 });
 
 /**
@@ -258,6 +261,7 @@ export function waveFeedback(t: Readonly<WaveTally>): WaveFeedback {
     reachedBase: t.reachedBase,
     wordsDone: t.wordsDone,
     activeMs: t.activeMs,
+    pulledMs: t.pulledMs,
   };
 }
 
