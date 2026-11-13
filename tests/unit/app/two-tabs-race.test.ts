@@ -7,12 +7,13 @@
  * It must show zero lost lessons and zero double counts: 8 plays, 8 history entries, 8 sessions,
  * and every loot id exactly once in both `inventory` and `found`.
  */
+import * as fakeIdb from "fake-indexeddb";
 import { describe, expect, it, vi } from "vitest";
 import { createSilentAudio } from "../../../src/app/audio";
 import { realClock } from "../../../src/app/clock";
 import { createHudStore } from "../../../src/app/hud";
 import { createShell } from "../../../src/app/shell";
-import { createMemoryBackend, createStoreOn } from "../../../src/save/store";
+import { createIdbStore, createMemoryBackend, createStoreOn } from "../../../src/save/store";
 import type { Backend } from "../../../src/save/store";
 import { guardedStore } from "../../../src/save/tab-sync";
 import type { ProfileLocks, TabChannel, TabMessage } from "../../../src/save/tab-sync";
@@ -31,7 +32,14 @@ function seeded(seed: number): () => number {
 }
 
 /** `n` rounds of queued work. Microtasks keep 240 races fast; their order is still random. */
+let macro = false;
 const ticks = async (n: number): Promise<void> => {
+  // Real IndexedDB (fake-indexeddb) finishes requests on macrotasks, so waiting on microtasks
+  // alone would starve it: the IDB cells yield real timer turns instead.
+  if (macro) {
+    for (let i = 0; i < Math.max(1, n); i++) await new Promise((r) => setTimeout(r, 0));
+    return;
+  }
   for (let i = 0; i < n * 4; i++) await Promise.resolve();
 };
 
@@ -90,19 +98,30 @@ function fakeLocks(): ProfileLocks {
   };
 }
 
+// indexedDB and friends as globals, the way a browser has them (for the real-IndexedDB cells).
+Object.assign(globalThis, fakeIdb);
+
 const LESSONS = 4;
 
-async function race(seed: number, withLocks: boolean, dropP: number): Promise<string[]> {
+async function race(
+  seed: number,
+  withLocks: boolean,
+  dropP: number,
+  idb = false,
+): Promise<string[]> {
   const rnd = seeded(seed);
   const backend = createMemoryBackend();
+  // Real IndexedDB code over fake-indexeddb: two connections to one database, like two tabs.
+  const dbName = `vt-race-${seed}-${withLocks ? 1 : 0}-${dropP}`;
+  const baseStore = () => (idb ? createIdbStore(dbName) : createStoreOn(slow(backend, rnd)));
   const p = fixture("fresh-sprout");
-  await createStoreOn(backend).save(p);
+  await (idb ? createIdbStore(dbName) : createStoreOn(backend)).save(p);
   const channelFor = bus(rnd, dropP);
   const locks = withLocks ? fakeLocks() : undefined;
   const tabs = ["a", "b"].map((tabId) => {
     const mode = fakeMode();
     const channel = channelFor();
-    const store = guardedStore(createStoreOn(slow(backend, rnd)), {
+    const store = guardedStore(baseStore(), {
       tabId,
       channel,
       ...(locks && { locks }),
@@ -147,7 +166,7 @@ async function race(seed: number, withLocks: boolean, dropP: number): Promise<st
   await Promise.all(tabs.map(play));
   await ticks(20);
   for (const t of tabs) await t.shell.ready();
-  const now = await createStoreOn(backend).load(p.id);
+  const now = await (idb ? createIdbStore(dbName) : createStoreOn(backend)).load(p.id);
   if (now === null) return ["the player is gone"];
   const bad: string[] = [];
   const total = 2 * LESSONS;
@@ -177,5 +196,21 @@ describe("two tabs racing (M3-FIX-9)", () => {
         expect(failures).toEqual([]);
       }, 120_000);
     }
+  }
+  // The re-review's B3 harness: real IndexedDB code, where writes take real turns (M3-FIX-9).
+  for (const withLocks of [true, false]) {
+    it(`real IndexedDB, 20 seeds, ${withLocks ? "Web Locks" : "no locks"}, 50% messages lost: nothing lost`, async () => {
+      const failures: string[] = [];
+      macro = true;
+      try {
+        for (let seed = 1; seed <= 20; seed++) {
+          const bad = await race(seed, withLocks, 0.5, true);
+          if (bad.length > 0) failures.push(`seed ${seed}: ${bad.join(", ")}`);
+        }
+      } finally {
+        macro = false;
+      }
+      expect(failures).toEqual([]);
+    }, 240_000);
   }
 });

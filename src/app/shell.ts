@@ -299,8 +299,13 @@ export function createShell(deps: ShellDeps): Shell {
     });
   };
 
-  /** Most times one change is added to a newer copy before giving up (each try is a real save). */
-  const MAX_TRIES = 5;
+  /**
+   * A safety ceiling on adding one change to a newer copy. Each stale try means another tab
+   * saved real progress, so the loop always ends in practice; giving up after 5 tries silently
+   * lost lessons under contention (M3-FIX-9 re-review B3). If it is ever hit, the change stays
+   * on screen and the child is told the save failed, never shown progress that wasn't kept.
+   */
+  const MAX_TRIES = 1000;
 
   const updateProfile = async (
     base: Profile,
@@ -325,10 +330,13 @@ export function createShell(deps: ShellDeps): Shell {
           from = profile.value?.id === id ? profile.value : out.fresh;
           continue;
         }
-        // Saved, or kept on screen after a failed write (the next save tries again).
-        setProfile(next);
+        // Saved, or kept on screen after a failed write (the next save tries again). Never switch
+        // the tab back to this player if the child picked another one meanwhile (re-review N2).
+        if (profile.value === null || profile.value.id === id) setProfile(next);
         return out.kind === "saved" ? next : null;
       }
+      console.warn("[app] save gave up after", MAX_TRIES, "tries");
+      notify("storageError");
       return null;
     });
   };

@@ -43,6 +43,8 @@ Status: done (rework after data-safety review 1)
   - `tests/unit/save/tab-sync.test.ts`: 6 tests.
   - `import-export.test.tsx`: N4 and N5.
 
+- **Re-review fixes (orchestrator, re-review on #194):** B3: `updateProfile` no longer gives up after 5 stale tries. It retries until the save goes through (safety ceiling 1000; if that is ever hit, the change stays on screen and the child gets the save-failed notice, never unsaved stars). A new unit test refuses 7 times in a row and fails on the old cap. N2: a pending save no longer switches the tab back to the previous player. N1: Players-screen edits of a non-active player save with `saveIfUnchanged` and redo the edit on a newer copy. The race test gains two real-IndexedDB cells (fake-indexeddb, macrotask waits) as coverage that the real store holds up. They don't reproduce B3's timing; the unit test does.
+
 ## Acceptance
 
 - [x] **A two-tab test (unit, with a fake channel) proves the stale tab reloads or refuses to save.** `two-tabs.test.ts`: "…reloads that player and says so kindly", "a stale tab refuses to save over newer progress when the message never came", "a save asked for from the old copy, before the reload ran, is refused too".

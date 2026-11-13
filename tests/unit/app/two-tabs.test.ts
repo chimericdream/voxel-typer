@@ -428,3 +428,64 @@ describe("rebaseCounts (Builder inventory onto a newer copy)", () => {
     expect(rebaseCounts({ a: 5 }, { a: 5 }, { a: 5 })).toEqual({ a: 5 });
   });
 });
+
+describe("a busy other tab never makes a lesson vanish (M3-FIX-9 re-review B3)", () => {
+  it("keeps retrying past 5 refusals until the lesson is saved, with no failure notice", async () => {
+    const backend = createMemoryBackend(new Map<string, unknown>());
+    const p = fixture("fresh-sprout");
+    const other = createStoreOn(backend);
+    await other.save(p);
+    const inner = createStoreOn(backend);
+    let refusals = 0;
+    // Before each of this tab's first 7 guarded saves, "another tab" saves first, so each try is
+    // refused as stale. The old code gave up after 5 tries and Results showed unsaved stars.
+    const store: typeof inner = {
+      ...inner,
+      async saveIfUnchanged(next, expected) {
+        if (refusals < 7) {
+          refusals += 1;
+          const cur = await other.load(p.id);
+          if (cur === null) throw new Error("gone");
+          const scale = refusals % 2 === 1 ? 1.25 : 1;
+          await other.save({ ...cur, settings: { ...cur.settings, textScale: scale } });
+        }
+        return inner.saveIfUnchanged(next, expected);
+      },
+    };
+    const mode = fakeMode();
+    const bus = fakeBus();
+    const channel = bus.channel();
+    const shell = createShell({
+      store,
+      lessons: [lesson()],
+      resolveMode: () => mode.module,
+      acquireScene: () => Promise.resolve(fakeScene()),
+      hud: createHudStore(),
+      audio: { ...createSilentAudio(), setSpeechEnabled: vi.fn() },
+      clock: realClock,
+      nextSeed: () => 1,
+      frozen: false,
+      record: false,
+      applySettings: () => undefined,
+      focusOnControl: () => false,
+      showCanvas: () => undefined,
+      tabs: { tabId: "tab-a", channel },
+    });
+    const loaded = await inner.load(p.id);
+    if (loaded === null) throw new Error("not stored");
+    shell.api.setProfile(loaded);
+    shell.api.navigate({ id: "play", lesson: "meadow-01" });
+    await flush();
+    await shell.ready();
+    mode.ctx().finish(result({ loot: { b3: 1 } }));
+    await flush();
+    await shell.ready();
+    await flush();
+    expect(refusals).toBe(7);
+    const now = await other.load(p.id);
+    expect(now?.progress.lessons["meadow-01"]?.plays).toBe(1);
+    expect(now?.inventory["b3"]).toBe(1);
+    expect(now?.found?.["b3"]).toBe(1);
+    expect(shell.notices.value.map((n) => n.kind)).not.toContain("storageError");
+  });
+});

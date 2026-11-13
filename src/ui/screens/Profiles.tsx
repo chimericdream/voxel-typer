@@ -36,6 +36,8 @@ import { gameIsFull, nameMatches, withBand } from "./profiles-logic";
 import screen from "./screen.module.css";
 import create from "./ProfileCreate.module.css";
 import styles from "./Profiles.module.css";
+import { compactHistory } from "@/save/compact";
+import { StaleSaveError } from "@/save/store";
 
 const BANDS: readonly AgeBand[] = ["sprout", "miner", "builder"];
 
@@ -179,12 +181,22 @@ export default function Profiles({ app }: ScreenProps) {
       if (base === null) return null;
       const next = change(base);
       if (active?.id === id) return (await app.saveProfile(next)) ? next : null;
-      try {
-        await app.store.save(next);
-        return next;
-      } catch {
-        return null;
+      // Another player's record: save only over the copy this edit was made from, so a lesson
+      // another tab saved meanwhile is never overwritten; on a clash, redo the edit on the newer
+      // copy (M3-FIX-9 re-review N1).
+      let from = base;
+      let edited = next;
+      for (let i = 0; i < 50; i++) {
+        try {
+          await app.store.saveIfUnchanged(edited, JSON.stringify(compactHistory(from)));
+          return edited;
+        } catch (err) {
+          if (!(err instanceof StaleSaveError) || err.current === null) return null;
+          from = err.current;
+          edited = change(from);
+        }
       }
+      return null;
     } finally {
       busy.release();
     }
