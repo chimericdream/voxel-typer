@@ -1,10 +1,19 @@
 /**
- * One polite live region for the whole page (M2-07 review N5). Screen readers often skip a live
+ * Polite live regions for the whole page (M2-07 review N5). Screen readers often skip a live
  * region that is inserted with its text already inside, which is how a Toast mounts. So the kit
- * keeps a single region mounted and changes its text: on its first use the region is created
- * empty and filled a moment later; after that the text is cleared and set again.
+ * keeps each region mounted and changes its text: on its first use a region is created empty and
+ * filled a moment later; after that the text is cleared and set again.
+ *
+ * Two channels, two regions (M3-07 review N6): `page` for what the app says about where the child
+ * is (route changes, Results), `toast` for Toasts. A route change and a toast a few milliseconds
+ * apart each keep their own words instead of one overwriting the other.
  */
-const REGION_ID = "vt-announcer";
+export type AnnounceChannel = "page" | "toast";
+
+const REGION_IDS: Record<AnnounceChannel, string> = {
+  page: "vt-announcer",
+  toast: "vt-announcer-toast",
+};
 /** The wait before the first message, so the new region is in the accessibility tree first. */
 export const FIRST_ANNOUNCE_MS = 150;
 /** The wait between clearing and setting, so the same message twice is read twice. */
@@ -19,12 +28,16 @@ const HIDDEN: Partial<CSSStyleDeclaration> = {
   whiteSpace: "nowrap",
 };
 
-/** The page's live region, made on first use. */
-export function announcer(doc: Document): { region: HTMLElement; fresh: boolean } {
-  const found = doc.getElementById(REGION_ID);
+/** A channel's live region, made on first use. */
+export function announcer(
+  doc: Document,
+  channel: AnnounceChannel = "page",
+): { region: HTMLElement; fresh: boolean } {
+  const id = REGION_IDS[channel];
+  const found = doc.getElementById(id);
   if (found) return { region: found, fresh: false };
   const region = doc.createElement("div");
-  region.id = REGION_ID;
+  region.id = id;
   region.setAttribute("role", "status");
   region.setAttribute("aria-live", "polite");
   region.setAttribute("aria-atomic", "true");
@@ -34,8 +47,12 @@ export function announcer(doc: Document): { region: HTMLElement; fresh: boolean 
 }
 
 /** Reads `text` out politely. Returns a cancel function for a message that goes away first. */
-export function announce(doc: Document, text: string): () => void {
-  const { region, fresh } = announcer(doc);
+export function announce(
+  doc: Document,
+  text: string,
+  channel: AnnounceChannel = "page",
+): () => void {
+  const { region, fresh } = announcer(doc, channel);
   region.textContent = "";
   if (text.trim() === "") return () => {};
   const view = doc.defaultView;

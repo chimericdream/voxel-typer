@@ -487,14 +487,15 @@ describe("Toast", () => {
   it("is a status message read out through one persistent live region (M2-07 N5)", () => {
     vi.useFakeTimers();
     try {
-      document.getElementById("vt-announcer")?.remove();
+      document.getElementById("vt-announcer-toast")?.remove();
       mount(<Toast tone="cheer">Nice!</Toast>);
       const out = $("output");
       // The toast itself isn't live: a region that mounts with its text is often not announced.
       expect(out.getAttribute("aria-live")).toBe("off");
       expect(out.dataset["tone"]).toBe("cheer");
       expect(out.textContent).toContain("Nice!");
-      const region = document.getElementById("vt-announcer");
+      // The toasts' own region, apart from route announcements (M3-07 review N6).
+      const region = document.getElementById("vt-announcer-toast");
       expect(region?.getAttribute("aria-live")).toBe("polite");
       // Created empty, filled a moment later, so even the first message is read.
       expect(region?.textContent).toBe("");
@@ -503,7 +504,7 @@ describe("Toast", () => {
       // A second toast reuses the same region.
       mount(<Toast>Again</Toast>);
       vi.advanceTimersByTime(FIRST_ANNOUNCE_MS);
-      expect(document.querySelectorAll("#vt-announcer")).toHaveLength(1);
+      expect(document.querySelectorAll("#vt-announcer-toast")).toHaveLength(1);
       expect(region?.textContent).toBe("Again");
     } finally {
       vi.useRealTimers();

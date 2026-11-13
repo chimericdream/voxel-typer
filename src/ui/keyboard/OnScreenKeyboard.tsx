@@ -100,7 +100,7 @@ function useWobble(
     const fed = feedWobble(gateRef.current, code, now());
     gateRef.current = fed.gate;
     // The outline blinks on: the page-wide flash guard has the last word (≤ 3 a second).
-    if (!fed.wobble || !allowFlash(now())) return;
+    if (!fed.wobble || !allowFlash()) return;
     setWobble(code);
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {

@@ -285,3 +285,14 @@
   font-family: var(--font-body);
   font-weight: 700;
 }
+
+/*
+ * Windows Contrast themes force --c-text-muted to the text color, so typed letters looked just
+ * like the ones still to type (M3-07 review N2). The system's own "dimmed" color sets them apart.
+ */
+@media (forced-colors: active) {
+  .char[data-mark="ok"],
+  .char[data-mark="fixed"] {
+    color: GrayText;
+  }
+}

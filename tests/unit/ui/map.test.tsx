@@ -5,6 +5,7 @@
  * here, so the map runs flat: the same buttons the 3D map shows, without the islands behind them
  * (`tests/unit/render/map.test.ts` covers the 3D view, the e2e the two together).
  */
+import * as fc from "fast-check";
 import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -27,7 +28,7 @@ import {
   recommendedLesson,
   startIsland,
 } from "../../../src/ui/screens/map-logic";
-import { resetMapMemory } from "../../../src/ui/screens/WorldMap";
+import { LONG_PRESS_MS, resetMapMemory } from "../../../src/ui/screens/WorldMap";
 import { result, summary } from "../app/helpers";
 import type { Harness } from "./screens/harness";
 import { buttonByText, fixture, mount, text } from "./screens/harness";
@@ -179,6 +180,14 @@ describe("map logic", () => {
     expect(practiceCamp(sprout, "meadow")).toBeNull();
   });
 });
+
+/** A pointer event of the given kind, for happy-dom (which has no PointerEvent constructor). */
+const pointer = (type: string, pointerType = "touch"): Event => {
+  const e = new Event(type, { bubbles: true, cancelable: true });
+  Object.defineProperty(e, "pointerType", { value: pointerType });
+  return e;
+};
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 describe("World map", () => {
   it("shows nine islands; only open ones can be reached, and the next one has focus", async () => {
@@ -400,32 +409,98 @@ describe("World map", () => {
     expect(s.route().id).toBe("profiles");
   });
 
-  it("narrow, by touch: a tap opens a corner button's words and keeps them open; the next tap goes", async () => {
+  it("narrow, by touch: one tap goes (M3-FIX-4 (a))", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width: 1100px") }));
+    try {
+      const s = await openMap(fixture("fresh-sprout"));
+      const home = buttonByText(s.root, t("builder.title"));
+      await act(() => {
+        home.dispatchEvent(pointer("pointerdown"));
+        home.dispatchEvent(pointer("pointerup"));
+        home.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
+      });
+      await s.settle();
+      expect(s.route()).toEqual({ id: "play", lesson: "builder" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("narrow, by touch: a long press shows the words and doesn't go; a tap elsewhere closes them", async () => {
     vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width: 1100px") }));
     try {
       const s = await openMap(fixture("fresh-sprout"));
       const home = buttonByText(s.root, t("builder.title"));
       const wrap = home.closest("[data-nav]");
-      /** A finger's tap: pointerdown, then the click the browser makes from it. */
-      const tap = async (el: Element, pointerType = "touch"): Promise<void> => {
-        await act(() => {
-          const down = new Event("pointerdown", { bubbles: true });
-          Object.defineProperty(down, "pointerType", { value: pointerType });
-          el.dispatchEvent(down);
-          el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-        });
-        await s.settle();
-      };
-      await tap(home);
+      await act(() => {
+        home.dispatchEvent(pointer("pointerdown"));
+      });
+      await act(() => wait(LONG_PRESS_MS + 50));
+      expect(wrap?.getAttribute("data-tip")).toBe("open");
+      // Lifting the finger: the click it makes is not a tap.
+      await act(() => {
+        home.dispatchEvent(pointer("pointerup"));
+        home.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
+      });
+      await s.settle();
       expect(s.route()).toEqual({ id: "map" });
       expect(wrap?.getAttribute("data-tip")).toBe("open");
       // A tap anywhere else closes it.
-      await tap(s.root.querySelector("h1") ?? s.root);
+      await act(() => {
+        (s.root.querySelector("h1") ?? s.root).dispatchEvent(pointer("pointerdown"));
+      });
       expect(wrap?.hasAttribute("data-tip")).toBe(false);
-      // Open again, then the next tap on it goes.
-      await tap(home);
-      expect(wrap?.getAttribute("data-tip")).toBe("open");
-      await tap(home);
+      // And the next tap on the button goes.
+      await act(() => {
+        home.dispatchEvent(pointer("pointerdown"));
+        home.dispatchEvent(pointer("pointerup"));
+        home.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 1 }));
+      });
+      await s.settle();
+      expect(s.route()).toEqual({ id: "play", lesson: "builder" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("narrow, by touch: a touch that becomes a scroll leaves nothing set (M3-FIX-4 (b))", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width: 1100px") }));
+    try {
+      const s = await openMap(fixture("fresh-sprout"));
+      const home = buttonByText(s.root, t("builder.title"));
+      const wrap = home.closest("[data-nav]");
+      await act(() => {
+        home.dispatchEvent(pointer("pointerdown"));
+        home.dispatchEvent(pointer("pointercancel"));
+      });
+      await act(() => wait(LONG_PRESS_MS + 50));
+      // No tip opened later, and the next click, from a key (no detail), goes at once.
+      expect(wrap?.hasAttribute("data-tip")).toBe(false);
+      await act(() => {
+        home.click();
+      });
+      await s.settle();
+      expect(s.route()).toEqual({ id: "play", lesson: "builder" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("narrow: after a long press, a key's click still goes", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width: 1100px") }));
+    try {
+      const s = await openMap(fixture("fresh-sprout"));
+      const home = buttonByText(s.root, t("builder.title"));
+      await act(() => {
+        home.dispatchEvent(pointer("pointerdown"));
+      });
+      await act(() => wait(LONG_PRESS_MS + 50));
+      // The finger slid off and was lifted elsewhere; then Enter on the focused button.
+      await act(() => {
+        home.dispatchEvent(pointer("pointerleave"));
+        home.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, detail: 0 }));
+      });
+      await s.settle();
       expect(s.route()).toEqual({ id: "play", lesson: "builder" });
     } finally {
       vi.unstubAllGlobals();
@@ -504,6 +579,16 @@ describe("BiomePath", () => {
     host.remove();
   });
 });
+
+/** Labels about as big as the browser draws them at text scale 2. */
+const scale2 = (anchors: [number, number][]) =>
+  anchors.map(([x, y], i) => ({
+    x,
+    y,
+    w: 320 - (i % 3) * 40,
+    h: 104,
+    above: i === 0 ? 30 : 0,
+  }));
 
 describe("layoutLabels", () => {
   type Box = { left: number; top: number; right: number; bottom: number };
@@ -588,6 +673,44 @@ describe("layoutLabels", () => {
       expectClear(place(labels, size, [heading]), size, [heading]);
     });
   }
+
+  // The same anchors at 1024×600: the overview keeps its distance, so the picture shrinks toward
+  // the middle by 600 / 720 both ways.
+  const anchors600 = anchors1024.map(([x, y]): [number, number] => [
+    512 + ((x - 512) * 600) / 720,
+    300 + ((y - 360) * 600) / 720,
+  ]);
+  const heading600 = { left: 16, top: 12, right: 700, bottom: 128 };
+  const corner600 = { left: 820, top: 12, right: 1008, bottom: 70 };
+
+  it("1024×600 at text scale 2 (M3-FIX-1 review N1): no overlap, nothing past the bottom", () => {
+    const size = { width: 1024, height: 600 };
+    const keep = [heading600, corner600];
+    expectClear(place(scale2(anchors600), size, keep), size, keep);
+  });
+
+  it("property: jittered anchors at 1024×600 and 1024×720, scale 2, always come out clear", () => {
+    const jitter = fc.array(
+      fc.tuple(fc.integer({ min: -30, max: 30 }), fc.integer({ min: -30, max: 30 })),
+      {
+        minLength: 9,
+        maxLength: 9,
+      },
+    );
+    fc.assert(
+      fc.property(jitter, fc.boolean(), (moves, short) => {
+        const size = { width: 1024, height: short ? 600 : 720 };
+        const base = short ? anchors600 : anchors1024;
+        const anchors = base.map(([x, y], i): [number, number] => {
+          const [dx, dy] = moves[i] ?? [0, 0];
+          return [x + dx, y + dy];
+        });
+        const keep = [heading600, corner600];
+        expectClear(place(scale2(anchors), size, keep), size, keep);
+      }),
+      { seed: 4162, numRuns: 300 },
+    );
+  });
 
   it("moves a label below its neighbour when a row has no room left", () => {
     const size = { width: 600, height: 720 };

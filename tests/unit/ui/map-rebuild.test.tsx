@@ -3,6 +3,9 @@
  * World map with a (fake) 3D scene (M3-FIX-1, M3-04 review N6): the 3D view is built once per
  * visit and rebuilt only when the player or their open islands change, not whenever the profile
  * object does (a settings save, say). The view module is mocked, so this counts builds.
+ *
+ * Also (M3-FIX-4): a click on the picture asks the view which island is under it, and does what
+ * that island's label does.
  */
 import * as THREE from "three";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -14,6 +17,11 @@ import type { Harness } from "./screens/harness";
 import { fixture, mount } from "./screens/harness";
 
 const built: { unlocked: BiomeId[]; start: BiomeId | null; disposed: boolean }[] = [];
+/** What the fake view's `pick` answers, and the points it was asked about. */
+const picking: { answer: BiomeId | null; asked: { x: number; y: number }[] } = {
+  answer: null,
+  asked: [],
+};
 
 vi.mock("../../../src/render/map/view", () => ({
   createWorldMapView(
@@ -33,6 +41,12 @@ vi.mock("../../../src/render/map/view", () => ({
       },
       select: () => undefined,
       anchors: () => new Map(),
+      centers: () => new Map(),
+      pick: (at) => {
+        picking.asked.push(at);
+        return picking.answer;
+      },
+      hover: () => undefined,
       onMove: () => () => undefined,
       refresh: () => undefined,
       moving: false,
@@ -60,6 +74,8 @@ afterEach(() => {
   h?.unmount();
   h = null;
   built.length = 0;
+  picking.answer = null;
+  picking.asked.length = 0;
   resetMapMemory();
 });
 
@@ -93,5 +109,56 @@ describe("World map 3D view rebuilds", () => {
     expect(built).toHaveLength(2);
     expect(built[0]?.disposed).toBe(true);
     expect(built[1]).toMatchObject({ unlocked: ["meadow", "birch"], start: "meadow" });
+  });
+});
+
+const clickMap = async (harness: Harness, target?: Element): Promise<void> => {
+  const map = harness.root.querySelector("[data-mode]");
+  if (!map) throw new Error("no map");
+  (target ?? map).dispatchEvent(
+    new MouseEvent("click", { bubbles: true, cancelable: true, clientX: 300, clientY: 200 }),
+  );
+  await harness.settle();
+};
+
+describe("World map: the island's model is a target too (M3-FIX-4)", () => {
+  it("a click on an open island's model goes in; on one in the clouds, the kind line shows", async () => {
+    h = await mount({
+      initial: { id: "map" },
+      initialProfile: fixture("fresh-sprout"),
+      acquireScene: () => Promise.resolve(sceneWithThree()),
+    });
+    await h.settle();
+    expect(h.root.querySelector("[data-mode]")?.getAttribute("data-mode")).toBe("3d");
+
+    // Nothing under the pointer: nothing happens.
+    await clickMap(h);
+    expect(picking.asked).toHaveLength(1);
+    expect(h.root.querySelector("h2")).toBeNull();
+
+    // Birch Forest, still in the clouds: the kind line, and the map stays.
+    picking.answer = "birch";
+    await clickMap(h);
+    expect(h.root.querySelector("[data-note]")?.textContent).toContain("Meadow Home");
+    expect(h.root.querySelector("h2")).toBeNull();
+
+    // Meadow Home: its lesson path opens.
+    picking.answer = "meadow";
+    await clickMap(h);
+    expect(h.root.querySelector("h2")?.textContent).toContain("Meadow Home");
+  });
+
+  it("a click on a label is the label's own; the picture isn't asked", async () => {
+    h = await mount({
+      initial: { id: "map" },
+      initialProfile: fixture("fresh-sprout"),
+      acquireScene: () => Promise.resolve(sceneWithThree()),
+    });
+    await h.settle();
+    picking.answer = "birch";
+    const label = h.root.querySelector("[data-spot='meadow'] button");
+    if (!label) throw new Error("no label");
+    await clickMap(h, label);
+    expect(picking.asked).toHaveLength(0);
   });
 });

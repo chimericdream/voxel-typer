@@ -3,6 +3,10 @@
  * results → back to the map with the node updated; the draw-call budget (≤ 120 at Medium); that
  * the map shares the app's one WebGL context and idles once its moves end; axe; and screenshot
  * baselines (compared on CI's Linux runner only, made by the Update snapshots workflow).
+ *
+ * M3-FIX-4: a click or tap on an island's model selects it like its label; the labels fit at
+ * 1024×600 too; the hint never covers a corner button from 1024 to 1920 px; and on touch one tap
+ * on a corner button goes, while a long press shows its words.
  */
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
@@ -151,6 +155,183 @@ test("keyboard only: map → island → lesson → play → results → map, wit
   expect(errors).toEqual([]);
 });
 
+/** The middle of an island's model on screen (test builds mark it on the label's spot). */
+async function islandCenter(page: Page, biome: string): Promise<{ x: number; y: number }> {
+  const spot = page.locator(`#app [data-spot="${biome}"]`);
+  await expect(spot).toHaveAttribute("data-center", /^-?\d+,-?\d+$/);
+  const [x, y] = ((await spot.getAttribute("data-center")) ?? "").split(",").map(Number);
+  if (x === undefined || y === undefined) throw new Error(`no centre for ${biome}`);
+  return { x, y };
+}
+
+/** True when the point is on the 3D picture, not on a label, the heading or a button. */
+async function onPicture(page: Page, at: { x: number; y: number }): Promise<boolean> {
+  return page.evaluate(({ x, y }) => {
+    const hit = document.elementFromPoint(x, y);
+    return hit !== null && hit.closest("button, header, [data-nav]") === null;
+  }, at);
+}
+
+test.describe("the island itself is the target (M3-FIX-4)", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+  });
+
+  test("a click on the middle of the Meadow island's model opens its lesson path", async ({
+    page,
+  }) => {
+    await countGl(page);
+    const errors = await openMap(page, "fresh-sprout", "&freeze=1");
+    await expect(page.locator('#app [data-mode="3d"]')).toBeVisible();
+    await expect(island(page, "Meadow Home")).toBeFocused();
+    await settle(page);
+    const at = await islandCenter(page, "meadow");
+    // The click lands on the model, not on its label.
+    expect(await onPicture(page, at)).toBe(true);
+
+    // Hovering lights the island and its label, with the hand cursor; then the loop idles again.
+    await untilIdle(page);
+    const before = (await gl(page)).draws;
+    await page.mouse.move(at.x, at.y);
+    const map = page.locator("#app [data-mode]").first();
+    await expect(map).toHaveAttribute("data-pointing", "island");
+    expect(await map.evaluate((el) => getComputedStyle(el).cursor)).toBe("pointer");
+    await expect(island(page, "Meadow Home")).toHaveAttribute("data-hover", "1");
+    await expect.poll(async () => (await gl(page)).draws).toBeGreaterThan(before);
+    await untilIdle(page);
+
+    await page.mouse.click(at.x, at.y);
+    await expect(page.getByRole("heading", { name: "Meadow Home" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Lesson 1: / })).toBeFocused();
+    expect(errors).toEqual([]);
+  });
+
+  test("a click on an island in the clouds gives the kind line; a second click says it again", async ({
+    page,
+  }) => {
+    const errors = await openMap(page, "fresh-sprout", "&freeze=1");
+    await expect(island(page, "Meadow Home")).toBeFocused();
+    await settle(page);
+    const at = await islandCenter(page, "birch");
+    expect(await onPicture(page, at)).toBe(true);
+    await page.mouse.click(at.x, at.y);
+    const note = page.locator("#app [data-note]");
+    await expect(note).toHaveText("Finish Meadow Home to open this island!");
+    await expectScreen(page, "map");
+    // No glow over an island that is still in the clouds.
+    await page.mouse.move(at.x + 1, at.y);
+    await expect(island(page, "Birch Forest")).not.toHaveAttribute("data-hover", "1");
+    // The same island again: the line goes away for a moment and comes back, so it's read again.
+    const cleared = note.evaluate(
+      (el) =>
+        new Promise<boolean>((done) => {
+          const watch = new MutationObserver(() => {
+            if (el.textContent === "") {
+              watch.disconnect();
+              done(true);
+            }
+          });
+          watch.observe(el, { childList: true, characterData: true, subtree: true });
+          setTimeout(() => done(false), 3000);
+        }),
+    );
+    await page.mouse.click(at.x, at.y);
+    expect(await cleared).toBe(true);
+    await expect(note).toHaveText("Finish Meadow Home to open this island!");
+    // A typed letter clears it (M3-FIX-1 review N3).
+    await page.keyboard.press("k");
+    await expect(note).toHaveText("");
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe("the hint never covers a corner button (M3-FIX-4 (c))", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+  });
+
+  test("from 1024 to 1920 px wide", async ({ page }) => {
+    test.slow();
+    await page.setViewportSize({ width: 1024, height: 720 });
+    const errors = await openMap(page, "fresh-sprout", "&freeze=1");
+    await expect(island(page, "Meadow Home")).toBeFocused();
+    const hint = page.getByText("Pick an island. Press Enter to go in.");
+    const corner = page.locator("#app header ~ div button");
+    await expect(corner).toHaveCount(4);
+    const problems: string[] = [];
+    for (const width of [1024, 1100, 1101, 1180, 1280, 1366, 1440, 1536, 1600, 1680, 1920]) {
+      await page.setViewportSize({ width, height: 720 });
+      await settle(page);
+      const h = await hint.boundingBox();
+      if (h === null) throw new Error("no hint");
+      for (const b of await corner.all()) {
+        const c = await b.boundingBox();
+        if (c === null) continue;
+        const apart =
+          h.x + h.width <= c.x ||
+          c.x + c.width <= h.x ||
+          h.y + h.height <= c.y ||
+          c.y + c.height <= h.y;
+        if (!apart) problems.push(`${width}px: the hint covers ${await b.innerText()}`);
+      }
+    }
+    expect(problems).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+});
+
+/** Touches a button through the browser's own touch input, held for `holdMs`. */
+async function touch(
+  page: Page,
+  name: string,
+  opts: { holdMs?: number; cancel?: boolean } = {},
+): Promise<void> {
+  const box = await page.getByRole("button", { name }).boundingBox();
+  if (box === null) throw new Error(`${name} not on screen`);
+  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
+  if (opts.holdMs !== undefined) await page.waitForTimeout(opts.holdMs);
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: opts.cancel === true ? "touchCancel" : "touchEnd",
+    touchPoints: [],
+  });
+  await cdp.detach();
+}
+
+test.describe("corner buttons on touch, narrow window (M3-FIX-4 (a), (b))", () => {
+  test.use({ hasTouch: true, viewport: { width: 1024, height: 720 } });
+
+  test("a long press shows the words and stays; a cancelled touch leaves nothing; one tap goes", async ({
+    page,
+  }) => {
+    const errors = await openMap(page, "fresh-sprout", "&freeze=1");
+    await expect(island(page, "Meadow Home")).toBeFocused();
+    const words = page.getByRole("button", { name: "Settings" }).getByText("Settings");
+
+    // A long press: the words show, and lifting the finger doesn't leave the map.
+    await touch(page, "Settings", { holdMs: 900 });
+    await expect.poll(async () => (await words.boundingBox())?.width ?? 0).toBeGreaterThan(40);
+    await page.waitForTimeout(300);
+    await expectScreen(page, "map");
+
+    // A touch the system takes back (a scroll) sets nothing: the next tap goes at once.
+    await touch(page, "Change player", { cancel: true });
+    await expectScreen(page, "map");
+    await page.getByRole("button", { name: "Change player" }).tap();
+    await expectScreen(page, "profiles");
+    expect(errors).toEqual([]);
+  });
+
+  test("one tap on My Island goes straight there", async ({ page }) => {
+    const errors = await openMap(page, "fresh-sprout", "&freeze=1");
+    await expect(island(page, "Meadow Home")).toBeFocused();
+    await page.getByRole("button", { name: "My Island" }).tap();
+    await expectScreen(page, "island");
+    expect(errors).toEqual([]);
+  });
+});
+
 for (const profile of ["fresh-sprout", "veteran-builder"] as const) {
   test(`draw calls stay under ${MAP_DRAW_CALL_BUDGET} and the loop idles (${profile})`, async ({
     page,
@@ -266,11 +447,13 @@ test.describe("labels fit at large text", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
   });
 
-  for (const [width, height] of [
-    [1024, 720],
-    [1280, 720],
+  for (const [width, height, scales] of [
+    [1024, 720, [1.5, 2]],
+    [1280, 720, [1.5, 2]],
+    // A small tablet or netbook: the labels need three rows (M3-FIX-1 review N1, M3-FIX-4 (d)).
+    [1024, 600, [2]],
   ] as const) {
-    for (const scale of [1.5, 2]) {
+    for (const scale of scales) {
       for (const profile of ["fresh-sprout", "veteran-builder"] as const) {
         test(`${width}×${height}, text scale ${scale}, ${profile}: no label clipped or overlapping`, async ({
           page,
@@ -282,6 +465,11 @@ test.describe("labels fit at large text", () => {
             document.documentElement.style.setProperty("--text-scale", String(s));
           }, scale);
           await settle(page);
+          // The 3D map, not the flat fallback, where labels sit in a grid and pass trivially
+          // (M3-FIX-1 review N2); and every label has been placed under its island.
+          await expect(page.locator('#app [data-mode="3d"]')).toBeVisible();
+          await expect(page.locator("#app [data-spot]")).toHaveCount(9);
+          await expect(page.locator("#app [data-spot][data-placed]")).toHaveCount(9);
           await expect
             .poll(async () => layoutProblems(await labelBoxes(page), width, height), {
               timeout: 10_000,

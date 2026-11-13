@@ -15,7 +15,8 @@
   background-color: var(--c-keycap);
   background-clip: padding-box;
   color: var(--c-keycap-text);
-  font-family: var(--font-pixel);
+  /* A key cap shows a letter to type: always the body font (M3-07 review N8). */
+  font-family: var(--font-body);
   font-size: calc(var(--fs-lg) * var(--text-scale));
   font-weight: 700;
   line-height: 1;

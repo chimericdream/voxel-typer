@@ -67,6 +67,19 @@ export interface WorldMapView {
   select(biome: BiomeId | null): void;
   /** Where each island's label goes: just under the island, as the camera sees it now. */
   anchors(): Map<BiomeId, ScreenPoint>;
+  /** The middle of each island's model on screen, as the camera sees it now. */
+  centers(): Map<BiomeId, ScreenPoint>;
+  /**
+   * The island under a point on the canvas (CSS pixels from its top left), or null. The island's
+   * blocks are tested first; a click in a gap between them (between two trees, say) still finds
+   * the island through its bounding box, so a child never has to aim (M3-FIX-4).
+   */
+  pick(at: ScreenPoint): BiomeId | null;
+  /**
+   * Brightens one island while the pointer is over it; `null` for none. A change of color only,
+   * so it moves nothing and needs no reduced-motion check. Renders once; starts no loop.
+   */
+  hover(biome: BiomeId | null): void;
   /** Called after every frame in which the picture changed (camera or island moves, resizes). */
   onMove(fn: () => void): () => void;
   /** Call after the canvas changed size: re-frames the current view. */
@@ -208,8 +221,15 @@ export function steppingStones(from: IslandPlace, to: IslandPlace, open: boolean
   return out;
 }
 
+/** How much brighter the island under the pointer is drawn. */
+export const HOVER_BRIGHTEN = 1.3;
+
 interface Island {
   group: THREE.Group;
+  /** The island's lit mesh (the one that changes color on hover), if it has one. */
+  litMesh: THREE.Mesh | null;
+  /** The island's meshes, for picking. */
+  meshes: THREE.Mesh[];
   place: IslandPlace;
   lift: number;
   wantLift: number;
@@ -242,6 +262,10 @@ export function createWorldMapView(stage: MapStage, opts: MapViewOptions): World
 
   const lit = new THREE.MeshLambertMaterial({ map: texture, vertexColors: true });
   lit.name = "map-island";
+  // The same material a little brighter, for the island under the pointer. Same shader program.
+  const litHover = lit.clone();
+  litHover.name = "map-island-hover";
+  litHover.color.setScalar(HOVER_BRIGHTEN);
   const glow = new THREE.MeshBasicMaterial({ map: texture, vertexColors: true });
   glow.name = "map-glow";
   // Unlit, like the sky's own clouds, so the cover stays white from every side.
@@ -270,16 +294,22 @@ export function createWorldMapView(stage: MapStage, opts: MapViewOptions): World
       tiles.lookup(spec.biome),
       spec.locked ? null : tiles.glows,
     );
+    let litMesh: THREE.Mesh | null = null;
+    const meshes: THREE.Mesh[] = [];
     if (parts.lit) {
       geometries.push(parts.lit);
-      group.add(new THREE.Mesh(parts.lit, lit));
+      litMesh = new THREE.Mesh(parts.lit, lit);
+      meshes.push(litMesh);
+      group.add(litMesh);
     }
     if (parts.glow) {
       geometries.push(parts.glow);
-      group.add(new THREE.Mesh(parts.glow, glow));
+      const mesh = new THREE.Mesh(parts.glow, glow);
+      meshes.push(mesh);
+      group.add(mesh);
     }
     root.add(group);
-    islands.set(spec.biome, { group, place, lift: 0, wantLift: 0 });
+    islands.set(spec.biome, { group, litMesh, meshes, place, lift: 0, wantLift: 0 });
     if (spec.locked) cover.push(...cloudCover(place, index, seed));
     const from = ISLAND_LINKS[spec.biome];
     if (from !== undefined) {
@@ -372,6 +402,17 @@ export function createWorldMapView(stage: MapStage, opts: MapViewOptions): World
   }
 
   const point = new THREE.Vector3();
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  const box = new THREE.Box3();
+  const hit = new THREE.Vector3();
+  let hovered: BiomeId | null = null;
+
+  /** Projects a world point to canvas pixels. */
+  const toScreen = (width: number, height: number): ScreenPoint => {
+    point.project(camera);
+    return { x: (point.x * 0.5 + 0.5) * width, y: (1 - (point.y * 0.5 + 0.5)) * height };
+  };
 
   return {
     root,
@@ -395,13 +436,59 @@ export function createWorldMapView(stage: MapStage, opts: MapViewOptions): World
       for (const [id, island] of islands) {
         // Just above the lowest point of the island's underside: the label overlaps the tip.
         point.set(island.place.x, island.place.y - (ISLAND_GROUND_Y - 0.5), island.place.z);
-        point.project(camera);
-        out.set(id, {
-          x: (point.x * 0.5 + 0.5) * width,
-          y: (1 - (point.y * 0.5 + 0.5)) * height,
-        });
+        out.set(id, toScreen(width, height));
       }
       return out;
+    },
+    centers() {
+      const { width, height } = opts.viewport();
+      const out = new Map<BiomeId, ScreenPoint>();
+      root.updateMatrixWorld(true);
+      for (const [id, island] of islands) {
+        box.setFromObject(island.group);
+        if (box.isEmpty()) continue;
+        box.getCenter(point);
+        out.set(id, toScreen(width, height));
+      }
+      return out;
+    },
+    pick(at) {
+      if (disposed) return null;
+      const { width, height } = opts.viewport();
+      if (width <= 0 || height <= 0) return null;
+      ndc.set((at.x / width) * 2 - 1, 1 - (at.y / height) * 2);
+      camera.updateMatrixWorld();
+      root.updateMatrixWorld(true);
+      raycaster.setFromCamera(ndc, camera);
+      let best: BiomeId | null = null;
+      let nearest = Infinity;
+      for (const [id, island] of islands) {
+        for (const h of raycaster.intersectObjects(island.meshes, false)) {
+          if (h.distance < nearest) {
+            nearest = h.distance;
+            best = id;
+          }
+        }
+      }
+      if (best !== null) return best;
+      for (const [id, island] of islands) {
+        box.setFromObject(island.group);
+        if (box.isEmpty() || raycaster.ray.intersectBox(box, hit) === null) continue;
+        const d = hit.distanceTo(raycaster.ray.origin);
+        if (d < nearest) {
+          nearest = d;
+          best = id;
+        }
+      }
+      return best;
+    },
+    hover(biome) {
+      if (disposed || biome === hovered) return;
+      hovered = biome;
+      for (const [id, island] of islands) {
+        if (island.litMesh !== null) island.litMesh.material = id === biome ? litHover : lit;
+      }
+      stage.requestRender();
     },
     onMove(fn) {
       listeners.add(fn);
@@ -427,7 +514,7 @@ export function createWorldMapView(stage: MapStage, opts: MapViewOptions): World
       listeners.clear();
       scene.remove(root);
       for (const g of geometries) g.dispose();
-      for (const m of [lit, glow, cloud, stone]) m.dispose();
+      for (const m of [lit, litHover, glow, cloud, stone]) m.dispose();
       texture.dispose();
       stage.requestRender();
     },
