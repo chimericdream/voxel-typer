@@ -49,13 +49,13 @@ Status: done
 Only the collar, the belt and the top of the arms show in the profile bust. The rest is below the
 frame.
 
-| Part | Before | Now | Shows on the card? |
-|---|---|---|---|
-| Collar | 6×1×0.5, out 0.5 from the tunic | 6×1×1, sunk 0.5 into the tunic, so still out 0.5 | Same |
-| Belt | 8.5×1×4.5 (out 0.25 each side) | 9×1×5 (out 0.5 each side) | A hair wider |
-| Hands | 1.5 tall | 2 tall (y 7–9) | No |
-| Legs | 3.5 wide, touching in the middle | 3 wide, 1 px apart, 0.5 in from the tunic's sides | No |
-| Boots | 3.75×2×3.75 | 4×2×4 | No |
+| Part   | Before                           | Now                                               | Shows on the card? |
+| ------ | -------------------------------- | ------------------------------------------------- | ------------------ |
+| Collar | 6×1×0.5, out 0.5 from the tunic  | 6×1×1, sunk 0.5 into the tunic, so still out 0.5  | Same               |
+| Belt   | 8.5×1×4.5 (out 0.25 each side)   | 9×1×5 (out 0.5 each side)                         | A hair wider       |
+| Hands  | 1.5 tall                         | 2 tall (y 7–9)                                    | No                 |
+| Legs   | 3.5 wide, touching in the middle | 3 wide, 1 px apart, 0.5 in from the tunic's sides | No                 |
+| Boots  | 3.75×2×3.75                      | 4×2×4                                             | No                 |
 
 Legs flush with the tunic's sides would drift towards the famous blocky look (IP rule), so they
 stay inset and get a gap.
@@ -63,17 +63,18 @@ stay inset and get a gap.
 ## Acceptance
 
 - [x] The avatar looks the same as before. The baseline was deleted and remade on CI's Linux runner
-  (Update snapshots workflow). See the side-by-side in `docs/handoffs/M3-FIX-5/` and the numbers
-  below.
+      (Update snapshots workflow). See the side-by-side in `docs/handoffs/M3-FIX-5/` and the numbers
+      below.
 
 ![Old baseline, new baseline, difference ×4](M3-FIX-5/avatar-side-by-side.png)
 
-  Left: the old baseline (M3-09's own mesh code). Middle: the new one (CI run 43347668878).
-  Right: the difference, ×4. Both are crops of the 76×76 avatar frame, shown at 4× size.
-  - On the whole 1280×720 page, 36 pixels differ by more than 8/255. All of them are in a 33×8
-    strip along the belt (x 204–237, y 375–383): the belt is now 9 wide, not 8.5.
-  - The face, the hair, the leaf, the collar, the tunic and the shading match pixel for pixel, and
-    so does all the text.
+Left: the old baseline (M3-09's own mesh code). Middle: the new one (CI run 43347668878).
+Right: the difference, ×4. Both are crops of the 76×76 avatar frame, shown at 4× size.
+
+- On the whole 1280×720 page, 36 pixels differ by more than 8/255. All of them are in a 33×8
+  strip along the belt (x 204–237, y 375–383): the belt is now 9 wide, not 8.5.
+- The face, the hair, the leaf, the collar, the tunic and the shading match pixel for pixel, and
+  so does all the text.
 
 - `npm run verify` passes (115 files, 4378 tests, bundle budgets met).
 
