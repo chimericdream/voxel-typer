@@ -25,6 +25,7 @@ import { MODEL_UNIT, buildModelInstanced, parseModel } from "@/render/models";
 import type { InstancedModelHandle, VoxelModel } from "@/render/models";
 import type { Vec3 } from "@/render/types";
 import type { Ms } from "@/types/core";
+import { walkRate } from "./logic";
 import type { FieldMob, LaneView } from "./logic";
 
 /** Mobs are drawn this much bigger than their model, so a 13–17 px creature reads from afar. */
@@ -101,6 +102,8 @@ interface Shown {
   hop: number;
   /** Arrival: 0 when it appears, 1 when it is full size. */
   grow: number;
+  /** The walk clip's playback rate: slower for a slow mob ({@link walkRate}). */
+  rate: number;
 }
 
 /** The top of a model above the ground, in model pixels: the highest part box at rest. */
@@ -290,11 +293,12 @@ export function createDefenseView(opts: DefenseViewOptions): DefenseView {
       const index = kind?.free.pop();
       if (kind === undefined || index === undefined) return false;
       const grow = opts.reducedMotion() ? 1 : 0;
-      const s: Shown = { kind, index, loop: "walk", playing: null, hop: -1, grow };
+      const rate = walkRate(mob.speed);
+      const s: Shown = { kind, index, loop: "walk", playing: null, hop: -1, grow, rate };
       shown.set(mob.id, s);
       put(mob, s);
       kind.handle.setVisible(index, true);
-      kind.handle.play(index, "walk");
+      kind.handle.play(index, "walk", { speed: rate });
       s.playing = "walk";
       opts.requestRender();
       return true;
@@ -307,7 +311,7 @@ export function createDefenseView(opts: DefenseViewOptions): DefenseView {
       if (want !== s.loop) {
         s.loop = want;
         if (s.playing === "walk" || s.playing === "idle") {
-          s.kind.handle.play(s.index, want);
+          s.kind.handle.play(s.index, want, { speed: want === "walk" ? s.rate : 1 });
           s.playing = want;
         }
       }
@@ -320,7 +324,7 @@ export function createDefenseView(opts: DefenseViewOptions): DefenseView {
         restart: true,
         onEnd: () => {
           if (s.playing !== "hit") return;
-          s.kind.handle.play(s.index, s.loop);
+          s.kind.handle.play(s.index, s.loop, { speed: s.loop === "walk" ? s.rate : 1 });
           s.playing = s.loop;
         },
       });

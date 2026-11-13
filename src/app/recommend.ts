@@ -13,6 +13,11 @@
  * went past is never recommended (M3-FIX-7, decision 104). A lesson the placement test skipped has
  * one star but was never played ({@link isTestedOut}), so it is not a "fewest stars" pick.
  *
+ * After a failed mastery check (M3-FIX-11): while the current biome's mastery lesson is played
+ * with fewer than 2 stars, the next lesson alternates between the mastery check and one
+ * fewest-stars replay. Before, the fewest-stars rule sent the child back to lesson 01 (a tie goes
+ * to the first lesson), and the whole biome had to get past 1★ before the check came round again.
+ *
  * Unlock rules are the contract's (`docs/impl/contracts.md` §6): a biome is open when it is in
  * `progress.unlockedBiomes`; a lesson is open when it is the first of its biome or the lesson
  * before it has been played. A challenge never gates the lesson after it.
@@ -20,11 +25,13 @@
 import type { Lesson } from "@/content/lessons/types";
 import { EN_US, layoutById } from "@/content/layouts";
 import {
+  REMEDIAL_RULES,
   isRemedialId,
   remedialAllowedKeys,
   remedialLesson,
   suggestRemedial,
 } from "@/engine/remedial";
+import type { RemedialRules } from "@/engine/remedial";
 import { t } from "@/i18n";
 import { TARGET_LATENCY } from "@/modes/mine/logic";
 import type { Profile } from "@/save/schema";
@@ -40,6 +47,20 @@ const byCurriculum = (a: Lesson, b: Lesson): number => rank(a) - rank(b);
 const recordOf = (profile: Profile, id: string) => profile.progress.lessons[id];
 
 const playedIn = (profile: Profile, id: string): boolean => recordOf(profile, id) !== undefined;
+
+/**
+ * Knobs for the progression study (`tools/sim-progression.ts`). The game passes none; the
+ * defaults are the shipped rules.
+ */
+export interface RecommendOptions {
+  /**
+   * After a failed mastery check: `alternate` (shipped) or `fewest`, the rule before M3-FIX-11
+   * (the fewest-stars replay only), kept so the study can compare them.
+   */
+  masteryRetry?: "alternate" | "fewest";
+  /** The remedial rules. Default {@link REMEDIAL_RULES}. */
+  remedial?: Readonly<RemedialRules>;
+}
 
 /** An optional lesson: the "No Peeking!" challenge. It never gates the next lesson (M3-FIX-7). */
 export const isOptional = (lesson: Lesson): boolean =>
@@ -126,25 +147,46 @@ export function resetRemedials(): void {
 
 /**
  * The remedial due now, or null (`src/engine/remedial.ts` has the rules). It sits at the anchor
- * lesson, so it uses only keys the player knows.
+ * lesson, so it uses only keys the player knows. Its id is scoped to the profile, the anchor and
+ * the layout (M3-FIX-11): siblings on one device with the same weak keys at the same session
+ * count each get their own camp, never the other's with keys they haven't been taught.
  */
-export function dueRemedial(profile: Profile, lessons: readonly Lesson[]): Lesson | null {
+export function dueRemedial(
+  profile: Profile,
+  lessons: readonly Lesson[],
+  opts: RecommendOptions = {},
+): Lesson | null {
   const anchor = anchorLesson(profile, lessons);
   if (anchor === null) return null;
+  const layout = layoutById(profile.settings.layout) ?? EN_US;
   const suggestion = suggestRemedial({
     allowed: remedialAllowedKeys(lessons, anchor),
     stats: profile.keyStats,
     sessionIndex: profile.sessionCounter,
     targetLatencyMs: TARGET_LATENCY[profile.ageBand],
     recent: profile.history.map((h) => h.lessonId),
+    scope: `${profile.id}:${anchor.id}:${layout.id}`,
+    rules: opts.remedial ?? REMEDIAL_RULES,
   });
   if (suggestion === null) return null;
-  const layout = layoutById(profile.settings.layout) ?? EN_US;
   return remember(remedialLesson(suggestion, anchor, layout));
 }
 
-/** The next curriculum lesson: the next one not played, else the fewest stars (see the top). */
-export function nextCurriculumLesson(profile: Profile, lessons: readonly Lesson[]): Lesson | null {
+/** The lesson id of the last curriculum session in the history (not a camp or free play). */
+function lastCurriculumPlay(profile: Profile, lessons: readonly Lesson[]): string | null {
+  for (let i = profile.history.length - 1; i >= 0; i--) {
+    const id = profile.history[i]?.lessonId;
+    if (id !== undefined && lessons.some((l) => l.id === id)) return id;
+  }
+  return null;
+}
+
+/** The next curriculum lesson: the next one not played, else a replay (see the top). */
+export function nextCurriculumLesson(
+  profile: Profile,
+  lessons: readonly Lesson[],
+  opts: RecommendOptions = {},
+): Lesson | null {
   const open = openLessons(profile, lessons).filter((l) => !skippedChallenge(profile, lessons, l));
   const fresh = open.find((l) => !playedIn(profile, l.id));
   if (fresh) return fresh;
@@ -161,7 +203,15 @@ export function nextCurriculumLesson(profile: Profile, lessons: readonly Lesson[
     return best;
   };
   const here = currentBiome(profile, lessons);
-  return fewest(scored.filter((l) => l.biome === here)) ?? fewest(scored);
+  const inBiome = scored.filter((l) => l.biome === here);
+  // A failed mastery check (played, not tested out, under 2 stars): the check, then one replay.
+  const mastery = inBiome.find((l) => l.tags?.includes("mastery") === true);
+  const failed = mastery !== undefined && (recordOf(profile, mastery.id)?.bestStars ?? 0) < 2;
+  if (failed && (opts.masteryRetry ?? "alternate") === "alternate") {
+    if (lastCurriculumPlay(profile, lessons) !== mastery.id) return mastery;
+    return fewest(inBiome.filter((l) => l !== mastery)) ?? mastery;
+  }
+  return fewest(inBiome) ?? fewest(scored);
 }
 
 /**
@@ -169,8 +219,12 @@ export function nextCurriculumLesson(profile: Profile, lessons: readonly Lesson[
  * not in `lessons`; {@link isRemedialId} tells it apart. The map's cues use the curriculum half
  * only (see the top).
  */
-export function recommendNext(profile: Profile, lessons: readonly Lesson[]): Lesson | null {
-  return dueRemedial(profile, lessons) ?? nextCurriculumLesson(profile, lessons);
+export function recommendNext(
+  profile: Profile,
+  lessons: readonly Lesson[],
+  opts: RecommendOptions = {},
+): Lesson | null {
+  return dueRemedial(profile, lessons, opts) ?? nextCurriculumLesson(profile, lessons, opts);
 }
 
 /**

@@ -355,5 +355,25 @@ Field legend: see the top of `tasks-m0-m1.md`.
   - [ ] Each item fixed, or listed in the handoff note with a reason.
   - [ ] No home-row-only learner is placed past Birch in 10 seeds × 40 learners.
 
+### M3-FIX-11 Progression fixes from the sim study
+- **Size/Tier:** M / B · **Review:** required (learning)
+- **Depends on:** M3-13, M3-06
+- **Owns:** `src/app/recommend.ts`, `src/engine/remedial.ts`, `tools/sim-progression.ts`, `tools/sim/*`,
+  `docs/sim.md`, their tests; a shared session builder used by `src/modes/mine/mine.ts`
+- **Spec:** from the M3-13 study (#199) and its review.
+  1. **Camp cache bug (first):** remedial camp ids include the profile, anchor and layout, so siblings on
+     one device never get each other's camp with untaught keys.
+  2. **Failed mastery check:** after a mastery result under 2★, alternate one replay of the fewest-stars
+     lesson with a mastery retry, instead of replaying from lesson 01.
+  3. **Remedial trigger:** injectable rules; start at weight ≥ 4 AND ≥ 1.5 × the child's median key weight,
+     camps at most every 4 sessions; sweep and pick final numbers.
+  4. **Sim:** `--policy alternate`, `--err-scale`, `--lat-scale`; one shared session builder; a CI check that
+     the average Miner finishes biomes 1–4 in 40–90 sessions; findings as ranges with a sensitivity row.
+  5. **Owner's call:** Sprout's 2nd star at 80 % (decision 80). Not done unless the owner says so.
+- **Acceptance:**
+  - [ ] A two-profile test for the camp id.
+  - [ ] Slow-Sprout stuck runs ≤ 20 %; the longest 1★ run no worse; slow learners' camp share ≤ 20 %;
+    slow Sprouts finish Meadow in ≤ 20 sessions.
+
 ### M3-GATE
 `PLAN.md` Phase 3 acceptance (curriculum doc generated, sim plausibility, axe clean). Owner gets the word-list review dump (👤, can be deferred to M6-08 by the owner's choice). Tag `m3`.

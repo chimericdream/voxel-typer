@@ -14,7 +14,7 @@ import { createRng } from "@/engine/rng";
 import type { KeyInput, SessionView } from "@/engine/types";
 import type { ModeContext, ModeInstance, ModeModule, ModeResult } from "@/modes/types";
 import type { Profile } from "@/save/schema";
-import type { GameModeId, Ms } from "@/types/core";
+import type { AchievementId, BlockId, EpochMs, GameModeId, Ms } from "@/types/core";
 import { withUnlocks } from "@/engine/achievements";
 import type { AchievementTracker, RunTracker } from "./achievements";
 import type { BreakReminder } from "./break-reminder";
@@ -23,12 +23,13 @@ import { createEmitter } from "./events";
 import type { Emitter, GameEvents } from "./events";
 import type { HudStore } from "./hud";
 import {
+  BUILDER_ISLAND_EXTRA,
   BUILDER_SAVE_EVENT,
   isBuilderLesson,
   islandPatchOf,
-  withBuilderIsland,
   withIslandPatch,
 } from "@/modes/builder/lesson";
+import type { IslandPatch } from "@/modes/builder/lesson";
 import { isPlacementLesson } from "@/modes/placement/lesson";
 import { applyPlacement, applyResult } from "./progress";
 import type { AppScene } from "./scene-host";
@@ -78,6 +79,15 @@ export interface PlayHostDeps {
   reminder: BreakReminder;
   /** Persists the updated profile. Never rejects. */
   saveProfile(p: Profile): Promise<boolean>;
+  /**
+   * Saves a change made to the player (M3-FIX-9, two-tab safety). `derive` gets the newest copy
+   * the app has, which another tab may have changed since `base`, and returns the profile to
+   * save, or null to save nothing. It may run more than once (once per newer copy), so it must
+   * not change anything itself. Resolves with what was saved, or null when nothing was (refused,
+   * read-only or a storage failure). Never rejects. Default: `derive` on the app's profile, then
+   * {@link saveProfile}.
+   */
+  updateProfile?(base: Profile, derive: (b: Profile) => Profile | null): Promise<Profile | null>;
   /** Every shipped lesson, for the placement test's unlocks (M3-05). Default: none. */
   lessons?: readonly Lesson[];
   /** Achievements (M3-10): told when each lesson starts, finishes or is left. Optional. */
@@ -135,6 +145,44 @@ interface Run {
   bus: Emitter<GameEvents> | null;
   ach: RunTracker | null;
   log: KeyInput[];
+  /**
+   * Builder: every island this visit started with or handed out to save (as JSON), with the
+   * inventory that went with it. A stored island on this list is this visit's own; any other one
+   * was changed by another tab.
+   */
+  islands: Map<string, Readonly<Record<BlockId, number>>>;
+}
+
+/** Same counts, key by key (a missing key is 0). */
+function sameCounts(a: Readonly<Record<string, number>>, b: Readonly<Record<string, number>>) {
+  for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if ((a[k] ?? 0) !== (b[k] ?? 0)) return false;
+  }
+  return true;
+}
+
+/**
+ * `now` plus what this tab's Builder changed (`to - from`), never below 0. Blocks another tab added
+ * to `now` in the meantime (a lesson's loot) are kept. Keys at 0 stay, like the editor's.
+ */
+export function rebaseCounts(
+  now: Readonly<Record<BlockId, number>>,
+  from: Readonly<Record<BlockId, number>>,
+  to: Readonly<Record<BlockId, number>>,
+): Record<BlockId, number> {
+  const out: Record<BlockId, number> = { ...now };
+  for (const k of new Set([...Object.keys(from), ...Object.keys(to)])) {
+    const d = (to[k] ?? 0) - (from[k] ?? 0);
+    if (d !== 0 || !Object.hasOwn(out, k)) out[k] = Math.max(0, (now[k] ?? 0) + d);
+  }
+  return out;
+}
+
+/** Badges in `after` that `before` doesn't have. */
+function addedBadges(after: Profile, before: Profile): Record<AchievementId, EpochMs> {
+  return Object.fromEntries(
+    Object.entries(after.achievements).filter(([id]) => before.achievements[id] === undefined),
+  );
 }
 
 export function createPlayHost(deps: PlayHostDeps): PlayHost {
@@ -182,6 +230,37 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
     return now?.id === r.profile.id ? now : r.profile;
   };
 
+  /** Saves a change through `updateProfile`, or (without one) on the profile as it is now. */
+  const update = async (
+    base: Profile,
+    derive: (b: Profile) => Profile | null,
+  ): Promise<Profile | null> => {
+    if (deps.updateProfile !== undefined) return deps.updateProfile(base, derive);
+    const now = deps.currentProfile?.() ?? null;
+    const next = derive(now?.id === base.id ? now : base);
+    if (next === null) return null;
+    return (await deps.saveProfile(next)) ? next : null;
+  };
+
+  /**
+   * A Builder save onto `b`, the newest copy of the player. Blocks another tab added since this
+   * visit last saved are kept (M3-FIX-9). Null when another tab changed the island itself: two
+   * islands can't be merged, and a damaged or stale island is never written over a newer one.
+   */
+  const patchOnto = (r: Run, b: Profile, patch: IslandPatch): Profile | null => {
+    const from = r.islands.get(JSON.stringify(b.island));
+    if (from === undefined) return null;
+    const inventory = sameCounts(b.inventory, from)
+      ? patch.inventory
+      : rebaseCounts(b.inventory, from, patch.inventory);
+    return withIslandPatch(b, { island: patch.island, inventory });
+  };
+
+  /** Notes a Builder patch as this visit's own, before it is saved. */
+  const handOut = (r: Run, patch: IslandPatch): void => {
+    r.islands.set(JSON.stringify(patch.island), patch.inventory);
+  };
+
   /** Lets a mode that is being left finish first (see {@link InspectableMode.leave}). */
   const leave = (r: Run): void => {
     if (r.finished || r.disposed || r.instance?.leave === undefined) return;
@@ -200,10 +279,7 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
     r.ach = null;
     if (ach !== null && !r.finished) {
       const kept = ach.abandon();
-      if (Object.keys(kept).length > 0) {
-        const now = deps.currentProfile?.() ?? null;
-        void deps.saveProfile(withUnlocks(now?.id === r.profile.id ? now : r.profile, kept));
-      }
+      if (Object.keys(kept).length > 0) void update(r.profile, (b) => withUnlocks(b, kept));
     }
     stopFrames(r);
     r.unBus?.();
@@ -230,34 +306,51 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
     queueMicrotask(() => teardown(r));
     const at = deps.clock.epoch();
     // The placement test is not a curriculum lesson: it sets the start instead (M3-05).
+    // The base is the profile as it is now, never the copy from when the lesson started: a
+    // change made meanwhile (in Settings, or by another tab, M3-FIX-9) is kept. `derive` can run
+    // again on a newer copy, so the result is added to that copy instead of written over it.
+    const base = liveProfile(r);
     let updated: Profile;
+    let derive: (b: Profile) => Profile | null;
     let changed = true;
     if (isBuilderLesson(r.lesson)) {
-      // Builder (M4-07) saved the island while it ran, so the base is the profile as it is now,
-      // never the copy from when the visit started. The island and the practice session go in
+      // Builder (M4-07) saved the island while it ran. The island and the practice session go in
       // one save. It is not a lesson: no lesson record, and only the badges earned live count.
-      const base = liveProfile(r);
-      const built = withBuilderIsland(base, result);
       const typed = result.summary.keystrokes > 0;
-      const applied = typed ? applyResult(built, null, result, at) : built;
       const kept = r.ach?.abandon() ?? {};
       r.ach = null;
-      updated = Object.keys(kept).length > 0 ? withUnlocks(applied, kept) : applied;
+      const patch = islandPatchOf(result.extra?.[BUILDER_ISLAND_EXTRA]);
+      // When another tab changed the island itself (`patchOnto` is null), that tab's island and
+      // inventory stay, so every block is still counted once; this visit's practice session and
+      // the badges the child already saw are still saved (review B2).
+      const visit = (b: Profile): Profile => {
+        const built = patch === null ? b : (patchOnto(r, b, patch) ?? b);
+        const applied = typed ? applyResult(built, null, result, at) : built;
+        return Object.keys(kept).length > 0 ? withUnlocks(applied, kept) : applied;
+      };
+      const first = visit(base);
+      updated = first;
       // A visit that changed nothing writes nothing.
       changed = updated !== base;
+      derive = (b) => (b === base ? first : visit(b));
     } else {
-      const applied = isPlacementLesson(r.lesson)
-        ? applyPlacement(r.profile, deps.lessons ?? [], result, at)
-        : applyResult(r.profile, r.lesson, result, at);
+      const apply = (b: Profile): Profile =>
+        isPlacementLesson(r.lesson)
+          ? applyPlacement(b, deps.lessons ?? [], result, at)
+          : applyResult(b, r.lesson, result, at);
+      const applied = apply(base);
       updated = r.ach?.finish(applied, result) ?? applied;
+      const first = updated;
+      const badges = addedBadges(updated, applied);
+      derive = (b) => (b === base ? first : withUnlocks(apply(b), badges));
     }
-    const saved = changed ? deps.saveProfile(updated) : Promise.resolve(true);
-    void saved.then(() => {
+    const saved = changed ? update(base, derive) : Promise.resolve(updated);
+    void saved.then((shown) => {
       // A newer lesson started (or this one was quit) while the save was in flight: don't let
       // the old finish route the new lesson to results.
       if (run !== r) return;
       run = null;
-      deps.onFinished(result, updated);
+      deps.onFinished(result, shown ?? updated);
     });
   };
 
@@ -289,6 +382,7 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
         bus: null,
         ach: null,
         log: [],
+        islands: new Map([[JSON.stringify(profile.island), profile.inventory]]),
       };
       run = r;
       setStatus("loading");
@@ -310,7 +404,10 @@ export function createPlayHost(deps: PlayHostDeps): PlayHost {
         const offSave = bus.on(BUILDER_SAVE_EVENT, (e) => {
           const patch = islandPatchOf(e);
           if (patch === null || r !== run || r.finished || r.disposed) return;
-          void deps.saveProfile(withIslandPatch(liveProfile(r), patch));
+          const base = liveProfile(r);
+          const derive = (b: Profile): Profile | null => patchOnto(r, b, patch);
+          handOut(r, patch);
+          void update(base, derive);
         });
         r.unBus = () => {
           offEngine();

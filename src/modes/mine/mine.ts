@@ -15,7 +15,6 @@ import { reducedMotion } from "@/a11y/motion";
 import { blocks } from "@/content/blocks";
 import type { BlockDef } from "@/content/blocks/types";
 import { lessons } from "@/content/lessons";
-import type { Lesson } from "@/content/lessons/types";
 import { meadowLoot } from "@/content/loot/meadow";
 import type { LootTable } from "@/content/loot/types";
 import { wordPools } from "@/content/wordlists/pools";
@@ -25,7 +24,6 @@ import { generateTargets } from "@/engine/generator";
 import { rollLoot } from "@/engine/loot";
 import { hashString } from "@/engine/rng";
 import { createSession } from "@/engine/session";
-import { baselineNetWpm, computeStars } from "@/engine/stars";
 import type { SessionSummary } from "@/engine/stats";
 import type {
   EngineEvent,
@@ -47,13 +45,10 @@ import type { ModeContext, ModeInstance, ModeResult } from "../types";
 import {
   NO_SLOT,
   BANNER_SHOW_MS,
-  EST_WPM,
   TARGET_LATENCY,
-  allowedKeys,
   biomeOf,
   blockTargets,
   burstCount,
-  caseSensitiveFor,
   chimeStep,
   comboOf,
   crackOverlay,
@@ -64,22 +59,22 @@ import {
   feedWrong,
   flushFlights,
   isStraySpace,
-  lengthPlan,
+  lessonStars,
   nextKeyOf,
   stageFrame,
   pickTargetBlock,
   pickVeinBlock,
-  policyFor,
-  poolsFor,
+  planLesson,
   progressOf,
   seamLength,
+  sessionRules,
   settleDrops,
   stepFlights,
   veinOnBreak,
   veinOnStreak,
   veinTake,
 } from "./logic";
-import type { Box, Flight } from "./logic";
+import type { Box, Flight, LessonPlan } from "./logic";
 import { createLootFly } from "./loot-fly";
 import type { LootFly } from "./loot-fly";
 import { createStageView } from "./view";
@@ -162,46 +157,44 @@ function bodyFont(): string {
 }
 
 /**
- * The keys a lesson leans on: its new keys, plus its review keys when they are a real subset of
- * what it allows. Many lessons list every allowed key as review; focusing on all of them would
- * flatten the weights and switch off weak-key practice (M3-FIX-7 review).
+ * Turns the lesson into targets and a session config: `planLesson` (logic.ts, shared with the
+ * progression study), or a short letters run for free play.
  */
-export function focusKeys(
-  lesson: Pick<Lesson, "newKeys" | "reviewKeys">,
-  allowed: readonly string[],
-): string[] {
-  const allowedSet = new Set(allowed);
-  const review = lesson.reviewKeys.filter((k) => allowedSet.has(k));
-  const partial = new Set(review).size < allowedSet.size;
-  return partial ? [...lesson.newKeys, ...review] : [...lesson.newKeys];
-}
-
-/** Turns the lesson into targets and a session config. */
-function plan(ctx: ModeContext): { targets: Target[]; lesson: Lesson | null; limitMs: Ms | null } {
+function plan(ctx: ModeContext): LessonPlan {
   const { lesson, band, profile, settings } = ctx;
-  const allowed = lesson ? allowedKeys(lessons, lesson) : FREE_PLAY_KEYS;
-  const estWpm = baselineNetWpm(profile.history) ?? EST_WPM[band];
-  const size = lesson
-    ? lengthPlan(lesson, band, { calm: settings.calmMode, estWpm })
-    : { length: { chars: FREE_PLAY_CHARS }, end: { kind: "targets" as const }, timeLimitMs: null };
+  if (lesson) {
+    return planLesson({
+      lessons,
+      lesson,
+      band,
+      profile,
+      calm: settings.calmMode,
+      pools: wordPools,
+      rng: ctx.rng,
+    });
+  }
   const targets = generateTargets(
     {
-      kind: lesson?.kind ?? "letters",
-      allowed,
+      kind: "letters",
+      allowed: FREE_PLAY_KEYS,
       weights: keyWeights({
-        allowed,
-        focus: lesson ? focusKeys(lesson, allowed) : [],
+        allowed: FREE_PLAY_KEYS,
+        focus: [],
         stats: profile.keyStats,
         sessionIndex: profile.sessionCounter,
         targetLatencyMs: TARGET_LATENCY[band],
       }),
-      pools: lesson ? poolsFor(lesson, band, wordPools) : [],
-      length: size.length,
+      pools: [],
+      length: { chars: FREE_PLAY_CHARS },
       capitalize: "none",
     },
     ctx.rng.fork("targets"),
   );
-  return { targets: blockTargets(targets), lesson, limitMs: size.timeLimitMs };
+  return {
+    targets: blockTargets(targets),
+    limitMs: null,
+    rules: sessionRules(null, band, { kind: "targets" }),
+  };
 }
 
 export function create(ctx: ModeContext, opts?: MineOptions): MineInstance {
@@ -212,15 +205,13 @@ export function create(ctx: ModeContext, opts?: MineOptions): MineInstance {
   const frozen = ctx.params["frozen"] === true;
   const reduced = (): boolean => reducedMotionOf(settings.reducedMotion);
 
-  const { targets, limitMs } = opts?.plan ?? plan(ctx);
   const lesson = ctx.lesson;
+  const { targets, limitMs, rules } = opts
+    ? { ...opts.plan, rules: sessionRules(lesson, band, opts.plan.end) }
+    : plan(ctx);
   const session = createSession(
     {
-      policy: lesson ? policyFor(lesson, band) : "stay",
-      targeting: "sequential",
-      caseSensitive: lesson ? caseSensitiveFor(lesson, band) : false,
-      end:
-        opts?.plan.end ?? (limitMs === null ? { kind: "targets" } : { kind: "time", ms: limitMs }),
+      ...rules,
       mode: opts?.mode ?? "mine",
       seed: ctx.rng.seed,
       ...(lesson && { lessonId: lesson.id }),
@@ -504,14 +495,7 @@ export function create(ctx: ModeContext, opts?: MineOptions): MineInstance {
       ctx.finish(opts.result(summary, { ...loot }));
       return;
     }
-    const stars = computeStars({
-      completed: true,
-      accuracy: summary.accuracy,
-      netWpm: summary.netWpm,
-      targets: lesson?.targets ?? { accuracy: 0.85 },
-      baseline: baselineNetWpm(ctx.profile.history),
-      band,
-    });
+    const stars = lessonStars(lesson, summary, ctx.profile.history, band);
     ctx.finish({ summary, loot: { ...loot }, stars, extra: { oreVeins: veinCount } });
   };
 
