@@ -19,8 +19,8 @@
   flex: 0 1 auto;
   flex-direction: column;
   width: min(60rem, 100%);
-  /* Never less than about one row of cards; below that the page scrolls instead. */
-  min-height: calc(9rem * var(--text-scale));
+  /* Never less than about one wide card; below that the page scrolls instead. */
+  min-height: calc(7rem * var(--text-scale));
 }
 
 .frame:has(> .scroll:focus-visible) {
@@ -56,6 +56,32 @@
     #000 calc(100% - var(--fade)),
     transparent
   );
+}
+
+/* The cue over Back. */
+.foot {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+/*
+ * A short window (1024×600 and the like): the cue sits beside Back and the edges are tighter, so
+ * the list keeps room for a whole card at text scale 2.
+ */
+@media (max-height: 640px) {
+  .page {
+    gap: var(--sp-3);
+    padding-block: var(--sp-3);
+  }
+
+  .foot {
+    flex-flow: row wrap;
+    justify-content: center;
+    gap: var(--sp-3);
+  }
 }
 
 /* "More badges below ↓": a plate like the map's, so it reads on the sky and in every theme. */
@@ -107,7 +133,13 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+  /*
+   * Columns are as wide as the text needs: three at text scale 1, two at 1.5, one wide column at 2.
+   * The root font size never scales (tokens.css), so the width multiplies by --text-scale itself.
+   * Narrow columns at large text stacked each card into a tall tower, taller than the list
+   * (M3-FIX-8).
+   */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(17rem * var(--text-scale))), 1fr));
   gap: var(--sp-3);
   margin: 0;
   padding: var(--sp-2);

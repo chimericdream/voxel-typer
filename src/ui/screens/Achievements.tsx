@@ -144,28 +144,31 @@ export default function Achievements({ app }: ScreenProps) {
           </ul>
         </section>
       </div>
-      {/*
-        Shown while badges are hidden below. Space is kept for it once the list scrolls at all, so
-        the list doesn't jump at its end. Keyboard users scroll the list itself (it is in the Tab
-        order), so the cue stays out of the Tab order; a pointer or a screen reader can press it.
-      */}
-      {hidden.above || hidden.below ? (
-        <button
-          type="button"
-          class={styles.more}
-          data-testid="badges-more"
-          data-show={hidden.below ? "1" : undefined}
-          tabIndex={-1}
-          onClick={showMore}
-        >
-          {t("achievements.moreBelow")}
-          <span class={styles.arrow} aria-hidden="true" />
-        </button>
-      ) : null}
-      <div class={screen.actions} ref={actions}>
-        <Button variant="primary" onClick={() => app.back()}>
-          {t("achievements.back")}
-        </Button>
+      <div class={styles.foot}>
+        {/*
+          Shown while badges are hidden below. Space is kept for it once the list scrolls at all,
+          so the list doesn't jump at its end. Keyboard users scroll the list itself (it is in the
+          Tab order), so the cue stays out of the Tab order; a pointer or a screen reader can press
+          it.
+        */}
+        {hidden.above || hidden.below ? (
+          <button
+            type="button"
+            class={styles.more}
+            data-testid="badges-more"
+            data-show={hidden.below ? "1" : undefined}
+            tabIndex={-1}
+            onClick={showMore}
+          >
+            {t("achievements.moreBelow")}
+            <span class={styles.arrow} aria-hidden="true" />
+          </button>
+        ) : null}
+        <div class={screen.actions} ref={actions}>
+          <Button variant="primary" onClick={() => app.back()}>
+            {t("achievements.back")}
+          </Button>
+        </div>
       </div>
     </div>
   );

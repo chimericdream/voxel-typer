@@ -15,8 +15,15 @@ stays clear of them at text scale 2.
 - `src/ui/screens/Achievements.tsx` + `.module.css`:
   - The page is as tall as the window (`height: 100%`, `justify-content: safe center`). The list
     (`.frame` → `.scroll`) shrinks to fit the space the title, count, cue and Back leave, down to
-    about one row (`9rem × text scale`); below that the page scrolls. The old `max-height: 60vh` is
-    gone. A list that fits keeps its own height and stays centred.
+    about one wide card (`7rem × text scale`); below that the page scrolls. The old
+    `max-height: 60vh` is gone. A list that fits keeps its own height and stays centred.
+  - The grid's columns are at least `17rem × text scale` wide: three at scale 1 (as before), two at
+    1.5, one wide column at 2. Before, three narrow columns at scale 2 stacked each card into a tall
+    tower ("Practice / Pal / Play the / same / …"), taller than the list, with the status line
+    under the fade. Now each card is short and wide, and a whole card fits above the fade.
+  - In a short window (`max-height: 640px`, e.g. 1024×600) the cue sits beside Back on one row
+    (`.foot`) and the page's padding and gaps are tighter, so a whole card still fits at scale 2.
+  - The fade is `min(3rem × text scale, 20 % of the list)`.
   - `useHidden` watches the list (scroll, window resize, and a `ResizeObserver` on the list and its
     grid for fonts and text scale) and sets `data-below` and `data-above`. Each one fades that
     edge with a `mask-image`, so the fade works over the sky, at night and in strong colors. The
@@ -56,8 +63,10 @@ stays clear of them at text scale 2.
     modal tests fail.
   - `tests/e2e/achievements.spec.ts` (new): at 1280×720, the cue shows and the last badge is out of
     sight, at text scale 1, at text scale 2 and in strong colors at text scale 2 (each set through
-    Settings → Look), with screenshots `badges-1280.png`, `badges-1280-scale2.png` and
-    `badges-contrast-scale2.png`, and axe clean. Keyboard: Shift+Tab from Back focuses the list,
+    Settings → Look), and at 1024×600 at text scale 2. Screenshots: `badges-1280.png`,
+    `badges-1280-scale2.png`, `badges-contrast-scale2.png` and `badges-1024x600-scale2.png`, with
+    axe clean. At scale 2 each test also checks one column, and that the first card, status line
+    included, ends above the fade. Keyboard: Shift+Tab from Back focuses the list,
     End shows the last badge and hides the cue, Home brings it back, ArrowDown scrolls, and a click
     on the cue scrolls. Toast: a Sprout at text scale 2 plays lesson 1 and goes back to the map;
     the badge toast's box overlaps none of the corner buttons and is on screen.
@@ -77,6 +86,11 @@ stays clear of them at text scale 2.
 - **The list fills the room and the cue shows, rather than a layout that always fits.** Fitting 24
   cards at text scale 2 on 1280×720 would need tiny cards. The fade plus the plain-words cue shows
   both "there is more" and where it is.
+- **Column width is `17rem × --text-scale`, not a bare `22rem`.** Rem does not scale with text
+  size here: `tokens.css` pins the root at `font-size: 100%`, and components multiply by
+  `--text-scale` themselves. A bare `22rem` would have given two columns at scale 1 and three
+  narrow ones at scale 2. Scaling the old 17rem keeps scale 1 as it was, so `badges-1280.png` is
+  unchanged.
 - **The cue is not a Tab stop.** The list itself is a Tab stop and scrolls with the arrow keys,
   Page Up/Down, Home and End, so a keyboard user already reaches every badge. A Tab stop that
   disappears at the end would move focus. A screen reader can still find and press the cue, and

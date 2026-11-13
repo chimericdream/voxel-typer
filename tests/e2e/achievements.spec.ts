@@ -74,6 +74,28 @@ async function expectCue(page: Page): Promise<void> {
   }
 }
 
+/**
+ * At text scale 2: one wide column, and the first card is whole, status line and all, above the
+ * fade (`--fade` is min(3rem × scale, 20 % of the list), Achievements.module.css).
+ */
+async function expectWholeCard(page: Page, scale: number): Promise<void> {
+  const cards = page.locator("[data-badge]");
+  const xs = new Set<number>();
+  for (const card of (await cards.all()).slice(0, 4)) {
+    const b = await card.boundingBox();
+    if (b !== null) xs.add(Math.round(b.x));
+  }
+  expect(xs.size, "columns").toBe(1);
+  const box = await list(page).boundingBox();
+  const first = await cards.first().boundingBox();
+  if (box === null || first === null) throw new Error("no list or card box");
+  const fade = Math.min(48 * scale, 0.2 * box.height);
+  expect(first.y).toBeGreaterThanOrEqual(box.y);
+  expect(first.y + first.height, "first card ends above the fade").toBeLessThanOrEqual(
+    box.y + box.height - fade,
+  );
+}
+
 /** Waits for fonts, layout and the arrow's hops to settle before a screenshot. */
 async function still(page: Page): Promise<void> {
   await page.evaluate(() => document.fonts.ready.then(() => undefined));
@@ -101,8 +123,22 @@ test.describe("My Badges shows that it scrolls", () => {
     await setLook(page, { scale: 2 });
     await openBadges(page);
     await expectCue(page);
+    await expectWholeCard(page, 2);
     await still(page);
     await expect(page).toHaveScreenshot("badges-1280-scale2.png", { timeout: 30_000 });
+    expect(errors).toEqual([]);
+  });
+
+  test("1024×600 at text scale 2: a whole card, the cue and Back all fit", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 600 });
+    const errors = await open(page, "veteran-builder", "map");
+    await setLook(page, { scale: 2 });
+    await openBadges(page);
+    await expectCue(page);
+    await expectWholeCard(page, 2);
+    await expect(page.getByRole("heading", { name: "My Badges" })).toBeInViewport({ ratio: 1 });
+    await still(page);
+    await expect(page).toHaveScreenshot("badges-1024x600-scale2.png", { timeout: 30_000 });
     expect(errors).toEqual([]);
   });
 
@@ -111,6 +147,7 @@ test.describe("My Badges shows that it scrolls", () => {
     await setLook(page, { scale: 2, contrast: true });
     await openBadges(page);
     await expectCue(page);
+    await expectWholeCard(page, 2);
     await expectNoAxeViolations(page, "my badges, strong colors, text scale 2");
     await still(page);
     await expect(page).toHaveScreenshot("badges-contrast-scale2.png", { timeout: 30_000 });
