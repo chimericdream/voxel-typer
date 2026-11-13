@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { MOBS, rosterFor } from "../../../src/content/mobs";
 import { arenaLayout } from "../../../src/content/worldgen/defense-arena";
 import type { FieldMob } from "../../../src/modes/defense/logic";
-import { LOCKED_SCALE, createPlateLayer } from "../../../src/modes/defense/plates";
+import { COVER_OPACITY, LOCKED_SCALE, createPlateLayer } from "../../../src/modes/defense/plates";
 import type { PlateItem } from "../../../src/modes/defense/plates";
 import {
   NIGHT_LIFT,
@@ -320,6 +320,29 @@ describe("word plates", () => {
     plates.sync([item("a", { x: 400.2, y: 300.4, feet: 352.6 })], bounds);
     expect(el()).toBe(before);
     expect(el()?.dataset["mob"]).toBe("400 300 353");
+    plates.dispose();
+  });
+
+  it("fades a plate that has to lie on another mob's head, never the locked one (M4-FIX-7)", () => {
+    const { plates, host } = layer();
+    // Too little room to move: the near mob's plate (90 × 32 here) can only sit on the far mob's
+    // head, right behind it.
+    const tight = { left: 0, top: 250, right: 1280, bottom: 300 };
+    const near = (o: Partial<PlateItem> = {}): PlateItem =>
+      item("shade", { word: "shade", x: 400, y: 300, feet: 380, ...o });
+    const far = item("rugs", { word: "rugs", x: 400, y: 262, feet: 330, order: 1 });
+    const el = (word: string): HTMLElement | null =>
+      host.querySelector<HTMLElement>(`.vt-defense-plate[data-word="${word}"]`);
+    plates.sync([near(), far], tight);
+    expect(el("shade")?.dataset["covers"]).toBe("1");
+    expect(el("shade")?.style.opacity).toBe(String(COVER_OPACITY));
+    // Locked, its word and frame stay at full strength.
+    plates.sync([near({ locked: true, order: -1 }), far], tight);
+    expect(el("shade")?.hasAttribute("data-covers")).toBe(false);
+    expect(el("shade")?.style.opacity).toBe("");
+    // With room, it moves off the head instead, and is not faded.
+    plates.sync([near(), far], bounds);
+    expect(el("shade")?.hasAttribute("data-covers")).toBe(false);
     plates.dispose();
   });
 

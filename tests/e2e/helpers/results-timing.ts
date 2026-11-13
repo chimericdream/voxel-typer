@@ -21,6 +21,7 @@ export async function watchResults(page: Page, lines: readonly string[]): Promis
   await page.evaluate((want) => {
     const marks: Record<string, number> = {};
     Reflect.set(window, "__vtResultsTiming", marks);
+    // oxlint-disable-next-line unicorn/consistent-function-scoping -- reason: this runs in the page; page.evaluate sends only the function it is given
     const screen = (): unknown => {
       const hooks: unknown = Reflect.get(window, "__vt");
       const fn: unknown =
