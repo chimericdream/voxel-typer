@@ -34,8 +34,31 @@ export const GATE_TRIES = 3;
 /** How long the gate rests after {@link GATE_TRIES} wrong tries. */
 export const GATE_COOLDOWN_MS: Ms = 30_000;
 
-/** What a grown-up is asked to allow. M3-09's three, plus the Settings tab. */
-export type GrownUpAction = "renameProfile" | "changeBand" | "deleteProfile" | "grownUps";
+/** What a grown-up is asked to allow. M3-09's three, the Settings tab, and the Parent Dashboard. */
+export type GrownUpAction =
+  | "renameProfile"
+  | "changeBand"
+  | "deleteProfile"
+  | "grownUps"
+  | "parentDashboard";
+
+let handedPass = false;
+
+/**
+ * Carries one passed gate to the next screen (M3-11): Settings → Grown-ups was already unlocked,
+ * so its "See progress" button hands the pass to the Parent Dashboard instead of asking again.
+ * The pass is used once; a direct visit to the dashboard still asks.
+ */
+export function handGrownUpPass(): void {
+  handedPass = true;
+}
+
+/** True once, after {@link handGrownUpPass}. */
+export function takeGrownUpPass(): boolean {
+  const had = handedPass;
+  handedPass = false;
+  return had;
+}
 
 /** Gate words: plain lowercase words of 6–8 letters from list files' text (comments skipped). */
 export function gateWords(...texts: readonly string[]): string[] {

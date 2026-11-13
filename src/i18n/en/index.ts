@@ -26,6 +26,7 @@ import importexport from "./importexport";
 import mobs from "./mobs";
 import builder from "./builder";
 import defense from "./defense";
+import parent from "./parent";
 
 const en = {
   common,
@@ -49,6 +50,7 @@ const en = {
   mobs,
   builder,
   defense,
+  parent,
 } as const;
 
 export default en;

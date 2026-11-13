@@ -26,7 +26,7 @@ import type { AgeBand, QualityLevel } from "@/types/core";
 import { fingerLabelsOn } from "@/a11y/options";
 import { DYSLEXIC_STACK } from "@/a11y/page";
 import { ImportExport } from "@/ui/components/ImportExport";
-import { ParentGate } from "@/ui/components/ParentGate";
+import { handGrownUpPass, ParentGate } from "@/ui/components/ParentGate";
 import { Button } from "@/ui/kit/Button";
 import { Dialog } from "@/ui/kit/Dialog";
 import { Panel } from "@/ui/kit/Panel";
@@ -320,6 +320,23 @@ function GrownUpsTab(props: {
   return (
     <div class={styles.stack} data-grown-ups="">
       <p class={screen.text}>{t("settings.grown.intro", { name })}</p>
+
+      <section class={styles.section} aria-labelledby="settings-progress">
+        <h2 class={styles.heading} id="settings-progress">
+          {t("settings.grown.progressTitle")}
+        </h2>
+        <span data-nav="">
+          <Button
+            onClick={() => {
+              // The gate was passed for this tab; the dashboard doesn't ask again (M3-11).
+              handGrownUpPass();
+              app.navigate({ id: "parent" });
+            }}
+          >
+            {t("settings.grown.progressGo", { name })}
+          </Button>
+        </span>
+      </section>
 
       <section class={styles.section} aria-labelledby="settings-band">
         <h2 class={styles.heading} id="settings-band">
