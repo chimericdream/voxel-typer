@@ -132,10 +132,15 @@ export default function Profiles({ app }: ScreenProps) {
       setMessage(t("profiles.loadFailed"));
       return;
     }
-    // A test quit mid-way, or lost to a reload, is offered once more (M3-FIX-3 N4). The offer
-    // settles the start as it shows, so it never comes back a third time. A read-only profile
-    // can't keep that mark, so it is never asked again.
-    if (shouldOfferPlacement(profile) && !app.readOnlyProfiles().has(profile.id)) {
+    // A test quit mid-way, or lost to a reload, is offered once more on the next visit (M3-FIX-3
+    // N4), not in the visit that already showed it (M3-FIX-10). The offer settles the start as it
+    // shows, so it never comes back a third time. A read-only profile can't keep that mark, so it
+    // is never asked again.
+    if (
+      shouldOfferPlacement(profile) &&
+      !app.placementOffered().has(profile.id) &&
+      !app.readOnlyProfiles().has(profile.id)
+    ) {
       void app.saveProfile(settleAtMeadow(profile, Date.now()));
       app.navigate({ id: "placement" });
       return;

@@ -112,11 +112,13 @@ I picked a variant of the review's "at or below the rung", and here is why.
 
 - **The rule.** A biome's gate is judged on the blocks typed before that biome's rung opened. Those
   are the keys the biome treats as known, not the ones it teaches.
-  - Birch is judged on the home row, Shore on home and top, and so on.
-  - The Marsh teaches digits, so the Marsh gate is judged on everything up to the end of the
-    capitals.
   - When those blocks are fewer than 60 keystrokes, the blocks of the next rungs join in, up to the
     whole test.
+  - In practice the floor decides most of it (corrected in M3-FIX-10). The three letter rungs come
+    to about 35 keys, so the Birch, Shore, Frosty and Deep Mines gates are all judged on
+    everything up to the end of the words rung, or on the whole test if the test never left it
+    (every Sprout). Only the Marsh gate is judged on its own blocks: everything up to the end of
+    the capitals. So top- and bottom-row slips count against Birch too.
 - **Why "before", not "at or below".** "At or below" judges the Marsh gate on the digits the Marsh
   is there to teach.
   - With slower digits, a 45 WPM Builder could then never reach the Marsh. In the sim, that rule
