@@ -45,6 +45,7 @@ export default {
     photo: "photo",
     // Before the blueprint words the child can type: "Plans: well house".
     plans: "Plans:",
+    // Miner and Builder only. A Sprout's help is the command words and `keys` (M4-FIX-5).
     move: "north south east west up down",
     keys: "Arrow keys move. Space puts a block.",
   },

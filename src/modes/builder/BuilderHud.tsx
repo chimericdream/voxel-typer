@@ -9,6 +9,12 @@
  * **Palette.** Up to six blocks, the ones the player owns most of, each as a picture with its
  * count. Under each picture is what to type: for Sprout the short code as key caps (`KeyCap`,
  * one per letter), for Miner and Builder the block's word. The block in hand is outlined.
+ *
+ * **Sprout help** (M4-FIX-5) is shorter: the command words and "Arrow keys move. Space puts a
+ * block." The six direction words and the layer and compass line are for Miner and Builder.
+ *
+ * **Count badges** keep to the corner at large text: the slot grows with the text scale up to a
+ * cap, and the badge's own text scale stops at 1.25 (`BuilderHud.module.css`).
  */
 import { useComputed } from "@preact/signals";
 import { t } from "@/i18n";
@@ -114,11 +120,14 @@ function Where({ slice }: { slice: BuilderHudSlice }) {
           ? t("builder.palette.none")
           : t("builder.palette.armed", { name: armed.name })}
       </p>
-      <p class={styles.plate} data-builder="layer">
-        {t("builder.where.layer", { layer: slice.layer })}
-        {" · "}
-        {t("builder.where.facing", { dir: t(`builder.dir.${slice.facing}`) })}
-      </p>
+      {/* Sprouts get no layer or compass line: they build with the arrow keys (M4-FIX-5). */}
+      {slice.band === "sprout" ? null : (
+        <p class={styles.plate} data-builder="layer">
+          {t("builder.where.layer", { layer: slice.layer })}
+          {" · "}
+          {t("builder.where.facing", { dir: t(`builder.dir.${slice.facing}`) })}
+        </p>
+      )}
     </div>
   );
 }
@@ -145,7 +154,8 @@ function Help({ slice }: { slice: BuilderHudSlice }) {
           </span>
         </p>
       ) : null}
-      <p class={styles.plate}>{t("builder.help.move")}</p>
+      {/* The six direction words are for Miner and Builder; a Sprout uses the arrow keys. */}
+      {slice.band === "sprout" ? null : <p class={styles.plate}>{t("builder.help.move")}</p>}
       <p class={styles.plate}>{t("builder.help.keys")}</p>
     </div>
   );
