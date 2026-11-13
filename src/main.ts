@@ -27,6 +27,9 @@ import { isProfile } from "@/save/schema";
 import type { Profile } from "@/save/schema";
 import { createIdbStore, createMemoryStore } from "@/save/store";
 import type { SaveStore } from "@/save/store";
+import { announcingStore, browserLocks, openTabChannel } from "@/save/tab-sync";
+import type { TabSync } from "@/save/tab-sync";
+import { newId } from "@/save/id";
 import type { SaveProblem } from "@/save/problems";
 import type { Settings } from "@/save/settings";
 import type { QualityLevel } from "@/types/core";
@@ -52,6 +55,10 @@ function cameraPose(
   return { x: p.x, y: p.y, z: p.z, qx: q.x, qy: q.y, qz: q.z, qw: q.w };
 }
 
+/** `exactOptionalPropertyTypes`: no `locks` key at all when the browser has none. */
+const withLocks = (locks: TabSync["locks"] | null): Pick<TabSync, "locks"> =>
+  locks === null || locks === undefined ? {} : { locks };
+
 /** `?profile=<fixture>`: a test fixture in a throwaway store. Not in production builds. */
 async function fixtureProfile(name: string): Promise<unknown> {
   if (PRODUCTION) return null;
@@ -66,10 +73,16 @@ async function boot(host: HTMLElement): Promise<void> {
 
   let onProblem: ((p: SaveProblem) => void) | null = null;
   const storeOptions = { onProblem: (p: SaveProblem) => onProblem?.(p) };
+  const memory = debug.nosave || debug.profile !== null;
+  // Two-tab safety (M3-FIX-9): only the shared IndexedDB store; a memory store is this tab's own.
+  // Messages and locks stay inside this browser. Nothing is sent off the device.
+  const channel = memory ? null : openTabChannel();
+  const tabs: TabSync | undefined = memory
+    ? undefined
+    : { tabId: newId(), channel, ...withLocks(browserLocks()) };
+  const idb = memory ? createMemoryStore(storeOptions) : createIdbStore(undefined, storeOptions);
   const store: SaveStore =
-    debug.nosave || debug.profile !== null
-      ? createMemoryStore(storeOptions)
-      : createIdbStore(undefined, storeOptions);
+    channel !== null && tabs !== undefined ? announcingStore(idb, channel, tabs.tabId) : idb;
 
   let firstProfile: Profile | null = null;
   if (debug.profile !== null) {
@@ -149,6 +162,7 @@ async function boot(host: HTMLElement): Promise<void> {
     },
     initial,
     initialProfile: firstProfile,
+    ...(tabs && { tabs }),
   });
   onProblem = (p) => shell.onSaveProblem(p);
 

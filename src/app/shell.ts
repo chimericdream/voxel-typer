@@ -12,12 +12,14 @@ import type { Lesson } from "@/content/lessons/types";
 import { BUILDER_LESSON, BUILDER_LESSON_ID } from "@/modes/builder/lesson";
 import { PLACEMENT_LESSON, PLACEMENT_LESSON_ID } from "@/modes/placement/lesson";
 import type { ModeModule } from "@/modes/types";
+import { compactHistory } from "@/save/compact";
 import type { SaveProblem, SaveProblemKind } from "@/save/problems";
 import type { Profile } from "@/save/schema";
 import { defaultSettings } from "@/save/settings";
 import type { Settings } from "@/save/settings";
 import { NewerSaveError } from "@/save/store";
 import type { SaveStore } from "@/save/store";
+import type { TabSync } from "@/save/tab-sync";
 import type { AchievementDef } from "@/engine/achievements";
 import type { AchievementId, GameModeId } from "@/types/core";
 import { createAchievementTracker } from "./achievements";
@@ -61,12 +63,23 @@ export interface ShellDeps {
   initialProfile?: Profile | null;
   /** The device's offset from UTC in minutes (`Date#getTimezoneOffset`). Default: the real one. */
   tzOffsetMin?(): number;
+  /**
+   * Two-tab safety (M3-FIX-9): the tab channel and locks. Set for the real IndexedDB store only;
+   * a memory store belongs to one tab. Without it, saves work as before.
+   */
+  tabs?: TabSync;
 }
+
+/**
+ * Why a notice shows: a save problem, or another tab changed this player (M3-FIX-9). `otherTab`:
+ * this tab now shows the newest copy. `otherTabRemoved`: a grown-up removed the player there.
+ */
+export type NoticeKind = SaveProblemKind | "otherTab" | "otherTabRemoved";
 
 /** A kind message for the family, shown as a toast. */
 export interface Notice {
   id: number;
-  kind: SaveProblemKind;
+  kind: NoticeKind;
 }
 
 export interface Shell {
@@ -107,6 +120,9 @@ export function applyAudioSettings(audio: ShellAudio, s: Readonly<Settings>): vo
   for (const bus of BUSES) audio.setVolume(bus, s.volume[bus]);
 }
 
+/** A profile as the store keeps it (JSON, history compacted), to compare with the stored one. */
+const recordOf = (p: Profile): string => JSON.stringify(compactHistory(p));
+
 /** The Home Island is Builder mode on the play route (M4-07); `island` is its address. */
 const homeIsland = (to: Route): Route =>
   to.id === "island" ? { id: "play", lesson: BUILDER_LESSON_ID } : to;
@@ -129,7 +145,7 @@ export function createShell(deps: ShellDeps): Shell {
   const damaged = new Set<string>();
   let noticeId = 0;
 
-  const notify = (kind: SaveProblemKind): void => {
+  const notify = (kind: NoticeKind): void => {
     if (notices.value.some((n) => n.kind === kind)) return;
     noticeId += 1;
     notices.value = [...notices.value, { id: noticeId, kind }];
@@ -167,11 +183,136 @@ export function createShell(deps: ShellDeps): Shell {
     else if (before?.settings !== p.settings) applySettings(p.settings);
   };
 
+  // Two-tab safety (M3-FIX-9). Every save first checks that the stored record is still the one
+  // this tab last saw. If another tab saved since, this tab takes the newer copy first: a lesson's
+  // result or a Builder save is then added to that copy (`updateProfile`), and a plain save made
+  // from the old copy is refused. The other tab's message makes this happen early, so the screen
+  // shows the newest progress too. A stale tab never writes over a newer record.
+  const tabs = deps.tabs ?? null;
+  /** Per player: the stored record (JSON) this tab last wrote or read. Tabs mode only. */
+  const known = new Map<string, string>();
+  /** Players a grown-up removed in another tab: never written again from this tab. */
+  const gone = new Set<string>();
+  /** Bumped whenever this tab takes another tab's copy: plain saves asked for before are stale. */
+  let generation = 0;
+  let chain: Promise<unknown> = Promise.resolve();
+
+  /** Runs this tab's saves one at a time, each under the player's lock across tabs. */
+  const serial = <T>(id: string, fn: () => Promise<T>): Promise<T> => {
+    const locked = (): Promise<T> => (tabs?.locks ? tabs.locks.run(id, fn) : fn());
+    const next = chain.then(locked, locked);
+    chain = next.catch(() => undefined);
+    whenReady(next);
+    return next;
+  };
+
+  /** Whether another tab changed the player since this tab last saw it, and its copy now. */
+  const diskCopy = async (
+    id: string,
+  ): Promise<{ stale: false } | { stale: true; fresh: Profile | null }> => {
+    if (gone.has(id)) return { stale: true, fresh: null };
+    const seen = known.get(id);
+    if (seen === undefined) return { stale: false };
+    const fresh = await deps.store.load(id);
+    // Nothing readable (a newer game's record, or damaged): `save` has its own rules for those.
+    if (fresh === null) return { stale: false };
+    return recordOf(fresh) === seen ? { stale: false } : { stale: true, fresh };
+  };
+
+  /** True while the Home Island visit is the route. */
+  const onIsland = (): boolean => {
+    const r = route.value;
+    return r.id === "play" && r.lesson === BUILDER_LESSON_ID;
+  };
+
+  /** Takes another tab's copy of a player (null: a grown-up removed it there). */
+  const adopt = (id: string, fresh: Profile | null): void => {
+    generation += 1;
+    const active = profile.value?.id === id ? profile.value : null;
+    if (fresh === null) {
+      gone.add(id);
+      known.delete(id);
+      if (active === null) return;
+      setProfile(null);
+      notify("otherTabRemoved");
+      go({ id: "profiles" }, true);
+      return;
+    }
+    known.set(id, recordOf(fresh));
+    if (active === null) return;
+    setProfile(fresh);
+    notify("otherTab");
+    // Builder holds its own island, and two islands can't be merged, so this visit ends. Its
+    // saves are refused (`patchOnto` in the play host), and the other tab's island stays.
+    if (onIsland() && JSON.stringify(active.island) !== JSON.stringify(fresh.island)) {
+      go({ id: "map" }, true);
+    }
+  };
+
+  /** Looks again after another tab's message. */
+  const refresh = (id: string): Promise<void> =>
+    serial(id, async () => {
+      const disk = await diskCopy(id);
+      if (disk.stale) adopt(id, disk.fresh);
+    });
+
+  /** Picks a player from outside (the Players screen, an import, a fixture). */
+  const pick = (p: Profile | null): void => {
+    if (tabs !== null && p !== null && p !== profile.value) {
+      known.set(p.id, recordOf(p));
+      gone.delete(p.id);
+    }
+    setProfile(p);
+  };
+
   const saveProfile = async (p: Profile): Promise<boolean> => {
     setProfile(p);
+    if (tabs === null) return write(p);
+    const asked = generation;
+    return serial(p.id, async () => {
+      // Made from a copy that another tab's newer one has since replaced here: not written.
+      if (asked !== generation || gone.has(p.id)) return false;
+      const disk = await diskCopy(p.id);
+      if (disk.stale) {
+        adopt(p.id, disk.fresh);
+        return false;
+      }
+      return write(p);
+    });
+  };
+
+  const updateProfile = async (
+    base: Profile,
+    derive: (b: Profile) => Profile | null,
+  ): Promise<Profile | null> => {
+    const id = base.id;
+    const now = (): Profile => (profile.value?.id === id ? profile.value : base);
+    if (tabs === null) {
+      const next = derive(now());
+      if (next === null) return null;
+      await saveProfile(next);
+      return next;
+    }
+    return serial(id, async () => {
+      if (gone.has(id)) return null;
+      const disk = await diskCopy(id);
+      if (disk.stale) adopt(id, disk.fresh);
+      if (disk.stale && disk.fresh === null) return null;
+      const from =
+        disk.stale && disk.fresh !== null && profile.value?.id !== id ? disk.fresh : now();
+      const next = derive(from);
+      if (next === null) return null;
+      setProfile(next);
+      await write(next);
+      return next;
+    });
+  };
+
+  async function write(p: Profile): Promise<boolean> {
     if (readOnly.has(p.id)) return false;
     try {
       await deps.store.save(p);
+      if (tabs !== null) known.set(p.id, recordOf(p));
       return true;
     } catch (err) {
       // Autosave never crashes the game and never retries in a loop (M1-09 notes).
@@ -184,12 +325,13 @@ export function createShell(deps: ShellDeps): Shell {
       }
       return false;
     }
-  };
+  }
 
   const removeProfile = async (id: string): Promise<boolean> => {
     if (readOnly.has(id)) return false;
     try {
       await deps.store.remove(id);
+      known.delete(id);
     } catch (err) {
       console.warn("[app] remove failed", err);
       notify("storageError");
@@ -226,6 +368,7 @@ export function createShell(deps: ShellDeps): Shell {
       onUnlock: (ids) => queueBadges(ids),
     }),
     saveProfile,
+    updateProfile,
     lessons: deps.lessons,
     onStatus(s) {
       playStatus.value = s;
@@ -306,7 +449,7 @@ export function createShell(deps: ShellDeps): Shell {
     canGoBack: () => history.length > 0,
     store: deps.store,
     profile: () => profile.value,
-    setProfile,
+    setProfile: pick,
     saveProfile,
     readOnlyProfiles: () => readOnly,
     damagedProfiles: () => damaged,
@@ -327,7 +470,34 @@ export function createShell(deps: ShellDeps): Shell {
     recording: () => play.recording(),
   };
 
-  if (deps.initialProfile) setProfile(deps.initialProfile);
+  tabs?.channel?.listen((m) => {
+    if (m.from === tabs.tabId) return;
+    const active = profile.value?.id ?? null;
+    if (m.type === "changed") {
+      // An import there: any player may have changed. Look again at the one on screen.
+      for (const id of known.keys()) if (id !== active) known.delete(id);
+      if (active !== null) void refresh(active);
+      return;
+    }
+    if (m.type === "removed") {
+      if (m.id === active) {
+        void serial(m.id, () => {
+          adopt(m.id, null);
+          return Promise.resolve();
+        });
+      } else {
+        gone.add(m.id);
+        known.delete(m.id);
+      }
+      return;
+    }
+    // Saved there. An import can bring back a player removed earlier.
+    gone.delete(m.id);
+    if (m.id === active) void refresh(m.id);
+    else known.delete(m.id);
+  });
+
+  if (deps.initialProfile) pick(deps.initialProfile);
   else applySettings(deviceSettings());
   route.value = homeIsland(route.value);
   enter(route.value);
