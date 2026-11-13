@@ -56,9 +56,7 @@ for (const theme of THEMES) {
       expect(errors).toEqual([]);
     });
 
-    test("world map, a lesson path, a lesson intro, My Badges and the coming-soon panel", async ({
-      page,
-    }) => {
+    test("world map, a lesson path, a lesson intro, My Badges and My Blocks", async ({ page }) => {
       test.slow();
       const errors = collectErrors(page);
       await open(page, "fresh-sprout", "map");
@@ -81,9 +79,15 @@ for (const theme of THEMES) {
       await expectScreen(page, "achievements");
       await axeIn(page, theme, "my badges");
 
+      // My Blocks (M4-09) took the last route the coming-soon panel stood in for; no route
+      // shows that panel now (the unit test in screens.test.tsx still checks it).
+      await open(page, "collector-miner", "inventory");
+      await expectScreen(page, "inventory");
+      await expect(page.getByRole("heading", { name: "My Blocks" })).toBeVisible();
+      await axeIn(page, theme, "my blocks");
       await open(page, "fresh-sprout", "inventory");
-      await expect(page.getByRole("heading", { name: "Coming soon!" })).toBeVisible();
-      await axeIn(page, theme, "coming soon");
+      await expectScreen(page, "inventory");
+      await axeIn(page, theme, "my blocks, nothing found yet");
 
       await open(page, "fresh-sprout", "privacy");
       await expectScreen(page, "privacy");
