@@ -123,7 +123,8 @@ function Where({ slice }: { slice: BuilderHudSlice }) {
   );
 }
 
-function Help() {
+function Help({ slice }: { slice: BuilderHudSlice }) {
+  const plans = slice.plans ?? [];
   return (
     <div class={styles.help} data-builder="help">
       <p class={styles.plate}>
@@ -131,8 +132,19 @@ function Help() {
           <b>{t("builder.help.put")}</b>
           <b>{t("builder.help.dig")}</b>
           <b>{t("builder.help.undo")}</b>
+          {slice.photo === true ? <b>{t("builder.help.photo")}</b> : null}
         </span>
       </p>
+      {plans.length > 0 ? (
+        <p class={styles.plate} data-builder="plans" data-text={plans.join(" ")}>
+          {t("builder.help.plans")}{" "}
+          <span class={styles.words}>
+            {plans.map((p) => (
+              <b key={p}>{p}</b>
+            ))}
+          </span>
+        </p>
+      ) : null}
       <p class={styles.plate}>{t("builder.help.move")}</p>
       <p class={styles.plate}>{t("builder.help.keys")}</p>
     </div>
@@ -174,7 +186,7 @@ export default function BuilderHud({ fields }: BuilderHudProps) {
         </div>
       </div>
       <div class={styles.bottom}>
-        <Help />
+        <Help slice={slice} />
         <CommandLine slice={slice} />
         <Where slice={slice} />
       </div>

@@ -28,6 +28,7 @@ import builder from "./builder";
 import defense from "./defense";
 import remedial from "./remedial";
 import parent from "./parent";
+import blueprints from "./blueprints";
 
 const en = {
   common,
@@ -53,6 +54,7 @@ const en = {
   defense,
   remedial,
   parent,
+  blueprints,
 } as const;
 
 export default en;

@@ -8,8 +8,12 @@
  * are the other way round: they follow the screen ({@link arrowDirection}), so "left" is always
  * left.
  */
+import { biomeCompleted } from "@/content/blueprints";
+import { ISLAND_MAX, MAX_EXPANSIONS, PLOT_SIZE, footprint } from "@/engine/island";
 import type { Footprint } from "@/engine/island";
-import type { BlockId } from "@/types/core";
+import type { Profile } from "@/save/schema";
+import { BIOME_ORDER } from "@/types/core";
+import type { BiomeId, BlockId } from "@/types/core";
 import type { Direction } from "./commands";
 
 export interface Cell {
@@ -332,4 +336,49 @@ export function createTouchLog(limit: number): TouchLog {
 /** A blueprint's origin so that it sits centered on the cursor's column, standing on its layer. */
 export function stampOrigin(at: Cell, size: { sx: number; sz: number }): Cell {
   return { x: at.x - Math.floor(size.sx / 2), y: at.y, z: at.z - Math.floor(size.sz / 2) };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Expansions (M4-08)
+// ---------------------------------------------------------------------------------------------
+
+/** The biomes that each add a ring: the core biomes after the Meadow (decision 99). */
+export const RING_BIOMES: readonly BiomeId[] = BIOME_ORDER.slice(1, 1 + MAX_EXPANSIONS);
+
+/**
+ * The rings an island is still owed, in order: one per completed biome of {@link RING_BIOMES},
+ * less the `expansions` it already has. The save keeps only a count, so the first completed
+ * biomes are the ones already given. Today every ring gets Meadow terrain (`ringPalette`).
+ */
+export function ringsToAdd(profile: Readonly<Profile>, expansions: number): BiomeId[] {
+  const have = Math.max(0, Math.min(MAX_EXPANSIONS, Math.floor(expansions)));
+  return RING_BIOMES.filter((b) => biomeCompleted(profile, b)).slice(have);
+}
+
+/**
+ * The cells a ring added: the columns of `footprint(expansions)` outside the footprint before it,
+ * below the starter plot's height (no ring terrain is higher). For redrawing the new ring.
+ */
+export function ringCells(expansions: number): Cell[] {
+  const inner = footprint(expansions - 1);
+  const outer = footprint(expansions);
+  const cells: Cell[] = [];
+  for (let z = outer.z0; z < outer.z1; z++) {
+    for (let x = outer.x0; x < outer.x1; x++) {
+      if (x >= inner.x0 && x < inner.x1 && z >= inner.z0 && z < inner.z1) continue;
+      for (let y = 0; y < PLOT_SIZE.sy; y++) cells.push({ x, y, z });
+    }
+  }
+  return cells;
+}
+
+/** A pose that shows the whole island from higher and further away, turned `turnBy` from `from`. */
+export function wholeIslandPose(from: Readonly<Pose>, turnBy: number): Pose {
+  return {
+    target: { x: ISLAND_MAX.sx / 2, y: 4, z: ISLAND_MAX.sz / 2 },
+    yaw: from.yaw + turnBy,
+    pitch: (48 * Math.PI) / 180,
+    distance: 72,
+    fov: from.fov,
+  };
 }

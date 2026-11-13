@@ -42,6 +42,9 @@ export default {
     put: "put",
     dig: "dig",
     undo: "undo",
+    photo: "photo",
+    // Before the blueprint words the child can type: "Plans: well house".
+    plans: "Plans:",
     move: "north south east west up down",
     keys: "Arrow keys move. Space puts a block.",
   },
@@ -75,6 +78,12 @@ export default {
     noRoom: "There is no room for that here. Try another spot.",
     alreadyThere: "That is already built here.",
     built: "You built a {name}!",
+    // A completed biome made the island bigger (M4-08).
+    grew: "Your island grew! There is more land to build on.",
+    // `photo`: a picture of the island goes to the downloads.
+    photoSaving: "Smile! Taking a picture of your island.",
+    photoSaved: "Your picture is saved. Ask a grown-up to find it.",
+    photoFailed: "The picture did not work this time. Try again soon.",
   },
 
   // The saved island could not be opened. Calm, and true: nothing was changed.
