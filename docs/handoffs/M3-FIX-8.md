@@ -100,10 +100,18 @@ stays clear of them at text scale 2.
   one on the page.
 - `useModalOpen(document, watch)` in `AchievementToast.tsx` can be reused if another queued message
   must wait for modals.
+- **Reconcile with M3-FIX-4 (#189)**, which delays toasts after route announcements and gives them
+  their own live region. The modal hold here is the hook `useModalOpen` plus one term in
+  `showing` (`&& !modal`). Keep both: a separate toast region outside `#app` is still inert
+  under `showModal()`, so the hold is still needed.
 - M3-FIX-2 (fonts) changes `--font-pixel` users. This task's new CSS uses only `--font-body`.
 
 ## Contract change request / Questions
 
-- (none)
+- **Found, not fixed (WorldMap is not this card's):** at text scale 2 on 1280×720, the World Map's
+  hint ("Pick an island. Press Enter to go in.") lies over the **My Badges** corner button and
+  takes its clicks. Playwright's click on it waited 30 s, blocked by the hint in `<header>`. The
+  keyboard still works, and the e2e here opens My Badges with Enter. M4-FIX-1 fixed the same
+  overlap at 1024 px; 1280 px at scale 2 needs the same treatment. This needs a card.
 
 Closes #178

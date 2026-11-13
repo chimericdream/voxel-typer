@@ -48,6 +48,16 @@ async function setLook(page: Page, look: { scale: number; contrast?: boolean }):
   await expectScreen(page, "map");
 }
 
+/**
+ * The map's My Badges button, by keyboard. At text scale 2 on 1280×720 the map's hint lies over
+ * this button and takes its clicks (reported in docs/handoffs/M3-FIX-8.md; WorldMap is not this
+ * task's), so a click would hang.
+ */
+async function openBadges(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "My Badges", exact: true }).press("Enter");
+  await expectScreen(page, "achievements");
+}
+
 const list = (page: Page): Locator => page.getByRole("region", { name: "All badges" });
 const cue = (page: Page): Locator => page.getByTestId("badges-more");
 
@@ -89,8 +99,7 @@ test.describe("My Badges shows that it scrolls", () => {
   test("1280×720 at text scale 2: the cue still shows, with Back on screen", async ({ page }) => {
     const errors = await open(page, "veteran-builder", "map");
     await setLook(page, { scale: 2 });
-    await page.getByRole("button", { name: "My Badges", exact: true }).click();
-    await expectScreen(page, "achievements");
+    await openBadges(page);
     await expectCue(page);
     await still(page);
     await expect(page).toHaveScreenshot("badges-1280-scale2.png", { timeout: 30_000 });
@@ -100,8 +109,7 @@ test.describe("My Badges shows that it scrolls", () => {
   test("strong colors at text scale 2: the cue still reads", async ({ page }) => {
     const errors = await open(page, "veteran-builder", "map");
     await setLook(page, { scale: 2, contrast: true });
-    await page.getByRole("button", { name: "My Badges", exact: true }).click();
-    await expectScreen(page, "achievements");
+    await openBadges(page);
     await expectCue(page);
     await expectNoAxeViolations(page, "my badges, strong colors, text scale 2");
     await still(page);
