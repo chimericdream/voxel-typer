@@ -104,6 +104,64 @@ describe("map logic", () => {
     expect(lessonNodes(sprout, lessons, "birch")).toEqual([]);
   });
 
+  it('"No Peeking!" can be skipped: the lesson after it opens with it, and the map moves on', () => {
+    // The whole shipped Meadow: lesson 11 is its `challenge-hide-keyboard` lesson (M3-FIX-7).
+    const meadow = shipped.filter((l) => l.biome === "meadow");
+    const challenge = meadow.find((l) => l.tags?.includes("challenge-hide-keyboard") === true);
+    if (!challenge) throw new Error("Meadow has no No Peeking! lesson");
+    const after = meadow.find((l) => l.order === challenge.order + 1);
+    if (!after) throw new Error("no lesson after the challenge");
+    const play = (p: Profile, id: string): Profile => {
+      const lesson = meadow.find((l) => l.id === id);
+      if (!lesson) throw new Error(`no lesson ${id}`);
+      return applyResult(p, lesson, result({ stars: 2, summary: summary({ lessonId: id }) }), 1);
+    };
+    const upTo = meadow.filter((l) => l.order < challenge.order);
+    const before = upTo.reduce((p, l) => play(p, l.id), sprout);
+
+    // Before the challenge is played, both it and the lesson after it are open.
+    const nodes = lessonNodes(before, meadow, "meadow");
+    const at = (id: string) => nodes.find((n) => n.lesson.id === id);
+    expect(at(challenge.id)).toMatchObject({ open: true, played: false, next: true });
+    expect(at(after.id)).toMatchObject({ open: true, played: false });
+    // The lesson after that still waits for its own lesson before; its label names that one.
+    const third = nodes.find((n) => n.lesson.order === challenge.order + 2);
+    expect(third?.open).toBe(false);
+    expect(third && nodeLabel(third)).toContain(String(after.order));
+
+    // Skip it: play the next lesson. The challenge stays open and unplayed, and the map points on.
+    const skipped = play(before, after.id);
+    const later = lessonNodes(skipped, meadow, "meadow");
+    expect(later.find((n) => n.lesson.id === challenge.id)).toMatchObject({
+      open: true,
+      played: false,
+      next: false,
+    });
+    expect(recommendedLesson(skipped, meadow)?.order).toBe(challenge.order + 2);
+
+    // The fewest-stars fallback never points back at a skipped challenge (M3-FIX-7 review):
+    // every other Meadow lesson played, the mastery check at 1 star, the challenge unplayed.
+    const mastery = meadow.find((l) => l.tags?.includes("mastery") === true);
+    if (!mastery) throw new Error("Meadow has no mastery lesson");
+    const allButChallenge = meadow
+      .filter((l) => l.id !== challenge.id)
+      .reduce(
+        (p, l) =>
+          applyResult(
+            p,
+            l,
+            result({ stars: l.id === mastery.id ? 1 : 3, summary: summary({ lessonId: l.id }) }),
+            1,
+          ),
+        sprout,
+      );
+    expect(recommendedLesson(allButChallenge, meadow)?.id).toBe(mastery.id);
+
+    // Before any lesson that comes ahead of it is played, nothing opens past it.
+    const fresh = lessonNodes(sprout, meadow, "meadow");
+    expect(fresh.filter((n) => n.open).map((n) => n.n)).toEqual([1]);
+  });
+
   it("lists nine islands with their counts, and which island opens which", () => {
     const miner = fixture("meadow-done-miner");
     const infos = islandInfos(miner, lessons);
@@ -398,6 +456,71 @@ describe("World map", () => {
     void act(() => buttonByText(s.root, t("map.players")).click());
     await s.settle();
     expect(s.route().id).toBe("profiles");
+  });
+
+  it("narrow, by touch: a tap opens a corner button's words and keeps them open; the next tap goes", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width: 1100px") }));
+    try {
+      const s = await openMap(fixture("fresh-sprout"));
+      const home = buttonByText(s.root, t("builder.title"));
+      const wrap = home.closest("[data-nav]");
+      /** A finger's tap: pointerdown, then the click the browser makes from it. */
+      const tap = async (el: Element, pointerType = "touch"): Promise<void> => {
+        await act(() => {
+          const down = new Event("pointerdown", { bubbles: true });
+          Object.defineProperty(down, "pointerType", { value: pointerType });
+          el.dispatchEvent(down);
+          el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+        });
+        await s.settle();
+      };
+      await tap(home);
+      expect(s.route()).toEqual({ id: "map" });
+      expect(wrap?.getAttribute("data-tip")).toBe("open");
+      // A tap anywhere else closes it.
+      await tap(s.root.querySelector("h1") ?? s.root);
+      expect(wrap?.hasAttribute("data-tip")).toBe(false);
+      // Open again, then the next tap on it goes.
+      await tap(home);
+      expect(wrap?.getAttribute("data-tip")).toBe("open");
+      await tap(home);
+      expect(s.route()).toEqual({ id: "play", lesson: "builder" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("a mouse click, and a tap in a wide window, go straight away", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width: 1100px") }));
+    try {
+      const s = await openMap(fixture("fresh-sprout"));
+      const home = buttonByText(s.root, t("builder.title"));
+      await act(() => {
+        const down = new Event("pointerdown", { bubbles: true });
+        Object.defineProperty(down, "pointerType", { value: "mouse" });
+        home.dispatchEvent(down);
+        home.click();
+      });
+      await s.settle();
+      expect(s.route()).toEqual({ id: "play", lesson: "builder" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    try {
+      const s = await openMap(fixture("fresh-sprout"));
+      const home = buttonByText(s.root, t("builder.title"));
+      await act(() => {
+        const down = new Event("pointerdown", { bubbles: true });
+        Object.defineProperty(down, "pointerType", { value: "touch" });
+        home.dispatchEvent(down);
+        home.click();
+      });
+      await s.settle();
+      expect(s.route()).toEqual({ id: "play", lesson: "builder" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("without a player, offers the way to pick one", async () => {

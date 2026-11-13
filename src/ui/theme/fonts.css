@@ -3,12 +3,15 @@
  * The files live in public/fonts/ and are served from the app's own origin. Never point a
  * `src` at a CDN: the game makes no network requests outside its origin.
  *
- * The family names match the tokens in tokens.css (M2-07): "Pixelify Sans" leads
- * `--font-pixel` and "Atkinson Hyperlegible" leads `--font-body`. "OpenDyslexic" is for the
- * dyslexia toggle (Settings `font: 'dyslexic'`), which overrides those tokens on the root.
+ * "Atkinson Hyperlegible" leads `--font-body` in tokens.css, and `--font-pixel` (UI chrome)
+ * points at it too since M3-FIX-2, because Pixelify's capitals and digits misread (B as G or 8,
+ * C as O, 5 as S). "OpenDyslexic" is for the dyslexia toggle (Settings `font: 'dyslexic'`),
+ * which overrides those tokens on the root. Pixelify Sans stays registered for the Settings
+ * font preview only.
  *
- * Browsers fetch a face only when text uses it, so OpenDyslexic costs nothing until it is
- * switched on. index.html preloads only Pixelify Sans, because the first screen uses it.
+ * Browsers fetch a face only when text uses it, so OpenDyslexic and Pixelify cost nothing until
+ * something shows them. index.html preloads the two Atkinson faces, because the first screen
+ * uses them.
  * The upstream WOFF2 files are used byte for byte (no subsetting): OpenDyslexic has a
  * Reserved Font Name, and the other two are small already.
  */

@@ -67,7 +67,14 @@ function isIsland(v: unknown): v is IslandPatch["island"] {
   );
 }
 
-/** Narrows a bus payload or a result's `extra` value. Null for anything malformed. */
+/** Builder's palette size, as `IslandSave.palette` allows it. */
+const PALETTE_MAX = 6;
+
+/**
+ * Narrows a bus payload or a result's `extra` value. Null for anything malformed. An island's
+ * `palette` (M4-FIX-1) is kept when it is a short list of ids, and left out otherwise: it only
+ * orders the palette, so a bad one must never stop the island being saved.
+ */
 export function islandPatchOf(v: unknown): IslandPatch | null {
   if (!isRecord(v)) return null;
   const { island, inventory } = v;
@@ -77,7 +84,19 @@ export function islandPatchOf(v: unknown): IslandPatch | null {
     if (!isCount(n)) return null;
     counts[id] = n;
   }
-  return { island, inventory: counts };
+  const { palette, ...rest } = island;
+  return {
+    island: isSlots(palette) ? { ...rest, palette: [...palette] } : rest,
+    inventory: counts,
+  };
+}
+
+function isSlots(v: unknown): v is BlockId[] {
+  return (
+    Array.isArray(v) &&
+    v.length <= PALETTE_MAX &&
+    v.every((id) => typeof id === "string" && id.length > 0 && id.length <= 64)
+  );
 }
 
 /**

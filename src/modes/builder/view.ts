@@ -5,8 +5,9 @@
  * - **Cursor:** a cube frame around the cursor's cell, made of twelve bars in one instanced mesh.
  *   It is drawn twice: once in the world, and once on top of everything, so a cursor behind a
  *   tree or under the ground can still be found. The on-top pass is faint while the cursor is in
- *   the open, and strong with a dark outline when it is buried (review N3). Two draw calls in
- *   the open, three when buried.
+ *   the open. When it is buried, a bold on-top frame (bars {@link BURIED_SCALE} times as thick)
+ *   with a dark outline takes its place (review N3, M4-FIX-1). Two draw calls in the open, three
+ *   when buried.
  * - **Ghost:** the armed block, see-through, in the cell `put` would fill. It is meshed by the
  *   real mesher from a one-cell grid, so a flower shows as its sprig and a cube as a cube. One
  *   draw call.
@@ -25,15 +26,18 @@ const FRAME_REST = 1.04;
 /** The breath: the frame grows by this share and comes back. */
 const FRAME_BREATH = 0.05;
 const BREATH_PERIOD_MS: Ms = 1400;
-const BAR = 0.06;
+/** Bar thickness, in cells. M4-FIX-1 raised it from 0.06: at playtest zoom the frame was thin. */
+const BAR = 0.085;
 const FRAME_COLOR = 0xfff1a8;
 const GHOST_OPACITY = 0.62;
 /** The on-top pass: a hint in the open, the main picture when the cursor is buried. */
 const THROUGH_OPEN = 0.28;
 const THROUGH_BURIED = 0.9;
-/** The dark outline behind a buried cursor's frame, a little larger than the frame. */
+/** A buried cursor's on-top frame: bars this many times as thick as the frame in the open. */
+const BURIED_SCALE = 2.5;
+/** The dark outline behind a buried cursor's frame, a little larger than its bars. */
 const OUTLINE_COLOR = 0x1c2430;
-const OUTLINE_SCALE = 1.9;
+const OUTLINE_SCALE = 3.7;
 
 export interface BuilderViewOptions {
   scene: THREE.Scene;
@@ -102,25 +106,25 @@ export function createBuilderView(opts: BuilderViewOptions): BuilderView {
     depthTest: false,
     depthWrite: false,
   });
-  const matrices = frameMatrices();
   const frame = new THREE.Group();
-  for (const material of [solid, through]) {
+  /** One frame of twelve bars, `thick` times as thick, as one instanced mesh. */
+  const bars = (material: THREE.Material, thick: number, order: number): THREE.InstancedMesh => {
+    const matrices = frameMatrices(thick);
     const mesh = new THREE.InstancedMesh(bar, material, matrices.length);
     matrices.forEach((m, i) => mesh.setMatrixAt(i, m));
     mesh.instanceMatrix.needsUpdate = true;
     mesh.frustumCulled = false;
-    mesh.renderOrder = material === through ? 20 : 10;
+    mesh.renderOrder = order;
     frame.add(mesh);
-  }
-  // The outline: the same frame with thicker bars, drawn first, shown only for a buried cursor.
-  const wide = frameMatrices(OUTLINE_SCALE);
-  const outline = new THREE.InstancedMesh(bar, dark, wide.length);
-  wide.forEach((m, i) => outline.setMatrixAt(i, m));
-  outline.instanceMatrix.needsUpdate = true;
-  outline.frustumCulled = false;
-  outline.renderOrder = 19;
+    return mesh;
+  };
+  bars(solid, 1, 10);
+  const thin = bars(through, 1, 20);
+  // A buried cursor: a bold frame on top, over a dark outline drawn just before it.
+  const bold = bars(through, BURIED_SCALE, 20);
+  const outline = bars(dark, OUTLINE_SCALE, 19);
+  bold.visible = false;
   outline.visible = false;
-  frame.add(outline);
   frame.scale.setScalar(FRAME_REST);
   root.add(frame);
 
@@ -161,6 +165,8 @@ export function createBuilderView(opts: BuilderViewOptions): BuilderView {
     setCursor(cell, buried = false) {
       frame.position.set(cell.x + 0.5, cell.y + 0.5, cell.z + 0.5);
       outline.visible = buried;
+      bold.visible = buried;
+      thin.visible = !buried;
       through.opacity = buried ? THROUGH_BURIED : THROUGH_OPEN;
     },
     setGhost(blockNum, cell) {

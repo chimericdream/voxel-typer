@@ -64,6 +64,8 @@ export default {
     tooHigh: "That is as high as you can build.",
     needsGround: "Flowers need a block under them.",
     nothingToDig: "There is nothing to dig here.",
+    // Water: it is not a block you can keep, so it stays.
+    cantPickUp: "You can't pick up {name}. It stays here.",
     cantMove: "That block has to stay where it is.",
     edge: "That is the edge of your island.",
     top: "That is the top.",

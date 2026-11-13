@@ -469,6 +469,66 @@ describe("words, phrases, sentences", () => {
     for (let i = 1; i < out.length; i++) expect(out[i]?.text).not.toBe(out[i - 1]?.text);
   });
 
+  it("keeps a run of items apart: no repeat within the recent window", () => {
+    const items = "sad lad dad fad add all ask fall flask salad".split(" ");
+    const out = gen(
+      params({ kind: "words", allowed, pools: [pool(items)], length: { targets: 300 } }),
+    );
+    const window = Math.min(GENERATOR_CONSTANTS.recentItems, Math.floor(items.length / 2));
+    expect(window).toBeGreaterThan(1);
+    for (let i = 0; i < out.length; i++) {
+      const recent = out.slice(Math.max(0, i - window), i).map((t) => t.text);
+      expect(recent).not.toContain(out[i]?.text);
+    }
+  });
+
+  it("M3-FIX-7: when only one item keeps the comfort cap, the session still varies", () => {
+    // Weights from a real Meadow profile: `f j ; g h` are comfortable, and `;` and `j` are in
+    // almost no phrase, so "ha ha" was the only item at 50 %. Its fallback pick then held the
+    // tally at exactly 50 % and every other item failed the cap: "ha ha" for the whole session.
+    const weights = {
+      f: 2,
+      j: 1.12,
+      d: 3.13,
+      k: 3.09,
+      s: 3.55,
+      l: 2.62,
+      a: 3.18,
+      ";": 1.47,
+      g: 1.89,
+      h: 2.05,
+    };
+    const meadow = [..."fjdksla;gh".split(""), " "];
+    const items = [
+      "ha ha",
+      "a glad lad",
+      "glad dads",
+      "dad has a flag",
+      "flags flash",
+      "a half salad",
+      "add a flag",
+      "a flash",
+      "all halls",
+      "a sad lad",
+      "a fall salad",
+    ];
+    expect([...comfortableKeys(meadow, weights)].toSorted()).toEqual([";", "f", "g", "h", "j"]);
+    for (let seed = 1; seed <= 20; seed++) {
+      const out = gen(
+        params({
+          kind: "phrases",
+          allowed: meadow,
+          weights,
+          pools: [pool(items)],
+          length: { chars: 70 },
+        }),
+        seed,
+      );
+      expect(new Set(out.map((t) => t.text)).size).toBeGreaterThanOrEqual(Math.min(5, out.length));
+      expect(out.length).toBeGreaterThanOrEqual(5);
+    }
+  });
+
   it("draws from every pool given", () => {
     const out = gen(
       params({

@@ -202,22 +202,94 @@ export function mostOwned(
     .map((b) => b.id);
 }
 
+/** What, besides the inventory, decides the palette's slots. */
+export interface PaletteFocus {
+  /** Slots. Default {@link PALETTE_SIZE}. */
+  n?: number;
+  /** The block in hand. */
+  held?: BlockId | null;
+  /** The block just dug up, armed or placed. */
+  picked?: BlockId | null;
+  /**
+   * When each block was last dug, armed or placed this visit: a larger number is more recent.
+   * A block not in it was not touched this visit.
+   */
+  used?: ReadonlyMap<BlockId, number>;
+}
+
 /**
  * Keeps the palette steady while a child builds: blocks already shown stay in their slots while
  * they are still owned, and a free slot is filled by the most-owned block not yet shown. Without
- * this every `put` could reshuffle the slots under the child's eyes. The block in hand (`held`)
- * keeps its slot even at 0, so the child sees what ran out.
+ * this every `put` could reshuffle the slots under the child's eyes.
+ *
+ * Two blocks always get a slot (M4-FIX-1), even in a full palette:
+ * - the block in hand (`held`), even at 0, so the child sees what ran out, and even when it was
+ *   armed by name from outside the palette;
+ * - the block just dug up, armed or placed (`picked`), so a child who digs a block they had none
+ *   of sees it land in the bag. Without this a single grass block never outranks six kinds owned
+ *   by the dozen.
+ *
+ * In a full palette such a block takes the **least recently used** slot (`used`): the one whose
+ * block was dug, armed or placed longest ago, or not at all this visit (the last of those). So
+ * `dig dig dig` down a hole keeps grass, dirt and stone all in view, and the slots that stay
+ * don't move.
  */
 export function steadyPalette(
   shown: readonly BlockId[],
   inventory: Readonly<Record<BlockId, number>>,
   placeable: readonly BlockId[],
-  n: number = PALETTE_SIZE,
-  held: BlockId | null = null,
+  focus: PaletteFocus = {},
 ): BlockId[] {
+  const n = focus.n ?? PALETTE_SIZE;
+  const held = focus.held ?? null;
+  const used = focus.used ?? new Map<BlockId, number>();
+  const must = [held, focus.picked ?? null].filter(
+    (id, i, all): id is BlockId => id !== null && placeable.includes(id) && all.indexOf(id) === i,
+  );
   const kept = shown.filter((id) => id === held || (inventory[id] ?? 0) > 0).slice(0, n);
+  for (const id of must.slice(0, n)) {
+    if (kept.includes(id)) continue;
+    if (kept.length < n) {
+      kept.push(id);
+      continue;
+    }
+    let out = -1;
+    let oldest = Number.POSITIVE_INFINITY;
+    kept.forEach((k, i) => {
+      if (must.includes(k)) return;
+      const at = used.get(k) ?? Number.NEGATIVE_INFINITY;
+      // `<=`: among equally old slots, the last one goes, so the first slots stay put.
+      if (at <= oldest) {
+        oldest = at;
+        out = i;
+      }
+    });
+    if (out !== -1) kept[out] = id;
+  }
   const rest = mostOwned(inventory, placeable, placeable.length).filter((id) => !kept.includes(id));
   return [...kept, ...rest].slice(0, n);
+}
+
+/**
+ * The palette saved with the island (`IslandSave.palette`, M4-FIX-1), made safe to show: only
+ * placeable block ids the child still owns, each once, at most `n`. Anything else in the save
+ * (unknown ids, used-up blocks, a malformed value) is dropped. An empty result means "rank by
+ * count", as for a save from before the field.
+ */
+export function restorePalette(
+  saved: unknown,
+  inventory: Readonly<Record<BlockId, number>>,
+  placeable: readonly BlockId[],
+  n: number = PALETTE_SIZE,
+): BlockId[] {
+  if (!Array.isArray(saved)) return [];
+  const out: BlockId[] = [];
+  for (const id of saved) {
+    if (out.length >= n) break;
+    if (typeof id !== "string" || out.includes(id) || !placeable.includes(id)) continue;
+    if ((inventory[id] ?? 0) > 0) out.push(id);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------------------------

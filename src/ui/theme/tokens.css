@@ -3,14 +3,19 @@
  * Colors (`--c-*`) and bevel images (`--bevel-*`) come from src/ui/theme/themes.ts through
  * applyTheme(), so each theme has one source of truth.
  *
- * Fonts: M2-08 self-hosts the font files (src/ui/theme/fonts.css). Until then these stacks fall
- * back to system fonts. Never load a font from the network.
+ * Fonts: M2-08 self-hosts the font files (src/ui/theme/fonts.css). Never load a font from the
+ * network.
+ *
+ * `--font-pixel` is the font for UI chrome: headings, buttons, labels, names and the HUD. It
+ * used to be Pixelify Sans. M3-FIX-2 points it at the body stack: in Pixelify, capital B reads
+ * as G or 8, C as O, 5 as S, 0 as O and Z as 2, at every weight and at every size the app uses
+ * (glyph sheet: docs/handoffs/M3-FIX-2.md). The logo is drawn as SVG voxel letters, so it
+ * keeps its blocky look without the font.
  */
 :root {
-  --font-pixel:
-    "Pixelify Sans", ui-monospace, "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, monospace;
   --font-body:
     "Atkinson Hyperlegible", system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-pixel: var(--font-body);
 
   /* Letter size from settings (1.0–2.0; Sprout defaults to 1.5). Components multiply by it. */
   --text-scale: 1;
