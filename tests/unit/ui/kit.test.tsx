@@ -29,7 +29,12 @@ import { Slot } from "../../../src/ui/kit/Slot";
 import { Stars } from "../../../src/ui/kit/Stars";
 import { Tabs } from "../../../src/ui/kit/Tabs";
 import { Toast } from "../../../src/ui/kit/Toast";
-import { FIRST_ANNOUNCE_MS, TOAST_AFTER_PAGE_MS, announce } from "../../../src/ui/kit/announce";
+import {
+  FIRST_ANNOUNCE_MS,
+  NEXT_ANNOUNCE_MS,
+  TOAST_AFTER_PAGE_MS,
+  announce,
+} from "../../../src/ui/kit/announce";
 import { Toggle } from "../../../src/ui/kit/Toggle";
 import {
   FOCUS_BACKDROPS,
@@ -533,6 +538,47 @@ describe("announce: page first, then toast (M3-FIX-4 review S2)", () => {
       announce(document, "Again!", "toast");
       vi.advanceTimersByTime(FIRST_ANNOUNCE_MS);
       expect(toast?.textContent).toBe("Again!");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("announce: a long task holds both timers back (M3-14)", () => {
+  it("the toast still waits a second after the page text really goes in", () => {
+    vi.useFakeTimers();
+    try {
+      // Long after any earlier test's page message.
+      vi.setSystemTime(Date.now() + 60_000);
+      announce(document, "Lesson done! 3 stars.");
+      // The main thread is busy for 1.5 s: the clock moves on, but no timer runs.
+      vi.setSystemTime(Date.now() + 1500);
+      announce(document, "New badge!", "toast");
+      const page = document.getElementById("vt-announcer");
+      const toast = document.getElementById("vt-announcer-toast");
+      // Both timers come due in the same turn (the regions exist already: the short step).
+      vi.advanceTimersByTime(NEXT_ANNOUNCE_MS);
+      expect(page?.textContent).toBe("Lesson done! 3 stars.");
+      expect(toast?.textContent).toBe("");
+      vi.advanceTimersByTime(TOAST_AFTER_PAGE_MS - 10);
+      expect(toast?.textContent).toBe("");
+      vi.advanceTimersByTime(20);
+      expect(toast?.textContent).toBe("New badge!");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a page message cancelled before it goes in doesn't hold toasts back", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(Date.now() + 60_000);
+      const cancel = announce(document, "Going");
+      cancel();
+      vi.setSystemTime(Date.now() + 5000);
+      announce(document, "Toast!", "toast");
+      vi.advanceTimersByTime(FIRST_ANNOUNCE_MS);
+      expect(document.getElementById("vt-announcer-toast")?.textContent).toBe("Toast!");
     } finally {
       vi.useRealTimers();
     }

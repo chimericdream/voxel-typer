@@ -75,6 +75,8 @@ export async function axeIn(page: Page, theme: Theme, where: string): Promise<vo
 /** Presses Tab (or Shift+Tab) until `target` has focus. Keyboard only: never clicks. */
 export async function tabTo(page: Page, target: Locator, opts: { back?: boolean } = {}) {
   const key = opts.back === true ? "Shift+Tab" : "Tab";
+  // Fail fast when it isn't there at all, instead of tabbing until the test's timeout.
+  await expect(target).toBeVisible();
   for (let i = 0; i < 40; i++) {
     if (await target.evaluate((el) => el === document.activeElement)) return;
     await page.keyboard.press(key);

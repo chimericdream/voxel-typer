@@ -24,7 +24,9 @@ export function ComingSoon({ onBack, onMap, onStart = null }: ComingSoonProps) {
   }, []);
   return (
     <div class={screen.screen}>
-      <Panel heading={t("screens.comingSoon.title")}>
+      {/* Every screen has one h1 (axe page-has-heading-one, M3-14). */}
+      <h1 class={screen.title}>{t("screens.comingSoon.title")}</h1>
+      <Panel>
         <p class={screen.text}>{t("screens.comingSoon.body")}</p>
         <div class={screen.actions} ref={actions}>
           {onBack ? (

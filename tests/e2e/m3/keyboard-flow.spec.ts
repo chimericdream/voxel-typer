@@ -30,8 +30,12 @@ function toastGaps(log: readonly Spoken[]): number[] {
     if (m.region === "page") lastPage = m.at;
     else gaps.push(m.at - lastPage);
   }
-  for (const gap of gaps)
-    expect(gap, "a toast read too soon after a route change").toBeGreaterThanOrEqual(TOAST_GAP_MS);
+  const told = JSON.stringify(log);
+  for (const gap of gaps) {
+    expect(gap, `a toast read too soon after a page message: ${told}`).toBeGreaterThanOrEqual(
+      TOAST_GAP_MS,
+    );
+  }
   return gaps;
 }
 
@@ -217,8 +221,8 @@ test("a badge toast that comes with Results is read a second after Results is", 
   if (results === undefined || toast === undefined) throw new Error("no results and toast pair");
   // They came together, and the toast waited its second.
   const gap = toast.at - results.at;
-  expect(gap).toBeGreaterThanOrEqual(TOAST_GAP_MS);
-  expect(gap).toBeLessThan(3000);
+  expect(gap, JSON.stringify(log)).toBeGreaterThanOrEqual(TOAST_GAP_MS);
+  expect(gap, JSON.stringify(log)).toBeLessThan(3000);
   toastGaps(log);
   expect(errors).toEqual([]);
 });
