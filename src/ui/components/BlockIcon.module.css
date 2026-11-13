@@ -1,0 +1,37 @@
+/* Fills its box; the box's size is the caller's. */
+.icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.icon img {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  user-select: none;
+}
+
+/* The flat tile is a square; inset it so it sits about as big as a cube icon. */
+.icon[data-icon="flat"] img {
+  width: 70%;
+  height: 70%;
+}
+
+/* Not found yet: the block's outline only, soft and dark, with the mark on top. */
+.icon[data-unknown] img {
+  filter: brightness(0);
+  opacity: 0.3;
+}
+
+.mark {
+  grid-area: 1 / 1;
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-xl) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1;
+  color: var(--c-text);
+}

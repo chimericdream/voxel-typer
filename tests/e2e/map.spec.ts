@@ -268,7 +268,7 @@ test.describe("the heading never covers a corner button (M3-FIX-4 (c), M3-FIX-8)
         { name: "hint", el: page.getByText("Pick an island. Press Enter to go in.") },
       ];
       const corner = page.locator("#app header ~ div button");
-      await expect(corner).toHaveCount(4);
+      await expect(corner).toHaveCount(5);
       const problems: string[] = [];
       for (const width of [1024, 1100, 1101, 1180, 1280, 1366, 1440, 1536, 1600, 1680, 1920]) {
         await page.setViewportSize({ width, height: 720 });

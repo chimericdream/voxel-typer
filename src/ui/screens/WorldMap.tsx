@@ -199,6 +199,12 @@ const CORNER_ICONS = {
     [3, 10, 4, 4],
     [9, 10, 4, 4],
   ],
+  // Three stacked blocks.
+  blocks: [
+    [5, 1, 6, 6],
+    [1, 8, 6, 6],
+    [9, 8, 6, 6],
+  ],
   // A floating island with a tree.
   island: [
     [6, 1, 6, 4],
@@ -228,7 +234,7 @@ const isNarrow = (): boolean =>
 export const LONG_PRESS_MS = 500;
 
 /**
- * A corner button. In a wide window it shows its words. In a narrow one (1100 px or less) the four
+ * A corner button. In a wide window it shows its words. In a narrow one (1100 px or less) the five
  * buttons would wrap onto a second row at large text and crowd the island labels, so there each
  * shows its picture and keeps its words for screen readers and as a tip. The text size setting is
  * never overridden: the picture grows with it.
@@ -593,7 +599,7 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
 
   // The heading's plates stop short of the corner buttons (`--corner-w` in the CSS), so at 1024 px
   // the hint wraps under the title instead of covering Change player (M4-FIX-1). When the buttons
-  // leave the heading too little room beside them (large text: the four word buttons fill most of
+  // leave the heading too little room beside them (large text: the five word buttons fill most of
   // a 1280 px row), the heading moves below them instead (`data-stack`, `--corner-h`; M3-FIX-4).
   const cornerShown = openInfo === null;
   const camp = openInfo === null ? null : practiceCamp(profile, app.lessons, openInfo.biome);
@@ -749,6 +755,11 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
             icon="badges"
             label={t("achievements.title")}
             onClick={() => app.navigate({ id: "achievements" })}
+          />
+          <CornerButton
+            icon="blocks"
+            label={t("inventory.title")}
+            onClick={() => app.navigate({ id: "inventory" })}
           />
           <CornerButton
             icon="island"

@@ -69,4 +69,5 @@ export const screens: Partial<Record<RouteId, ScreenLoader>> = {
   settings: () => import("@/ui/screens/Settings"),
   achievements: () => import("@/ui/screens/Achievements"),
   parent: () => import("@/ui/screens/Parent"),
+  inventory: () => import("@/ui/screens/Inventory"),
 };

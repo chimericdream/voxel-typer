@@ -102,7 +102,7 @@
 }
 
 /*
- * Four buttons (My Island came with M4-07) don't fit one row in a narrow window at large text,
+ * Five buttons (My Island came with M4-07, My Blocks with M4-09) don't fit one row in a narrow window at large text,
  * and a second row takes the island labels' room. There each button shows its picture; its words
  * stay for screen readers. Text size is untouched: the picture scales with it.
  */

@@ -1,0 +1,432 @@
+/*
+ * My Blocks (M4-09). The page is exactly as tall as the window, so the grid takes the room the
+ * title, filters, cue and Back leave and scrolls inside it, as My Badges does (M3-FIX-8). The
+ * panel about the chosen block sits beside the grid; a grid that fits keeps its own height.
+ */
+.page {
+  height: 100%;
+  min-height: 0;
+  gap: var(--sp-4);
+  /* In a very short window the page scrolls; "safe" keeps the title reachable at the top. */
+  justify-content: safe center;
+}
+
+/* The title and the count, in one row while they fit. */
+.head {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2) var(--sp-5);
+  max-width: 100%;
+}
+
+/* The two filters, in one row while they fit. */
+.bar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2) var(--sp-5);
+  max-width: 100%;
+}
+
+.count {
+  margin: 0;
+  padding: var(--sp-1) var(--sp-3);
+  background-color: var(--c-plate);
+  color: var(--c-plate-text);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.filter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-3);
+  background-color: var(--c-plate);
+  color: var(--c-plate-text);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.select {
+  min-height: calc(2rem * var(--text-scale));
+  padding: 0 var(--sp-2);
+  border: var(--bevel-unit) solid var(--c-button-outline);
+  border-radius: 0;
+  background-color: var(--c-button);
+  color: var(--c-button-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.select:focus-visible {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+  box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
+}
+
+/* The grid and the panel about the chosen block. */
+.body {
+  display: flex;
+  flex: 0 1 auto;
+  gap: var(--sp-4);
+  width: min(64rem, 100%);
+  /* Never less than about one row of slots; below that the page scrolls instead. */
+  min-height: calc(7rem * var(--text-scale));
+}
+
+/* Holds the grid and its fade. Focus rings are drawn by each slot, inside the fade's padding. */
+.frame {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: calc(6rem * var(--text-scale));
+  min-height: 0;
+}
+
+.scroll {
+  /* Short enough that the one row left at text scale 2 stays readable. */
+  --fade: min(calc(3rem * var(--text-scale)), 20%);
+
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* A cut edge fades out, so a slot cut in half reads as "there is more", not as the end. */
+.scroll[data-below] {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent);
+}
+
+.scroll[data-above] {
+  mask-image: linear-gradient(to top, #000 calc(100% - var(--fade)), transparent);
+}
+
+.scroll[data-above][data-below] {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--fade),
+    #000 calc(100% - var(--fade)),
+    transparent
+  );
+}
+
+.grid {
+  display: grid;
+  /*
+   * Square slots, as many to a row as fit. The root font size never scales (tokens.css), so the
+   * slot size multiplies by --text-scale itself: fewer, bigger slots at large text.
+   */
+  grid-template-columns: repeat(auto-fill, minmax(calc(4.5rem * var(--text-scale)), 1fr));
+  gap: var(--sp-3);
+  margin: 0;
+  /* Room for the focus ring and the selected outline inside the scroll area. */
+  padding: calc(var(--focus-w) + var(--focus-halo-w) + var(--sp-1));
+  list-style: none;
+  box-sizing: border-box;
+}
+
+.slot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  aspect-ratio: 1;
+  padding: var(--sp-2);
+  border: var(--bevel-w) solid var(--c-panel-outline);
+  border-image: var(--bevel-panel, none) var(--bevel-slice) fill / var(--bevel-w) repeat;
+  background-color: var(--c-panel);
+  background-clip: padding-box;
+  color: var(--c-text);
+  cursor: pointer;
+  image-rendering: pixelated;
+}
+
+.slotIcon {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+ * Rare and super rare: an inner ring in the accent color, a double one for super rare. Drawn on a
+ * layer over the slot's face, since the bevel image fills the face and would hide an inset shadow.
+ */
+.slot[data-rarity="rare"]::after,
+.slot[data-rarity="epic"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: var(--bevel-unit) solid var(--c-accent);
+  pointer-events: none;
+}
+
+.slot[data-rarity="epic"]::after {
+  border-width: calc(var(--bevel-unit) * 3);
+  border-style: double;
+}
+
+.bigIcon[data-rarity="rare"] {
+  box-shadow: inset 0 0 0 var(--bevel-unit) var(--c-accent);
+}
+
+.bigIcon[data-rarity="epic"] {
+  box-shadow:
+    inset 0 0 0 var(--bevel-unit) var(--c-accent),
+    inset 0 0 0 calc(var(--bevel-unit) * 2) var(--c-accent-edge),
+    inset 0 0 0 calc(var(--bevel-unit) * 3) var(--c-accent);
+}
+
+/* Chosen: a thick outline in the selection color and a corner notch, so it isn't color only. */
+.slot[aria-selected="true"] {
+  outline: var(--bevel-unit) solid var(--c-selected);
+  outline-offset: 0;
+}
+
+.slot[aria-selected="true"]::before {
+  content: "";
+  position: absolute;
+  top: calc(var(--bevel-w) * -1);
+  left: calc(var(--bevel-w) * -1);
+  width: calc(var(--bevel-unit) * 4);
+  height: calc(var(--bevel-unit) * 4);
+  background: var(--c-selected);
+}
+
+.slot:focus-visible {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+  box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
+}
+
+/* How rare, as 1–4 small gems along the top: never color alone. */
+.pips {
+  display: inline-flex;
+  gap: var(--bevel-unit);
+}
+
+.slot .pips {
+  position: absolute;
+  top: var(--bevel-unit);
+  right: var(--bevel-unit);
+}
+
+.pip {
+  width: calc(var(--bevel-unit) * 2 * var(--text-scale));
+  height: calc(var(--bevel-unit) * 2 * var(--text-scale));
+  background: var(--c-accent);
+  box-shadow: 0 0 0 1px var(--c-accent-edge);
+  forced-color-adjust: none;
+}
+
+/* The count, bottom right, always shown for a found block (0 too: it is on the island). */
+.badge {
+  position: absolute;
+  right: calc(var(--bevel-w) * -1 + 1px);
+  bottom: calc(var(--bevel-w) * -1 + 1px);
+  min-width: 1.4em;
+  padding: 0 var(--sp-1);
+  background: var(--c-badge);
+  color: var(--c-badge-text);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.badge::after {
+  content: attr(data-count);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--sp-4);
+  background-color: var(--c-plate);
+  color: var(--c-plate-text);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  line-height: 1.4;
+  text-align: center;
+}
+
+/* The panel about the chosen block. Scrolls (and takes focus) only when its words don't fit. */
+.details {
+  --fade: min(calc(2rem * var(--text-scale)), 20%);
+
+  display: flex;
+  flex: 0 1 calc(13rem * var(--text-scale));
+  flex-direction: column;
+  gap: var(--sp-2);
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: var(--sp-4);
+  border: var(--bevel-w) solid var(--c-panel-outline);
+  border-image: var(--bevel-panel, none) var(--bevel-slice) fill / var(--bevel-w) repeat;
+  background-color: var(--c-panel);
+  background-clip: padding-box;
+  color: var(--c-text);
+}
+
+.details[data-below] {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent);
+}
+
+.details:focus-visible {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: var(--focus-halo-w);
+  box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
+}
+
+.detailHead {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.bigIcon {
+  flex: none;
+  box-sizing: border-box;
+  width: calc(3rem * var(--text-scale));
+  height: calc(3rem * var(--text-scale));
+  padding: var(--sp-1);
+}
+
+.detailName {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-lg) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.detailText {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+/* The cue over Back. */
+.foot {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+/* "More blocks below ↓": a plate like the map's, so it reads on the sky and in every theme. */
+.more {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-3);
+  border: var(--bevel-unit) solid var(--c-plate-text);
+  background-color: var(--c-plate);
+  color: var(--c-plate-text);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1.3;
+  cursor: pointer;
+  visibility: hidden;
+}
+
+.more[data-show] {
+  visibility: visible;
+}
+
+/* A blocky down arrow in the text colour. Three small hops when it appears; none with reduced motion. */
+.arrow {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  background-color: currentcolor;
+  clip-path: polygon(33% 0, 67% 0, 67% 50%, 100% 50%, 50% 100%, 0 50%, 33% 50%);
+  forced-color-adjust: none;
+  animation: hop calc(0.6s * var(--motion-ok)) steps(3) 3;
+}
+
+@keyframes hop {
+  50% {
+    transform: translateY(0.2em);
+  }
+}
+
+/* Forced colours drop the plates' and the gems' colours; keep visible edges. */
+@media (forced-colors: active) {
+  .more,
+  .select {
+    border-color: CanvasText;
+  }
+
+  .pip {
+    background: CanvasText;
+  }
+
+  .slot[aria-selected="true"] {
+    outline-color: Highlight;
+  }
+}
+
+/*
+ * A short window (1024×600 and the like): tighter edges, and the cue sits beside Back, so the
+ * grid keeps room for a whole row at text scale 2.
+ */
+@media (max-height: 640px) {
+  .page {
+    gap: var(--sp-2);
+    padding-block: var(--sp-2);
+  }
+
+  .title {
+    font-size: calc(var(--fs-lg) * var(--text-scale));
+  }
+
+  .count,
+  .filter {
+    font-size: calc(var(--fs-sm) * var(--text-scale));
+  }
+
+  .foot {
+    flex-flow: row wrap;
+    justify-content: center;
+    gap: var(--sp-3);
+  }
+
+  .details {
+    padding: var(--sp-3);
+  }
+}
+
+/* A narrow window: the panel goes under the grid. */
+@media (max-width: 640px) {
+  .body {
+    flex-direction: column;
+  }
+
+  .details {
+    flex: none;
+  }
+}
