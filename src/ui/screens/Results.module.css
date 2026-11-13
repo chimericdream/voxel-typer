@@ -146,3 +146,84 @@
     scale: 1;
   }
 }
+
+/*
+ * Badge toasts show on this dock, under the buttons (M3-FIX-12), so they never cover the card or
+ * the buttons. It is an empty, zero-height mark out of the row's flow: the toast is fixed and
+ * measures it (`AchievementToast`), so the buttons never move when a toast comes or goes.
+ */
+.actions {
+  position: relative;
+}
+
+.toastDock {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.stars {
+  display: flex;
+  justify-content: center;
+}
+
+/*
+ * A short window (1024×600, 1280×720; M3-FIX-12). The whole screen, heading first, fits without
+ * scrolling at text scale 1 and at Sprout's 1.5, two rows of finds included, so focusing "Next
+ * lesson" on arrival never scrolls the heading off. The screen sits at the top, and the room left
+ * goes under the buttons, where the badge toast shows. The title, the stars and the find slots
+ * step down a size, and the gaps tighten. Text keeps its size.
+ */
+@media (max-height: 760px) {
+  .page.page {
+    justify-content: flex-start;
+    gap: var(--sp-3);
+    padding-top: var(--sp-3);
+  }
+
+  .title.title {
+    font-size: calc(var(--fs-lg) * var(--text-scale));
+  }
+
+  .card {
+    gap: var(--sp-2);
+    padding-block: var(--sp-3);
+  }
+
+  /* Over the kit's `.stars[data-size="lg"] .star` (three classes), hence the repeated class. */
+  .stars.stars.stars svg {
+    width: calc(52px * var(--text-scale));
+    height: calc(52px * var(--text-scale));
+  }
+
+  .slots {
+    --slot-base: 40px;
+  }
+}
+
+/*
+ * A very short window (1024×600): one more step, so the compact badge toast fits under the buttons
+ * for a Sprout (text scale 1.5) with three stars and two rows of finds (M3-FIX-12 review B2).
+ */
+@media (max-height: 640px) {
+  .page.page {
+    gap: var(--sp-2);
+    padding-top: var(--sp-2);
+  }
+
+  .card {
+    padding-block: var(--sp-2);
+  }
+
+  .stars.stars.stars svg {
+    width: calc(44px * var(--text-scale));
+    height: calc(44px * var(--text-scale));
+  }
+
+  .slots {
+    --slot-base: 36px;
+  }
+}

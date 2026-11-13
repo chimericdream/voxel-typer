@@ -9,8 +9,12 @@
  *
  * The screen comes up while a child may still be typing. For a short moment the buttons ignore
  * presses, so a stray Space or Enter can't skip past the stars.
+ *
+ * Badge toasts (M3-FIX-12): the page holds them back (`data-toast-hold`) until the stars, and a
+ * personal-best plate, have filled in; with reduced motion there is nothing to wait for. A dock
+ * under the buttons (`data-toast-dock`) is where they show, so they never cover the card.
  */
-import { useEffect, useMemo, useRef } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { ScreenProps } from "@/app/types";
 import { blocks } from "@/content/blocks";
 import { createRng } from "@/engine/rng";
@@ -38,6 +42,20 @@ export const STAR_STEP_MS = 350;
 export const STAR_LAND_MS = 300;
 /** Presses are ignored this long after the screen appears. */
 export const ARM_MS = 700;
+/** The personal-best plate pops in after the stars (`.best` in Results.module.css). */
+export const BEST_DELAY_MS = 1050;
+/** The kit Stars' fill and the plate's pop each take `--t-slow`. */
+export const FILL_MS = 450;
+
+/**
+ * How long the stars (and the personal-best plate) take to fill in, from the screen's arrival:
+ * badge toasts wait this long (M3-FIX-12). 0 with reduced motion, since then nothing moves.
+ */
+export function fillInMs(stars: number, best: boolean, reduced: boolean): number {
+  if (reduced) return 0;
+  const lastStar = stars > 0 ? (stars - 1) * STAR_STEP_MS + FILL_MS : 0;
+  return Math.max(lastStar, best ? BEST_DELAY_MS + FILL_MS : 0);
+}
 
 const icons = new Map<string, string>();
 
@@ -90,6 +108,24 @@ export default function Results({ app, route }: ScreenProps) {
     return () => timers.forEach(clearTimeout);
   }, [app, stars]);
 
+  // Badge toasts wait while the stars fill in. Planned once, on arrival; a switch to reduced motion
+  // stops the pictures at once, so it ends the wait too.
+  const best =
+    result !== null && lesson !== null && profile !== null
+      ? isPersonalBest(profile, lesson.id, result.summary)
+      : false;
+  const fillAtStart = useRef(fillInMs(stars, best, reduced));
+  const [filling, setFilling] = useState(fillAtStart.current > 0);
+  useEffect(() => {
+    if (!filling) return undefined;
+    if (reduced) {
+      setFilling(false);
+      return undefined;
+    }
+    const timer = setTimeout(() => setFilling(false), fillAtStart.current);
+    return () => clearTimeout(timer);
+  }, [filling, reduced]);
+
   const loot = useMemo(() => lootRows(result?.loot ?? {}), [result]);
   const next = lesson ? nextLesson(app.lessons, lesson) : null;
   const band = profile?.ageBand ?? "miner";
@@ -117,28 +153,30 @@ export default function Results({ app, route }: ScreenProps) {
     return (
       <div class={screen.screen}>
         <p class={styles.message}>{t("screens.results.none")}</p>
-        <div class={screen.actions} ref={actions}>
+        <div class={`${screen.actions} ${styles.actions}`} ref={actions}>
           <Button variant="primary" onClick={() => app.navigate({ id: "map" }, { replace: true })}>
             {t("screens.results.map")}
           </Button>
+          <div class={styles.toastDock} data-toast-dock aria-hidden="true" />
         </div>
       </div>
     );
   }
 
   const aim = aimLine(result.summary.accuracy, band);
-  const best = profile !== null && isPersonalBest(profile, lesson.id, result.summary);
 
   return (
-    <div class={`${screen.screen} ${styles.page}`}>
-      <h1 class={screen.title}>{t("screens.results.title")}</h1>
+    <div class={`${screen.screen} ${styles.page}`} data-toast-hold={filling ? "stars" : undefined}>
+      <h1 class={`${screen.title} ${styles.title}`}>{t("screens.results.title")}</h1>
       <div class={styles.card}>
-        <Stars
-          value={stars}
-          size="lg"
-          animate={!reduced}
-          label={t("screens.results.stars", { count: stars })}
-        />
+        <div class={styles.stars}>
+          <Stars
+            value={stars}
+            size="lg"
+            animate={!reduced}
+            label={t("screens.results.stars", { count: stars })}
+          />
+        </div>
         {best ? <p class={styles.best}>{t("screens.results.best")}</p> : null}
         <p class={styles.message}>{messageText(stars, band)}</p>
         {aim ? <p class={styles.aim}>{t(aim.key, { pct: aim.pct })}</p> : null}
@@ -184,6 +222,8 @@ export default function Results({ app, route }: ScreenProps) {
         <Button size="lg" onClick={map}>
           {t("screens.results.map")}
         </Button>
+        {/* Badge toasts show here, under the buttons (M3-FIX-12). It takes no room of its own. */}
+        <div class={styles.toastDock} data-toast-dock aria-hidden="true" />
       </div>
     </div>
   );
