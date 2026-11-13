@@ -28,6 +28,7 @@ import {
   putCell,
   stampOrigin,
   startCursor,
+  restorePalette,
   steadyPalette,
   turn,
 } from "../../../../src/modes/builder/logic";
@@ -202,9 +203,94 @@ describe("palette", () => {
       "sand",
       "clay",
     ]);
-    expect(steadyPalette([], { dirt: 1, cobble: 30 }, order, 1)).toEqual(["cobble"]);
+    expect(steadyPalette([], { dirt: 1, cobble: 30 }, order, { n: 1 })).toEqual(["cobble"]);
     // The block in hand keeps its slot when it runs out.
-    expect(steadyPalette(shown, { dirt: 0, cobble: 30, sand: 5 }, order, 6, "dirt")).toEqual(shown);
+    expect(steadyPalette(shown, { dirt: 0, cobble: 30, sand: 5 }, order, { held: "dirt" })).toEqual(
+      shown,
+    );
+  });
+
+  it("a block just dug, and the block in hand, always get a slot (M4-FIX-1)", () => {
+    const six = ["dirt", "cobble", "planks", "glass", "brick", "sand"];
+    const inv = { dirt: 9, cobble: 9, planks: 8, glass: 7, brick: 6, sand: 5, grass: 1, clay: 2 };
+    // Without them a single grass never outranks six kinds owned by the handful.
+    expect(steadyPalette(six, inv, order)).toEqual(six);
+    // Dug: it takes the last slot, the others stay put.
+    expect(steadyPalette(six, inv, order, { held: "dirt", picked: "grass" })).toEqual([
+      "dirt",
+      "cobble",
+      "planks",
+      "glass",
+      "brick",
+      "grass",
+    ]);
+    // In hand (armed by name), and dug, at once: the last two slots that are neither.
+    expect(steadyPalette(six, inv, order, { held: "clay", picked: "grass" })).toEqual([
+      "dirt",
+      "cobble",
+      "planks",
+      "glass",
+      "grass",
+      "clay",
+    ]);
+    // Already shown: nothing moves.
+    expect(steadyPalette(six, inv, order, { held: "sand", picked: "dirt" })).toEqual(six);
+    // Room to spare: it is simply added.
+    expect(
+      steadyPalette(["dirt"], { dirt: 3, grass: 1 }, order, { held: "dirt", picked: "grass" }),
+    ).toEqual(["dirt", "grass"]);
+    // Only placeable blocks get a slot.
+    expect(
+      steadyPalette(six, { ...inv, water: 1 }, order, { held: null, picked: "water" }),
+    ).toEqual(six);
+  });
+
+  it("in a full palette a new block takes the least recently used slot (review of M4-FIX-1)", () => {
+    // A bag of six kinds owned by the dozen, and a hole dug down through grass, dirt and stone.
+    const order2 = [...order, "stone"];
+    const six = ["cobble", "planks", "glass", "brick", "sand", "clay"];
+    let inv: Record<string, number> = {
+      cobble: 30,
+      planks: 20,
+      glass: 18,
+      brick: 14,
+      sand: 12,
+      clay: 10,
+    };
+    const used = new Map<string, number>();
+    let shown = steadyPalette([], inv, order2, { held: "cobble" });
+    expect(shown).toEqual(six);
+    let tick = 0;
+    const dig = (id: string): void => {
+      inv = { ...inv, [id]: (inv[id] ?? 0) + 1 };
+      used.set(id, ++tick);
+      shown = steadyPalette(shown, inv, order2, { held: "cobble", picked: id, used });
+    };
+    dig("grass");
+    dig("dirt");
+    dig("stone");
+    // All three dug blocks are in view; the three least used slots made room, last first.
+    expect(shown).toEqual(["cobble", "planks", "glass", "stone", "dirt", "grass"]);
+    // A block used this visit outlives one that wasn't: planks, once placed, stays.
+    used.set("planks", ++tick);
+    dig("clay");
+    expect(shown).toEqual(["cobble", "planks", "clay", "stone", "dirt", "grass"]);
+    // And the slots survive a reload when saved: restored as they were.
+    expect(restorePalette(shown, inv, order2)).toEqual(shown);
+    expect(
+      steadyPalette(restorePalette(shown, inv, order2), inv, order2, { held: "cobble" }),
+    ).toEqual(shown);
+  });
+
+  it("a saved palette is made safe: unknown, used-up, repeated and extra ids are dropped", () => {
+    const inv = { dirt: 2, cobble: 0, grass: 1, sand: 4, clay: 1, brick: 1, glass: 1, planks: 1 };
+    expect(restorePalette(["dirt", "nope", "cobble", "dirt", "grass", 7], inv, order)).toEqual([
+      "dirt",
+      "grass",
+    ]);
+    expect(restorePalette(order, inv, order)).toHaveLength(6);
+    expect(restorePalette(undefined, inv, order)).toEqual([]);
+    expect(restorePalette("dirt", inv, order)).toEqual([]);
   });
 });
 
@@ -297,6 +383,22 @@ describe("what Builder tells the play host", () => {
       { island: { grid: null, expansions: 0, lastEdited: 0 }, inventory: {} },
     ];
     for (const v of bad) expect(islandPatchOf(v), JSON.stringify(v)).toBeNull();
+  });
+
+  it("keeps a patch's palette slots when they are a short list of ids, and drops them otherwise", () => {
+    const inventory = { grass: 1 };
+    const slots = { island: { ...island, palette: ["grass", "dirt"] }, inventory };
+    expect(islandPatchOf(slots)).toEqual(slots);
+    // A bad palette never stops the island being saved: it is only left out.
+    for (const palette of ["grass", [1], ["a", "b", "c", "d", "e", "f", "g"], [""]]) {
+      expect(
+        islandPatchOf({ island: { ...island, palette }, inventory }),
+        JSON.stringify(palette),
+      ).toEqual({
+        island,
+        inventory,
+      });
+    }
   });
 
   it("a patch changes the island and the bag, and nothing else", () => {

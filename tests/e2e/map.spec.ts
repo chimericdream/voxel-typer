@@ -338,4 +338,32 @@ test.describe("baselines", () => {
     await expect(page).toHaveScreenshot("map-lesson-path.png", { timeout: 30_000 });
     expect(errors).toEqual([]);
   });
+
+  test("the narrow corner: pictures, no overlap with the hint, and a button's words as a tip on focus (M4-FIX-1)", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1024, height: 720 });
+    const errors = await openMap(page, "fresh-sprout", "&freeze=1");
+    await expect(island(page, "Meadow Home")).toBeFocused();
+    const home = page.getByRole("button", { name: "My Island" });
+    const words = home.getByText("My Island");
+    // At 1100 px or less the words are only for screen readers until the button is focused.
+    expect((await words.boundingBox())?.width ?? 0).toBeLessThan(2);
+    // The hint wraps under the title rather than covering the first corner button (M4-FIX-1).
+    const hint = await page.getByText("Pick an island. Press Enter to go in.").boundingBox();
+    const players = await page.getByRole("button", { name: "Change player" }).boundingBox();
+    if (hint === null || players === null) throw new Error("hint or corner button not on screen");
+    const apart =
+      hint.x + hint.width <= players.x ||
+      players.x + players.width <= hint.x ||
+      hint.y + hint.height <= players.y ||
+      players.y + players.height <= hint.y;
+    expect(apart).toBe(true);
+    await home.focus();
+    await expect(home).toBeFocused();
+    await expect.poll(async () => (await words.boundingBox())?.width ?? 0).toBeGreaterThan(40);
+    await settle(page);
+    await expect(page).toHaveScreenshot("map-narrow-corner.png", { timeout: 30_000 });
+    expect(errors).toEqual([]);
+  });
 });

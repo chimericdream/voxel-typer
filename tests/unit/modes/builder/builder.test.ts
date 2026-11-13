@@ -2,6 +2,7 @@
  * Builder mode end to end, without a renderer (task M4-07): the real command line, island
  * editor, typing session, HUD store and play host, on a fake scene whose `three` is null.
  */
+import * as fc from "fast-check";
 import { describe, expect, it, vi } from "vitest";
 import { createSilentAudio } from "../../../../src/app/audio";
 import { createBreakReminder } from "../../../../src/app/break-reminder";
@@ -353,6 +354,163 @@ describe("builder: putting and digging", () => {
   });
 });
 
+/** The palette's blocks, in slot order. */
+const slots = (x: Visit): string[] => x.hud().palette.map((p) => p.block);
+
+/** Island blocks plus the bag, per block id. */
+const totals = (p: Profile): Record<string, number> => {
+  const out: Record<string, number> = { ...countBlocks(saved(p), lookup) };
+  for (const [id, n] of Object.entries(p.inventory)) out[id] = (out[id] ?? 0) + n;
+  return out;
+};
+
+describe("builder: every dug block lands in the bag and the palette (M4-FIX-1)", () => {
+  /** Six kinds, each owned by the dozen: a full palette with no grass in it. */
+  const full = {
+    cobble: 30,
+    "oak-planks": 20,
+    stone: 18,
+    dirt: 16,
+    brick: 14,
+    glass: 12,
+  };
+
+  it("grass dug with a full palette and none in the bag shows up, and is saved", async () => {
+    const v = await visit(withBlocks(miner, full));
+    expect(v.hud().palette.map((p) => p.block)).not.toContain("grass");
+    v.type("dig");
+    expect(v.grid().get(START.x, START.y - 1, START.z)).toBe(0);
+    const grass = v.hud().palette.find((p) => p.block === "grass");
+    expect(grass).toMatchObject({ count: 1, word: "grass" });
+    expect(v.hud().palette).toHaveLength(6);
+    // The block in hand keeps its slot; the least-owned block makes room.
+    expect(v.hud().palette.map((p) => p.block)).toContain("cobble");
+    expect(v.hud().palette.map((p) => p.block)).not.toContain("glass");
+    // Typing on doesn't push it out again.
+    v.type("west 1");
+    expect(v.hud().palette.map((p) => p.block)).toContain("grass");
+
+    v.play.quit();
+    await flush();
+    const p = v.profile();
+    expect(p.inventory).toEqual({ ...full, grass: 1 });
+    // Nothing gone: the island plus the bag are what they were, block by block.
+    const fresh = VoxelGrid.fromJSON(createIsland(miner.id, lookup, 0).grid);
+    const before: Record<string, number> = { ...countBlocks(fresh, lookup) };
+    for (const [id, n] of Object.entries(full)) before[id] = (before[id] ?? 0) + n;
+    expect(totals(p)).toEqual(before);
+  });
+
+  it("digging down through grass and dirt keeps each, and the next visit opens with them", async () => {
+    const v = await visit(withBlocks(miner, full));
+    v.type("digdigdig");
+    v.play.quit();
+    await flush();
+    const after = v.profile();
+    expect(after.inventory["grass"]).toBe(1);
+    expect(after.inventory["dirt"]).toBe(full.dirt + 2);
+    const again = await visit(after);
+    expect(again.hud().palette.map((p) => p.block)).toContain("dirt");
+    again.type("grass");
+    expect(again.hud().armed).toBe("grass");
+    expect(again.hud().palette.find((p) => p.block === "grass")?.count).toBe(1);
+  });
+
+  it("digging a hole in a full palette keeps every new kind in view, and after a reopen (review)", async () => {
+    // The reviewer's bag: six kinds, no grass and no dirt.
+    const bag = { cobble: 30, "oak-planks": 20, stone: 18, brick: 14, glass: 12, sand: 10 };
+    const v = await visit(withBlocks(miner, bag));
+    v.type("dig");
+    expect(slots(v)).toContain("grass");
+    v.type("dig");
+    expect(slots(v)).toEqual(expect.arrayContaining(["grass", "dirt"]));
+    expect(slots(v)).toHaveLength(6);
+    const shown = slots(v);
+    v.play.quit();
+    await flush();
+    const after = v.profile();
+    expect(after.inventory).toMatchObject({ grass: 1, dirt: 1 });
+    // The slots are saved with the island, and the next visit opens with them.
+    expect(after.island?.palette).toEqual(shown);
+    const again = await visit(after);
+    expect(slots(again)).toEqual(shown);
+    expect(slots(again)).toEqual(expect.arrayContaining(["grass", "dirt"]));
+  });
+
+  it("after any run of digs and moves, the newest dug kinds are all in the palette (property)", async () => {
+    const bag = { cobble: 30, "oak-planks": 20, stone: 18, brick: 14, glass: 12, sand: 10 };
+    const words = ["east 1", "west 1", "north 1", "south 1", "dig", "dig", "dig"] as const;
+    await fc.assert(
+      fc.asyncProperty(
+        fc.array(fc.constantFrom(...words), { minLength: 1, maxLength: 12 }),
+        async (typed) => {
+          const v = await visit(withBlocks(miner, bag));
+          /** Kinds dug, newest last, each once. */
+          const dug: string[] = [];
+          for (const w of typed) {
+            const g = v.grid();
+            const before = Array.from(g.data);
+            v.type(w);
+            const at = before.findIndex((n, i) => n !== 0 && g.data[i] === 0);
+            const id = at === -1 ? undefined : lookup.idOf(before[at] ?? 0);
+            if (id !== undefined) dug.splice(0, dug.length, ...dug.filter((d) => d !== id), id);
+            // The block in hand keeps one slot; the five newest dug kinds have the rest.
+            const now = slots(v);
+            for (const kind of dug.slice(-5))
+              expect(now, `${typed.join(",")}: ${kind}`).toContain(kind);
+          }
+        },
+      ),
+      { seed: 184, numRuns: 25 },
+    );
+  });
+
+  it("a block armed by name from outside a full palette gets a slot", async () => {
+    const v = await visit(withBlocks(miner, { ...full, sand: 2 }));
+    expect(v.hud().palette.map((p) => p.block)).not.toContain("sand");
+    v.type("sand");
+    expect(v.hud().armed).toBe("sand");
+    expect(v.hud().palette.find((p) => p.block === "sand")?.count).toBe(2);
+    expect(v.hud().palette).toHaveLength(6);
+  });
+
+  it("water is left where it is, with a kind word, and nothing changes", async () => {
+    const v = await visit(miner);
+    const g = v.grid();
+    const water = num("water");
+    let at: { x: number; z: number } | null = null;
+    for (let z = 0; z < g.sz && at === null; z++) {
+      for (let x = 0; x < g.sx; x++) {
+        if (g.get(x, 4, z) === water) {
+          at = { x, z };
+          break;
+        }
+      }
+    }
+    if (at === null) throw new Error("no pond");
+    // Walk there in steps of up to 9, then stand one above the water.
+    const walk = (d: number, plus: string, minus: string): void => {
+      for (let left = Math.abs(d); left > 0; left -= 9) {
+        v.type(`${d > 0 ? plus : minus} ${Math.min(9, left)}`);
+      }
+    };
+    walk(at.x - START.x, "east", "west");
+    walk(at.z - START.z, "south", "north");
+    expect(v.hud().layer).toBe(START.y + 1);
+    v.type("dig");
+    expect(v.hud().hint).toEqual({
+      key: "builder.hint.cantPickUp",
+      params: { name: "Water" },
+      tone: "info",
+    });
+    expect(g.get(at.x, 4, at.z)).toBe(water);
+    expect(v.hud().undo).toBe(0);
+    v.play.quit();
+    await flush();
+    expect(v.profile().island).toBeNull();
+  });
+});
+
 describe("builder: the habit space (review B1)", () => {
   it("planks put east 2 put, typed with spaces: two blocks, not five", async () => {
     const v = await visit(miner);
@@ -385,11 +543,28 @@ describe("builder: the habit space (review B1)", () => {
   it("after a moment's wait, Space is put again", async () => {
     const v = await visit(miner);
     v.type("put");
-    v.run(HABIT_MS - 200);
+    v.run(HABIT_MS.miner - 200);
     v.type(" ");
     expect(v.hud().undo).toBe(1);
     v.type("put");
-    v.run(HABIT_MS + 200);
+    v.run(HABIT_MS.miner + 200);
+    v.type(" ");
+    expect(v.hud().undo).toBe(3);
+  });
+
+  it("the wait depends on the band: a Sprout gets longest (review N-A)", () => {
+    expect(HABIT_MS).toEqual({ sprout: 3000, miner: 2000, builder: 1500 });
+  });
+
+  it("a slow Sprout's Space after a look at the island is still the habit space", async () => {
+    const v = await visit(withBlocks(sprout, { dirt: 5 }));
+    v.type("put");
+    // Longer than a Miner's window, inside a Sprout's.
+    v.run(HABIT_MS.miner + 500);
+    v.type(" ");
+    expect(v.hud().undo).toBe(1);
+    v.type("put");
+    v.run(HABIT_MS.sprout + 200);
     v.type(" ");
     expect(v.hud().undo).toBe(3);
   });

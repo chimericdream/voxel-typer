@@ -2,7 +2,9 @@
  * Builder mode (task M4-07, PLAN.md §3.2.4): the child builds on their Home Island by typing.
  * Words are commands (`commands.ts`): a block's name arms it, `put` places it at the cursor, `dig`
  * takes a block back, directions move the cursor, `undo` steps back. Nothing can be lost: every
- * block dug goes to the inventory, every edit can be undone, and no key is ever an error.
+ * block dug goes to the inventory as itself and shows in the palette (grass stays grass, as the
+ * Mine hands it out), every edit can be undone, and no key is ever an error. Water is the one
+ * block `dig` leaves alone: it isn't placeable and drops nothing, so no slot could show it.
  *
  * This file is the wiring. The command line is `commands.ts` and the cursor rules are `logic.ts`
  * (both pure); the cursor and ghost are `view.ts`; the HUD is `BuilderHud.tsx`, fed through
@@ -36,7 +38,7 @@ import type { EngineEvent, KeyInput, SessionView } from "@/engine/types";
 import { t } from "@/i18n";
 import type { Atlas } from "@/render/atlas/build";
 import type { CameraRig, SceneHandle } from "@/render/types";
-import type { BlockId, Ms } from "@/types/core";
+import type { AgeBand, BlockId, Ms } from "@/types/core";
 import type { ModeContext, ModeInstance } from "../types";
 import { blueprintsFor } from "./blueprints";
 import type { BuilderBlueprint } from "./blueprints";
@@ -71,6 +73,7 @@ import {
   putCell,
   stampOrigin,
   startCursor,
+  restorePalette,
   steadyPalette,
   turn,
 } from "./logic";
@@ -82,9 +85,11 @@ import type { BuilderView } from "./view";
 export const AUTOSAVE_MS: Ms = 30_000;
 /**
  * How long after a word runs one Space is still the habit space between words. Later than this,
- * Space is a deliberate `put`.
+ * Space is a deliberate `put`. Per band (M4-07 review N-A): a slow Sprout often looks up at the
+ * island before the Space, so a short window would turn their habit space into an extra block.
+ * Too long only costs a deliberate `put` one more Space.
  */
-export const HABIT_MS: Ms = 1500;
+export const HABIT_MS: Readonly<Record<AgeBand, Ms>> = { sprout: 3000, miner: 2000, builder: 1500 };
 /** How long a hint stays up without another key. */
 export const HINT_MS: Ms = 5000;
 /** Camera glides: following the cursor, and a quarter turn. Snaps under reduced motion. */
@@ -158,20 +163,43 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
     console.warn("[builder] the saved island did not open; leaving it untouched", err);
     status = "damaged";
   }
-  /** True once this visit changed the island, so leaving writes it even after a failed autosave. */
+  /**
+   * True once this visit changed the island, so leaving writes it even after a failed autosave.
+   * Moved palette slots also count, but only on an island that is already saved: a fresh island
+   * is still written only after its first edit.
+   */
   let edited = false;
   let sinceSave: Ms = 0;
   const touches = createTouchLog(UNDO_LIMIT);
 
+  /**
+   * The palette's slots, in order. They are saved with the island (`IslandSave.palette`,
+   * M4-FIX-1), so a block that got a slot keeps it on the next visit. A save without them, or
+   * with ids the child no longer owns, falls back to ranking by count.
+   */
+  let shown: BlockId[] =
+    editor === null
+      ? []
+      : restorePalette(profile.island?.palette, editor.inventory(), placeableIds);
+  /** The slots as last saved (or as loaded), to tell whether they changed. */
+  let savedSlots = shown.join(" ");
+  /** True when the slots changed since the last save, on an island that is already saved. */
+  const slotsMoved = (): boolean => profile.island !== null && shown.join(" ") !== savedSlots;
+
   const patch = (): IslandPatch | null => {
     if (editor === null) return null;
-    return { island: editor.save(ctx.clock.epoch()), inventory: editor.inventory() };
+    const island = editor.save(ctx.clock.epoch());
+    savedSlots = shown.join(" ");
+    return {
+      island: shown.length > 0 ? { ...island, palette: [...shown] } : island,
+      inventory: editor.inventory(),
+    };
   };
 
   /** Sends the island out to be saved, when something changed since the last time. */
   const autosave = (): void => {
     sinceSave = 0;
-    if (editor === null || !editor.dirty) return;
+    if (editor === null || !(editor.dirty || slotsMoved())) return;
     const p = patch();
     if (p !== null) bus.emit(BUILDER_SAVE_EVENT, p);
   };
@@ -254,7 +282,9 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
   let target: Cell = { x: 0, y: 0, z: 0 };
   let quarter: Quarter = 0;
   let zoom = ZOOM_START;
-  let shown: BlockId[] = [];
+  /** When each block was last dug, armed or placed this visit, for the palette's slots. */
+  const used = new Map<BlockId, number>();
+  let uses = 0;
   let inventory: Record<BlockId, number> = editor?.inventory() ?? {};
 
   /** Something other than typing happened: no habit space is expected, no name being finished. */
@@ -268,8 +298,18 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
 
   // --- HUD ---
 
+  /**
+   * A block was dug, armed or placed: it is the most recently used, and it gets a slot. In a full
+   * palette it takes the least recently used one.
+   */
+  const use = (block: BlockId): void => {
+    uses += 1;
+    used.set(block, uses);
+    shown = steadyPalette(shown, inventory, placeableIds, { held: armed, picked: block, used });
+  };
+
   const publish = (): void => {
-    shown = steadyPalette(shown, inventory, placeableIds, undefined, armed);
+    shown = steadyPalette(shown, inventory, placeableIds, { held: armed, used });
     const palette: PaletteItem[] = shown.map((block) => ({
       block,
       name: nameOf(block),
@@ -396,6 +436,7 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
     audio.sfx("place", def ? { material: def.material } : undefined);
     say(null);
     afterEdit(boxOfCell(cell));
+    use(armed);
   };
 
   const dig = (): void => {
@@ -406,6 +447,12 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
       return;
     }
     const id = lookup.idOf(editor.grid.get(cell.x, cell.y, cell.z));
+    if (id !== undefined && !placeableIds.includes(id)) {
+      // Only water, today: it can't be put down again, and it drops no block, so it stays where
+      // it is rather than going into the bag where no slot could show it (M4-FIX-1).
+      say({ key: "builder.hint.cantPickUp", params: { name: nameOf(id) } });
+      return;
+    }
     const res = editor.apply({ kind: "remove", ...cell });
     if (!res.ok) {
       say(refusal(res, null));
@@ -421,10 +468,12 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
         { blockId: id, count: 6, speed: 0.6 },
       );
       // The first block a child picks up is ready to put down again.
-      if (armed === null && placeableIds.includes(id)) armed = id;
+      if (armed === null) armed = id;
     }
     say(null);
     afterEdit(boxOfCell(cell));
+    // The block lands in the palette, even a full one, so the child sees where it went.
+    if (id !== undefined) use(id);
   };
 
   const undo = (): void => {
@@ -464,6 +513,7 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
       return;
     }
     armed = block;
+    use(block);
     audio.sfx("pop", { gain: 0.6 });
     say(null);
   };
@@ -551,7 +601,7 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
     status = "ready";
     cursor = startCursor(editor.grid, editor.footprint);
     target = { ...cursor };
-    armed = steadyPalette([], inventory, placeableIds, 1)[0] ?? null;
+    armed = steadyPalette([], inventory, placeableIds, { n: 1 })[0] ?? null;
     const three = scene.three;
     if (three && hasAtlas(scene)) {
       view = createBuilderView({
@@ -611,7 +661,7 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
         line = out.state;
         if (quietly) quiet.push(k);
         else quiet = [];
-        habitLeft = line.habit ? HABIT_MS : 0;
+        habitLeft = line.habit ? HABIT_MS[band] : 0;
         if (k.key === "Backspace") {
           // A change of mind: forget the letter taken back and the misses typed after it.
           while (keys.length > 0 && keys.at(-1)?.accepted === false) keys.pop();
@@ -680,7 +730,7 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
       left = true;
       emit(session.end(ctx.clock.now()));
       if (summary === null) return;
-      const last = edited ? patch() : null;
+      const last = edited || slotsMoved() ? patch() : null;
       ctx.finish({
         summary,
         loot: {},

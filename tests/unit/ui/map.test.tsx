@@ -458,6 +458,71 @@ describe("World map", () => {
     expect(s.route().id).toBe("profiles");
   });
 
+  it("narrow, by touch: a tap opens a corner button's words and keeps them open; the next tap goes", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width: 1100px") }));
+    try {
+      const s = await openMap(fixture("fresh-sprout"));
+      const home = buttonByText(s.root, t("builder.title"));
+      const wrap = home.closest("[data-nav]");
+      /** A finger's tap: pointerdown, then the click the browser makes from it. */
+      const tap = async (el: Element, pointerType = "touch"): Promise<void> => {
+        await act(() => {
+          const down = new Event("pointerdown", { bubbles: true });
+          Object.defineProperty(down, "pointerType", { value: pointerType });
+          el.dispatchEvent(down);
+          el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+        });
+        await s.settle();
+      };
+      await tap(home);
+      expect(s.route()).toEqual({ id: "map" });
+      expect(wrap?.getAttribute("data-tip")).toBe("open");
+      // A tap anywhere else closes it.
+      await tap(s.root.querySelector("h1") ?? s.root);
+      expect(wrap?.hasAttribute("data-tip")).toBe(false);
+      // Open again, then the next tap on it goes.
+      await tap(home);
+      expect(wrap?.getAttribute("data-tip")).toBe("open");
+      await tap(home);
+      expect(s.route()).toEqual({ id: "play", lesson: "builder" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("a mouse click, and a tap in a wide window, go straight away", async () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q.includes("max-width: 1100px") }));
+    try {
+      const s = await openMap(fixture("fresh-sprout"));
+      const home = buttonByText(s.root, t("builder.title"));
+      await act(() => {
+        const down = new Event("pointerdown", { bubbles: true });
+        Object.defineProperty(down, "pointerType", { value: "mouse" });
+        home.dispatchEvent(down);
+        home.click();
+      });
+      await s.settle();
+      expect(s.route()).toEqual({ id: "play", lesson: "builder" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    vi.stubGlobal("matchMedia", () => ({ matches: false }));
+    try {
+      const s = await openMap(fixture("fresh-sprout"));
+      const home = buttonByText(s.root, t("builder.title"));
+      await act(() => {
+        const down = new Event("pointerdown", { bubbles: true });
+        Object.defineProperty(down, "pointerType", { value: "touch" });
+        home.dispatchEvent(down);
+        home.click();
+      });
+      await s.settle();
+      expect(s.route()).toEqual({ id: "play", lesson: "builder" });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("without a player, offers the way to pick one", async () => {
     h = await mount({ lessons, initial: { id: "map" } });
     expect(text(h.root)).toContain(t("map.noPlayer.body"));

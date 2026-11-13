@@ -59,6 +59,12 @@ export interface Profile {
     grid: ReturnType<VoxelGrid["toJSON"]>;
     expansions: number;
     lastEdited: EpochMs;
+    /**
+     * Builder's palette slots, in order: at most 6 block ids. Added 2026-11-12 (M4-FIX-1,
+     * additive, no schema bump). A save without it ranks the palette by count. On load Builder
+     * drops unknown ids and ids the player no longer owns (`restorePalette`).
+     */
+    palette?: BlockId[];
   } | null;
   cosmetics: { unlocked: string[] };
   /** Achievement id → unlock time. */
@@ -193,6 +199,17 @@ const either =
   (a: Check, b: Check): Check =>
   (v, path) =>
     a(v, path) === null ? null : b(v, path);
+
+/** Builder's palette size (`IslandSave.palette`). */
+const PALETTE_MAX = 6;
+
+/** A list of at most `max` items, each passing `item`. */
+const listOf =
+  (item: Check, max: number): Check =>
+  (v, path) =>
+    Array.isArray(v) && v.length > max
+      ? `${path}: expected at most ${max} items`
+      : arrayOf(item)(v, path);
 
 const arrayOf =
   (item: Check, unique = false): Check =>
@@ -331,11 +348,15 @@ const profileCheck: Check = shape(
     bigramStats: recordOf(keyStatCheck, 2),
     inventory: recordOf(int()),
     island: nullable(
-      shape({
-        grid: shape({ sx: int(1), sy: int(1), sz: int(1), rle: arrayOf(int()) }),
-        expansions: int(),
-        lastEdited: num(0),
-      }),
+      shape(
+        {
+          grid: shape({ sx: int(1), sy: int(1), sz: int(1), rle: arrayOf(int()) }),
+          expansions: int(),
+          lastEdited: num(0),
+        },
+        // M4-FIX-1, additive. Only its shape is checked here; Builder drops ids it can't show.
+        { palette: listOf(str(1, 64), PALETTE_MAX) },
+      ),
     ),
     cosmetics: shape({ unlocked: arrayOf(str()) }),
     achievements: recordOf(num(0)),
