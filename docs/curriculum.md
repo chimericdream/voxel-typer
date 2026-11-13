@@ -14,7 +14,7 @@ a middle dot (`·`) when they have spaces inside them (phrases and sentences).
 | ----------- | ------------------- | -------- | --------------------------------- | ---- | -------- | ------------ | -------------------------------------------- |
 | `meadow-01` | Find F and J        | `f j`    | letters                           | mine | 50 chars | accuracy 85% | `j f f f j j j f j j f f f j j f f f j f …`  |
 | `meadow-02` | Hello, D and K      | `d k`    | letters                           | mine | 50 chars | accuracy 85% | `j j f j f d d d j k f f j d k d f f j j …`  |
-| `meadow-03` | Hello, S and L      | `s l`    | syllables                         | mine | 55 chars | accuracy 85% | `dl jd sfk ss lds jkf ll sk kds sk dl kjf …` |
+| `meadow-03` | Hello, S and L      | `s l`    | syllables                         | mine | 55 chars | accuracy 85% | `dl jd ss ksk lk sk kds sk dl kjf sfs sj …`  |
 | `meadow-04` | Hello, A and ;      | `a ;`    | letters                           | mine | 60 chars | accuracy 85% | `s d j k f a l a l a f f d s a k f f d d …`  |
 | `meadow-05` | Home Row Words      |          | words                             | mine | 60 chars | accuracy 85% | `as fads fall add adds as ads fads fad …`    |
 | `meadow-06` | Words Together      |          | phrases                           | mine | 55 chars | accuracy 85% | `add a salad · all dads ask · dad adds …`    |
@@ -51,9 +51,9 @@ a middle dot (`·`) when they have spaces inside them (phrases and sentences).
 
 | Lesson     | Title              | New keys | Kind                            | Mode    | Length   | Targets      | Sample                                       |
 | ---------- | ------------------ | -------- | ------------------------------- | ------- | -------- | ------------ | -------------------------------------------- |
-| `shore-01` | Hello, M and V     | `m v`    | letters                         | mine    | 65 chars | accuracy 85% | `t l s g j y u y u q f f l e w e d d l a …`  |
+| `shore-01` | Hello, M and V     | `m v`    | letters                         | mine    | 65 chars | accuracy 85% | `t l s h j y u y u q f f l e w e d d l a …`  |
 | `shore-02` | M and V Words      |          | words                           | mine    | 75 chars | accuracy 85% | `starfish horse seal mermaid oyster smile …` |
-| `shore-03` | Hello, N and B     | `n b`    | letters                         | mine    | 70 chars | accuracy 85% | `y l s h j o t w t m f f a i p e d d a a …`  |
+| `shore-03` | Hello, N and B     | `n b`    | letters                         | mine    | 70 chars | accuracy 85% | `y l s e j o t w t m f f a i p e d d a a …`  |
 | `shore-04` | Sandy Words        |          | words                           | mine    | 80 chars | accuracy 85% | `huge tiptoes wheat digs fork holly …`       |
 | `shore-05` | N and B Words      |          | words                           | defense | 75 chars | accuracy 85% | `marble swimsuit grass bin dolphins …`       |
 | `shore-06` | Hello, C and X     | `c x`    | letters                         | mine    | 70 chars | accuracy 85% | `w a s e j q y q y n f f a r m i d d a ; …`  |

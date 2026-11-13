@@ -485,6 +485,22 @@ describe("Sprout codes", () => {
     expect(r.hints).toEqual([{ key: "builder.hint.tryWord" }]);
   });
 
+  it("held letters that don't all fit a new word stay the name: no letter is dropped (review N-B)", () => {
+    // `plank` then `o`: `n` would start `north`, but `nk` starts nothing. The line must not
+    // become `no` with the `k` gone.
+    const r = type("planko", sprout);
+    expect(r.runs).toEqual([{ kind: "arm", block: "oak-planks" }]);
+    expect(r.state.text).toBe("");
+    expect(r.rejected).toEqual(["o"]);
+    expect(typeKey(type("plank", sprout).state, "o", sprout).replayed).toBe(0);
+    // The whole name still works, and so does a new word after the part that fit.
+    expect(type("planksdig", sprout).runs).toHaveLength(2);
+    expect(type("plankdig", sprout).runs).toEqual([
+      { kind: "arm", block: "oak-planks" },
+      { kind: "dig" },
+    ]);
+  });
+
   it("Miner and Builder type the whole name", () => {
     expect(miner.wordOf("dirt")).toBe("dirt");
     expect(type("dir").runs).toEqual([]);

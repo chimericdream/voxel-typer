@@ -336,17 +336,25 @@ export function typeKey(state: LineState, key: string, vocab: Vocabulary): KeyOu
   if (text === "" && state.eaten !== "") {
     // Not the rest of the name after all: those letters and this one are a new word (`pla`, `n`,
     // then `o` is `north`). Type them again as a fresh line.
-    let fresh = EMPTY_LINE;
+    let fresh: LineState | null = EMPTY_LINE;
     for (const letter of state.eaten) {
       const step = typeKey(fresh, letter, vocab);
       // A tail that is itself a whole word runs it; the key in hand is dropped.
       if (step.run !== null) return { ...step, replayed: Array.from(step.ran ?? "").length };
+      // A held letter that doesn't fit after the ones before it: they were the name after all
+      // (`plank`, then `o`), never a new word with a letter left out.
+      if (step.state.text === fresh.text) {
+        fresh = null;
+        break;
+      }
       fresh = step.state;
     }
-    const last = typeKey(fresh, key, vocab);
-    // Only when the key fits after them. Otherwise they were part of the name, left unfinished,
-    // and this key starts from an empty line (`plan`, then `dig`).
-    if (last.accepted) return { ...last, replayed: Array.from(fresh.text).length };
+    const last = fresh === null ? null : typeKey(fresh, key, vocab);
+    // Only when every held letter and this key fit. Otherwise they were part of the name, left
+    // unfinished, and this key starts from an empty line (`plan`, then `dig`).
+    if (fresh !== null && last?.accepted === true) {
+      return { ...last, replayed: Array.from(fresh.text).length };
+    }
   }
 
   const next = text + ch;
