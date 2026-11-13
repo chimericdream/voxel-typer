@@ -25,7 +25,24 @@
   padding: 0;
   list-style: none;
 
-  --slot-base: min(52px, calc(60px / var(--text-scale)), 7vh);
+  /* The page's text scale, read here so the slot below can cap its own copy of it. */
+  --hud-scale: var(--text-scale);
+}
+
+/*
+ * The slot (M4-FIX-5). At text scale 2 the slot used to stay 60 px while its count badge doubled,
+ * so the number covered the picture. Now the slot grows with the text scale up to 80 px (and 7 %
+ * of the window's height per scale step), and the badge's text scale stops at 1.25, so the badge
+ * keeps to its corner. The count is also in the slot's name for screen readers.
+ * The kit's slot is `--slot-base × --text-scale`; this sets both for the slot only, so the words
+ * and key caps under it still follow the full text scale.
+ */
+.item > :first-child {
+  --text-scale: min(var(--hud-scale), 1.25);
+  --slot-base: calc(
+    min(calc(52px * var(--hud-scale)), 80px, calc(7vh * var(--hud-scale))) /
+      min(var(--hud-scale), 1.25)
+  );
 }
 
 .item {

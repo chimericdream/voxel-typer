@@ -164,6 +164,115 @@ export function cameraPose(target: Cell, view: Quarter, zoom: number): Pose {
   };
 }
 
+/** Where the camera sits for a pose: the same sums as the render rig's `applyPose`. */
+export function cameraPoint(pose: Readonly<Pose>): { x: number; y: number; z: number } {
+  const cp = Math.cos(pose.pitch);
+  return {
+    x: pose.target.x + pose.distance * cp * Math.sin(pose.yaw),
+    y: pose.target.y + pose.distance * Math.sin(pose.pitch),
+    z: pose.target.z + pose.distance * cp * Math.cos(pose.yaw),
+  };
+}
+
+/** Steps along a sight line, in cells. Small enough that a line can't skip a cell's corner much. */
+const SIGHT_STEP = 0.2;
+
+/**
+ * A view with at most this share of a build's camera-facing cells hidden still shows it well
+ * enough: a leaf or two in front is no reason to turn the camera.
+ */
+export const VIEW_TOLERANCE = 0.08;
+
+/**
+ * How blocked a view of a box is, as `[hidden, cells, faces]`: how many of the box's
+ * camera-facing face cells (its top layer and the two sides nearest the camera) have a block on
+ * the straight line from their middle to the camera, how many blocking cells there are in all, and
+ * how many face cells were looked at. Cells inside the box never count. `occludes` says which
+ * block numbers hide what is behind them (not air, and not a thin flower).
+ */
+export function viewBlockage(
+  grid: GridRead,
+  box: Readonly<CellBox>,
+  pose: Readonly<Pose>,
+  occludes: (blockNum: number) => boolean,
+): [number, number, number] {
+  const eye = cameraPoint(pose);
+  const inBox = (x: number, y: number, z: number): boolean =>
+    x >= box.min.x &&
+    x <= box.max.x &&
+    y >= box.min.y &&
+    y <= box.max.y &&
+    z >= box.min.z &&
+    z <= box.max.z;
+  // The sides the camera sees: the one nearer it along x, and along z.
+  const faceX = eye.x > (box.min.x + box.max.x + 1) / 2 ? box.max.x : box.min.x;
+  const faceZ = eye.z > (box.min.z + box.max.z + 1) / 2 ? box.max.z : box.min.z;
+  const blocking = new Set<string>();
+  let hidden = 0;
+  let faces = 0;
+  for (let cy = box.min.y; cy <= box.max.y; cy++) {
+    for (let cz = box.min.z; cz <= box.max.z; cz++) {
+      for (let cx = box.min.x; cx <= box.max.x; cx++) {
+        if (cy !== box.max.y && cx !== faceX && cz !== faceZ) continue;
+        faces += 1;
+        const sx = cx + 0.5;
+        const sy = cy + 0.5;
+        const sz = cz + 0.5;
+        const dx = eye.x - sx;
+        const dy = eye.y - sy;
+        const dz = eye.z - sz;
+        const steps = Math.ceil(Math.hypot(dx, dy, dz) / SIGHT_STEP);
+        let hit = false;
+        for (let i = 1; i <= steps; i++) {
+          const k = i / steps;
+          const y = Math.floor(sy + dy * k);
+          // Above the tallest block nothing can be in the way.
+          if (y >= grid.sy) break;
+          const x = Math.floor(sx + dx * k);
+          const z = Math.floor(sz + dz * k);
+          if (inBox(x, y, z) || !occludes(grid.get(x, y, z))) continue;
+          hit = true;
+          blocking.add(`${x},${y},${z}`);
+        }
+        if (hit) hidden += 1;
+      }
+    }
+  }
+  return [hidden, blocking.size, faces];
+}
+
+/**
+ * The view that shows a new build best (M4-FIX-5). The current view stays while at most
+ * {@link VIEW_TOLERANCE} of the build's camera-facing cells are hidden. Otherwise it is the quarter turn with
+ * the fewest hidden cells (then the fewest blocking cells), nearest turns first, and only if it
+ * is better than the current one. So the camera turns only when something really hides the
+ * build, and never further than it must.
+ */
+export function clearestView(
+  grid: GridRead,
+  box: Readonly<CellBox>,
+  target: Cell,
+  current: Quarter,
+  zoom: number,
+  occludes: (blockNum: number) => boolean,
+): Quarter {
+  const score = (q: Quarter): [number, number, number] =>
+    viewBlockage(grid, box, cameraPose(target, q, zoom), occludes);
+  const here = score(current);
+  if (here[0] <= here[2] * VIEW_TOLERANCE) return current;
+  let best = current;
+  let bestScore = here;
+  for (const q of [turn(current, 1), turn(current, -1), turn(turn(current, 1), 1)]) {
+    const s = score(q);
+    if (s[0] < bestScore[0] || (s[0] === bestScore[0] && s[1] < bestScore[1])) {
+      best = q;
+      bestScore = s;
+    }
+    if (s[0] === 0) break;
+  }
+  return best;
+}
+
 /** How far the cursor may wander from the look-at point before the camera follows. */
 export const FOLLOW_SLACK = { xz: 5, y: 3 } as const;
 

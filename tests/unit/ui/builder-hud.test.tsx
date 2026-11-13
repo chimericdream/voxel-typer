@@ -134,6 +134,25 @@ describe("builder HUD", () => {
     show();
     expect(text('[data-builder="help"]')).toContain("putdigundo");
     expect(text('[data-builder="help"]')).toContain("north south east west up down");
+    expect(text('[data-builder="help"]')).toContain(t("builder.help.keys"));
+  });
+
+  it("Sprout help is short: no direction words and no layer or compass line (M4-FIX-5)", () => {
+    show({ band: "sprout" });
+    const help = text('[data-builder="help"]');
+    expect(help).toContain("putdigundo");
+    expect(help).toContain("Arrow keys move.");
+    expect(help).not.toContain(t("builder.help.move"));
+    expect(q('[data-builder="layer"]')).toBeNull();
+    expect(host.textContent).not.toContain("is at the top");
+    // What is in hand still shows.
+    expect(text('[data-builder="armed"]')).toBe("In your hand: Cobble");
+    // Miner and Builder keep both.
+    for (const band of ["miner", "builder"] as const) {
+      show({ band });
+      expect(text('[data-builder="help"]')).toContain(t("builder.help.move"));
+      expect(text('[data-builder="layer"]')).toBe("Layer 6 · North is at the top");
+    }
   });
 
   it("an island that won't open: the calm note only, with no command line", () => {
