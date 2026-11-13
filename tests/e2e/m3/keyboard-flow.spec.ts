@@ -282,7 +282,10 @@ test("settings persist: two players each keep their own after a reload (keyboard
   await tabTo(page, page.getByRole("button", { name: "New player" }));
   await page.keyboard.press("Enter");
   await expectScreen(page, "profileCreate");
+  // The field must have focus before the first key, or a letter is lost ("ern").
+  await expect(page.getByRole("textbox")).toBeFocused();
   await typeLikeAKid(page, "Fern", { wpm: 20, errorRate: 0, seed: 42, fix: "backspace" });
+  await expect(page.getByRole("textbox")).toHaveValue("Fern");
   await page.keyboard.press("Enter");
   await expectScreen(page, "placement");
   await tabTo(page, page.getByRole("button", { name: "Skip" }));
@@ -292,7 +295,11 @@ test("settings persist: two players each keep their own after a reload (keyboard
   const fern = await settings(page);
   expect(fern).toMatchObject({ highContrast: false });
   expect(fern["textScale"]).not.toBe(scale);
-  // Give IndexedDB's commit a moment.
+  // Before the reload, both players are on "Who is playing?", which reads the saved list.
+  await page.keyboard.press("Escape");
+  await expectScreen(page, "profiles");
+  await expect(page.getByRole("button", { name: /^Moss/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Fern/ })).toBeVisible();
   await page.waitForTimeout(500);
 
   // A reload: each player gets their own settings back.
