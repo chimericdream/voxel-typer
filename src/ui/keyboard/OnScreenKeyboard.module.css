@@ -155,6 +155,47 @@
 }
 
 /*
+ * A short keyboard row (a mode gave the stage its room on a short screen, M4-FIX-4): keys of 28 to
+ * about 34 px. The heights are 34 px keys in the HUD's row: 5 units plus 28 px, or 5.9 units plus
+ * 36 px with the hint line. Outside a size container (the previews) nothing changes.
+ *
+ * - Only the lit keys (and a hovered one) keep their finger label: a label on every key ran into
+ *   its neighbours. The others drop the label's padding, so their glyph sits in the middle.
+ * - Single letters are half the key (at least 14 px at the 28 px key floor), up from 0.42.
+ * - Without the hint line (a Miner's row), the lit key keeps its label even when it is wider than
+ *   the key (M3-FIX-12 would hide it): its neighbours' labels are hidden, and it is the only place
+ *   the finger is named. With the hint line (a Sprout's), the hint line names it.
+ */
+@container (max-height: 198px) {
+  .root[data-labels] .slot:not([data-next], :hover) .label {
+    visibility: hidden;
+  }
+  .root[data-labels] .slot:not([data-next], :hover) > kbd {
+    padding-bottom: 0;
+  }
+  .slot[data-face="glyph"] > kbd {
+    font-size: calc(var(--u) * 0.5);
+  }
+  [data-hud="keyboard"]:not([data-hands-caption]) .root .slot[data-next][data-label-off] .label {
+    visibility: visible;
+  }
+  [data-hud="keyboard"]:not([data-hands-caption]) .root .slot[data-next][data-label-off] > kbd {
+    padding-bottom: calc(var(--label-size) * 0.8);
+  }
+}
+@container (max-height: 236px) {
+  [data-hands-caption] .root[data-labels] .slot:not([data-next], :hover) .label {
+    visibility: hidden;
+  }
+  [data-hands-caption] .root[data-labels] .slot:not([data-next], :hover) > kbd {
+    padding-bottom: 0;
+  }
+  [data-hands-caption] .slot[data-face="glyph"] > kbd {
+    font-size: calc(var(--u) * 0.5);
+  }
+}
+
+/*
  * The next key (and its Shift): a two-tone ring painted over the key's own bevel frame, an outer
  * band in the selection color and an inner dark band in the glyph color. The dark band stands out
  * from every zone face (4.5:1 or more, the glyph pairs) and the light band from the plate (3:1 or
