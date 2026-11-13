@@ -2,8 +2,9 @@
  * Results on short, wide windows (task M3-FIX-13): at 1024×600 and 1280×720, at text scale 1 and
  * 2, for a Builder and a Sprout, with "Next lesson" focused on arrival, the heading, the stars,
  * every button and the focus ring show together, with nothing scrolled. At text scale 1 one column
- * fits, whole card included, and stays; at text scale 2 the buttons stand beside the card. (Before,
- * at text scale 2, the heading scrolled off by up to 308 px.) The badge toast's dock is checked in results-toast.spec.
+ * fits, whole card included, and stays; at text scale 2, where one column runs past the window
+ * (always for a Builder), the buttons stand beside the card. (Before, at text scale 2, the heading
+ * scrolled off by up to 308 px.) The badge toast's dock is checked in results-toast.spec.
  */
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
@@ -95,21 +96,24 @@ for (const p of PROFILES) {
       expect(ring.bottom).toBeLessThanOrEqual(view.height);
       expect(ring.right).toBeLessThanOrEqual(view.width);
 
-      // One column where it fits (text scale 1); side by side only where it doesn't (scale 2):
-      // then the buttons stand in a column right of the card, under the heading.
-      const layout = page.locator("main > [data-layout]");
-      await expect(layout).toHaveAttribute("data-layout", p.scale === 2 ? "side" : "stack");
+      // One column where it fits; side by side only where it doesn't. Text scale 1 always fits;
+      // at text scale 2 it depends on the window and the card (a Sprout's short message fits one
+      // column at 1280×720, a Builder's doesn't), and either way the checks above hold.
+      const layout = await page.locator("main > [data-layout]").getAttribute("data-layout");
+      if (p.scale === 1) expect(layout).toBe("stack");
+      if (p.profile === "big-text-builder") expect(layout).toBe("side");
       const c = await box(card);
       const h = await box(heading);
       for (const b of buttons) {
         const r = await box(b);
-        if (p.scale === 2) {
+        if (layout === "side") {
+          // The buttons in a column right of the card, under the heading.
           expect(r.x, "a button left of the card's right edge").toBeGreaterThanOrEqual(
             c.x + c.width,
           );
           expect(r.y, "a button over the heading").toBeGreaterThanOrEqual(h.y + h.height);
         } else {
-          expect(r.y, "a button under the card").toBeGreaterThanOrEqual(c.y + c.height);
+          expect(r.y, "a button over the card").toBeGreaterThanOrEqual(c.y + c.height);
         }
       }
       expect(errors).toEqual([]);

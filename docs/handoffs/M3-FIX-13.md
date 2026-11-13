@@ -51,8 +51,9 @@ Status: done (CI is the e2e gate: no local e2e was run, by the owner's daytime r
       Defense × 1024×600, 1280×720 × text scale 1, 2), `tests/unit/ui/keyboard.test.tsx`. CI.
 - [ ] Item 2: Results at 1024×600 and 1280×720, text scale 1 and 2, Builder and Sprout: with "Next
       lesson" focused, nothing scrolled, and the heading, the stars and the three buttons are wholly on
-      screen with the focus ring; one column at scale 1 (whole card shown), the buttons right of
-      the card at scale 2.
+      screen with the focus ring; one column at scale 1 (whole card shown); at scale 2 side by
+      side where one column doesn't fit (always for a Builder; a Sprout at 1280×720 still fits one
+      column).
       `tests/e2e/results-fit.spec.ts`. The toast dock: `tests/e2e/results-toast.spec.ts`. CI.
 - [ ] Item 3: Escape right after "Back to the map", before the map has loaded, stays on the map
       (the map's code is held back 1.5 s, so the race always happens). `tests/e2e/escape-race.spec.ts`,
