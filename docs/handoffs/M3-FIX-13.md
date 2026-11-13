@@ -35,16 +35,16 @@ Status: done (CI is the e2e gate: no local e2e was run, by the owner's daytime r
 ## Acceptance
 
 - [ ] Item 1: nothing printed on a Sprout's keyboard is under 12 px; long names are icons with an
-  accessible name through `t()`; key floor 28 px. `tests/e2e/key-faces.spec.ts` (Mine and Night
-  Defense × 1024×600, 1280×720 × text scale 1, 2), `tests/unit/ui/keyboard.test.tsx`. CI.
+      accessible name through `t()`; key floor 28 px. `tests/e2e/key-faces.spec.ts` (Mine and Night
+      Defense × 1024×600, 1280×720 × text scale 1, 2), `tests/unit/ui/keyboard.test.tsx`. CI.
 - [ ] Item 2: Results at 1024×600 and 1280×720, text scale 1 and 2, Builder and Sprout: with "Next
-  lesson" focused, nothing scrolled, and the heading, the stars and the three buttons are wholly on
-  screen, the buttons right of the card. At scale 1 the whole card too.
-  `tests/e2e/results-fit.spec.ts`. The toast dock: `tests/e2e/results-toast.spec.ts`. CI.
+      lesson" focused, nothing scrolled, and the heading, the stars and the three buttons are wholly on
+      screen, the buttons right of the card. At scale 1 the whole card too.
+      `tests/e2e/results-fit.spec.ts`. The toast dock: `tests/e2e/results-toast.spec.ts`. CI.
 - [ ] Item 3: Escape right after "Back to the map", before the map has loaded, stays on the map
-  (the map's code is held back 1.5 s, so the race always happens). `tests/e2e/escape-race.spec.ts`,
-  `tests/unit/app/shell.test.ts`. The achievements World Map toast e2e waits for the map heading
-  before Escape. CI.
+      (the map's code is held back 1.5 s, so the race always happens). `tests/e2e/escape-race.spec.ts`,
+      `tests/unit/app/shell.test.ts`. The achievements World Map toast e2e waits for the map heading
+      before Escape. CI.
 - [x] `npm run verify` passes locally.
 
 ## Decisions
