@@ -9,6 +9,7 @@
  * here changes the profile.
  */
 import { biomesUnlockedBy } from "@/app/progress";
+import { campLabel, dueRemedial, isOptional, openLessons, recommendNext } from "@/app/recommend";
 import type { Lesson } from "@/content/lessons/types";
 import { t } from "@/i18n";
 import type { Profile } from "@/save/schema";
@@ -50,10 +51,7 @@ export interface LessonNode {
   next: boolean;
 }
 
-/**
- * A remedial "practice camp" on an island's path. M3-06 decides when one is suggested; until then
- * {@link practiceCamp} returns null and no camp is drawn.
- */
+/** A remedial "practice camp" on an island's path (M3-06): shown while a remedial is due. */
 export interface PracticeCamp {
   /** Shown under the tent and read by screen readers. Pass `t()` output. */
   label: string;
@@ -74,63 +72,37 @@ const starsOf = (profile: Profile, id: string): Stars =>
 const playedIn = (profile: Profile, id: string): boolean =>
   profile.progress.lessons[id] !== undefined;
 
-/** An optional lesson: the "No Peeking!" challenge. It never gates the next lesson (M3-FIX-7). */
-export const isOptional = (lesson: Lesson): boolean =>
-  lesson.tags?.includes("challenge-hide-keyboard") === true;
+export { isOptional };
 
 /**
- * An optional lesson the player went past: a later lesson of its biome has been played. The map
- * stops pointing at it, so skipping it never nags.
- */
-function skipped(profile: Profile, lessons: readonly Lesson[], lesson: Lesson): boolean {
-  return (
-    isOptional(lesson) &&
-    lessonsOf(lessons, lesson.biome).some((l) => l.order > lesson.order && playedIn(profile, l.id))
-  );
-}
-
-/** Every lesson the player may start now, in curriculum order. */
-function openLessons(profile: Profile, lessons: readonly Lesson[]): Lesson[] {
-  const unlocked = new Set(profile.progress.unlockedBiomes);
-  const out: Lesson[] = [];
-  for (const biome of BIOME_ORDER) {
-    if (!unlocked.has(biome)) continue;
-    let gatePlayed = true;
-    for (const lesson of lessonsOf(lessons, biome)) {
-      if (gatePlayed) out.push(lesson);
-      if (!isOptional(lesson)) gatePlayed = playedIn(profile, lesson.id);
-    }
-  }
-  return out;
-}
-
-/**
- * The lesson the map points the player to: the first open lesson they haven't played, else the
- * open lesson with the fewest stars (below three), else none. A "No Peeking!" challenge the player
- * went past is not pointed at again.
- *
- * This is the one place that decides it. M3-06's `recommendNext(profile)` (due remedial → next
- * unplayed → lowest stars) replaces the body of this function.
+ * The lesson the map points the player to: `recommendNext` (M3-06), the one place that decides
+ * it. A due remedial comes first (it is drawn as the practice camp, not as a stone), then the next
+ * lesson not played, then the fewest stars. A "No Peeking!" challenge the player went past is not
+ * pointed at again.
  */
 export function recommendedLesson(profile: Profile, lessons: readonly Lesson[]): Lesson | null {
-  const open = openLessons(profile, lessons);
-  const fresh = open.find((l) => !playedIn(profile, l.id) && !skipped(profile, lessons, l));
-  if (fresh) return fresh;
-  let best: Lesson | null = null;
-  for (const lesson of open) {
-    if (skipped(profile, lessons, lesson)) continue;
-    const stars = starsOf(profile, lesson.id);
-    if (stars < 3 && (best === null || stars < starsOf(profile, best.id))) best = lesson;
-  }
-  return best;
+  return recommendNext(profile, lessons);
+}
+
+/** A practice camp to draw: what it says and the remedial lesson it plays (M3-06). */
+export interface CampSuggestion {
+  label: string;
+  lesson: Lesson;
 }
 
 /**
- * The practice camp to show on a biome's path, or null. A hook for M3-06 (remedial lessons): it
- * returns null until that task supplies the suggestion.
+ * The practice camp to show on a biome's path, or null: the due remedial (M3-06), on the island of
+ * the furthest lesson reached. The screen turns it into a {@link PracticeCamp} whose `open` plays
+ * the lesson, like picking a lesson stone.
  */
-export function practiceCamp(_profile: Profile, _biome: BiomeId): PracticeCamp | null {
-  return null;
+export function practiceCamp(
+  profile: Profile,
+  lessons: readonly Lesson[],
+  biome: BiomeId,
+): CampSuggestion | null {
+  const lesson = dueRemedial(profile, lessons);
+  if (lesson === null || lesson.biome !== biome) return null;
+  return { label: campLabel(lesson), lesson };
 }
 
 /** The biome whose mastery lesson unlocks `biome`. */

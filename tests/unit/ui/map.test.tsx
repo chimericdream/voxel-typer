@@ -234,8 +234,67 @@ describe("map logic", () => {
     expect(notYetLine({ ...first, unlocked: false })).toBe(t("map.island.notYetFirst"));
   });
 
-  it("leaves the practice camp to M3-06: no camp is suggested yet", () => {
-    expect(practiceCamp(sprout, "meadow")).toBeNull();
+  it("shows a practice camp only while a remedial is due, on the island it belongs to (M3-06)", () => {
+    expect(practiceCamp(sprout, lessons, "meadow")).toBeNull();
+    const p = played(played(sprout, "meadow-01", 2), "meadow-02", 2);
+    const shaky: Profile = {
+      ...p,
+      keyStats: {
+        ...p.keyStats,
+        d: {
+          attempts: 80,
+          errors: 40,
+          recentErrRate: 0.5,
+          latencyMedian: 400,
+          recentLatencies: [400],
+          lastSeenSession: 2,
+          srs: { intervalSessions: 1, dueSession: 99 },
+        },
+      },
+    };
+    expect(practiceCamp(shaky, lessons, "birch")).toBeNull();
+    const camp = practiceCamp(shaky, lessons, "meadow");
+    expect(camp?.label).toBe(
+      "Practice camp. Your left middle finger wants practice! Practice key: D.",
+    );
+    // The camp is the recommendation, so no stone pulses; the island still says "Go here next!".
+    expect(lessonNodes(shaky, lessons, "meadow").some((n) => n.next)).toBe(false);
+    expect(islandInfos(shaky, lessons).find((i) => i.biome === "meadow")?.next).toBe(true);
+    expect(camp?.lesson).toMatchObject({ biome: "meadow", newKeys: ["d"], mode: "mine" });
+  });
+
+  it("the practice camp opens its remedial lesson's intro, which the shell can find (M3-06)", async () => {
+    const p = played(played(sprout, "meadow-01", 2), "meadow-02", 2);
+    const shaky: Profile = {
+      ...p,
+      keyStats: {
+        ...p.keyStats,
+        d: {
+          attempts: 80,
+          errors: 40,
+          recentErrRate: 0.5,
+          latencyMedian: 400,
+          recentLatencies: [400],
+          lastSeenSession: 2,
+          srs: { intervalSessions: 1, dueSession: 99 },
+        },
+      },
+    };
+    const s = await openMap(shaky);
+    void act(() => island(s.root, "meadow").click());
+    await s.settle();
+    const camp = s.root.querySelector<HTMLButtonElement>('[data-state="camp"]');
+    expect(camp?.getAttribute("aria-label")).toContain("Your left middle finger wants practice!");
+    // No stone pulses while the camp is due; focus still starts on the next new stone, and the
+    // camp is the stop before it on the path.
+    expect(active()?.dataset["lesson"]).toBe("meadow-03");
+    void act(() => camp?.click());
+    await s.settle();
+    const route = s.route();
+    expect(route.id).toBe("lessonIntro");
+    expect(route.lesson?.startsWith("remedial-")).toBe(true);
+    expect(s.shell.api.lesson(route.lesson ?? "")?.newKeys).toEqual(["d"]);
+    expect(text(s.root.querySelector("h1"))).toBe("Your left middle finger wants practice!");
   });
 });
 
