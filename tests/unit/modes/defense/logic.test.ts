@@ -24,8 +24,12 @@ import {
   layoutPlates,
   lockedWpm,
   nextKeyFor,
+  NIGHT_CAP_MS,
+  WALK_REF_MS,
+  nightOver,
   nightProgress,
   nightWaves,
+  walkRate,
   projectLane,
   stepMobs,
   fieldEmpty,
@@ -605,5 +609,33 @@ describe("framing the field", () => {
     const flat = fitLaneView(field, canvas, { left: 0, top: 100, width: 1280, height: 200 });
     const tall = fitLaneView(field, canvas, { left: 0, top: 100, width: 1280, height: 600 });
     expect(flat.pitch).toBeLessThan(tall.pitch);
+  });
+});
+
+describe("night length and walking (M4-FIX-3)", () => {
+  it("ends the night after every wave, or after the wave on when the band's cap passed", () => {
+    expect(NIGHT_CAP_MS).toEqual({ sprout: 240_000, miner: 300_000, builder: 300_000 });
+    expect(nightOver(2, 3, 60_000, "miner")).toBe(false);
+    expect(nightOver(3, 3, 60_000, "miner")).toBe(true);
+    expect(nightOver(1, 5, 299_999, "miner")).toBe(false);
+    expect(nightOver(1, 5, 300_000, "miner")).toBe(true);
+    // A Sprout's night is shorter.
+    expect(nightOver(1, 5, 250_000, "sprout")).toBe(true);
+    expect(nightOver(1, 5, 250_000, "builder")).toBe(false);
+  });
+
+  it("plays the walk clip slower for a slow mob, never faster than authored, never under 0.4", () => {
+    // A lane walked in WALK_REF_MS or less: the clip's own pace.
+    expect(walkRate(1000 / WALK_REF_MS)).toBeCloseTo(1);
+    expect(walkRate(1000 / 4000)).toBe(1);
+    // Twice as slow: half the rate.
+    expect(walkRate(1000 / (2 * WALK_REF_MS))).toBeCloseTo(0.5);
+    // A 90 s walk (a 5 WPM learner's) and bad input stop at 0.4.
+    expect(walkRate(1000 / 90_000)).toBe(0.4);
+    for (const bad of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const rate = walkRate(bad);
+      expect(rate).toBeGreaterThanOrEqual(0.4);
+      expect(rate).toBeLessThanOrEqual(1);
+    }
   });
 });

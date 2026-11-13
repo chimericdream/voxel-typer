@@ -18,6 +18,7 @@ import {
   parseDefenseArgs,
   reportRows,
   simulateDefense,
+  newProfileRows,
   slowRows,
 } from "../../../tools/sim-defense";
 import type { RowResult } from "../../../tools/sim-defense";
@@ -108,11 +109,31 @@ describe("defense sim", () => {
         expect(r.swamped, label).toBeLessThanOrEqual(0.05);
         expect(r.crowded, label).toBeLessThanOrEqual(0.05);
         expect(r.learnerMean, label).toBeGreaterThanOrEqual(0.88);
-        // A new profile's first wave is played at a guess (the band's slow default); a 5 WPM
-        // Miner or Builder can't keep up with it. The director then starts again from what they
-        // typed, so it is that one wave and no more (a third of waves 1–3).
-        expect(r.swampedEarly, label).toBeLessThanOrEqual(r.spec.baseline ? 0.05 : 0.36);
+        // The first waves are the whole night for many children, new profiles included: a new
+        // profile's first wave is played at a cautious 3.5 WPM (M4-FIX-3 review).
+        expect(r.swampedEarly, label).toBeLessThanOrEqual(0.05);
+        expect(r.accuracy[0], label).toBeGreaterThanOrEqual(0.85);
         expect(r.idleMax, label).toBeLessThanOrEqual(DIRECTOR_CONSTANTS.maxIdleMs + 250);
+      }
+    },
+    TIMEOUT,
+  );
+
+  it(
+    "new profiles (M4-FIX-3 review): a gentle first wave for the slow, and the fast still climb",
+    () => {
+      const rows = simulateDefense(opts, newProfileRows());
+      expect(rows).toHaveLength(12);
+      for (const r of rows) {
+        const label = `${r.spec.typist} ${r.spec.band}`;
+        expect(r.swampedEarly, label).toBeLessThanOrEqual(0.05);
+        expect(r.swamped, label).toBeLessThanOrEqual(0.05);
+        expect(r.accuracy[0], label).toBeGreaterThanOrEqual(0.85);
+        expect(r.learnerMean, label).toBeGreaterThanOrEqual(0.88);
+        // The cautious start doesn't hold a fast learner there: the first wave's jump and the
+        // search's +15 % steps take them well past the old start (0.7) by wave 10.
+        if (r.spec.typist === "25wpm") expect(r.difficulty.at(-1), label).toBeGreaterThan(1);
+        if (r.spec.typist === "50wpm") expect(r.difficulty.at(-1), label).toBeGreaterThan(1.8);
       }
     },
     TIMEOUT,

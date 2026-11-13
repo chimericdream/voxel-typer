@@ -48,6 +48,40 @@ export const INTERMISSION_MS: Ms = 3000;
 export const DAWN_MS: Ms = 4500;
 export const DAWN_REDUCED_MS: Ms = 2500;
 
+/**
+ * The most night a child plays (dusk and night, game time), per band (M4-FIX-3 review). A slow
+ * learner's waves are long, so a 5-wave lesson could take most of a sitting. Once a wave ends past
+ * this, dawn comes next, whatever the wave count says. Stars count the visitors sent home, not the
+ * waves, so an early dawn costs the child nothing.
+ */
+export const NIGHT_CAP_MS: Readonly<Record<AgeBand, Ms>> = {
+  sprout: 240_000,
+  miner: 300_000,
+  builder: 300_000,
+};
+
+/**
+ * Whether the night is over once a wave ends: every wave was played, or the band's
+ * {@link NIGHT_CAP_MS} has passed (the wave that was on still finishes first).
+ */
+export function nightOver(wavesDone: number, waves: number, nightMs: Ms, band: AgeBand): boolean {
+  return wavesDone >= waves || nightMs >= NIGHT_CAP_MS[band];
+}
+
+/**
+ * The walk anim's playback rate for a mob that walks its lane at `speed` (lane lengths a second).
+ * The clips are paced for a lane walked in {@link WALK_REF_MS}; a slower mob plays them slower, so
+ * a slow learner's mobs don't slide their feet (M4-FIX-3 review). Never faster than authored, and
+ * never under 0.4, where the cycle would read as frozen.
+ */
+export function walkRate(speed: number): number {
+  if (!Number.isFinite(speed) || speed <= 0) return WALK_RATE_MIN;
+  return clamp((speed * WALK_REF_MS) / 1000, WALK_RATE_MIN, 1);
+}
+/** A lane walked in this long plays the walk clip at its own pace. */
+export const WALK_REF_MS: Ms = 20_000;
+const WALK_RATE_MIN = 0.4;
+
 /** Waves in a night with no lesson (free play). */
 export const DEFAULT_WAVES = 3;
 /** A night is never shorter or longer than this many waves. */

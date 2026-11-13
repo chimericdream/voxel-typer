@@ -68,7 +68,7 @@ import type { Flight } from "../mine/logic";
 import { createLootFly } from "../mine/loot-fly";
 import type { LootFly } from "../mine/loot-fly";
 import type { ModeContext, ModeInstance } from "../types";
-import { breakMs, createDirector, idlePullMs } from "./director";
+import { breakMs, createDirector, idlePullMs, referenceWpm } from "./director";
 import type { WaveSpec } from "./director";
 import {
   BAND_LANES,
@@ -89,6 +89,7 @@ import {
   laneSlot,
   lockedWpm,
   nextKeyFor,
+  nightOver,
   nightProgress,
   nightStars,
   nightWaves,
@@ -147,9 +148,11 @@ const LOOT_TABLES: Partial<Record<BiomeId, LootTable>> = { meadow: meadowLoot };
 
 /**
  * Where each player's last night ended, so a second night in the same sitting starts near their
- * edge and not at the default. In memory only: there is no save field for it, and none is needed.
+ * edge and not at the default. Kept as a pace (`d × reference`), so it still means the same speed
+ * after the profile gains a baseline. In memory only: there is no save field for it, and none is
+ * needed.
  */
-const lastDifficulty = new Map<string, number>();
+const lastDifficulty = new Map<string, { pace: number }>();
 
 /** Forgets every remembered night (tests; a fresh page starts with none anyway). */
 export function forgetNights(): void {
@@ -202,7 +205,12 @@ export function create(ctx: ModeContext): DefenseInstance {
 
   const allowed = lesson ? allowedKeys(lessons, lesson) : FREE_PLAY_KEYS;
   const baseline = baselineNetWpm(profile.history);
+  // Remembered as a pace (`d × reference`), not `d`: a profile that gained a baseline since (a few
+  // Mine lessons in the same sitting) has a new reference, and the same `d` would mean a very
+  // different speed (M4-FIX-3 review).
   const remembered = lastDifficulty.get(profile.id);
+  const resumeAt =
+    remembered === undefined ? undefined : remembered.pace / referenceWpm(band, baseline);
   const director = createDirector({
     band,
     baselineNetWpm: baseline,
@@ -220,7 +228,7 @@ export function create(ctx: ModeContext): DefenseInstance {
       sessionIndex: profile.sessionCounter,
       targetLatencyMs: TARGET_LATENCY[band],
     }),
-    ...(remembered !== undefined && { startDifficulty: remembered }),
+    ...(resumeAt !== undefined && { startDifficulty: resumeAt }),
   });
 
   // One engine session for the whole night. `stay` for every band: a slip never moves the cursor,
@@ -260,6 +268,8 @@ export function create(ctx: ModeContext): DefenseInstance {
    */
   let emptyMs: Ms = 0;
   let wavesDone = 0;
+  /** Game time since dusk: the night's length, for the band's cap (`NIGHT_CAP_MS`). */
+  let nightMs: Ms = 0;
   let tally: WaveTally = emptyTally();
   /** Mobs of the current wave that are gone (typed or bonked, their anim over). */
   let waveGone = 0;
@@ -491,11 +501,12 @@ export function create(ctx: ModeContext): DefenseInstance {
     director.observe(feedback);
     // Remembered only from a wave the child typed in: a night they walked away from says nothing
     // about where the next one should start.
-    if (feedback.wordsDone > 0) lastDifficulty.set(profile.id, director.difficulty);
+    if (feedback.wordsDone > 0)
+      lastDifficulty.set(profile.id, { pace: director.difficulty * director.referenceWpm });
     bus.emit(WAVE_END_EVENT, { index: wave.index, ...feedback, difficulty: director.difficulty });
     wave = null;
     wavesDone++;
-    if (wavesDone >= waveCount) {
+    if (nightOver(wavesDone, waveCount, nightMs, band)) {
       toDawn();
       return;
     }
@@ -567,6 +578,7 @@ export function create(ctx: ModeContext): DefenseInstance {
 
   /** One frame of the waves and the pauses between them (dusk and night). */
   const stepNight = (dtMs: Ms): void => {
+    nightMs += dtMs;
     emptyMs = fieldEmpty(field) ? emptyMs + dtMs : 0;
     if (wave === null) {
       intermissionLeft -= dtMs;

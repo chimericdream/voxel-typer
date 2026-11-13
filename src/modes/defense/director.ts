@@ -27,9 +27,11 @@
  *    slow, though: while the average is under 85 % a step down may be the full 15 %.
  * 4. Relief: a wave under 75 % accuracy, or with more than 30 % of its mobs at the base, makes the
  *    next wave 15 % easier, whatever the average says.
- * 5. A new profile's first wave with too many mobs at the base resets `d` from what the child
- *    typed in it ({@link throughputWpm}): the slow default reference was only a guess, and 15 % a
- *    wave would take most of the night to come down to a 5 WPM learner.
+ * 5. A new profile starts cautious, at about 3.5 WPM in every band
+ *    ({@link DIRECTOR_CONSTANTS.newProfileStartWpm}): its reference is only a guess. While it
+ *    searches, what the child typed ({@link throughputWpm}) moves `d` twice at most: a first wave
+ *    that went well jumps up once towards it, and the first wave it can't keep up with (more than
+ *    10 % at the base, which may come after wave 1) starts again from it, once.
  * 6. `d ← clamp(d × (1 + step), 0.2, 2.0)` (calm: at most 1.2, and at most +8 % a wave).
  *
  * `tools/sim-defense.ts` and `docs/sim.md` show how this behaves with synthetic typists.
@@ -139,6 +141,8 @@ export interface WavePlan {
   readonly charsPerWord?: number;
   /** The WPM that `d = 1` stood for in the wave ({@link referenceWpm}). */
   readonly referenceWpm?: number;
+  /** The wave's index in the night (0 for the first). */
+  readonly index?: number;
 }
 
 export interface DirectorOptions {
@@ -175,6 +179,11 @@ export interface Director {
   observe(feedback: WaveFeedback): void;
   /** The current difficulty scalar. */
   readonly difficulty: number;
+  /**
+   * The WPM that `d = 1` stands for ({@link referenceWpm}). `difficulty × referenceWpm` is a pace
+   * that still means the same once the profile's baseline changes: remember that, not `d`.
+   */
+  readonly referenceWpm: number;
 }
 
 /** Tuning. Exported for tests and the simulator; `docs/sim.md` records why they are what they are. */
@@ -186,6 +195,19 @@ export const DIRECTOR_CONSTANTS = {
   /** Start: `d` with a baseline, and with a new profile (on top of the slow default reference). */
   startD: 0.8,
   newProfileStartD: 0.7,
+  /**
+   * A new profile's first wave is played at this pace (WPM) or slower, in every band: 0.7 of
+   * Sprout's 5 WPM default, 0.35 of Miner's 10 and 0.23 of Builder's 15. Its reference is only a
+   * guess, and a first wave that swamps a slow child is the worst start the mode can give
+   * (M4-FIX-3 review). A first wave that went well jumps up from what the child typed
+   * ({@link newProfileJump}), so a fast new learner isn't held there.
+   */
+  newProfileStartWpm: 3.5,
+  /**
+   * After a new profile's first wave that went well, `d` rises to at least this share of the
+   * speed the child typed in it (a floor on their real speed), at most {@link newProfileStartD}.
+   */
+  newProfileJump: 1.0,
   /**
    * With a baseline, `d = 0.8` is already close to the learner's edge (about 0.85–0.95 for every
    * typist, because `d` is relative to their own speed), so the night starts in fine mode. Only a
@@ -314,13 +336,17 @@ export const DIRECTOR_CONSTANTS = {
 
 const C = DIRECTOR_CONSTANTS;
 
-/** The difficulty a night starts at. */
+/**
+ * The difficulty a night starts at: a resumed night's, 0.8 with a baseline, or a cautious
+ * {@link DIRECTOR_CONSTANTS.newProfileStartWpm} for a new profile.
+ */
 export function startDifficulty(
-  opts: Pick<DirectorOptions, "baselineNetWpm" | "startDifficulty">,
+  opts: Pick<DirectorOptions, "band" | "baselineNetWpm" | "startDifficulty">,
 ): number {
   if (opts.startDifficulty !== undefined && Number.isFinite(opts.startDifficulty))
     return clamp(opts.startDifficulty, C.dMin, C.dMax);
-  return hasBaseline(opts.baselineNetWpm) ? C.startD : C.newProfileStartD;
+  if (hasBaseline(opts.baselineNetWpm)) return C.startD;
+  return Math.min(C.newProfileStartD, C.newProfileStartWpm / C.defaultBaselineWpm[opts.band]);
 }
 
 const hasBaseline = (wpm: number | null): wpm is number =>
@@ -424,11 +450,20 @@ export function controllerStep(
   const swamped = (acc !== null && acc < C.reliefAccuracy) || share > C.reliefReached;
   if (swamped) step = -C.maxStep;
   let d = s.d * (1 + step);
-  // A new profile's first wave it can't keep up with: its reference was only a guess, and the
-  // words it did type say how fast it really is. Start again from there, not 15 % a wave.
+  // A new profile (search mode) has only a guessed reference; the words typed in a wave say how
+  // fast the child really is.
   const measured = plan === undefined ? null : throughputWpm(f, plan);
-  if (!s.fine && share > C.reachedAim && measured !== null && plan?.referenceWpm !== undefined)
-    d = Math.min(d, (C.startD * measured) / plan.referenceWpm);
+  const ref = plan?.referenceWpm;
+  if (!s.fine && measured !== null && ref !== undefined && ref > 0) {
+    // The first wave it can't keep up with, whichever wave that is: start again from what it
+    // typed, not 15 % a wave. It happens once, because that wave also ends the search (`fine`).
+    if (share > C.reachedAim) d = Math.min(d, (C.startD * measured) / ref);
+    // The night's cautious first wave went well: jump up once, to what the child typed. The
+    // throughput is a floor on their speed, and the jump stops at the old start, so it can't
+    // overshoot.
+    else if (plan?.index === 0 && acc !== null && acc >= s.target)
+      d = Math.max(d, Math.min(C.newProfileStartD, (C.newProfileJump * measured) / ref));
+  }
   d = clamp(d, C.dMin, calm ? C.calmDMax : C.dMax);
   return { d, accSum, accWeight, fine, target: s.target };
 }
@@ -691,11 +726,13 @@ export function createDirector(opts: DirectorOptions): Director {
         plannedMs,
         charsPerWord,
         referenceWpm: reference,
+        index: index - 1,
       });
     },
     get difficulty(): number {
       return state.d;
     },
+    referenceWpm: reference,
   };
 }
 

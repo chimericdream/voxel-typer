@@ -478,6 +478,27 @@ export function slowRows(): RowSpec[] {
 }
 
 /**
+ * New profiles (M4-FIX-3 review): every band at 5, 10, 25 and 50 WPM with no baseline. A new
+ * profile's first wave is played at a cautious guess, so these rows check it neither swamps the
+ * slow learners nor holds the fast ones back.
+ */
+export function newProfileRows(): RowSpec[] {
+  const rows: RowSpec[] = [];
+  const bands: readonly AgeBand[] = ["sprout", "miner", "builder"];
+  for (const typist of ["5wpm", "10wpm", "25wpm", "50wpm"])
+    for (const band of bands)
+      rows.push({
+        typist,
+        band,
+        calm: false,
+        baseline: false,
+        pressure: DEFAULT_PRESSURE,
+        label: "new profile",
+      });
+  return rows;
+}
+
+/**
  * The pacing check's rows (M4-FIX-2): every band and every typist of {@link PACING_TYPISTS}, with
  * a baseline, as a new profile, and calm.
  */
@@ -671,7 +692,7 @@ export function formatSweep(points: readonly SweepPoint[], opts: DefenseSimOptio
 export interface DefenseSimArgs extends DefenseSimOptions {
   /** Also print the plant sweep. */
   sweep: boolean;
-  /** Also print the 5 WPM rows ({@link slowRows}). */
+  /** Also print the 5 WPM rows ({@link slowRows}) and the new profiles ({@link newProfileRows}). */
   slow: boolean;
 }
 
@@ -695,8 +716,9 @@ export function parseDefenseArgs(args: readonly string[]): DefenseSimArgs {
 if (resolve(argv[1] ?? "") === fileURLToPath(import.meta.url)) {
   const opts = parseDefenseArgs(argv.slice(2));
   process.stdout.write(formatDefense(simulateDefense(opts), opts));
-  if (opts.slow)
-    process.stdout.write(`
-${formatDefense(simulateDefense(opts, slowRows()), opts)}`);
+  if (opts.slow) {
+    const rows = [...slowRows(), ...newProfileRows().filter((r) => r.typist !== "5wpm")];
+    process.stdout.write(`\n${formatDefense(simulateDefense(opts, rows), opts)}`);
+  }
   if (opts.sweep) process.stdout.write(`\n${formatSweep(sweepPlant(opts), opts)}`);
 }
