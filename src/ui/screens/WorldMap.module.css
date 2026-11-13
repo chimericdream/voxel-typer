@@ -590,6 +590,29 @@
   white-space: nowrap;
 }
 
+/*
+ * The practice camp (M3-06): an optional side stop, so a softer, slower pulse than the "next"
+ * stone's. With reduced motion (--motion-ok: 0) it holds still.
+ */
+.node[data-state="camp"] {
+  animation: camp-pulse calc(1800ms * var(--motion-ok)) steps(4, jump-none) infinite alternate;
+}
+
+@keyframes camp-pulse {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.04);
+  }
+}
+
+.campTag {
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1;
+}
+
 .tent {
   width: calc(2.25rem * var(--text-scale));
   height: calc(1.25rem * var(--text-scale));
