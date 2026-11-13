@@ -67,12 +67,17 @@ async function breakOneBlock(page: Page): Promise<string> {
 }
 
 /**
- * Records the camera on every frame in the page while one block is broken, and returns the
- * biggest jump from one frame to the next before the block's last letter and after it. Drift
- * moves the camera a hair each frame; a shake jumps it far, so the two numbers tell them apart
- * (M3-07 review N5 (a)).
+ * Records the camera on every frame in the page while one block is broken. Returns, before the
+ * block's last letter and after it:
+ * - `before` / `after`: the biggest jump from one frame to the next (any movement at all);
+ * - `rollBefore` / `rollAfter`: the biggest camera roll. The rig aims with `lookAt` and up = +y,
+ *   so glides and drift (yaw and pitch only) never roll the camera; only the shake does
+ *   (`rotateZ`). That tells a shake apart from drift, which moves on every frame too
+ *   (M3-07 review N5 (a)).
  */
-async function jumpsAroundABreak(page: Page): Promise<{ before: number; after: number }> {
+async function jumpsAroundABreak(
+  page: Page,
+): Promise<{ before: number; after: number; rollBefore: number; rollAfter: number }> {
   await page.evaluate(() => {
     const poses: number[][] = [];
     const marks = { last: -1, stop: false };
@@ -134,7 +139,24 @@ async function jumpsAroundABreak(page: Page): Promise<{ before: number; after: n
       }
       return most;
     };
-    return { before: jump(1, split), after: jump(split + 1, poses.length) };
+    /** How far the camera's right vector tips out of the horizontal: its world y, from q. */
+    const roll = (from: number, to: number): number => {
+      let most = 0;
+      for (let i = Math.max(0, from); i < to; i++) {
+        const p: unknown = poses[i];
+        if (!Array.isArray(p)) continue;
+        const [, , , qx, qy, qz, qw] = p.map(Number);
+        if (qx === undefined || qy === undefined || qz === undefined || qw === undefined) continue;
+        most = Math.max(most, Math.abs(2 * (qx * qy + qw * qz)));
+      }
+      return most;
+    };
+    return {
+      before: jump(1, split),
+      after: jump(split + 1, poses.length),
+      rollBefore: roll(0, split),
+      rollAfter: roll(split, poses.length),
+    };
   });
 }
 
@@ -197,10 +219,10 @@ test.describe("full motion (control)", () => {
     test.slow();
     await page.goto(MINE);
     await waitForLesson(page);
-    const { before, after } = await jumpsAroundABreak(page);
-    // Drift alone (decision 71) moves the camera a hair per frame; the shake jumps it.
-    expect(after).toBeGreaterThan(1e-3);
-    expect(after).toBeGreaterThan(5 * before);
+    const { rollBefore, rollAfter } = await jumpsAroundABreak(page);
+    // Drift (decision 71) and glides turn the camera but never roll it; the shake does.
+    expect(rollBefore).toBeLessThan(1e-6);
+    expect(rollAfter).toBeGreaterThan(1e-5);
   });
 });
 
@@ -221,7 +243,8 @@ test.describe("reduced motion switched on in the OS during a lesson (M3-07 revie
     await page.emulateMedia({ reducedMotion: "reduce" });
     await frames(page, 10);
     const before = await cameraPose(page);
-    const { before: still, after } = await jumpsAroundABreak(page);
+    const { before: still, after, rollAfter } = await jumpsAroundABreak(page);
+    expect(rollAfter).toBeLessThan(1e-6);
     const end = await cameraPose(page);
     expect(still).toBeLessThan(1e-6);
     expect(after).toBeLessThan(1e-6);
@@ -238,7 +261,7 @@ test.describe('"Hear it again" at text scale 2 (M3-07 review N1)', () => {
     [1024, 600],
     [1280, 720],
   ] as const) {
-    test(`${width}×${height}: the hint shows whole, in the window, and the progress bar keeps room`, async ({
+    test(`${width}×${height}: the key cap shows, the words whole or not at all, and the progress bar keeps room`, async ({
       page,
     }) => {
       // CI has no voices: give the page one English voice of its own, as a laptop has.
@@ -271,18 +294,35 @@ test.describe('"Hear it again" at text scale 2 (M3-07 review N1)', () => {
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(width);
       expect(box.y).toBeGreaterThanOrEqual(0);
-      // Nothing in the hint is cut off: its words fit their box.
-      const clipped = await hint.evaluate((el) => {
+      // The key cap always shows whole. The words show whole, or (with no room) not at all:
+      // they are never cut in half.
+      const parts = await hint.evaluate((el) => {
         const outer = el.getBoundingClientRect();
-        return (
-          el.scrollWidth > el.clientWidth + 1 ||
-          [...el.children].some((c) => c.getBoundingClientRect().right > outer.right + 1)
-        );
+        const inside = (c: Element): boolean => {
+          const r = c.getBoundingClientRect();
+          return (
+            r.left >= outer.left - 1 &&
+            r.right <= outer.right + 1 &&
+            r.top >= outer.top - 1 &&
+            r.bottom <= outer.bottom + 1
+          );
+        };
+        const gone = (c: Element): boolean => c.getBoundingClientRect().top >= outer.bottom - 1;
+        const key = el.querySelector("kbd");
+        const words = el.querySelector("span");
+        return {
+          key: key !== null && inside(key),
+          words: words !== null && (inside(words) || gone(words)),
+          shown: words !== null && inside(words),
+        };
       });
-      expect(clipped).toBe(false);
+      expect(parts.key).toBe(true);
+      expect(parts.words).toBe(true);
+      // At 1280 px there is room for the words.
+      if (width >= 1280) expect(parts.shown).toBe(true);
       // The progress bar beside it still has room to be read.
       const bar = await page.getByRole("progressbar").first().boundingBox();
-      expect(bar?.width ?? 0).toBeGreaterThanOrEqual(100);
+      expect(bar?.width ?? 0).toBeGreaterThanOrEqual(110);
       expect(errors).toEqual([]);
     });
   }

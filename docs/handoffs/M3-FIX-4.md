@@ -31,6 +31,7 @@ Status: done (CI e2e and the a11y review still to come; I ran no local e2e, beca
   - `allowFlash()` no longer takes a time; it reads `performance.now()` itself.
 - `src/ui/keyboard/OnScreenKeyboard.tsx`: calls `allowFlash()` with no argument. Its wobble gate still uses the injected `now`.
 - `src/ui/hud/Hud.tsx`, `src/ui/kit/Toast.tsx` and `Toast.module.css`: **the HUD banner asks the flash guard.** Each new message (the banner or the Caps Lock hint) asks `allowFlash()` once. If the guard refuses, the message still shows, only without the pop-in (`Toast still` → `data-still`).
+- `src/ui/hud/Hud.module.css`: **"Hear it again" fits.** In a short top row, the words drop and the key cap stays, and the progress bar keeps at least `min(120px, 15%)`.
 - `src/ui/hud/Hud.module.css`: **GrayText.** Under `forced-colors: active`, typed letters (`data-mark="ok"` and `"fixed"`) use the `GrayText` color.
 - `src/ui/kit/announce.ts`, `Toast.tsx` and `src/a11y/route-announcer.ts`: **two live regions.** `announce(doc, text, channel)` takes `"page"` (the default; `#vt-announcer`, route changes and Results) or `"toast"` (`#vt-announcer-toast`, every Toast). Neither overwrites the other.
 - `src/ui/screens/nav.ts` and `Results.tsx`: **Results reads the motion setting live.**
@@ -58,9 +59,9 @@ Status: done (CI e2e and the a11y review still to come; I ran no local e2e, beca
     - the hint checked against all four corner buttons at 11 widths from 1024 to 1920 px (c);
     - touch through CDP: long press, cancelled touch, then one tap goes (a, b).
   - `tests/e2e/a11y.spec.ts`:
-    - the shake control now measures the biggest frame-to-frame camera jump before and after the breaking letter, so drift alone can't pass it;
+    - the shake control now measures camera roll before and after the breaking letter. The rig aims with `lookAt` and up = +y, so drift and glides never roll the camera, and only the shake does (`rotateZ`). Frame-to-frame jumps didn't work on CI: the lesson's opening glide was as big as the shake;
     - a new test switches the OS to reduced motion mid-lesson and checks that the camera then holds still. This fails on a cached boolean;
-    - "Hear it again" at text scale 2 at 1024×720, 1024×600 and 1280×720, with a stubbed local English voice. The hint must be whole and in the window, and the progress bar must keep at least 100 px.
+    - "Hear it again" at text scale 2 at 1024×720, 1024×600 and 1280×720, with a stubbed local English voice. The key cap must show whole; the words must show whole or not at all, and whole at 1280 px; the progress bar must keep at least 110 px.
   - `tests/fixtures/profiles/voice-miner.json`: a new fixture, a Miner with read-aloud on and text size 2. It is a copy of `meadow-done-miner`.
 - Baselines: I deleted `map-new-player.png`, `map-all-open.png` and `map-narrow-corner.png`, so CI makes them again. The hint now wraps at 1280 px, and the labels may settle differently.
 
@@ -84,7 +85,7 @@ Status: done (CI e2e and the a11y review still to come; I ran no local e2e, beca
   - Separate live regions: done.
   - Results reads motion live: done (hook test).
   - KeyCap font: done.
-  - "Hear it again" at scale 2: done (e2e). If CI shows it doesn't fit at 1024 px, the follow-up is to drop the label and keep the key cap, as the review suggests.
+  - "Hear it again" at scale 2: done (e2e). It didn't fit: on the first CI run, Miner at 1024×720 left the progress bar 87 px. So, as the review suggested, the words now drop and the key cap stays. The hint is one line tall and wraps, so words with no room move to a hidden second line and are never cut in half. The progress bar keeps `min(120px, 15%)`.
 - [ ] Accessibility review passes. This needs the reviewer.
 - `npm run verify` passes locally (115 files, 4315 tests, size in budget).
 

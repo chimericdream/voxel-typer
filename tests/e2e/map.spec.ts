@@ -222,21 +222,25 @@ test.describe("the island itself is the target (M3-FIX-4)", () => {
     await page.mouse.move(at.x + 1, at.y);
     await expect(island(page, "Birch Forest")).not.toHaveAttribute("data-hover", "1");
     // The same island again: the line goes away for a moment and comes back, so it's read again.
-    const cleared = note.evaluate(
-      (el) =>
-        new Promise<boolean>((done) => {
-          const watch = new MutationObserver(() => {
-            if (el.textContent === "") {
-              watch.disconnect();
-              done(true);
-            }
-          });
-          watch.observe(el, { childList: true, characterData: true, subtree: true });
-          setTimeout(() => done(false), 3000);
-        }),
-    );
+    // Log every text the line shows from now on, then click the same island again.
+    await note.evaluate((el) => {
+      const seen: string[] = [];
+      Reflect.set(window, "vtNoteLog", seen);
+      new MutationObserver(() => seen.push(el.textContent ?? "")).observe(el, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+    });
     await page.mouse.click(at.x, at.y);
-    expect(await cleared).toBe(true);
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const log: unknown = Reflect.get(window, "vtNoteLog");
+          return Array.isArray(log) ? log.map(String) : [];
+        }),
+      )
+      .toContain("");
     await expect(note).toHaveText("Finish Meadow Home to open this island!");
     // A typed letter clears it (M3-FIX-1 review N3).
     await page.keyboard.press("k");
@@ -327,7 +331,8 @@ test.describe("corner buttons on touch, narrow window (M3-FIX-4 (a), (b))", () =
     const errors = await openMap(page, "fresh-sprout", "&freeze=1");
     await expect(island(page, "Meadow Home")).toBeFocused();
     await page.getByRole("button", { name: "My Island" }).tap();
-    await expectScreen(page, "island");
+    // My Island is played as the Builder lesson.
+    await expectScreen(page, "play");
     expect(errors).toEqual([]);
   });
 });

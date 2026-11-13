@@ -142,6 +142,13 @@ describe("World map: the island's model is a target too (M3-FIX-4)", () => {
     expect(h.root.querySelector("[data-note]")?.textContent).toContain("Meadow Home");
     expect(h.root.querySelector("h2")).toBeNull();
 
+    // The same island again: the line is taken away, then put back a moment later (N4).
+    await clickMap(h);
+    expect(h.root.querySelector("[data-note]")?.textContent).toBe("");
+    await new Promise((r) => setTimeout(r, 80));
+    await h.settle();
+    expect(h.root.querySelector("[data-note]")?.textContent).toContain("Meadow Home");
+
     // Meadow Home: its lesson path opens.
     picking.answer = "meadow";
     await clickMap(h);
