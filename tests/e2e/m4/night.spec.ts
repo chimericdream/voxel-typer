@@ -10,7 +10,7 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { createKid } from "../helpers/kid";
-import { expectScreen } from "../helpers/slice";
+import { RESULTS_ARM_MS, expectScreen } from "../helpers/slice";
 import { collectErrors, ready, state, vt } from "../helpers/vt";
 import { night } from "./helpers";
 
@@ -66,8 +66,12 @@ test("a Miner's night at 15 WPM, like a child, finishes at dawn", async ({ page 
   const loot = await nightLoot(page);
   const bag = await bagOf(page);
   expect(Object.keys(loot).length).toBeGreaterThan(0);
-  await page.getByRole("button", { name: "Map", exact: true }).click();
-  await expectScreen(page, "map");
+  // Results ignores presses for its first moments (M2-11), so a stray key can't skip the stars.
+  await page.waitForTimeout(RESULTS_ARM_MS);
+  await expect(async () => {
+    await page.getByRole("button", { name: "Map", exact: true }).click();
+    await expectScreen(page, "map", 2000);
+  }).toPass({ timeout: 30_000 });
   await page.getByRole("button", { name: "My Blocks" }).click();
   await expectScreen(page, "inventory");
   await ready(page);
