@@ -283,7 +283,7 @@ describe("parts", () => {
     mount(<Hud {...props} band="sprout" settings={handsOff} />);
     const keys = host.querySelector('[data-hud="keyboard"]');
     expect(keys?.getAttribute("data-hands-caption")).toBe("1");
-    expect(keys?.querySelectorAll("svg")).toHaveLength(0);
+    expect(keys?.querySelectorAll("svg:not([data-key-icon])")).toHaveLength(0);
     expect(keys?.textContent).toContain("Use your left pointer finger.");
     // Labels off too: no hint line, as before.
     mount(<Hud {...props} band="sprout" settings={handsOff} labels={false} />);
@@ -408,23 +408,23 @@ describe("parts", () => {
     mount(<HudKeyboard fields={hud.fields} layout={EN_US} hands labels />);
     const row = (): Element | null => host.querySelector('[data-hud="keyboard"]');
     expect(row()?.hasAttribute("data-hands-caption")).toBe(false);
-    expect(host.querySelectorAll("svg").length).toBe(2);
+    expect(host.querySelectorAll("svg:not([data-key-icon])").length).toBe(2);
     const hint = t("keyboard.useFinger", { finger: t("keyboard.finger.L5") });
     expect(host.textContent).toContain(hint);
 
     void act(() => hud.set({ custom: { ...hud.get().custom, [HANDS_SLICE]: "caption" } }));
     expect(row()?.getAttribute("data-hands-caption")).toBe("1");
     // The hands are gone; the keys, their finger labels and the hint line stay.
-    expect(host.querySelectorAll("svg").length).toBe(0);
+    expect(host.querySelectorAll("svg:not([data-key-icon])").length).toBe(0);
     expect(host.textContent).toContain(hint);
     expect(host.querySelector('[data-next="key"]')?.getAttribute("data-code")).toBe("KeyA");
     expect(host.textContent).toContain(t("keyboard.zone.pinky"));
 
     // Other slices beside it change nothing, and clearing it brings the hands back.
     void act(() => reportWrongKey(hud, "k"));
-    expect(host.querySelectorAll("svg").length).toBe(0);
+    expect(host.querySelectorAll("svg:not([data-key-icon])").length).toBe(0);
     void act(() => hud.reset());
-    expect(host.querySelectorAll("svg").length).toBe(2);
+    expect(host.querySelectorAll("svg:not([data-key-icon])").length).toBe(2);
     expect(handsCaptionOnly({ [HANDS_SLICE]: true })).toBe(false);
   });
 

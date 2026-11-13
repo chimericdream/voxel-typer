@@ -286,7 +286,7 @@ test("a Sprout's calm night: the field fits above the keyboard and no clock show
   // The keys and the hint line stay; the drawn hands make room for the field.
   const keys = page.locator('[data-hud="keyboard"]');
   await expect(keys).toHaveAttribute("data-hands-caption", "1");
-  await expect(keys.locator("svg")).toHaveCount(0);
+  await expect(keys.locator("svg:not([data-key-icon])")).toHaveCount(0);
   await expect(keys.getByText(/^Use your /)).toBeVisible();
   await shot(page, info, "sprout-calm-lock");
   // A wrong key costs nothing: the same word, the same progress.

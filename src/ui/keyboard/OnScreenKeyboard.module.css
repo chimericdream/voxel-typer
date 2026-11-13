@@ -62,7 +62,7 @@
   background-image: var(--pattern, none);
   background-size: var(--pattern-size, auto);
   font-family: var(--font-body);
-  font-size: calc(var(--u) * 0.42);
+  font-size: max(12px, calc(var(--u) * 0.42));
 }
 
 .slot > kbd > span:first-child {
@@ -70,13 +70,37 @@
   text-align: center;
 }
 
+/*
+ * Nothing printed on a key is under 12 px (M3-FIX-13). Two chars (Shift char on top) take two
+ * lines, `DUAL_LINE` in OnScreenKeyboard.tsx. A key too short for both (`data-face-tight`,
+ * measured) shows one at the letters' size: the Shift char when the key is lit for it, else the
+ * plain char.
+ */
 .slot[data-face="dual"] > kbd {
-  font-size: calc(var(--u) * 0.27);
+  font-size: max(12px, calc(var(--u) * 0.27));
   line-height: 1.05;
 }
+.slot[data-face-tight] > kbd > span:first-child {
+  font-size: max(12px, calc(var(--u) * 0.42));
+  line-height: 1;
+  white-space: normal;
+}
+.slot[data-face-tight] [data-dual="top"],
+.slot[data-face-tight][data-shifted] [data-dual="bottom"] {
+  display: none;
+}
+.slot[data-face-tight][data-shifted] [data-dual="top"] {
+  display: inline;
+}
 
+/* Space keeps its word; the other named keys show an icon (`KeyIcon`), at least 14 px. */
 .slot[data-face="named"] > kbd {
-  font-size: calc(var(--u) * 0.24);
+  font-size: max(12px, calc(var(--u) * 0.3));
+}
+.slot[data-face="named"] svg {
+  display: block;
+  width: max(14px, calc(var(--u) * 0.45));
+  height: max(14px, calc(var(--u) * 0.45));
 }
 
 /* Finger zones: one color per finger type, and one pattern each, drawn in 3-px pixel steps. */

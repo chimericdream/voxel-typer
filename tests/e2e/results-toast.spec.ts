@@ -120,6 +120,8 @@ async function waitsPastLessonIntro(page: Page, ms: number): Promise<void> {
   }
   await page.getByRole("button", { name: "Back to the map", exact: true }).click();
   await expectScreen(page, "map");
+  // Escape before the map has drawn is dropped (M3-FIX-13): wait for it.
+  await expect(page.getByRole("heading", { name: "World Map" })).toBeAttached();
   // The map comes back with the island's lesson path open, and while it is open the corner (the
   // toast's place) isn't drawn, so the badge still waits. Escape closes the path.
   const corner = page.locator("[data-toast-corner]");
@@ -195,7 +197,9 @@ for (const view of [
     await setScale(page, 2);
     await firstLesson(page);
     await page.waitForTimeout(RESULTS_ARM_MS);
-    // No room under the buttons at this size: it never shows on Results, nor on Lesson Intro.
+    // At this size the card runs to the window's bottom (the buttons stand beside it, M3-FIX-13),
+    // so there is no room under it: the toast never shows on Results, nor on Lesson Intro, and
+    // waits for the map, where it must show.
     expect(await watchToast(page, view, 6000), "a badge toast on Results").toBe(false);
     await waitsPastLessonIntro(page, 5000);
     expect(errors).toEqual([]);
