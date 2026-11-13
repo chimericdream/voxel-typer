@@ -347,8 +347,13 @@ Field legend: see the top of `tasks-m0-m1.md`.
   - Quitting the test and then picking yourself on the player screen offers the test again at
     once. Don't offer it again in the same visit.
   - Fix the stale comments.
+  - **Tighten home-row-only placement** (M3-FIX-7 review on #187): about 0.5 % of home-row-only
+    Sprouts are placed past Birch, and `tests/unit/sim/placement.test.ts` now allows "at most 1
+    in 40", which passes only by seed (seed 6 gives 2 in 40 on main). Add a per-key accuracy
+    floor on the letter rungs, then put the test back to "never" across several seeds.
 - **Acceptance:**
   - [ ] Each item fixed, or listed in the handoff note with a reason.
+  - [ ] No home-row-only learner is placed past Birch in 10 seeds × 40 learners.
 
 ### M3-GATE
 `PLAN.md` Phase 3 acceptance (curriculum doc generated, sim plausibility, axe clean). Owner gets the word-list review dump (👤, can be deferred to M6-08 by the owner's choice). Tag `m3`.
