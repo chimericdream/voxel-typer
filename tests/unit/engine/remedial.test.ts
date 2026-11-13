@@ -54,7 +54,8 @@ function input(over: Partial<RemedialInput> = {}): RemedialInput {
   return {
     allowed: HOME,
     stats: Object.fromEntries(HOME.map((k) => [k, stat(60, 0.02)])),
-    sessionIndex: 10,
+    // An offer slot: with no remedial played yet, offers come at sessions 0, 3, 6, 9, …
+    sessionIndex: 9,
     targetLatencyMs: 900,
     recent: [],
     ...over,
@@ -94,7 +95,7 @@ describe("suggestRemedial: when", () => {
       s: stat(80, 0.8),
       l: stat(80, 0.4),
       d: stat(80, 0.01, 5),
-      f: stat(80, 0.01, 10),
+      f: stat(80, 0.01, 9),
     });
     const s = suggestRemedial(input({ stats }));
     expect(s?.keys).toEqual(["s", "a"]);
@@ -109,30 +110,59 @@ describe("suggestRemedial: when", () => {
 
 describe("suggestRemedial: rate limit", () => {
   const stats = withWeak({ a: stat(80, 0.6) });
+  const r = remedialId(["a"], 3);
+  const at = (recent: string[]) =>
+    suggestRemedial(input({ stats, sessionIndex: 50 + recent.length, recent }));
 
-  it("waits until neither of the last two sessions was a remedial", () => {
-    const r = remedialId(["a"], 3);
-    expect(suggestRemedial(input({ stats, recent: ["meadow-01", r] }))).toBeNull();
-    expect(suggestRemedial(input({ stats, recent: [r, "meadow-02"] }))).toBeNull();
-    expect(suggestRemedial(input({ stats, recent: [r, "meadow-02", "meadow-03"] }))).not.toBeNull();
-    expect(remedialAllowed([])).toBe(true);
+  it("after a remedial is played, waits for two other sessions", () => {
+    expect(at(["meadow-01", r])).toBeNull();
+    expect(at([r, "meadow-02"])).toBeNull();
+    expect(at([r, "meadow-02", "meadow-03"])).not.toBeNull();
   });
 
-  it("at most one remedial in any 3 sessions in a row, however often it is taken", () => {
+  it("a camp passed by does not come back for three sessions (M3-06 review B1)", () => {
+    // Offered after [r, x, x]; the child plays lessons instead.
+    expect(at([r, "m", "m", "m"])).toBeNull();
+    expect(at([r, "m", "m", "m", "m"])).toBeNull();
+    expect(at([r, "m", "m", "m", "m", "m"])).not.toBeNull();
+    // With no remedial ever played: sessions 0, 3, 6, …
+    expect(remedialAllowed([], 0)).toBe(true);
+    expect(remedialAllowed(["m"], 1)).toBe(false);
+    expect(remedialAllowed(["m", "m"], 2)).toBe(false);
+    expect(remedialAllowed(["m", "m", "m"], 3)).toBe(true);
+  });
+
+  it("is offered at most once every 3 sessions, taken or not", () => {
     fc.assert(
-      fc.property(fc.array(fc.boolean(), { minLength: 1, maxLength: 40 }), (takes) => {
-        const recent: string[] = [];
-        takes.forEach((take, i) => {
-          const s = suggestRemedial(input({ stats, sessionIndex: i, recent }));
-          recent.push(take && s !== null ? s.id : "meadow-01");
-        });
-        for (let i = 0; i + REMEDIAL_EVERY <= recent.length; i++) {
-          const window = recent.slice(i, i + REMEDIAL_EVERY);
-          expect(window.filter(isRemedialId).length).toBeLessThanOrEqual(1);
-        }
-      }),
+      fc.property(
+        fc.array(fc.boolean(), { minLength: 1, maxLength: 40 }),
+        fc.nat(20),
+        (takes, start) => {
+          const recent: string[] = [];
+          const offered: number[] = [];
+          takes.forEach((take, i) => {
+            const s = suggestRemedial(input({ stats, sessionIndex: start + i, recent }));
+            if (s !== null) offered.push(i);
+            recent.push(take && s !== null ? s.id : "meadow-01");
+          });
+          // Weak keys stay weak, so some offer comes in every 3 sessions...
+          expect(offered.length).toBeGreaterThanOrEqual(Math.floor(takes.length / REMEDIAL_EVERY));
+          // ...and never two within 3.
+          offered.forEach((o, k) => {
+            if (k > 0)
+              expect(o - (offered[k - 1] ?? -Infinity)).toBeGreaterThanOrEqual(REMEDIAL_EVERY);
+          });
+        },
+      ),
       { seed: SEED, numRuns: 200 },
     );
+  });
+
+  it("playing it again straight away is the child's choice; offers still wait their turn", () => {
+    // Replayed twice in a row from Results: the next offer waits two sessions after the last one.
+    expect(at([r, r])).toBeNull();
+    expect(at([r, r, "m"])).toBeNull();
+    expect(at([r, r, "m", "m"])).not.toBeNull();
   });
 });
 
@@ -201,7 +231,8 @@ function shakyA(upTo: number): Profile {
   const p = meadow
     .filter((l) => l.order <= upTo)
     .reduce((acc, l) => play(acc, l), fixture("fresh-sprout"));
-  return { ...p, keyStats: { ...p.keyStats, a: stat(80, 0.6) } };
+  // Session 6 is an offer slot (no remedial played yet: sessions 0, 3, 6, …).
+  return { ...p, sessionCounter: 6, keyStats: { ...p.keyStats, a: stat(80, 0.6) } };
 }
 
 afterEach(() => resetRemedials());

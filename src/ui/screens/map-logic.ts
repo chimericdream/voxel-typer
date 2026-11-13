@@ -9,7 +9,14 @@
  * here changes the profile.
  */
 import { biomesUnlockedBy } from "@/app/progress";
-import { campLabel, dueRemedial, isOptional, openLessons, recommendNext } from "@/app/recommend";
+import {
+  campIsland,
+  campLabel,
+  dueRemedial,
+  isOptional,
+  nextCurriculumLesson,
+  openLessons,
+} from "@/app/recommend";
 import type { Lesson } from "@/content/lessons/types";
 import { t } from "@/i18n";
 import type { Profile } from "@/save/schema";
@@ -75,13 +82,13 @@ const playedIn = (profile: Profile, id: string): boolean =>
 export { isOptional };
 
 /**
- * The lesson the map points the player to: `recommendNext` (M3-06), the one place that decides
- * it. A due remedial comes first (it is drawn as the practice camp, not as a stone), then the next
- * lesson not played, then the fewest stars. A "No Peeking!" challenge the player went past is not
- * pointed at again.
+ * The lesson the map points the player to: the curriculum half of `recommendNext` (M3-06), the
+ * next lesson not played, then the fewest stars. A due remedial never takes this cue: it is an
+ * optional practice camp beside the path (M3-06 review B1). A "No Peeking!" challenge the player
+ * went past is not pointed at again.
  */
 export function recommendedLesson(profile: Profile, lessons: readonly Lesson[]): Lesson | null {
-  return recommendNext(profile, lessons);
+  return nextCurriculumLesson(profile, lessons);
 }
 
 /** A practice camp to draw: what it says and the remedial lesson it plays (M3-06). */
@@ -92,8 +99,8 @@ export interface CampSuggestion {
 
 /**
  * The practice camp to show on a biome's path, or null: the due remedial (M3-06), on the island of
- * the furthest lesson reached. The screen turns it into a {@link PracticeCamp} whose `open` plays
- * the lesson, like picking a lesson stone.
+ * the next lesson (`campIsland`). The screen turns it into a {@link PracticeCamp} whose `open`
+ * plays the lesson, like picking a lesson stone.
  */
 export function practiceCamp(
   profile: Profile,
@@ -101,7 +108,7 @@ export function practiceCamp(
   biome: BiomeId,
 ): CampSuggestion | null {
   const lesson = dueRemedial(profile, lessons);
-  if (lesson === null || lesson.biome !== biome) return null;
+  if (lesson === null || campIsland(profile, lessons, lesson) !== biome) return null;
   return { label: campLabel(lesson), lesson };
 }
 

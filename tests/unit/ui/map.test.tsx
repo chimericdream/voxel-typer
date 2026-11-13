@@ -74,6 +74,24 @@ function played(profile: Profile, id: string, stars: 0 | 1 | 2 | 3): Profile {
   return applyResult(profile, lesson, result({ stars, summary: summary({ lessonId: id }) }), 1);
 }
 
+/** `p` with a shaky `d`, at session `at` (sessions 0, 3, 6, … are remedial offer slots). */
+const weakD = (p: Profile, at: number = p.sessionCounter): Profile => ({
+  ...p,
+  sessionCounter: at,
+  keyStats: {
+    ...p.keyStats,
+    d: {
+      attempts: 80,
+      errors: 40,
+      recentErrRate: 0.5,
+      latencyMedian: 400,
+      recentLatencies: [400],
+      lastSeenSession: 2,
+      srs: { intervalSessions: 1, dueSession: 99 },
+    },
+  },
+});
+
 describe("map logic", () => {
   const sprout = fixture("fresh-sprout");
 
@@ -234,59 +252,72 @@ describe("map logic", () => {
     expect(notYetLine({ ...first, unlocked: false })).toBe(t("map.island.notYetFirst"));
   });
 
-  it("shows a practice camp only while a remedial is due, on the island it belongs to (M3-06)", () => {
+  it("while a remedial is due, the next lesson still pulses and the camp sits beside it (M3-06)", () => {
     expect(practiceCamp(sprout, lessons, "meadow")).toBeNull();
-    const p = played(played(sprout, "meadow-01", 2), "meadow-02", 2);
-    const shaky: Profile = {
-      ...p,
-      keyStats: {
-        ...p.keyStats,
-        d: {
-          attempts: 80,
-          errors: 40,
-          recentErrRate: 0.5,
-          latencyMedian: 400,
-          recentLatencies: [400],
-          lastSeenSession: 2,
-          srs: { intervalSessions: 1, dueSession: 99 },
-        },
-      },
-    };
+    const shaky = weakD(played(played(sprout, "meadow-01", 2), "meadow-02", 2), 3);
     expect(practiceCamp(shaky, lessons, "birch")).toBeNull();
     const camp = practiceCamp(shaky, lessons, "meadow");
     expect(camp?.label).toBe(
       "Practice camp. Your left middle finger wants practice! Practice key: D.",
     );
-    // The camp is the recommendation, so no stone pulses; the island still says "Go here next!".
-    expect(lessonNodes(shaky, lessons, "meadow").some((n) => n.next)).toBe(false);
-    expect(islandInfos(shaky, lessons).find((i) => i.biome === "meadow")?.next).toBe(true);
     expect(camp?.lesson).toMatchObject({ biome: "meadow", newKeys: ["d"], mode: "mine" });
+    // The camp is an optional side stop: every "next" cue stays on the next lesson.
+    const nodes = lessonNodes(shaky, lessons, "meadow");
+    expect(nodes.filter((n) => n.next).map((n) => n.lesson.id)).toEqual(["meadow-03"]);
+    const next = nodes.find((n) => n.next);
+    expect(next && nodeLabel(next)).toBe(
+      t("map.path.lessonNext", { n: 3, title: next?.title ?? "", stars: 0 }),
+    );
+    expect(recommendedLesson(shaky, lessons)?.id).toBe("meadow-03");
+    expect(islandInfos(shaky, lessons).find((i) => i.biome === "meadow")?.next).toBe(true);
+  });
+
+  it("after a biome unlock, the camp sits on the new island with its first lesson (M3-06)", () => {
+    const twoBiomes = shipped.filter((l) => l.biome === "meadow" || l.biome === "birch");
+    const meadowAll = twoBiomes.filter((l) => l.biome === "meadow");
+    const done = meadowAll.reduce(
+      (p, l) => applyResult(p, l, result({ stars: 3, summary: summary({ lessonId: l.id }) }), 1),
+      sprout,
+    );
+    expect(done.progress.unlockedBiomes).toContain("birch");
+    const p = weakD(done, 30);
+    expect(practiceCamp(p, twoBiomes, "meadow")).toBeNull();
+    const camp = practiceCamp(p, twoBiomes, "birch");
+    expect(camp).not.toBeNull();
+    // It still practises keys the child knows: its place (and keys) are Meadow's last lesson.
+    expect(camp?.lesson.biome).toBe("meadow");
+    const birch = lessonNodes(p, twoBiomes, "birch");
+    expect(birch.filter((n) => n.next).map((n) => n.lesson.order)).toEqual([1]);
+    const infos = islandInfos(p, twoBiomes);
+    expect(infos.filter((i) => i.next).map((i) => i.biome)).toEqual(["birch"]);
+    expect(startIsland(infos)).toBe("birch");
+  });
+
+  it("a camp passed by stays away for three sessions, then comes back (M3-06)", () => {
+    let p = weakD(played(played(sprout, "meadow-01", 2), "meadow-02", 2), 3);
+    expect(practiceCamp(p, lessons, "meadow")).not.toBeNull();
+    // The child plays lessons instead; `d` stays shaky (the helper's summaries only type `f`).
+    p = played(p, "meadow-03", 2);
+    expect(practiceCamp(p, lessons, "meadow")).toBeNull();
+    p = played(p, "meadow-04", 2);
+    expect(practiceCamp(p, lessons, "meadow")).toBeNull();
+    p = played(p, "meadow-05", 2);
+    expect(p.sessionCounter).toBe(6);
+    expect(practiceCamp(p, lessons, "meadow")).not.toBeNull();
+    // The stones never stopped pointing ahead.
+    expect(recommendedLesson(p, lessons)?.id).toBe("meadow-06");
   });
 
   it("the practice camp opens its remedial lesson's intro, which the shell can find (M3-06)", async () => {
-    const p = played(played(sprout, "meadow-01", 2), "meadow-02", 2);
-    const shaky: Profile = {
-      ...p,
-      keyStats: {
-        ...p.keyStats,
-        d: {
-          attempts: 80,
-          errors: 40,
-          recentErrRate: 0.5,
-          latencyMedian: 400,
-          recentLatencies: [400],
-          lastSeenSession: 2,
-          srs: { intervalSessions: 1, dueSession: 99 },
-        },
-      },
-    };
+    const shaky = weakD(played(played(sprout, "meadow-01", 2), "meadow-02", 2), 3);
     const s = await openMap(shaky);
     void act(() => island(s.root, "meadow").click());
     await s.settle();
     const camp = s.root.querySelector<HTMLButtonElement>('[data-state="camp"]');
     expect(camp?.getAttribute("aria-label")).toContain("Your left middle finger wants practice!");
-    // No stone pulses while the camp is due; focus still starts on the next new stone, and the
-    // camp is the stop before it on the path.
+    // The camp shows a word a child can read, and it pulses gently (CSS); the next stone keeps
+    // the pulse, the "Next" tag and the first focus.
+    expect(text(camp)).toBe(t("remedial.campTag"));
     expect(active()?.dataset["lesson"]).toBe("meadow-03");
     void act(() => camp?.click());
     await s.settle();
@@ -295,6 +326,8 @@ describe("map logic", () => {
     expect(route.lesson?.startsWith("remedial-")).toBe(true);
     expect(s.shell.api.lesson(route.lesson ?? "")?.newKeys).toEqual(["d"]);
     expect(text(s.root.querySelector("h1"))).toBe("Your left middle finger wants practice!");
+    // The keys are known ones: "Practice keys", never "New keys".
+    expect(text(s.root.querySelector("h2"))).toBe(t("remedial.practiceKeys"));
   });
 });
 

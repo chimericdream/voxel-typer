@@ -3,6 +3,11 @@
  * "practice camp" when one is due. No DOM; the world map (`src/ui/screens/map-logic.ts`) and the
  * app shell call it.
  *
+ * The camp is an optional side stop (M3-06 review B1): every "go here next" cue on the map (the
+ * pulsing stone, its label, the island's tag, the first focus) follows
+ * {@link nextCurriculumLesson}, whether or not a remedial is due, and the camp is drawn on that
+ * lesson's island ({@link campIsland}). Passing it by costs nothing.
+ *
  * {@link recommendNext}: a due remedial, else the next lesson not played yet, else the open lesson
  * with the fewest stars in the current biome (then anywhere). A "No Peeking!" challenge the player
  * went past is never recommended (M3-FIX-7, decision 104). A lesson the placement test skipped has
@@ -160,11 +165,25 @@ export function nextCurriculumLesson(profile: Profile, lessons: readonly Lesson[
 }
 
 /**
- * The lesson the map points the player to: a due remedial, else {@link nextCurriculumLesson}.
- * A remedial is not in `lessons`; {@link isRemedialId} tells it apart.
+ * What to play next, all told: a due remedial, else {@link nextCurriculumLesson}. A remedial is
+ * not in `lessons`; {@link isRemedialId} tells it apart. The map's cues use the curriculum half
+ * only (see the top).
  */
 export function recommendNext(profile: Profile, lessons: readonly Lesson[]): Lesson | null {
   return dueRemedial(profile, lessons) ?? nextCurriculumLesson(profile, lessons);
+}
+
+/**
+ * The island a due remedial's camp sits on: the next curriculum lesson's, so the camp, the pulsing
+ * stone and "Go here next!" share one island (right after an unlock, the new one). With no next
+ * lesson, the remedial's own (its anchor's). The remedial keeps its anchor's keys and content.
+ */
+export function campIsland(
+  profile: Profile,
+  lessons: readonly Lesson[],
+  remedial: Lesson,
+): BiomeId {
+  return nextCurriculumLesson(profile, lessons)?.biome ?? remedial.biome;
 }
 
 /** How a key is said in a label: letters in capitals, as on the keyboard. */

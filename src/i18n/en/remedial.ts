@@ -18,6 +18,10 @@ export default {
   },
   /** The practice camp on the lesson path, for screen readers: "Practice camp. Your left …". */
   camp: "Practice camp. {title} {count, plural, one {Practice key: {keys}.} other {Practice keys: {keys}.}}",
+  /** The short word shown under the practice camp's tent. */
+  campTag: "Practice",
+  /** LessonIntro's heading over a practice lesson's keys (they are not new). */
+  practiceKeys: "Practice keys",
   /** Two keys in a row: "F and J". */
   two: "{a} and {b}",
   /** Spoken key names, where the glyph alone is unclear. */

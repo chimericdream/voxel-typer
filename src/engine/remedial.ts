@@ -7,8 +7,11 @@
  * is made on the fly and never saved into the curriculum: playing it never writes a lesson record,
  * so it can't unlock anything or touch best stars (`applyResult` checks {@link isRemedialId}).
  *
- * Rate limit: at most one remedial in any {@link REMEDIAL_EVERY} sessions in a row. Time and
- * randomness don't come in at all: the id is a hash of the keys and the session index.
+ * Rate limit ({@link remedialAllowed}): a remedial is offered at most once every
+ * {@link REMEDIAL_EVERY} sessions, whether the child plays it or not. A camp they pass by comes
+ * back three sessions later, never the very next one. Playing it again straight away ("Play
+ * again") is the child's choice and always allowed. Time and randomness don't come in at all: the
+ * id is a hash of the keys and the session index.
  */
 import { allowedKeysFor } from "@/content/lessons/types";
 import type { Lesson } from "@/content/lessons/types";
@@ -26,7 +29,7 @@ export const REMEDIAL_PREFIX = "remedial-";
 export const REMEDIAL_MIN_WEIGHT = 4;
 /** ...but only once it has been tried this often, so one bad day is not a trend. */
 export const REMEDIAL_MIN_ATTEMPTS = 30;
-/** At most one remedial in any this many sessions in a row. */
+/** A remedial is offered at most once in this many sessions, played or not. */
 export const REMEDIAL_EVERY = 3;
 /** How many weak keys a remedial focuses on. */
 export const REMEDIAL_FOCUS = 2;
@@ -57,11 +60,23 @@ export function remedialId(keys: readonly string[], sessionIndex: number): Lesso
 }
 
 /**
- * Whether a remedial may be suggested now: none of the last `REMEDIAL_EVERY - 1` sessions was one.
+ * Whether a remedial may be offered in session `sessionIndex` (sessions finished so far). Offers
+ * come in slots {@link REMEDIAL_EVERY} sessions apart, counted from the last remedial played: it
+ * is offered again after two other sessions, and if those sessions pass it by, after three more.
+ * With no remedial in `recent`, the slots are the session indexes divisible by
+ * {@link REMEDIAL_EVERY}. So an offer, taken or not, never comes back within three sessions, and
+ * the profile needs no record of when one was shown.
+ *
  * `recent` is the lesson id of each session, oldest first (the profile's `history`).
  */
-export function remedialAllowed(recent: readonly (string | undefined)[]): boolean {
-  return !recent.slice(-(REMEDIAL_EVERY - 1)).some(isRemedialId);
+export function remedialAllowed(
+  recent: readonly (string | undefined)[],
+  sessionIndex: number,
+): boolean {
+  const last = recent.findLastIndex(isRemedialId);
+  // Sessions since the last remedial; with none, as if one was played just before session 0.
+  const since = last === -1 ? sessionIndex + REMEDIAL_EVERY - 1 : recent.length - 1 - last;
+  return since >= REMEDIAL_EVERY - 1 && (since - (REMEDIAL_EVERY - 1)) % REMEDIAL_EVERY === 0;
 }
 
 export interface RemedialInput {
@@ -90,7 +105,7 @@ export interface RemedialSuggestion {
  * focuses on the {@link REMEDIAL_FOCUS} heaviest such keys.
  */
 export function suggestRemedial(input: RemedialInput): RemedialSuggestion | null {
-  if (!remedialAllowed(input.recent)) return null;
+  if (!remedialAllowed(input.recent, input.sessionIndex)) return null;
   const params = {
     allowed: input.allowed,
     focus: [],
