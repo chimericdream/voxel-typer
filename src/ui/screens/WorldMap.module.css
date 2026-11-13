@@ -33,6 +33,22 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2) var(--sp-4);
+  /*
+   * Clear of the corner buttons, whose width WorldMap.tsx measures into --corner-w, at every
+   * width: the hint wraps under the title instead of covering Change player (M4-FIX-1 at 1024 px,
+   * M3-FIX-4 from 1101 px up, where the buttons show their words and are wider).
+   */
+  max-width: min(72%, calc(100% - var(--corner-w, 0px) - var(--sp-4) * 2 - var(--sp-3)));
+  /*
+   * The heading has nothing to press, so it never takes a click, even where a plate meets a
+   * corner button or a label (M3-FIX-8 found the hint taking My Badges' clicks at text size 2).
+   */
+  pointer-events: none;
+}
+
+/* Too little room beside the corner buttons (large text): the heading goes below them. */
+.map[data-stack]:not([data-mode="flat"]) .top {
+  top: calc(var(--sp-3) + var(--corner-h, 0px) + var(--sp-2));
   max-width: 72%;
 }
 
@@ -91,13 +107,10 @@
  * stay for screen readers. Text size is untouched: the picture scales with it.
  */
 @media (max-width: 1100px) {
-  /*
-   * Clear of the corner buttons, whose width WorldMap.tsx measures into --corner-w: at 1024 px
-   * the hint wraps under the title instead of covering Change player (M4-FIX-1). Wider windows
-   * keep the 72% rule, where the word buttons already leave room.
-   */
-  .top {
-    max-width: min(72%, calc(100% - var(--corner-w, 0px) - var(--sp-4) * 2 - var(--sp-3)));
+  /* A finger resting on a picture shows its words (WorldMap.tsx), not the system's menu. */
+  .corner [data-nav] {
+    -webkit-touch-callout: none;
+    user-select: none;
   }
 
   .corner button {
@@ -118,8 +131,9 @@
   }
 
   /*
-   * The words come back as a tip under the picture on hover, on keyboard focus, and after a tap
-   * (`data-tip`, set by `CornerButton`; a `title` shows only on mouse hover; M4-07 review N-D).
+   * The words come back as a tip under the picture on hover, on keyboard focus, and after a long
+   * press (`data-tip`, set by `CornerButton`; a `title` shows only on mouse hover; M4-07 review
+   * N-D; one tap goes, M3-FIX-4).
    */
   .corner [data-nav]:hover .cornerText,
   .corner [data-nav]:focus-within .cornerText,
@@ -592,5 +606,28 @@
   .island:hover:not([data-locked]),
   .node:hover:not([aria-disabled="true"]) {
     filter: brightness(1.06);
+  }
+}
+
+/* The 3D picture's click layer (M3-FIX-4): fills the map, under everything else on it. */
+.stage {
+  position: absolute;
+  inset: 0;
+}
+
+/* The mouse is over an island's model (M3-FIX-4): the hand cursor, as over its label. */
+.map[data-pointing="island"] {
+  cursor: pointer;
+}
+
+/* ...and the island's label lights up: a gold edge, no movement. */
+.island[data-hover]:not([data-locked]) {
+  box-shadow: 0 0 0 var(--bevel-unit) var(--c-accent);
+  filter: brightness(1.06);
+}
+
+@media (forced-colors: active) {
+  .island[data-hover]:not([data-locked]) {
+    outline: var(--bevel-unit) solid Highlight;
   }
 }

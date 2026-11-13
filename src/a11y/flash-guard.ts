@@ -33,30 +33,45 @@ export interface FlashGuardOptions {
   max?: number;
   /** Default {@link FLASH_WINDOW_MS}. */
   windowMs?: Ms;
+  /**
+   * What a time earlier than the last allowed flash means. `'reset'` (the default): a new clock,
+   * so forget the old flashes. `'refuse'`: someone asked on another clock; say no and keep the
+   * window, so one stray caller can't wipe it for everyone (the app's shared guard; M3-07 review
+   * N4).
+   */
+  backwards?: "reset" | "refuse";
 }
 
 export function createFlashGuard(opts: FlashGuardOptions = {}): FlashGuard {
   const max = Math.max(1, Math.floor(opts.max ?? MAX_FLASHES));
   const windowMs = opts.windowMs ?? FLASH_WINDOW_MS;
+  const refuseBackwards = opts.backwards === "refuse";
   /** Start times of allowed flashes, oldest first; never more than `max`. */
   let starts: Ms[] = [];
 
+  /** True when `now` is before the last allowed flash: the clock went back. */
+  const goesBack = (now: Ms): boolean => {
+    const last = starts.at(-1);
+    return last !== undefined && now < last;
+  };
   /** Drops flashes that left the window ending at `now`. A clock that went back resets the guard. */
   const prune = (now: Ms): void => {
-    const last = starts.at(-1);
-    if (last !== undefined && now < last) starts = [];
+    if (goesBack(now)) starts = [];
     starts = starts.filter((s) => now - s < windowMs);
   };
 
   return {
     tryFlash(now) {
       if (!Number.isFinite(now)) return false;
+      if (refuseBackwards && goesBack(now)) return false;
       prune(now);
       if (starts.length >= max) return false;
       starts.push(now);
       return true;
     },
-    nextAllowedAt(now) {
+    nextAllowedAt(asked) {
+      // Refusing a time from before the last flash: the answer is on the guard's own clock.
+      const now = refuseBackwards && goesBack(asked) ? (starts.at(-1) ?? asked) : asked;
       prune(now);
       if (starts.length < max) return now;
       // The oldest of the last `max` flashes must leave the window first.

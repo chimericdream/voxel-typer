@@ -47,7 +47,8 @@
 
 .progress {
   flex: 1 1 0;
-  min-width: 0;
+  /* Room to read the bar: the "hear it again" words give way first (M3-FIX-4). */
+  min-width: min(120px, 15%);
   max-width: 360px;
 }
 
@@ -255,12 +256,23 @@
 }
 
 /* "Hear it again" (M3-07): a small key cap and its label on a plate, in the top row. */
+/*
+ * When the top row is short of room (Miner at 1024 px and text size 2), the words drop and the key
+ * cap stays (M3-07 review N1): the plate is one line tall and wraps, so words with no room move to
+ * a second line that is cut off. They are never cut in half.
+ */
 .hear {
-  flex: none;
+  flex: 0 1 auto;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  align-content: flex-start;
   gap: var(--sp-2);
+  box-sizing: border-box;
+  min-width: calc(2.2em + 2 * var(--sp-3));
+  height: calc(1.6em + 2 * var(--sp-1));
   margin: 0;
+  overflow: hidden;
   padding: var(--sp-1) var(--sp-3);
   background: var(--c-plate);
   color: var(--c-plate-text);
@@ -284,4 +296,15 @@
   color: var(--c-keycap-text);
   font-family: var(--font-body);
   font-weight: 700;
+}
+
+/*
+ * Windows Contrast themes force --c-text-muted to the text color, so typed letters looked just
+ * like the ones still to type (M3-07 review N2). The system's own "dimmed" color sets them apart.
+ */
+@media (forced-colors: active) {
+  .char[data-mark="ok"],
+  .char[data-mark="fixed"] {
+    color: GrayText;
+  }
 }

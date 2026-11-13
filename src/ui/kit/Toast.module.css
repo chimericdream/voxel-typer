@@ -34,3 +34,8 @@
     opacity: 0;
   }
 }
+
+/* No pop-in: the page already flashed 3 times this second (the HUD asks `allowFlash`). */
+.toast[data-still] {
+  animation: none;
+}

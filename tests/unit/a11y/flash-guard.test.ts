@@ -1,5 +1,6 @@
 import * as fc from "fast-check";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { allowFlash, flashGuard } from "../../../src/a11y/flashes";
 import {
   createFlashGuard,
   FLASH_WINDOW_MS,
@@ -116,5 +117,36 @@ describe("flash guard (PLAN.md §4.6: never more than 3 flashes a second)", () =
       ),
       { seed: 307, numRuns: 300 },
     );
+  });
+});
+
+describe("a time from another clock (M3-07 review N4)", () => {
+  it("with backwards: 'refuse', an earlier time is refused and the window is kept", () => {
+    const guard = createFlashGuard({ backwards: "refuse" });
+    for (const t of [5000, 5100, 5200]) expect(guard.tryFlash(t)).toBe(true);
+    // A caller on a fixed-step clock asks at t = 16: no, and the three flashes still count.
+    expect(guard.tryFlash(16)).toBe(false);
+    expect(guard.nextAllowedAt(16)).toBe(6000);
+    expect(guard.tryFlash(5300)).toBe(false);
+    expect(guard.tryFlash(6000)).toBe(true);
+  });
+
+  describe("the app's shared guard", () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+      flashGuard().reset();
+    });
+
+    it("reads performance.now() itself, so a stray earlier time can't wipe its window", () => {
+      flashGuard().reset();
+      let t = 50_000;
+      vi.spyOn(performance, "now").mockImplementation(() => t);
+      for (let i = 0; i < 3; i++) expect(allowFlash()).toBe(true);
+      // Someone asks the guard directly on another clock: refused, and nothing is forgotten.
+      expect(flashGuard().tryFlash(10)).toBe(false);
+      expect(allowFlash()).toBe(false);
+      t += 1000;
+      expect(allowFlash()).toBe(true);
+    });
   });
 });

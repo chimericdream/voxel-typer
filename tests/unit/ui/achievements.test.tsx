@@ -7,11 +7,22 @@ import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { achievements } from "../../../src/content/achievements";
 import { t } from "../../../src/i18n";
-import { AchievementToast, BADGE_TOAST_MS } from "../../../src/ui/components/AchievementToast";
+import {
+  AchievementToast,
+  BADGE_TOAST_MS,
+  clearBelow,
+} from "../../../src/ui/components/AchievementToast";
+import { hiddenParts } from "../../../src/ui/screens/Achievements";
+import { Dialog } from "../../../src/ui/kit/Dialog";
 import { attachRouteAnnouncer } from "../../../src/a11y/route-announcer";
 import { BADGE_SETTLE_MS } from "../../../src/app/App";
 import { screens } from "../../../src/app/routes";
-import { announce, announcer } from "../../../src/ui/kit/announce";
+import {
+  FIRST_ANNOUNCE_MS,
+  TOAST_AFTER_PAGE_MS,
+  announce,
+  announcer,
+} from "../../../src/ui/kit/announce";
 import type { Harness } from "./screens/harness";
 import { fixture, mount, text } from "./screens/harness";
 
@@ -68,6 +79,75 @@ describe("My Badges", () => {
   });
 });
 
+/** Gives `el` the scroll measurements a browser would, then tells it it scrolled. */
+function scrollTo(el: HTMLElement, at: { top: number; client: number; content: number }): void {
+  Object.defineProperty(el, "clientHeight", { configurable: true, value: at.client });
+  Object.defineProperty(el, "scrollHeight", { configurable: true, value: at.content });
+  Object.defineProperty(el, "scrollTop", { configurable: true, writable: true, value: at.top });
+  el.dispatchEvent(new Event("scroll"));
+}
+
+describe("My Badges shows that it scrolls (M3-FIX-8)", () => {
+  it("reads what a scroll area hides", () => {
+    expect(hiddenParts(0, 400, 400)).toEqual({ above: false, below: false });
+    expect(hiddenParts(0, 400, 1000)).toEqual({ above: false, below: true });
+    expect(hiddenParts(300, 400, 1000)).toEqual({ above: true, below: true });
+    expect(hiddenParts(600, 400, 1000)).toEqual({ above: true, below: false });
+    // Subpixel scroll positions at the ends still count as the end.
+    expect(hiddenParts(599.5, 400, 1000)).toEqual({ above: true, below: false });
+    expect(hiddenParts(1, 400, 1000)).toEqual({ above: false, below: true });
+  });
+
+  it("fades the cut edge and shows a 'More badges below' cue until the end, which scrolls on a click", async () => {
+    h = await mount({
+      initial: { id: "achievements" },
+      initialProfile: fixture("veteran-builder"),
+    });
+    const list = h.root.querySelector<HTMLElement>("section[tabindex='0']");
+    if (!list) throw new Error("no badge list");
+    // Everything fits: no fade, no cue.
+    scrollTo(list, { top: 0, client: 900, content: 900 });
+    await h.settle();
+    expect(h.root.querySelector("[data-testid='badges-more']")).toBeNull();
+    expect(list.hasAttribute("data-below")).toBe(false);
+
+    // Badges hidden below: the bottom fades and the cue shows.
+    scrollTo(list, { top: 0, client: 300, content: 900 });
+    await h.settle();
+    const more = h.root.querySelector<HTMLButtonElement>("[data-testid='badges-more']");
+    expect(more?.textContent).toBe(t("achievements.moreBelow"));
+    expect(more?.hasAttribute("data-show")).toBe(true);
+    expect(more?.tabIndex).toBe(-1);
+    expect(list.hasAttribute("data-below")).toBe(true);
+    expect(list.hasAttribute("data-above")).toBe(false);
+    // Every badge is in the list for a screen reader, hidden or not, and the list takes focus.
+    expect(list.querySelectorAll("[data-badge]")).toHaveLength(achievements.length);
+    expect(list.tabIndex).toBe(0);
+
+    // A click scrolls most of a screenful down.
+    const scrollBy = vi.fn();
+    list.scrollBy = scrollBy;
+    more?.click();
+    expect(scrollBy).toHaveBeenCalledTimes(1);
+    const arg: unknown = scrollBy.mock.calls[0]?.[0];
+    expect(arg).toMatchObject({ top: 240 });
+
+    // The middle: both edges fade.
+    scrollTo(list, { top: 300, client: 300, content: 900 });
+    await h.settle();
+    expect(list.hasAttribute("data-above")).toBe(true);
+    expect(list.hasAttribute("data-below")).toBe(true);
+
+    // The end: the cue goes (its room stays, so the list doesn't jump).
+    scrollTo(list, { top: 600, client: 300, content: 900 });
+    await h.settle();
+    expect(list.hasAttribute("data-below")).toBe(false);
+    expect(h.root.querySelector("[data-testid='badges-more']")?.hasAttribute("data-show")).toBe(
+      false,
+    );
+  });
+});
+
 function show(queue: string[], open: boolean, onShown = vi.fn()) {
   const root = document.createElement("div");
   document.body.append(root);
@@ -110,7 +190,131 @@ describe("badge toast", () => {
   });
 });
 
-describe("badge toasts and the route announcer share the live region (review B1)", () => {
+/** A kit Dialog in its own root, opened and closed by `set`. */
+function modal(): { set: (open: boolean) => void; done: () => void } {
+  const root = document.createElement("div");
+  document.body.append(root);
+  const set = (open: boolean): void => {
+    void act(() =>
+      render(
+        <Dialog open={open} onClose={() => {}} title="Pause" closeLabel="Close">
+          <button type="button">Go on</button>
+        </Dialog>,
+        root,
+      ),
+    );
+  };
+  return {
+    set,
+    done: () => {
+      void act(() => render(null, root));
+      root.remove();
+    },
+  };
+}
+
+const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+describe("a badge toast under a modal (M3-FIX-8)", () => {
+  it("waits while a modal is open, then shows and reads it out once the modal closes", async () => {
+    // Toasts speak in their own region (M3-FIX-4), at least TOAST_AFTER_PAGE_MS after a page message.
+    const region = announcer(document, "toast").region;
+    const spoken: string[] = [];
+    const watch = new MutationObserver(() => {
+      const now = region.textContent ?? "";
+      if (now !== "") spoken.push(now);
+    });
+    watch.observe(region, { childList: true, characterData: true, subtree: true });
+    const dialog = modal();
+    dialog.set(true);
+    expect(document.querySelector("dialog[open]")).not.toBeNull();
+    const s = show(["first-word"], true);
+    const badge = t("achievements.toast", { name: t("achievements.firstWord.name") });
+    try {
+      await wait(TOAST_AFTER_PAGE_MS + FIRST_ANNOUNCE_MS + 100);
+      // Held: not drawn, not read, and its time on screen hasn't started.
+      expect(s.root.textContent).toBe("");
+      expect(spoken).not.toContain(badge);
+      expect(s.onShown).not.toHaveBeenCalled();
+
+      dialog.set(false);
+      expect(document.querySelector("dialog[open]")).toBeNull();
+      await wait(TOAST_AFTER_PAGE_MS + FIRST_ANNOUNCE_MS + 100);
+      expect(text(s.root)).toContain(badge);
+      expect(spoken.at(-1)).toBe(badge);
+      expect(s.onShown).not.toHaveBeenCalled();
+    } finally {
+      watch.disconnect();
+      s.done();
+      dialog.done();
+    }
+  });
+
+  it("puts a toast already up away when a modal opens, and shows it again in full after", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const dialog = modal();
+    const s = show(["first-word"], true);
+    const badge = t("achievements.toast", { name: t("achievements.firstWord.name") });
+    try {
+      expect(text(s.root)).toContain(badge);
+      vi.advanceTimersByTime(BADGE_TOAST_MS - 500);
+      dialog.set(true);
+      await vi.waitFor(() => expect(s.root.textContent).toBe(""));
+      vi.advanceTimersByTime(BADGE_TOAST_MS * 2);
+      expect(s.onShown).not.toHaveBeenCalled();
+      dialog.set(false);
+      // (vi.waitFor moves fake time on by a few 50 ms steps while it polls.)
+      await vi.waitFor(() => expect(text(s.root)).toContain(badge));
+      // Its full time again, not the 500 ms it had left.
+      vi.advanceTimersByTime(BADGE_TOAST_MS - 1000);
+      expect(s.onShown).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1000);
+      expect(s.onShown).toHaveBeenCalledTimes(1);
+    } finally {
+      s.done();
+      dialog.done();
+    }
+  });
+});
+
+describe("a badge toast keeps clear of the map's corner (M3-FIX-8)", () => {
+  it("sits below every data-toast-clear element, and moves when one grows", () => {
+    const corner = document.createElement("div");
+    corner.setAttribute("data-toast-clear", "");
+    let bottom = 60;
+    corner.getBoundingClientRect = () => new DOMRect(900, 12, 360, bottom - 12);
+    document.body.append(corner);
+    const s = show(["first-word"], true);
+    try {
+      expect(clearBelow(document)).toBe(60);
+      // Only what is above or below the toast counts: a heading on the left doesn't push it down.
+      const heading = document.createElement("header");
+      heading.setAttribute("data-toast-clear", "");
+      heading.getBoundingClientRect = () => new DOMRect(16, 70, 500, 80);
+      document.body.append(heading);
+      expect(clearBelow(document, { left: 900, right: 1264 })).toBe(60);
+      expect(clearBelow(document, { left: 480, right: 1264 })).toBe(150);
+      expect(clearBelow(document)).toBe(150);
+      heading.remove();
+      const wrap = s.root.querySelector<HTMLElement>("[data-testid='badge-toast']");
+      expect(wrap?.style.top).toBe("72px");
+      // Text scale 2: the corner row wraps and doubles.
+      bottom = 130.4;
+      window.dispatchEvent(new Event("resize"));
+      expect(wrap?.style.top).toBe("143px");
+      // No corner (an island's lesson path is open): the stylesheet's place.
+      corner.remove();
+      expect(clearBelow(document)).toBeNull();
+      window.dispatchEvent(new Event("resize"));
+      expect(wrap?.style.top).toBe("");
+    } finally {
+      s.done();
+      corner.remove();
+    }
+  });
+});
+
+describe("badge toasts and the route announcer, each in its own live region (review B1, M3-07 N6)", () => {
   it("never opens on the play route; on Results the stars are read first, then the badge", async () => {
     h = await mount({ initialProfile: fixture("fresh-sprout"), initial: { id: "map" } });
     const s = h;
@@ -125,12 +329,17 @@ describe("badge toasts and the route announcer share the live region (review B1)
         announce(document, msg);
       },
     });
-    const region = announcer(document).region;
-    const watch = new MutationObserver(() => {
-      const now = region.textContent ?? "";
-      if (now !== "" && spoken.at(-1) !== now) spoken.push(now);
+    const regions = [announcer(document).region, announcer(document, "toast").region];
+    const watch = new MutationObserver((records) => {
+      for (const r of records) {
+        const region = regions.find((el) => el.contains(r.target));
+        const now = region?.textContent ?? "";
+        if (now !== "" && spoken.at(-1) !== now) spoken.push(now);
+      }
     });
-    watch.observe(region, { childList: true, characterData: true, subtree: true });
+    for (const region of regions) {
+      watch.observe(region, { childList: true, characterData: true, subtree: true });
+    }
     try {
       // A badge earned as the lesson finishes, while the route is still `play`.
       s.shell.api.navigate({ id: "play", lesson: "meadow-01" });

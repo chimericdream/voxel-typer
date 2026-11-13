@@ -14,8 +14,8 @@
  * Key repeats never reach the handler: `normalizeKeyEvent` drops them, so a held key can't act
  * twice through here. The kit `Button` and `Dialog` ignore repeats on their own.
  */
-import { useEffect, useRef } from "preact/hooks";
-import { reducedMotion } from "@/a11y/motion";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { appMotion, reducedMotion } from "@/a11y/motion";
 import type { ScreenInputHandler, AppApi } from "@/app/types";
 
 let lastKeyHandled = false;
@@ -142,4 +142,14 @@ export function arrowStep(action: string): 1 | -1 | null {
  */
 export function prefersReducedMotion(setting: boolean | "system" | undefined): boolean {
   return reducedMotion(setting);
+}
+
+/**
+ * {@link prefersReducedMotion} for a component, read live: the component renders again when the
+ * app's flag changes (the OS setting switched while the screen is up; M3-07 review N7).
+ */
+export function useReducedMotion(setting: boolean | "system" | undefined): boolean {
+  const [, bump] = useState(0);
+  useEffect(() => appMotion().subscribe(() => bump((n) => n + 1)), []);
+  return prefersReducedMotion(setting);
 }

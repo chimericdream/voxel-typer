@@ -66,6 +66,100 @@ async function breakOneBlock(page: Page): Promise<string> {
   return text;
 }
 
+/**
+ * Records the camera on every frame in the page while one block is broken. Returns, before the
+ * block's last letter and after it:
+ * - `before` / `after`: the biggest jump from one frame to the next (any movement at all);
+ * - `rollBefore` / `rollAfter`: the biggest camera roll. The rig aims with `lookAt` and up = +y,
+ *   so glides and drift (yaw and pitch only) never roll the camera; only the shake does
+ *   (`rotateZ`). That tells a shake apart from drift, which moves on every frame too
+ *   (M3-07 review N5 (a)).
+ */
+async function jumpsAroundABreak(
+  page: Page,
+): Promise<{ before: number; after: number; rollBefore: number; rollAfter: number }> {
+  await page.evaluate(() => {
+    const poses: number[][] = [];
+    const marks = { last: -1, stop: false };
+    Reflect.set(window, "vtPoses", { poses, marks });
+    const step = (): void => {
+      const hooks: unknown = Reflect.get(window, "__vt");
+      const read: unknown =
+        typeof hooks === "object" && hooks !== null ? Reflect.get(hooks, "camera") : null;
+      const p: unknown = typeof read === "function" ? Reflect.apply(read, hooks, []) : null;
+      if (typeof p === "object" && p !== null) {
+        poses.push(["x", "y", "z", "qx", "qy", "qz", "qw"].map((k) => Number(Reflect.get(p, k))));
+      }
+      if (!marks.stop) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  });
+  await frames(page, 20);
+  const text = (await state(page)).text ?? "";
+  expect(text.length).toBeGreaterThan(0);
+  for (let now = await state(page); now.text === text && now.next !== null && now.next !== " ";) {
+    // Mark the frame just before the letter that breaks the block.
+    if (now.typed === Array.from(text).length - 1) {
+      await page.evaluate(() => {
+        const rec: unknown = Reflect.get(window, "vtPoses");
+        if (typeof rec !== "object" || rec === null) return;
+        const marks: unknown = Reflect.get(rec, "marks");
+        const poses: unknown = Reflect.get(rec, "poses");
+        if (typeof marks === "object" && marks !== null && Array.isArray(poses)) {
+          Reflect.set(marks, "last", poses.length);
+        }
+      });
+    }
+    await page.keyboard.press(now.next);
+    await page.waitForTimeout(80);
+    now = await state(page);
+  }
+  await expect.poll(async () => (await state(page)).text, { timeout: 15_000 }).not.toBe(text);
+  await frames(page, 20);
+  return page.evaluate(() => {
+    const rec: unknown = Reflect.get(window, "vtPoses");
+    if (typeof rec !== "object" || rec === null) throw new Error("no recording");
+    const marks: unknown = Reflect.get(rec, "marks");
+    const poses: unknown = Reflect.get(rec, "poses");
+    if (typeof marks !== "object" || marks === null || !Array.isArray(poses)) {
+      throw new Error("no recording");
+    }
+    Reflect.set(marks, "stop", true);
+    const last = Number(Reflect.get(marks, "last"));
+    const split = last >= 0 ? last : Math.floor(poses.length / 2);
+    const jump = (from: number, to: number): number => {
+      let most = 0;
+      for (let i = Math.max(1, from); i < to; i++) {
+        const a: unknown = poses[i - 1];
+        const b: unknown = poses[i];
+        if (!Array.isArray(a) || !Array.isArray(b)) continue;
+        for (let k = 0; k < a.length; k++) {
+          most = Math.max(most, Math.abs(Number(a[k]) - Number(b[k])));
+        }
+      }
+      return most;
+    };
+    /** How far the camera's right vector tips out of the horizontal: its world y, from q. */
+    const roll = (from: number, to: number): number => {
+      let most = 0;
+      for (let i = Math.max(0, from); i < to; i++) {
+        const p: unknown = poses[i];
+        if (!Array.isArray(p)) continue;
+        const [, , , qx, qy, qz, qw] = p.map(Number);
+        if (qx === undefined || qy === undefined || qz === undefined || qw === undefined) continue;
+        most = Math.max(most, Math.abs(2 * (qx * qy + qw * qz)));
+      }
+      return most;
+    };
+    return {
+      before: jump(1, split),
+      after: jump(split + 1, poses.length),
+      rollBefore: roll(0, split),
+      rollAfter: roll(split, poses.length),
+    };
+  });
+}
+
 function moved(a: Pose, b: Pose): number {
   return Math.max(
     Math.abs(a.x - b.x),
@@ -119,16 +213,119 @@ test.describe("reduced motion (prefers-reduced-motion: reduce)", () => {
 test.describe("full motion (control)", () => {
   test.use({ reducedMotion: "no-preference" });
 
-  test("a block break shakes the camera when motion is on", async ({ page }) => {
+  test("a block break shakes the camera when motion is on: a jump far bigger than drift", async ({
+    page,
+  }) => {
     test.slow();
     await page.goto(MINE);
     await waitForLesson(page);
+    const { rollBefore, rollAfter } = await jumpsAroundABreak(page);
+    // Drift (decision 71) and glides turn the camera but never roll it; the shake does.
+    expect(rollBefore).toBeLessThan(1e-6);
+    expect(rollAfter).toBeGreaterThan(1e-5);
+  });
+});
+
+test.describe("reduced motion switched on in the OS during a lesson (M3-07 review N5 (b))", () => {
+  test.use({ reducedMotion: "no-preference" });
+
+  test("the camera stops: no drift and no shake from then on", async ({ page }) => {
+    test.slow();
+    const errors = collectErrors(page);
+    await page.goto(MINE);
+    await waitForLesson(page);
+    // Motion on first: the camera drifts.
+    const start = await cameraPose(page);
+    await frames(page, 30);
+    expect(moved(start, await cameraPose(page))).toBeGreaterThan(1e-6);
+
+    // The child's grown-up turns on "reduce motion" in the OS settings mid-lesson.
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await frames(page, 10);
     const before = await cameraPose(page);
-    await breakOneBlock(page);
-    const during = await cameraPose(page);
-    expect(moved(before, during)).toBeGreaterThan(1e-4);
+    const { before: still, after, rollAfter } = await jumpsAroundABreak(page);
+    expect(rollAfter).toBeLessThan(1e-6);
+    const end = await cameraPose(page);
+    expect(still).toBeLessThan(1e-6);
+    expect(after).toBeLessThan(1e-6);
+    expect(moved(before, end)).toBeLessThan(1e-6);
+    expect(errors).toEqual([]);
   });
+});
+
+test.describe('"Hear it again" at text scale 2 (M3-07 review N1)', () => {
+  test.use({ reducedMotion: "reduce" });
+
+  for (const [width, height] of [
+    [1024, 720],
+    [1024, 600],
+    [1280, 720],
+  ] as const) {
+    test(`${width}×${height}: the key cap shows, the words whole or not at all, and the progress bar keeps room`, async ({
+      page,
+    }) => {
+      // CI has no voices: give the page one English voice of its own, as a laptop has.
+      await page.addInitScript(() => {
+        const voice = { lang: "en-US", name: "Test voice", localService: true, default: true };
+        const synth = {
+          getVoices: () => [voice],
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+          speak: () => undefined,
+          cancel: () => undefined,
+          pause: () => undefined,
+          resume: () => undefined,
+          speaking: false,
+          pending: false,
+          paused: false,
+        };
+        Object.defineProperty(window, "speechSynthesis", { value: synth, configurable: true });
+      });
+      await page.setViewportSize({ width, height });
+      const errors = collectErrors(page);
+      // Rowan: Miner, read-aloud on, text size 2.
+      await page.goto("/?profile=voice-miner&screen=play&lesson=meadow-05&seed=1&nosave=1");
+      await waitForLesson(page);
+      const hint = page.locator("#app p", { has: page.locator("kbd", { hasText: "F1" }) });
+      await expect(hint).toBeVisible();
+      await expect(hint).toContainText("Hear it again");
+      const box = await hint.boundingBox();
+      if (box === null) throw new Error("no hint box");
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      // The key cap always shows whole. The words show whole, or (with no room) not at all:
+      // they are never cut in half.
+      const parts = await hint.evaluate((el) => {
+        const outer = el.getBoundingClientRect();
+        const inside = (c: Element): boolean => {
+          const r = c.getBoundingClientRect();
+          return (
+            r.left >= outer.left - 1 &&
+            r.right <= outer.right + 1 &&
+            r.top >= outer.top - 1 &&
+            r.bottom <= outer.bottom + 1
+          );
+        };
+        const gone = (c: Element): boolean => c.getBoundingClientRect().top >= outer.bottom - 1;
+        const key = el.querySelector("kbd");
+        const words = el.querySelector("span");
+        return {
+          key: key !== null && inside(key),
+          words: words !== null && (inside(words) || gone(words)),
+          shown: words !== null && inside(words),
+        };
+      });
+      expect(parts.key).toBe(true);
+      expect(parts.words).toBe(true);
+      // At 1280 px there is room for the words.
+      if (width >= 1280) expect(parts.shown).toBe(true);
+      // The progress bar beside it still has room to be read.
+      const bar = await page.getByRole("progressbar").first().boundingBox();
+      expect(bar?.width ?? 0).toBeGreaterThanOrEqual(110);
+      expect(errors).toEqual([]);
+    });
+  }
 });
 
 test.describe("high contrast, dyslexia font and big letters from the profile", () => {
