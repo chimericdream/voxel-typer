@@ -8,6 +8,7 @@ import type { Lesson } from "@/content/lessons/types";
 import { estimatePlacement } from "@/engine/placement";
 import type { PlacementEstimate, RungScore } from "@/engine/placement";
 import { foundBlocks } from "@/engine/achievements";
+import { isRemedialId } from "@/engine/remedial";
 import { foldSummaryIntoBigramStats, foldSummaryIntoKeyStats } from "@/engine/stats";
 import { PLACEMENT_RUNGS_EXTRA, PLACEMENT_TIER_EXTRA } from "@/modes/placement/lesson";
 import type { ModeResult } from "@/modes/types";
@@ -47,6 +48,10 @@ function addLoot(
 /**
  * The profile after one finished session: session counter, key and bigram stats, history,
  * inventory, and for a lesson its best scores, plays and unlocks. Nothing ever re-locks.
+ *
+ * A remedial practice lesson (M3-06) counts as a session like free play: it is not in the
+ * curriculum, so it writes no lesson record and unlocks nothing. Its history entry keeps its id,
+ * which is how the remedial rate limit counts it.
  */
 export function applyResult(
   profile: Readonly<Profile>,
@@ -58,7 +63,7 @@ export function applyResult(
   const { summary } = result;
   let progress = profile.progress;
 
-  if (lesson !== null) {
+  if (lesson !== null && !isRemedialId(lesson.id)) {
     const prev = progress.lessons[lesson.id];
     const lessons = {
       ...progress.lessons,
