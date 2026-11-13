@@ -27,7 +27,9 @@
 
 /*
  * Top right, below the row of buttons the World Map keeps in that corner (Players, My Badges,
- * Settings), and clear of the save notices (top centre).
+ * My Island, Settings), and clear of the save notices (top centre). This `top` is the fallback;
+ * `AchievementToast` measures the corner (`data-toast-clear`) and sets the real one, since at large
+ * text the row wraps (M3-FIX-8).
  */
 .toastWrap {
   position: fixed;

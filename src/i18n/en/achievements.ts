@@ -10,6 +10,8 @@ export default {
   got: "Got it!",
   notYet: "Not yet",
   listLabel: "All badges",
+  // Under the badge list while some badges are out of sight below (M3-FIX-8).
+  moreBelow: "More badges below",
   hiddenName: "Surprise badge",
   hiddenDesc: "Keep playing to find this one.",
   // The toast after a badge is earned, e.g. "New badge: First Steps!".

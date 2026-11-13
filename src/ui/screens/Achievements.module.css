@@ -1,17 +1,107 @@
+/*
+ * The page is exactly as tall as the window, so the list takes the room the title, count, cue and
+ * Back leave and scrolls inside it (M3-FIX-8). A list that fits keeps its own height, centred.
+ */
 .page {
-  max-height: 100%;
+  height: 100%;
+  min-height: 0;
+  gap: var(--sp-4);
+  /* In a very short window the page scrolls; "safe" keeps the title reachable at the top. */
+  justify-content: safe center;
 }
 
-.scroll {
+/*
+ * Holds the list and draws its focus ring: the list's own outline would be cut off by its fade
+ * mask.
+ */
+.frame {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
   width: min(60rem, 100%);
-  max-height: 60vh;
-  overflow-y: auto;
+  /* Never less than about one row of cards; below that the page scrolls instead. */
+  min-height: calc(9rem * var(--text-scale));
 }
 
-.scroll:focus-visible {
+.frame:has(> .scroll:focus-visible) {
   outline: var(--focus-w) solid var(--c-focus);
   outline-offset: var(--focus-halo-w);
   box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
+}
+
+.scroll {
+  --fade: calc(4rem * var(--text-scale));
+
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  outline: none;
+}
+
+/* A cut edge fades out, so a card cut in half reads as "there is more", not as the end. */
+.scroll[data-below] {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent);
+}
+
+.scroll[data-above] {
+  mask-image: linear-gradient(to top, #000 calc(100% - var(--fade)), transparent);
+}
+
+.scroll[data-above][data-below] {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--fade),
+    #000 calc(100% - var(--fade)),
+    transparent
+  );
+}
+
+/* "More badges below ↓": a plate like the map's, so it reads on the sky and in every theme. */
+.more {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-3);
+  border: var(--bevel-unit) solid var(--c-plate-text);
+  background-color: var(--c-plate);
+  color: var(--c-plate-text);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1.3;
+  cursor: pointer;
+  visibility: hidden;
+}
+
+.more[data-show] {
+  visibility: visible;
+}
+
+/* A blocky down arrow in the text colour, a little bigger than the words. */
+.arrow {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  background-color: currentcolor;
+  clip-path: polygon(33% 0, 67% 0, 67% 50%, 100% 50%, 50% 100%, 0 50%, 33% 50%);
+  forced-color-adjust: none;
+  /* Three small hops when it appears, then still. None with reduced motion. */
+  animation: hop calc(0.6s * var(--motion-ok)) steps(3) 3;
+}
+
+@keyframes hop {
+  50% {
+    transform: translateY(0.2em);
+  }
+}
+
+/* Forced colours drop the plate's colours; keep a visible edge round it. */
+@media (forced-colors: active) {
+  .more {
+    border-color: CanvasText;
+  }
 }
 
 .grid {
