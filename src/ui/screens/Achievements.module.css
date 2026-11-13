@@ -30,7 +30,8 @@
 }
 
 .scroll {
-  --fade: calc(4rem * var(--text-scale));
+  /* Short enough that the one row left at text scale 2 stays readable. */
+  --fade: min(calc(3rem * var(--text-scale)), 20%);
 
   flex: 0 1 auto;
   min-height: 0;
