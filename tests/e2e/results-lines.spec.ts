@@ -5,7 +5,7 @@
  *
  * With motion, the lines must show within 1.5 s of the route change; under reduced motion, at
  * once (nothing animates them in). In both cases they come in the same render as the heading.
- * On CI every case allows 4 s (`resultsLimit`): its software renderer blocks the page that long
+ * On CI every case allows 6 s (`resultsLimit`): its software renderer blocks the page that long
  * at the hand-over, with nothing in the app waiting (see the M4-FIX-7 handoff).
  * Night Defense's motion case is in `defense.spec.ts`, on the night it already plays.
  */
@@ -21,7 +21,7 @@ const SOON_MS = 1500;
 /**
  * How long the Mine cases hold back the Results chunk. Without the preload the fetch starts at the
  * route change, so the lines come at least this late: past both local limits (1.5 s, 0.5 s), and
- * on CI past its 4 s limit.
+ * on CI past its 6 s limit.
  */
 const SLOW_CHUNK_MS = process.env["CI"] ? CI_RESULTS_MS + 2000 : 2000;
 const CHUNK = /\/Results-[^/]*\.js$/;

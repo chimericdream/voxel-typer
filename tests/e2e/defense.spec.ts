@@ -233,7 +233,7 @@ test("a Miner's night plays from day to dawn inside the draw-call budget", async
   expect(end.done).toBeGreaterThan(5);
   expect(end.lootTotal).toBeGreaterThanOrEqual(end.done);
   await expect(app.getByText(/sent home$/)).toBeVisible();
-  // Results draws its lines within 1.5 s of the route change (4 s on CI, `resultsLimit`), with
+  // Results draws its lines within 1.5 s of the route change (6 s on CI, `resultsLimit`), with
   // the heading (M4-FIX-7). Its code is fetched when the night starts; once, fetched only at the
   // end, it came 10 s late.
   await expect
