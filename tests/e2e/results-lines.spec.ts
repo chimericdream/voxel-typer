@@ -39,6 +39,7 @@ async function expectResultsBy(page: Page, limitMs: number): Promise<void> {
   console.log(
     `[M4-FIX-7] ${test.info().title}: Results lines ${t.lines} ms after the route change`,
   );
+  console.log(`[M4-FIX-7] trace: ${t.trace}`);
   expect(t.heading, "the Results heading").not.toBe(null);
   expect(t.lines ?? Infinity, "the Results lines").toBeLessThanOrEqual(limitMs);
   // The lines never trail the heading: they are drawn with it.
@@ -113,6 +114,8 @@ for (const [name, viewport, motion, limit] of [
         await page.waitForTimeout(40);
       }
       await expectResultsBy(page, limit);
+      // A renamed chunk would quietly skip the hold: make sure it went through the slow route.
+      expect(asked, "the Results chunk went through the slow route").toBe(true);
       expect(errors).toEqual([]);
     });
   });

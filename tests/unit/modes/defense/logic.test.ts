@@ -485,6 +485,16 @@ describe("plates and other mobs' heads (M4-FIX-7)", () => {
     expect(layoutPlates([bareShade, bareRugs], tight).every((p) => !p.covers)).toBe(true);
   });
 
+  it("never goes down past a head onto its own mob, even with room below (1024x500 on CI)", () => {
+    // No room above the far mob's head, none beside, plenty below.
+    const short: PlateBounds = { left: 0, top: 250, right: 1280, bottom: 420 };
+    const head = { left: 440, top: 262, right: 560, bottom: 285 };
+    const s = layoutPlates([shade(), rugs(head)], short).find((p) => p.id === "shade");
+    // It stays over its own mob, marked, instead of hanging under the heads on its mob's body.
+    expect(s).toMatchObject({ left: 455, top: 264, covers: true, side: 0 });
+    expect(s && s.top + s.height <= 300).toBe(true);
+  });
+
   it("never overlap, and any plate on another mob's head is marked (property)", () => {
     fc.assert(
       fc.property(

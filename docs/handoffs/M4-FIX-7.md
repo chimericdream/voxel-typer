@@ -18,10 +18,27 @@ _other_ mobs' heads ("shade" plate over the "rugs" mob), so a child reads that m
 
 ## CI-measured times
 
-The specs print each measurement as `[M4-FIX-7] …: Results lines N ms after the route change`.
-CI's run on the first fix (`849d2f5`, preload only): Miner night **1940 ms**, retry **2001 ms**
-(failed the 1.5 s check; that led to the screen cache). The run on this head is recorded in the
-PR description once it finishes.
+The specs print each measurement as `[M4-FIX-7] …: Results lines N ms after the route change`,
+and from this head also a trace (`[M4-FIX-7] trace: …`) of what the page showed in between.
+
+| Head (run)              | What it had            | Defense night (motion, ≤ 1500) | Defense, reduced motion (≤ 500) | Mine 1280×720 (≤ 1500) | Mine 1024×600, reduced (≤ 500) |
+| ----------------------- | ---------------------- | -----------------------------: | ------------------------------: | ---------------------: | -----------------------------: |
+| `849d2f5` (43433584261) | preload                |               1940, retry 2001 |                     not printed |            not printed |                    not printed |
+| `ee9f081` (43437643761) | preload + screen cache |               1912, retry 1678 |                2067, retry 1799 |       3212, retry 2964 |               2580, retry 1636 |
+
+Locally (Windows, one worker) every case was 70–90 ms. On CI the gap is about 1.6–3.2 s, **even
+in the Mine cases, where the test waited for the Results chunk to arrive before typing**. So on CI
+the gap is not the chunk fetch. Something else separates the route change from the first render
+of Results there, by about one slow software-rendered frame or more. This head adds a trace to find
+it (what `#app` shows at each check, frames and long tasks between the route change and the
+lines). **Open: the CI timing checks are expected to fail again on this head; the trace in the CI
+log says where the time goes, and the next push fixes it.**
+
+The same run also caught a layout regression, fixed on this head: at 1024×500 (Sprout,
+`defense-short.spec.ts`) a plate with no room above or beside another mob's head was moved down
+past the heads, onto its own mob's body (59.8 px past its head). The head-aware pass now tries only
+up and sideways; otherwise #213's rule places the plate as before and it is marked `covers`. Unit
+test: "never goes down past a head onto its own mob, even with room below".
 
 ## Item 1: the slow Results line
 
