@@ -15,7 +15,7 @@ import { realClock } from "@/app/clock";
 import type { AppApi } from "@/app/types";
 import { blocks } from "@/content/blocks";
 import { islandBlocks } from "@/engine/island";
-import { t } from "@/i18n";
+import { locale, t } from "@/i18n";
 import { newId } from "@/save/id";
 import type { Profile } from "@/save/schema";
 import { MAX_IMPORT_BYTES, NewerSaveError, ProfileLimitError, readExportFile } from "@/save/store";
@@ -26,6 +26,7 @@ import { Toast } from "@/ui/kit/Toast";
 import {
   exportFileName,
   idsInExport,
+  hasIsland,
   lastPlayed,
   leftOut,
   lessonsDone,
@@ -91,8 +92,12 @@ type ImportState =
   | { kind: "applying" }
   | { kind: "done"; outcomes: Outcome[] };
 
-const dateText = (at: EpochMs): string =>
-  new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(at);
+/**
+ * A date for the check, in the game's locale (review N5): `t()`'s locale, not the browser's, so
+ * the date matches the words around it. The day is the device's local day.
+ */
+export const dateText = (at: EpochMs, lang: string = locale()): string =>
+  new Intl.DateTimeFormat(lang, { dateStyle: "medium" }).format(at);
 
 /** Which profiles are on this device, with every stored id (each holds one of the 8 slots). */
 async function deviceState(app: AppApi): Promise<DeviceState> {
@@ -458,7 +463,8 @@ function RowView(props: {
             count: lessonsDone(mine),
             date: dateText(mineAt),
           })}
-          {mineAt > fileAt ? <> {t("importexport.import.newerTag")}</> : null}
+          {mineAt > fileAt ? <> {t("importexport.import.newerTag")}</> : null}{" "}
+          {t(hasIsland(mine) ? "importexport.import.hasIsland" : "importexport.import.noIsland")}
         </p>
       ) : null}
       <p class={styles.muted} data-side="file">
@@ -466,8 +472,19 @@ function RowView(props: {
           count: lessonsDone(row.profile),
           date: dateText(fileAt),
         })}
-        {mineAt !== null && fileAt > mineAt ? <> {t("importexport.import.newerTag")}</> : null}
+        {mineAt !== null && fileAt > mineAt ? <> {t("importexport.import.newerTag")}</> : null}{" "}
+        {t(
+          hasIsland(row.profile) ? "importexport.import.hasIsland" : "importexport.import.noIsland",
+        )}
       </p>
+      {mine !== null &&
+      hasIsland(mine) &&
+      !hasIsland(row.profile) &&
+      row.choices.includes("useFile") ? (
+        <p class={styles.muted} data-island-gone="">
+          {t("importexport.import.islandGone", { name })}
+        </p>
+      ) : null}
       {row.fileIslandOk ? null : (
         <p class={styles.muted} data-island-bad="">
           {t("importexport.import.islandBad", { name })}
