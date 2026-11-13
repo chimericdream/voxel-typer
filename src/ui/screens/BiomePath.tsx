@@ -116,6 +116,9 @@ export function BiomePath({ info, nodes, camp, onPick, onBack }: BiomePathProps)
                   >
                     <path d={TENT_PATH} />
                   </svg>
+                  <span class={styles.campTag} aria-hidden="true">
+                    {t("remedial.campTag")}
+                  </span>
                 </button>
               </li>
             ) : null}

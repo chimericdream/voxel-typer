@@ -3,18 +3,24 @@
  * typist starts at the Meadow, an average one in Birch Forest or Sandy Shore, and a fast Builder
  * at Frosty Peaks or later. A Sprout never starts past Frosty Peaks. M3-FIX-3: the typists have
  * slower digits and Shift, a home-row-only child is held back, and each rung shows its new keys.
+ * M3-FIX-10: that child never starts past Birch, on any of 10 seeds.
  */
 import { describe, expect, it } from "vitest";
 import { BIOME_ORDER } from "../../../src/types/core";
-import type { BiomeId } from "../../../src/types/core";
+import type { AgeBand, BiomeId } from "../../../src/types/core";
+import { hashString } from "../../../src/engine/rng";
 import {
+  HOME_ROW_ONLY,
   formatPlacement,
+  loadPlacementPools,
   parsePlacementArgs,
+  playPlacement,
   simulatePlacement,
 } from "../../../tools/sim-placement";
 import type { PlacementRow } from "../../../tools/sim-placement";
 
 const opts = { runs: 40, seed: 1 };
+const BANDS: readonly AgeBand[] = ["sprout", "miner", "builder"];
 const report = simulatePlacement(opts);
 const rows = report.rows;
 const row = (band: string, typist: string): PlacementRow => {
@@ -52,17 +58,29 @@ describe("placement sim", () => {
     expect(share(row("miner", "fast"), ["mines"])).toBeGreaterThanOrEqual(0.9);
   });
 
-  it("keeps a child who knows only the home row at the Meadow or Birch (N1)", () => {
-    // About 0.7 % of these learners clear the top and bottom letter rungs by luck and get placed
-    // further. 400 runs per band at seed 9 gave 7–8 of 1200 with both the M3-FIX-6 and the M3-FIX-7
-    // item pick. So at most one in 40 is allowed here: at exactly 1 the test failed whenever the
-    // seeded stream moved (M3-FIX-7).
-    for (const band of ["sprout", "miner", "builder"]) {
-      expect(share(row(band, "homeonly"), ["meadow", "birch"]), band).toBeGreaterThanOrEqual(
-        1 - 1 / opts.runs,
-      );
-    }
-  });
+  it(
+    "never starts a child who knows only the home row past Birch, over 10 seeds (M3-FIX-10)",
+    {
+      timeout: 60_000,
+    },
+    () => {
+      // Before the row floor, about 1 in 300 of these learners passed the pooled gates by luck and
+      // started at the Shore (12 of 3600 over seeds 1–30). The floor judges the top row on its own.
+      // Seeds as in `simulatePlacement`, so a seed here is the same learners as `--seed`.
+      const pools = loadPlacementPools();
+      const past: string[] = [];
+      for (let seed = 1; seed <= 10; seed++) {
+        for (const band of BANDS) {
+          for (let run = 0; run < opts.runs; run++) {
+            const learner = hashString(`${seed}:${band}:homeonly:${run}`);
+            const start = playPlacement(band, HOME_ROW_ONLY, pools, learner).startBiome;
+            if (!["meadow", "birch"].includes(start)) past.push(`${seed}/${band}/${run}: ${start}`);
+          }
+        }
+      }
+      expect(past).toEqual([]);
+    },
+  );
 
   it("shows every new key of a letter rung before it opens the next (N1)", () => {
     for (const c of report.coverage) {

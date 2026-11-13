@@ -100,8 +100,9 @@ export interface PlacementDriver {
   blocks(): number;
   ladder(): Ladder;
   /**
-   * A score for each rung the test has left, timed from `startT` (the session's start): the
-   * blocks typed at or below that rung, until the next one opened (M3-FIX-3 N2).
+   * A score for each rung the test has left, timed from `startT` (the session's start): every
+   * block from the start of the test until the next rung opened, so it takes in the earlier rungs
+   * too (M3-FIX-3 N2).
    */
   rungScores(startT: Ms): RungScore[];
 }

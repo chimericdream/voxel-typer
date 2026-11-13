@@ -596,6 +596,7 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
   // leave the heading too little room beside them (large text: the four word buttons fill most of
   // a 1280 px row), the heading moves below them instead (`data-stack`, `--corner-h`; M3-FIX-4).
   const cornerShown = openInfo === null;
+  const camp = openInfo === null ? null : practiceCamp(profile, app.lessons, openInfo.biome);
   useLayoutEffect(() => {
     const el = corner.current;
     const host = root.current;
@@ -766,7 +767,7 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
             key={openInfo.biome}
             info={openInfo}
             nodes={lessonNodes(profile, app.lessons, openInfo.biome)}
-            camp={practiceCamp(profile, openInfo.biome)}
+            camp={camp && { label: camp.label, open: () => pick(camp.lesson) }}
             onPick={pick}
             onBack={leave}
           />
