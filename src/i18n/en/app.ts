@@ -20,6 +20,9 @@ export default {
     newerVersion:
       "This profile was saved by a newer version of the game. Ask a grown-up to update the game. Your progress is safe.",
     storageError: "We could not save just now. Keep playing! We will try again later.",
+    // Another window of the game saved this player (M3-FIX-9). Sprout-readable, no blame.
+    otherTab: "You played in another window too. This window has your newest blocks and stars now.",
+    otherTabRemoved: "This player was taken off in another window. Pick a player to keep going.",
     dismiss: "OK",
   },
 } as const;

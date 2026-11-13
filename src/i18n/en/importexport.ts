@@ -52,6 +52,10 @@ export default {
     sideFile:
       "In the file: {count, plural, one {one lesson} other {# lessons}} done, last played {date}.",
     newerTag: "(newer)",
+    hasIsland: "Has an island.",
+    noIsland: "No island yet.",
+    islandGone:
+      "The file's copy of {name} has no island. If you use the file's copy, the island on this device goes away.",
     choiceLegend: "What to do with {name}",
     choice: {
       keepDevice: "Keep this device's",

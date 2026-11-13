@@ -21,6 +21,7 @@ import {
   paceWpm,
   referenceWpm,
   startDifficulty,
+  throughputWpm,
   waveSize,
 } from "../../../../src/modes/defense/director";
 import type {
@@ -119,6 +120,18 @@ const stepOf = (over: Partial<DirectorOptions>): number => {
   return director.difficulty / before - 1;
 };
 
+/** A night resumed at `d` with a baseline. */
+const resumedAt = (d: number): number =>
+  startDifficulty({ band: "miner", baselineNetWpm: 20, startDifficulty: d });
+/** `d` after a new Miner's cautious first wave (at 0.35 of a 10 WPM guess). */
+const afterFirstWave = (f: WaveFeedback, chars = 5): number =>
+  controllerStep(initialControllerState(0.35), f, false, {
+    plannedMs: 20_000,
+    charsPerWord: chars,
+    referenceWpm: 10,
+    index: 0,
+  }).d;
+
 const arbFeedback = fc.record({
   accuracy: fc.oneof(fc.double({ min: -0.5, max: 1.5, noNaN: true }), fc.constant(Number.NaN)),
   reachedBase: fc.oneof(fc.integer({ min: -3, max: 30 }), fc.constant(Number.NaN)),
@@ -133,11 +146,18 @@ describe("purity", () => {
 });
 
 describe("start", () => {
-  it("starts at 0.8 of the baseline, or 0.7 of a slow band default for a new profile", () => {
-    expect(startDifficulty({ baselineNetWpm: 22 })).toBe(C.startD);
-    expect(startDifficulty({ baselineNetWpm: null })).toBe(C.newProfileStartD);
-    expect(startDifficulty({ baselineNetWpm: 0 })).toBe(C.newProfileStartD);
-    expect(startDifficulty({ baselineNetWpm: Number.NaN })).toBe(C.newProfileStartD);
+  it("starts at 0.8 of the baseline, or a cautious 3.5 WPM for a new profile", () => {
+    expect(startDifficulty({ band: "miner", baselineNetWpm: 22 })).toBe(C.startD);
+    // A new profile: about 3.5 WPM in every band, never above the old 0.7 of the band default.
+    expect(startDifficulty({ band: "sprout", baselineNetWpm: null })).toBe(C.newProfileStartD);
+    expect(startDifficulty({ band: "miner", baselineNetWpm: null })).toBeCloseTo(0.35);
+    expect(startDifficulty({ band: "builder", baselineNetWpm: 0 })).toBeCloseTo(3.5 / 15);
+    expect(startDifficulty({ band: "miner", baselineNetWpm: Number.NaN })).toBeCloseTo(0.35);
+    for (const band of BANDS) {
+      const d = startDifficulty({ band, baselineNetWpm: null });
+      expect(d * C.defaultBaselineWpm[band], band).toBeLessThanOrEqual(C.newProfileStartWpm + 1e-9);
+      expect(d, band).toBeGreaterThanOrEqual(C.dMin);
+    }
     expect(referenceWpm("miner", 22)).toBe(22);
     expect(referenceWpm("miner", null)).toBe(C.defaultBaselineWpm.miner);
     expect(referenceWpm("builder", 500)).toBe(C.baselineClampWpm.max);
@@ -145,9 +165,9 @@ describe("start", () => {
   });
 
   it("can resume from an earlier night, inside the bounds", () => {
-    expect(startDifficulty({ baselineNetWpm: 20, startDifficulty: 1.3 })).toBe(1.3);
-    expect(startDifficulty({ baselineNetWpm: 20, startDifficulty: 9 })).toBe(C.dMax);
-    expect(startDifficulty({ baselineNetWpm: 20, startDifficulty: 0 })).toBe(C.dMin);
+    expect(resumedAt(1.3)).toBe(1.3);
+    expect(resumedAt(9)).toBe(C.dMax);
+    expect(resumedAt(0)).toBe(C.dMin);
     expect(createDirector(options({ calm: true, startDifficulty: 1.9 })).difficulty).toBe(
       C.calmDMax,
     );
@@ -157,7 +177,7 @@ describe("start", () => {
 describe("controller", () => {
   const s0 = initialControllerState(1);
 
-  it("keeps d inside [0.3, 2.0] and every step inside ±15 % (property)", () => {
+  it("keeps d inside [0.2, 2.0] and every step inside ±15 %, but a new profile's reset and jump (property)", () => {
     fc.assert(
       fc.property(
         fc.double({ min: C.dMin, max: C.dMax, noNaN: true }),
@@ -167,19 +187,37 @@ describe("controller", () => {
           fine: fc.boolean(),
           target: fc.double({ min: C.targetMin, max: C.targetMax, noNaN: true }),
           plannedMs: fc.oneof(fc.integer({ min: -5, max: 60_000 }), fc.constant(Number.NaN)),
+          charsPerWord: fc.oneof(
+            fc.double({ min: 0, max: 8, noNaN: true }),
+            fc.constant(Number.NaN),
+          ),
+          refWpm: fc.double({ min: 2, max: 120, noNaN: true }),
+          first: fc.boolean(),
         }),
-        (d0, calm, fs, { fine, target, plannedMs }) => {
+        (d0, calm, fs, { fine, target, plannedMs, charsPerWord, refWpm, first }) => {
           let s: ControllerState = initialControllerState(Math.min(d0, calm ? C.calmDMax : d0), {
             fine,
             target,
           });
           for (const f of fs) {
-            const next = controllerStep(s, f, calm, { plannedMs });
+            const plan = { plannedMs, charsPerWord, referenceWpm: refWpm, index: first ? 0 : 1 };
+            const next = controllerStep(s, f, calm, plan);
             expect(next.d).toBeGreaterThanOrEqual(C.dMin);
             expect(next.d).toBeLessThanOrEqual(calm ? C.calmDMax : C.dMax);
             const step = next.d / s.d - 1;
-            expect(step).toBeGreaterThanOrEqual(-C.maxStep - 1e-9);
-            expect(step).toBeLessThanOrEqual((calm ? C.calmMaxStepUp : C.maxStep) + 1e-9);
+            // Only a search-mode wave the typing can be measured on moves further: the first one
+            // with too many mobs at the base drops, and the night's first wave may jump up, never
+            // past the old new-profile start.
+            const reached = Number.isFinite(f.reachedBase) ? Math.max(0, f.reachedBase) : 0;
+            const done = Number.isFinite(f.wordsDone) ? Math.max(0, f.wordsDone) : 0;
+            const measured = !s.fine && throughputWpm(f, plan) !== null;
+            const crowded = reached / (reached + done) > C.reachedAim;
+            if (!(measured && crowded)) expect(step).toBeGreaterThanOrEqual(-C.maxStep - 1e-9);
+            if (measured && first && !crowded)
+              expect(next.d).toBeLessThanOrEqual(
+                Math.max(s.d * (1 + C.maxStep), C.newProfileStartD) + 1e-9,
+              );
+            else expect(step).toBeLessThanOrEqual((calm ? C.calmMaxStepUp : C.maxStep) + 1e-9);
             s = next;
           }
         },
@@ -261,6 +299,19 @@ describe("controller", () => {
     expect(controllerStep(calm, tookMs(10_000 * C.calmVerySlow + 500), true, plan).d).toBeCloseTo(
       1 - C.fineMaxStepDown,
     );
+    // Time an empty field cut out of the wave (M4-FIX-2's pull) counts as if it had not been cut:
+    // the rest of the wave came that much sooner, so the wave reads the same (M4-FIX-3).
+    const pulled = (ms: number, pulledMs: number): WaveFeedback => ({
+      ...tookMs(ms - pulledMs),
+      pulledMs,
+    });
+    expect(controllerStep(calm, pulled(10_000 * C.calmSlow + 500, 6000), true, plan).d).toBeCloseTo(
+      1,
+    );
+    expect(
+      controllerStep(calm, pulled(10_000 * C.calmVerySlow + 500, 9000), true, plan).d,
+    ).toBeCloseTo(1 - C.fineMaxStepDown);
+    expect(controllerStep(calm, pulled(10_000, 4000), true, plan).d).toBeGreaterThan(1);
     // Outside calm mode time is not a signal (mobs at the base are), and no plan means no signal.
     expect(controllerStep(calm, tookMs(60_000), false, plan).d).toBeGreaterThan(1);
     expect(controllerStep(calm, tookMs(60_000), true).d).toBeGreaterThan(1);
@@ -270,7 +321,8 @@ describe("controller", () => {
     expect(stepOf({})).toBeCloseTo(C.fineMaxStepUp);
     expect(stepOf({ startDifficulty: 1.2 })).toBeCloseTo(C.fineMaxStepUp);
     expect(stepOf({ baselineNetWpm: null, startDifficulty: 1.2 })).toBeCloseTo(C.fineMaxStepUp);
-    expect(stepOf({ baselineNetWpm: null })).toBeCloseTo(C.maxStep);
+    // A new profile searches: a perfect cautious first wave jumps up to the old start at once.
+    expect(stepOf({ baselineNetWpm: null })).toBeCloseTo(C.newProfileStartD / 0.35 - 1);
   });
 
   it("weights waves by words done and forgets older ones", () => {
@@ -438,6 +490,107 @@ describe("pacing (M4-FIX-2)", () => {
     expect(breakMs(500, C.firstSpawnMs)).toBe(C.maxIdleMs - C.firstSpawnMs - 500);
     expect(breakMs(5000, C.firstSpawnMs)).toBe(0);
     expect(breakMs(Number.NaN, C.firstSpawnMs)).toBe(C.maxIdleMs - C.firstSpawnMs);
+  });
+});
+
+describe("slow learners (M4-FIX-3)", () => {
+  it("measures what a wave's typing says about speed", () => {
+    // 10 words of 5 letters in a minute: 50 chars, 10 WPM.
+    const plan = { plannedMs: 60_000, charsPerWord: 5 };
+    expect(throughputWpm(feedback({ wordsDone: 10, activeMs: 60_000 }), plan)).toBeCloseTo(10);
+    // A wave with nothing finished typed at 0 WPM, as far as it can tell.
+    expect(throughputWpm(feedback({ wordsDone: 0, activeMs: 60_000 }), plan)).toBe(0);
+    // Too short to tell, or no word length.
+    expect(throughputWpm(feedback({ activeMs: C.minActiveMs - 1 }), plan)).toBeNull();
+    expect(throughputWpm(feedback(), { plannedMs: 60_000 })).toBeNull();
+    expect(throughputWpm(feedback({ activeMs: Number.NaN }), plan)).toBeNull();
+  });
+
+  it("starts a new profile again from what it typed after a wave it couldn't keep up with", () => {
+    // A Builder with no baseline (the default reference is 15 WPM). The cautious first wave went
+    // well; the second is the first one it can't keep up with, so the reset comes after wave 1.
+    const fresh = createDirector(options({ band: "builder", baselineNetWpm: null }));
+    fresh.nextWave();
+    fresh.observe(feedback({ accuracy: 0.95, wordsDone: 4, activeMs: 60_000 }));
+    const wave = fresh.nextWave();
+    const chars = wave.mobs.reduce((n, m) => n + m.word.length, 0) / wave.mobs.length;
+    const before = fresh.difficulty;
+    const f = feedback({ accuracy: 0.6, reachedBase: 3, wordsDone: 2, activeMs: 80_000 });
+    fresh.observe(f);
+    const measured = (2 * chars * 12_000) / 80_000;
+    expect(fresh.difficulty).toBeCloseTo(
+      Math.max(C.dMin, Math.min(before * (1 - C.maxStep), (C.startD * measured) / 15)),
+    );
+    // Once: the next hard wave steps the usual way.
+    const after = fresh.difficulty;
+    fresh.nextWave();
+    fresh.observe(f);
+    expect(fresh.difficulty / after - 1).toBeGreaterThanOrEqual(-C.maxStep - 1e-9);
+    // A learner with a baseline (fine mode) never resets: their reference was measured.
+    const known = createDirector(options({ band: "builder", baselineNetWpm: 15 }));
+    known.nextWave();
+    known.observe(f);
+    expect(known.difficulty).toBeCloseTo(C.startD * (1 - C.maxStep));
+  });
+
+  it("jumps a new profile up once after a cautious first wave that went well", () => {
+    // A 25 WPM Miner, new: 6 words of 5 letters in 12 s is 30 WPM of typing.
+    // Up to the old start (0.7), never past it: the throughput is a floor on the real speed.
+    expect(
+      afterFirstWave(feedback({ accuracy: 0.97, wordsDone: 6, activeMs: 12_000 })),
+    ).toBeCloseTo(C.newProfileStartD);
+    // A slow child (5 words of 3 letters in 60 s: 3 WPM) stays where they are, plus the search step.
+    const slow = afterFirstWave(feedback({ accuracy: 0.95, wordsDone: 5, activeMs: 60_000 }), 3);
+    expect(slow).toBeGreaterThanOrEqual(0.35);
+    expect(slow).toBeLessThanOrEqual(0.35 * (1 + C.maxStep) + 1e-9);
+    // Not after a wave under the target, or with mobs at the base, or after the first wave.
+    expect(
+      afterFirstWave(feedback({ accuracy: 0.85, wordsDone: 6, activeMs: 12_000 })),
+    ).toBeLessThan(0.36);
+    const crowded = feedback({ accuracy: 0.97, wordsDone: 6, reachedBase: 2, activeMs: 12_000 });
+    expect(afterFirstWave(crowded)).toBeLessThan(0.35);
+    const later = controllerStep(
+      initialControllerState(0.35),
+      feedback({ accuracy: 0.97, wordsDone: 6, activeMs: 12_000 }),
+      false,
+      { plannedMs: 20_000, charsPerWord: 5, referenceWpm: 10, index: 1 },
+    ).d;
+    expect(later).toBeCloseTo(0.35 * (1 + C.maxStep));
+    // Not in fine mode (a baseline, or a resumed night).
+    const fine = controllerStep(
+      initialControllerState(0.35, { fine: true }),
+      feedback({ accuracy: 0.97, wordsDone: 6, activeMs: 12_000 }),
+      false,
+      { plannedMs: 20_000, charsPerWord: 5, referenceWpm: 10, index: 0 },
+    ).d;
+    expect(fine).toBeCloseTo(0.35 * (1 + C.fineMaxStepUp));
+  });
+
+  it("gives every wave enough keys to measure, even at the slowest pace", () => {
+    for (const band of BANDS) {
+      const len = C.wordLength[band];
+      const least = Math.ceil(C.minWaveKeys[band] / ((len.min + len.max) / 2));
+      for (const calm of [false, true]) {
+        expect(waveSize(band, 0, 5, C.dMin, calm), band).toBeGreaterThanOrEqual(least);
+        expect(waveSize(band, 0, 2, C.dMin, calm), band).toBeLessThanOrEqual(
+          calm ? C.calmMaxMobs : C.mobsPerWave.max,
+        );
+      }
+    }
+  });
+
+  it("gives a slow typist at least one key's time to find the first key, and a slow walk", () => {
+    // 5 WPM: a key takes 2.4 s, longer than any band's reaction allowance.
+    for (const band of BANDS) {
+      const { gapMs } = mobTiming(band, 4, 5, 1, "medium");
+      expect(gapMs, band).toBeCloseTo(2400 + 4 * 2400);
+    }
+    // At 50 WPM the band's reaction allowance stands.
+    expect(mobTiming("miner", 5, 50, 1, "medium").gapMs).toBeCloseTo(C.reactionMs.miner + 5 * 240);
+    // A 5 WPM Builder's mob walks for longer than 40 s (the old cap), never past the new one.
+    const walk = 1000 / mobTiming("builder", 6, 5, 0.8, "medium").speed;
+    expect(walk).toBeGreaterThan(40_000);
+    expect(walk).toBeLessThanOrEqual(C.travelMs.max);
   });
 });
 

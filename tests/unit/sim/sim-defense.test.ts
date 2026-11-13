@@ -18,6 +18,8 @@ import {
   parseDefenseArgs,
   reportRows,
   simulateDefense,
+  newProfileRows,
+  slowRows,
 } from "../../../tools/sim-defense";
 import type { RowResult } from "../../../tools/sim-defense";
 
@@ -86,8 +88,52 @@ describe("defense sim", () => {
         // Waves 1–3 are the whole night for many children.
         expect(r.swampedEarly, label).toBeLessThanOrEqual(0.05);
         // The youngest children are the slow typists: at most a quarter of their waves may fall
-        // under 85 % (15–23 % today; a wave of theirs is only about 20 keys).
-        if (r.spec.typist === "10wpm") expect(r.low, label).toBeLessThanOrEqual(0.25);
+        // under 85 % (M4-04). M4-FIX-3 gave the pin headroom: 15–19 % here, and at most 20 % on
+        // seeds 1–3 with 100 learners (`docs/sim.md`), so the pin is now 22 %.
+        if (r.spec.typist === "10wpm") expect(r.low, label).toBeLessThanOrEqual(0.22);
+      }
+    },
+    TIMEOUT,
+  );
+
+  it(
+    "5 WPM (M4-FIX-3): at most 30 % of waves under 85 %, and no more swamped waves than chance, in every band, new profile and calm included",
+    () => {
+      for (const r of simulateDefense(opts, slowRows())) {
+        const label = `${r.spec.label} ${r.spec.band}`;
+        // 9–23 % today. Before M4-FIX-3: 33–67 %.
+        expect(r.low, label).toBeLessThanOrEqual(0.3);
+        // "Swamped" is the director's relief mark (under 75 %, or over 30 % at the base). About
+        // 3 % of a slow typist's waves fall under 75 % by chance at any pace, so this is the main
+        // rows' bound: 0–4 % today, and 10–46 % before.
+        expect(r.swamped, label).toBeLessThanOrEqual(0.05);
+        expect(r.crowded, label).toBeLessThanOrEqual(0.05);
+        expect(r.learnerMean, label).toBeGreaterThanOrEqual(0.88);
+        // The first waves are the whole night for many children, new profiles included: a new
+        // profile's first wave is played at a cautious 3.5 WPM (M4-FIX-3 review).
+        expect(r.swampedEarly, label).toBeLessThanOrEqual(0.05);
+        expect(r.accuracy[0], label).toBeGreaterThanOrEqual(0.85);
+        expect(r.idleMax, label).toBeLessThanOrEqual(DIRECTOR_CONSTANTS.maxIdleMs + 250);
+      }
+    },
+    TIMEOUT,
+  );
+
+  it(
+    "new profiles (M4-FIX-3 review): a gentle first wave for the slow, and the fast still climb",
+    () => {
+      const rows = simulateDefense(opts, newProfileRows());
+      expect(rows).toHaveLength(12);
+      for (const r of rows) {
+        const label = `${r.spec.typist} ${r.spec.band}`;
+        expect(r.swampedEarly, label).toBeLessThanOrEqual(0.05);
+        expect(r.swamped, label).toBeLessThanOrEqual(0.05);
+        expect(r.accuracy[0], label).toBeGreaterThanOrEqual(0.85);
+        expect(r.learnerMean, label).toBeGreaterThanOrEqual(0.88);
+        // The cautious start doesn't hold a fast learner there: the first wave's jump and the
+        // search's +15 % steps take them well past the old start (0.7) by wave 10.
+        if (r.spec.typist === "25wpm") expect(r.difficulty.at(-1), label).toBeGreaterThan(1);
+        if (r.spec.typist === "50wpm") expect(r.difficulty.at(-1), label).toBeGreaterThan(1.8);
       }
     },
     TIMEOUT,
@@ -163,6 +209,7 @@ describe("defense sim", () => {
         waves: 10,
         seed: 2,
         sweep: true,
+        slow: false,
       });
       expect(() => parseDefenseArgs(["--nope", "1"])).toThrow(/unknown flag/);
     },

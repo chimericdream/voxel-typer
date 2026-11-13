@@ -33,6 +33,14 @@ export interface SaveStore {
   load(id: string): Promise<Profile | null>;
   /** Keeps the previous version as `<id>:prev`. */
   save(p: Profile): Promise<void>;
+  /**
+   * `save`, but only if the stored record is still `expected` (the JSON this tab last wrote or
+   * read), checked inside the write's own transaction (M3-FIX-9, two-tab safety). A damaged
+   * current record counts as unchanged: the save repairs it. When another tab changed or removed
+   * the record it rejects with {@link StaleSaveError} and writes nothing. Resolves with the JSON
+   * now stored. Every other rule of `save` holds.
+   */
+  saveIfUnchanged(p: Profile, expected: string): Promise<string>;
   remove(id: string): Promise<void>;
   /** JSON: `{ app: 'voxel-typer', version, profiles: Profile[] }`. */
   exportAll(): Promise<Blob>;
@@ -76,6 +84,26 @@ export class NewerSaveError extends Error {
         `this one is ${SCHEMA_VERSION}`,
     );
     this.name = "NewerSaveError";
+  }
+}
+
+/**
+ * Thrown by `saveIfUnchanged` when the stored record is not the one the caller expected: another
+ * tab saved or removed this player. Nothing is written. `current` is the stored profile now and
+ * `record` its JSON, or both null when the record is gone.
+ */
+export class StaleSaveError extends Error {
+  constructor(
+    readonly profileId: string,
+    readonly current: Profile | null,
+    readonly record: string | null,
+  ) {
+    super(
+      current === null
+        ? `profile ${profileId} was removed elsewhere`
+        : `profile ${profileId} was changed elsewhere`,
+    );
+    this.name = "StaleSaveError";
   }
 }
 
@@ -207,7 +235,8 @@ export function createStoreOn(backend: Backend, options: SaveStoreOptions = {}):
     }
   }
 
-  async function save(p: Profile): Promise<void> {
+  /** `save`, and with `expected` the compare-and-swap of `saveIfUnchanged`. */
+  async function put(p: Profile, expected?: string): Promise<string> {
     // Validate first, so a malformed profile fails with the validator's reason.
     const problemText = profileProblem(p);
     if (problemText !== null) throw new Error(`not saved: ${problemText}`);
@@ -218,21 +247,33 @@ export function createStoreOn(backend: Backend, options: SaveStoreOptions = {}):
       await backend.write(next.id, ({ current, prev, keys }) => {
         const newer = newerVersionOf(current) ?? newerVersionOf(prev);
         if (newer !== null) throw new NewerSaveError(next.id, newer);
+        const read = readRecord(current, next.id);
+        if (expected !== undefined && current !== expected) {
+          // Gone: removed elsewhere, never written back. Readable and different: another tab's
+          // save. A damaged record is nobody's save, so this one repairs it.
+          if (current === undefined) throw new StaleSaveError(next.id, null, null);
+          if (read.ok && typeof current === "string") {
+            throw new StaleSaveError(next.id, read.profile, current);
+          }
+        }
         const ids = keys.filter(isCurrentKey);
         if (!ids.includes(next.id) && ids.length >= MAX_PROFILES) throw new ProfileLimitError();
         // Keep a good prev rather than replace it with a damaged current.
-        return readRecord(current, next.id).ok
-          ? { current: json, prev: current }
-          : { current: json };
+        return read.ok ? { current: json, prev: current } : { current: json };
       });
     } catch (e) {
       if (e instanceof NewerSaveError) {
         problem(next.id, "newerVersion", `not saved: ${e.message}`);
-      } else if (!(e instanceof ProfileLimitError)) {
+      } else if (!(e instanceof ProfileLimitError) && !(e instanceof StaleSaveError)) {
         problem(next.id, "storageError", `not saved: ${errorText(e)}`);
       }
       throw e;
     }
+    return json;
+  }
+
+  async function save(p: Profile): Promise<void> {
+    await put(p);
   }
 
   async function loadAll(loader: (id: string) => Promise<Profile | null>): Promise<Profile[]> {
@@ -313,6 +354,7 @@ export function createStoreOn(backend: Backend, options: SaveStoreOptions = {}):
     },
     load,
     save,
+    saveIfUnchanged: (p, expected) => put(p, expected),
     async remove(id) {
       if (id.includes(":")) return;
       await backend.removeBoth(id);

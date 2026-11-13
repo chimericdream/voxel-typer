@@ -35,6 +35,7 @@ import type { DefenseInstance } from "../../../../src/modes/defense/defense";
 import {
   DAY_HOLD_MS,
   DAY_MS,
+  NIGHT_CAP_MS,
   SHIELD_SEGMENTS,
   nightWaves,
 } from "../../../../src/modes/defense/logic";
@@ -58,6 +59,7 @@ interface WaveEnd {
   reachedBase: number;
   wordsDone: number;
   activeMs: number;
+  pulledMs: number;
   difficulty: number;
 }
 const isWaveEnd = (v: unknown): v is WaveEnd =>
@@ -298,7 +300,11 @@ describe("the night's flow", () => {
       r.ends.forEach((e, i) => {
         expect(e).toMatchObject({ accuracy: 1, reachedBase: 0, wordsDone: r.waves[i] });
         expect(e.activeMs).toBeGreaterThan(2000);
+        expect(e.pulledMs).toBeGreaterThanOrEqual(0);
       });
+      // A quick typist empties the field, and the mode tells the director how far that brought
+      // the wave forward (calm mode's slowness adds it back, M4-FIX-3).
+      expect(r.ends.some((e) => e.pulledMs > 0)).toBe(true);
       expect(result?.summary.targetsCompleted).toBe(sum(r.waves));
     }
   });
@@ -367,6 +373,72 @@ describe("the night's flow", () => {
       expect(longest, label).toBeGreaterThan(1000);
     }
   });
+
+  it("ends a long night at dawn once the band's cap has passed, and the stars still count (M4-FIX-3)", async () => {
+    // A 5-wave Miner lesson, calm (the visitors wait for their words), typed at about 3 WPM:
+    // five waves would take well over 5 min.
+    const long: Lesson = { ...NIGHT, length: { targets: 40 } };
+    expect(nightWaves(long, "miner")).toBe(5);
+    forgetNights();
+    const r = await started(miner, { lesson: long, calm: true });
+    expect(r.until("dusk", 60_000)).toBe(true);
+    const duskAt = r.now;
+    let dawnAt: number | null = null;
+    const endsAt: number[] = [];
+    r.afterFrame = () => {
+      if (dawnAt === null && r.instance.phase() === "dawn") dawnAt = r.now;
+      if (r.ends.length > endsAt.length) endsAt.push(r.now - duskAt);
+    };
+    const end = r.now + 1_800_000;
+    while (r.results.length === 0 && r.now < end) if (!r.typeNext(4000)) r.run(160);
+    expect(r.results).toHaveLength(1);
+    const result = r.results[0];
+    // The wave that was on when the cap passed finished; no wave started after it.
+    expect(r.waves.length).toBeLessThan(5);
+    expect(r.ends).toHaveLength(r.waves.length);
+    expect(endsAt.at(-2) ?? 0).toBeLessThan(NIGHT_CAP_MS.miner);
+    expect(endsAt.at(-1) ?? 0).toBeGreaterThanOrEqual(NIGHT_CAP_MS.miner);
+    expect(dawnAt).not.toBeNull();
+    // Stars count the visitors sent home, not the waves: every mob was typed, so the gate passes.
+    expect(result?.extra).toMatchObject({ waves: r.waves.length, reached: 0 });
+    expect(result?.stars).toBeGreaterThanOrEqual(1);
+    expect(result?.summary.targetsCompleted).toBe(sum(r.waves));
+    // A short night isn't cut: birch-08's three waves all play at a quick pace.
+    forgetNights();
+    const quick = await started(miner);
+    quick.playOut();
+    expect(quick.waves).toHaveLength(nightWaves(NIGHT, "miner"));
+  }, 120_000);
+
+  it("resumes a second night at the same pace, even if the profile gained a baseline since (M4-FIX-3)", async () => {
+    // A new Builder (no baseline: the reference is the band's 15 WPM guess) plays a slow night.
+    forgetNights();
+    const fresh = fixture("fresh-builder");
+    const first = await started(fresh);
+    const end = first.now + 1_800_000;
+    first.until("dusk", 60_000);
+    while (first.results.length === 0 && first.now < end) if (!first.typeNext(2400)) first.run(160);
+    const last = first.ends.at(-1);
+    expect(last).toBeDefined();
+    const pace = (last?.difficulty ?? 0) * DIRECTOR_CONSTANTS.defaultBaselineWpm.builder;
+    // Then three Mine lessons in the same sitting give them a baseline of 4 WPM.
+    const template = fixture("meadow-done-miner").history.find((h) => h.mode === "mine");
+    if (template === undefined) throw new Error("no mine summary in the fixture");
+    const known: Profile = {
+      ...fresh,
+      history: [1, 2, 3].map(() => ({ ...template, netWpm: 4 })),
+    };
+    const second = await started(known);
+    second.until("dusk", 60_000);
+    second.typeNext(2400);
+    while (second.ends.length === 0) if (!second.typeNext(2400)) second.run(160);
+    // The night resumes in fine mode at the same pace: −15 % at most after its first wave, never
+    // `d` carried over against the new 4 WPM reference (which would be a pace of about 1 WPM).
+    const resumed = (second.ends[0]?.difficulty ?? 0) * 4;
+    expect(resumed).toBeGreaterThanOrEqual(pace * (1 - DIRECTOR_CONSTANTS.maxStep) - 1e-6);
+    expect(resumed).toBeLessThanOrEqual(pace * (1 + DIRECTOR_CONSTANTS.fineMaxStepUp) + 1e-6);
+    forgetNights();
+  }, 120_000);
 
   it("free play (no lesson) is a three-wave night on the home keys", async () => {
     const r = await started(miner, { lesson: null });

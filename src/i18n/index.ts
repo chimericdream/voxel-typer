@@ -25,7 +25,7 @@ type LocaleId = "en" | "en-XA";
  */
 const tables: Partial<Record<LocaleId, unknown>> = { en };
 
-let locale: LocaleId = "en";
+let current: LocaleId = "en";
 const warned = new Set<string>();
 
 /** Follows the dotted `path` through nested string tables. Undefined unless it ends on a string. */
@@ -49,7 +49,7 @@ function lookup(table: unknown, path: readonly string[]): string | undefined {
  */
 export function t(key: MessageKey, params?: Record<string, string | number>): string {
   const path = key.split(".");
-  const pattern = lookup(tables[locale], path) ?? lookup(en, path);
+  const pattern = lookup(tables[current], path) ?? lookup(en, path);
   if (pattern !== undefined) return formatMessage(pattern, params);
   if (import.meta.env.DEV) {
     if (!warned.has(key)) {
@@ -61,7 +61,12 @@ export function t(key: MessageKey, params?: Record<string, string | number>): st
   return path.at(-1) ?? key;
 }
 
+/** The current locale, for `Intl` formatting next to `t()` text (M3-FIX-9, review N5). */
+export function locale(): LocaleId {
+  return current;
+}
+
 /** Switches the locale. `en-XA` is the pseudo-locale (M6). */
 export function setLocale(id: LocaleId): void {
-  locale = id;
+  current = id;
 }

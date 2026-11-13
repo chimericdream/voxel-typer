@@ -5,7 +5,7 @@
  * `rng` passed in, and time is only ever an offset inside a wave (`spawnAtMs`). Night Defense
  * (M4-04) asks for a wave, plays it, tells the director how it went, and asks for the next one.
  *
- * **The controller.** One difficulty scalar `d ∈ [0.3, 2.0]` sets the pace of a wave against the
+ * **The controller.** One difficulty scalar `d ∈ [0.2, 2.0]` sets the pace of a wave against the
  * learner's reference speed (their baseline net WPM, or a slow default for a new profile). At
  * `d = 1` a mob spawns about every "reaction + word at the reference speed", and walks its lane in
  * three of those. Mobs reach the base in spawn order, a spawn gap apart: a fast mob sets out
@@ -27,7 +27,12 @@
  *    slow, though: while the average is under 85 % a step down may be the full 15 %.
  * 4. Relief: a wave under 75 % accuracy, or with more than 30 % of its mobs at the base, makes the
  *    next wave 15 % easier, whatever the average says.
- * 5. `d ← clamp(d × (1 + step), 0.3, 2.0)` (calm: at most 1.2, and at most +8 % a wave).
+ * 5. A new profile starts cautious, at about 3.5 WPM in every band
+ *    ({@link DIRECTOR_CONSTANTS.newProfileStartWpm}): its reference is only a guess. While it
+ *    searches, what the child typed ({@link throughputWpm}) moves `d` twice at most: a first wave
+ *    that went well jumps up once towards it, and the first wave it can't keep up with (more than
+ *    10 % at the base, which may come after wave 1) starts again from it, once.
+ * 6. `d ← clamp(d × (1 + step), 0.2, 2.0)` (calm: at most 1.2, and at most +8 % a wave).
  *
  * `tools/sim-defense.ts` and `docs/sim.md` show how this behaves with synthetic typists.
  *
@@ -45,6 +50,12 @@
  * ({@link breakMs}). The rest of the wave moves with its next mob, so spawn gaps and arrival order
  * stay as planned. A slow learner still gets fewer mobs from the count and the walking speed,
  * never from waiting. Only the dawn at the end of the night is empty on purpose.
+ *
+ * **Slow learners** (M4-FIX-3). A 5 WPM child needs 10–20 s for one word. So the walk may take up
+ * to 90 s ({@link DIRECTOR_CONSTANTS.travelMs}), finding a word's first key takes at least one
+ * key's time ({@link mobTiming}), and a wave holds at least the band's
+ * {@link DIRECTOR_CONSTANTS.minWaveKeys}: a wave of 10 keys is too short to measure, and one slip
+ * in it reads as a bad wave.
  *
  * **No failure.** The director only plans waves. A wave that went badly makes the next one easier;
  * nothing it returns can take anything away from the child (M4-10).
@@ -115,12 +126,23 @@ export interface WaveFeedback {
   readonly wordsDone: number;
   /** Active (unpaused) time of the wave. */
   readonly activeMs: Ms;
+  /**
+   * How far an empty field brought the wave forward ({@link idlePullMs}), in all. The rest of the
+   * wave moves with it, so the wave was planned to end this much sooner. Default 0.
+   */
+  readonly pulledMs?: Ms;
 }
 
 /** What the controller also knows about the wave it planned. */
 export interface WavePlan {
   /** How long the wave was planned to take: until its last mob would reach the base. */
   readonly plannedMs: Ms;
+  /** The mean length of the wave's words, in code points. */
+  readonly charsPerWord?: number;
+  /** The WPM that `d = 1` stood for in the wave ({@link referenceWpm}). */
+  readonly referenceWpm?: number;
+  /** The wave's index in the night (0 for the first). */
+  readonly index?: number;
 }
 
 export interface DirectorOptions {
@@ -157,17 +179,35 @@ export interface Director {
   observe(feedback: WaveFeedback): void;
   /** The current difficulty scalar. */
   readonly difficulty: number;
+  /**
+   * The WPM that `d = 1` stands for ({@link referenceWpm}). `difficulty × referenceWpm` is a pace
+   * that still means the same once the profile's baseline changes: remember that, not `d`.
+   */
+  readonly referenceWpm: number;
 }
 
 /** Tuning. Exported for tests and the simulator; `docs/sim.md` records why they are what they are. */
 export const DIRECTOR_CONSTANTS = {
-  dMin: 0.3,
+  dMin: 0.2,
   dMax: 2.0,
   /** Calm mode's ceiling. */
   calmDMax: 1.2,
   /** Start: `d` with a baseline, and with a new profile (on top of the slow default reference). */
   startD: 0.8,
   newProfileStartD: 0.7,
+  /**
+   * A new profile's first wave is played at this pace (WPM) or slower, in every band: 0.7 of
+   * Sprout's 5 WPM default, 0.35 of Miner's 10 and 0.23 of Builder's 15. Its reference is only a
+   * guess, and a first wave that swamps a slow child is the worst start the mode can give
+   * (M4-FIX-3 review). A first wave that went well jumps up from what the child typed
+   * ({@link newProfileJump}), so a fast new learner isn't held there.
+   */
+  newProfileStartWpm: 3.5,
+  /**
+   * After a new profile's first wave that went well, `d` rises to at least this share of the
+   * speed the child typed in it (a floor on their real speed), at most {@link newProfileStartD}.
+   */
+  newProfileJump: 1.0,
   /**
    * With a baseline, `d = 0.8` is already close to the learner's edge (about 0.85–0.95 for every
    * typist, because `d` is relative to their own speed), so the night starts in fine mode. Only a
@@ -235,6 +275,12 @@ export const DIRECTOR_CONSTANTS = {
   /** Mobs per wave, whatever the time says. Calm mode has at most {@link calmMaxMobs}. */
   mobsPerWave: { min: 3, max: 18 },
   calmMaxMobs: 10,
+  /**
+   * Keys a wave holds at least, at the band's middle word length (about the chars per wave that
+   * `nightWaves` counts on). A slow learner's wave would otherwise be 3 short words: one slip in
+   * 10 keys is 90 %, two are under 85 %.
+   */
+  minWaveKeys: { sprout: 16, miner: 24, builder: 30 } satisfies Record<AgeBand, number>,
   /** Lanes per band: the first below `d = 1`, the second from it. */
   lanes: { sprout: [2, 3], miner: [3, 4], builder: [4, 5] } satisfies Record<
     AgeBand,
@@ -275,8 +321,12 @@ export const DIRECTOR_CONSTANTS = {
    * rhythm: a fast mob sets out later and a slow one sooner.
    */
   arrivalSpacing: 1,
-  /** Travel time is kept inside this range, so mobs never dash or crawl. */
-  travelMs: { min: 4000, max: 40_000 },
+  /**
+   * Travel time is kept inside this range, so mobs never dash. The top is for slow learners: at
+   * 5 WPM a walk of three words' time is 45–80 s, and a 40 s cap made a Builder's mobs walk about
+   * twice as fast as everyone else's, measured against their own typing.
+   */
+  travelMs: { min: 4000, max: 90_000 },
   speedMult: { slow: 0.8, medium: 1, fast: 1.25 } satisfies Record<SpeedClass, number>,
   /** A flavor needs this many typeable words before it is used instead of the lesson's pools. */
   minFlavorWords: 8,
@@ -286,13 +336,17 @@ export const DIRECTOR_CONSTANTS = {
 
 const C = DIRECTOR_CONSTANTS;
 
-/** The difficulty a night starts at. */
+/**
+ * The difficulty a night starts at: a resumed night's, 0.8 with a baseline, or a cautious
+ * {@link DIRECTOR_CONSTANTS.newProfileStartWpm} for a new profile.
+ */
 export function startDifficulty(
-  opts: Pick<DirectorOptions, "baselineNetWpm" | "startDifficulty">,
+  opts: Pick<DirectorOptions, "band" | "baselineNetWpm" | "startDifficulty">,
 ): number {
   if (opts.startDifficulty !== undefined && Number.isFinite(opts.startDifficulty))
     return clamp(opts.startDifficulty, C.dMin, C.dMax);
-  return hasBaseline(opts.baselineNetWpm) ? C.startD : C.newProfileStartD;
+  if (hasBaseline(opts.baselineNetWpm)) return C.startD;
+  return Math.min(C.newProfileStartD, C.newProfileStartWpm / C.defaultBaselineWpm[opts.band]);
 }
 
 const hasBaseline = (wpm: number | null): wpm is number =>
@@ -381,9 +435,12 @@ export function controllerStep(
   const fine = s.fine || (acc !== null && acc <= s.target) || share > C.reachedAim;
   let step = accuracy === null ? 0 : (fine ? C.kAccuracyFine : C.kAccuracy) * (accuracy - s.target);
   if (share > C.reachedAim) step = Math.min(step, -C.kReached * (share - C.reachedAim));
-  // Calm mode's only sign of "too fast": the wave took much longer than it was planned to.
+  // Calm mode's only sign of "too fast": the wave took much longer than it was planned to. An
+  // empty field brought the rest of the wave forward and cut that time out of `activeMs`; it is
+  // added back, so a pulled wave reads exactly as it would have without the pull (M4-FIX-3).
   const planned = plan === undefined ? 0 : countOf(plan.plannedMs);
-  const slowness = calm && planned > 0 ? countOf(f.activeMs) / planned : 0;
+  const took = countOf(f.activeMs) + countOf(f.pulledMs ?? 0);
+  const slowness = calm && planned > 0 ? took / planned : 0;
   if (slowness > C.calmVerySlow) step = Math.min(step, -C.fineMaxStepDown);
   else if (slowness > C.calmSlow) step = Math.min(step, 0);
   const up = Math.min(calm ? C.calmMaxStepUp : C.maxStep, fine ? C.fineMaxStepUp : C.maxStep);
@@ -392,8 +449,36 @@ export function controllerStep(
   step = clamp(step, fine && !struggling ? -C.fineMaxStepDown : -C.maxStep, up);
   const swamped = (acc !== null && acc < C.reliefAccuracy) || share > C.reliefReached;
   if (swamped) step = -C.maxStep;
-  const d = clamp(s.d * (1 + step), C.dMin, calm ? C.calmDMax : C.dMax);
+  let d = s.d * (1 + step);
+  // A new profile (search mode) has only a guessed reference; the words typed in a wave say how
+  // fast the child really is.
+  const measured = plan === undefined ? null : throughputWpm(f, plan);
+  const ref = plan?.referenceWpm;
+  if (!s.fine && measured !== null && ref !== undefined && ref > 0) {
+    // The first wave it can't keep up with, whichever wave that is: start again from what it
+    // typed, not 15 % a wave. It happens once, because that wave also ends the search (`fine`).
+    if (share > C.reachedAim) d = Math.min(d, (C.startD * measured) / ref);
+    // The night's cautious first wave went well: jump up once, to what the child typed. The
+    // throughput is a floor on their speed, and the jump stops at the old start, so it can't
+    // overshoot.
+    else if (plan?.index === 0 && acc !== null && acc >= s.target)
+      d = Math.max(d, Math.min(C.newProfileStartD, (C.newProfileJump * measured) / ref));
+  }
+  d = clamp(d, C.dMin, calm ? C.calmDMax : C.dMax);
   return { d, accSum, accWeight, fine, target: s.target };
+}
+
+/**
+ * How fast the learner typed in a wave, in WPM: the words done (at the wave's mean word length)
+ * over its active time. A floor on their real speed: the time also holds reading and waiting.
+ * Null when the wave can't tell (hardly any time, no word length).
+ */
+export function throughputWpm(f: WaveFeedback, plan: WavePlan): number | null {
+  const done = countOf(f.wordsDone);
+  const ms = countOf(f.activeMs);
+  const chars = countOf(plan.charsPerWord ?? 0);
+  if (chars === 0 || ms < C.minActiveMs) return null;
+  return (done * chars * 12_000) / ms;
 }
 
 /** The typing speed a wave asks for. */
@@ -409,7 +494,8 @@ export function laneCount(band: AgeBand, d: number): number {
 
 /**
  * How many mobs wave `index` sends: its spawn time ({@link DIRECTOR_CONSTANTS.waveMs}) over the
- * spawn gap of a middle-length word at this difficulty.
+ * spawn gap of a middle-length word at this difficulty, and at least enough middle-length words
+ * for {@link DIRECTOR_CONSTANTS.minWaveKeys}.
  */
 export function waveSize(
   band: AgeBand,
@@ -423,7 +509,8 @@ export function waveSize(
   const { gapMs } = mobTiming(band, (len.min + len.max) / 2, reference, scale, "medium");
   const ms = C.waveMs[band] + C.waveGrowthMs * Math.min(Math.max(0, index), C.waveGrowthWaves);
   const max = calm ? C.calmMaxMobs : C.mobsPerWave.max;
-  return clamp(Math.round(ms / gapMs) + 1, C.mobsPerWave.min, max);
+  const byKeys = Math.ceil(C.minWaveKeys[band] / ((len.min + len.max) / 2));
+  return clamp(Math.max(Math.round(ms / gapMs) + 1, byKeys), C.mobsPerWave.min, max);
 }
 
 /**
@@ -438,7 +525,8 @@ export function speedClassWeight(cls: SpeedClass, d: number, calm: boolean): num
 
 /**
  * Timing of one mob. `base` is what the learner needs at their reference speed: a reaction time
- * plus the word at `reference` WPM. `scale` is the wave's time scale (`d`, times
+ * plus the word at `reference` WPM. The reaction is the band's, or one key at `reference` WPM if
+ * that is longer: a slow typist is slow to find the first key too. `scale` is the wave's time scale (`d`, times
  * {@link DIRECTOR_CONSTANTS.calmPace} in calm mode).
  *
  * - The next mob spawns `gapMs` later: `base / scale` below 1, `base / scale^spawnExponent` from 1.
@@ -452,7 +540,8 @@ export function mobTiming(
   scale: number,
   cls: SpeedClass,
 ): { gapMs: Ms; speed: number } {
-  const baseMs = C.reactionMs[band] + (wordLength * 12_000) / Math.max(0.1, reference);
+  const keyMs = 12_000 / Math.max(0.1, reference);
+  const baseMs = Math.max(C.reactionMs[band], keyMs) + wordLength * keyMs;
   const k = Math.max(0.01, scale);
   const gapMs = baseMs / (k < 1 ? k : k ** C.spawnExponent);
   const travel = clamp(
@@ -543,6 +632,8 @@ export function createDirector(opts: DirectorOptions): Director {
   let index = 0;
   /** The last planned wave's span: until its last mob would be at the base. */
   let plannedMs: Ms = 0;
+  /** The last planned wave's mean word length. */
+  let charsPerWord = 0;
 
   function wordsFor(flavor: string, count: number, waveRng: Rng): string[] {
     const generate = (kind: "words" | "syllables"): string[] =>
@@ -623,6 +714,7 @@ export function createDirector(opts: DirectorOptions): Director {
     }
     const spec: WaveSpec = { index, lanes, calm, difficulty: d, paceWpm: pace, mobs };
     plannedMs = Math.max(0, ...mobs.map((m) => m.spawnAtMs + 1000 / m.speed));
+    charsPerWord = mobs.reduce((n, m) => n + lengthOf(m.word), 0) / Math.max(1, mobs.length);
     index += 1;
     return spec;
   }
@@ -630,11 +722,17 @@ export function createDirector(opts: DirectorOptions): Director {
   return {
     nextWave,
     observe(feedback: WaveFeedback): void {
-      state = controllerStep(state, feedback, calm, { plannedMs });
+      state = controllerStep(state, feedback, calm, {
+        plannedMs,
+        charsPerWord,
+        referenceWpm: reference,
+        index: index - 1,
+      });
     },
     get difficulty(): number {
       return state.d;
     },
+    referenceWpm: reference,
   };
 }
 
