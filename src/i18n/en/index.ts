@@ -27,6 +27,7 @@ import mobs from "./mobs";
 import builder from "./builder";
 import defense from "./defense";
 import remedial from "./remedial";
+import parent from "./parent";
 
 const en = {
   common,
@@ -51,6 +52,7 @@ const en = {
   builder,
   defense,
   remedial,
+  parent,
 } as const;
 
 export default en;

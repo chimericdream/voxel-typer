@@ -34,8 +34,55 @@ export const GATE_TRIES = 3;
 /** How long the gate rests after {@link GATE_TRIES} wrong tries. */
 export const GATE_COOLDOWN_MS: Ms = 30_000;
 
-/** What a grown-up is asked to allow. M3-09's three, plus the Settings tab. */
-export type GrownUpAction = "renameProfile" | "changeBand" | "deleteProfile" | "grownUps";
+/** What a grown-up is asked to allow. M3-09's three, the Settings tab, and the Parent Dashboard. */
+export type GrownUpAction =
+  | "renameProfile"
+  | "changeBand"
+  | "deleteProfile"
+  | "grownUps"
+  | "parentDashboard";
+
+/** How long a handed pass waits for the dashboard to load before it lapses. */
+export const PASS_TTL_MS: Ms = 10_000;
+/** How often a waiting pass checks that the app is still on its way to the dashboard. */
+export const PASS_CHECK_MS: Ms = 200;
+
+let handedPass: { clear: () => void } | null = null;
+
+/** Drops a handed pass that wasn't used, and its timers. */
+export function clearGrownUpPass(): void {
+  handedPass?.clear();
+  handedPass = null;
+}
+
+/**
+ * Carries one passed gate to the next screen (M3-11): Settings → Grown-ups was already unlocked,
+ * so its "See progress" button hands the pass to the Parent Dashboard instead of asking again.
+ *
+ * The pass is used once ({@link takeGrownUpPass}), and it lapses if the dashboard never takes it:
+ * as soon as `stillGoing()` turns false (the player left the route while the screen loaded, or
+ * its chunk failed), or after {@link PASS_TTL_MS}. A direct visit to the dashboard still asks.
+ */
+export function handGrownUpPass(stillGoing: () => boolean): void {
+  clearGrownUpPass();
+  const check = setInterval(() => {
+    if (!stillGoing()) clearGrownUpPass();
+  }, PASS_CHECK_MS);
+  const lapse = setTimeout(clearGrownUpPass, PASS_TTL_MS);
+  handedPass = {
+    clear: () => {
+      clearInterval(check);
+      clearTimeout(lapse);
+    },
+  };
+}
+
+/** True once, after {@link handGrownUpPass}, while the pass hasn't lapsed. */
+export function takeGrownUpPass(): boolean {
+  const had = handedPass !== null;
+  clearGrownUpPass();
+  return had;
+}
 
 /** Gate words: plain lowercase words of 6–8 letters from list files' text (comments skipped). */
 export function gateWords(...texts: readonly string[]): string[] {

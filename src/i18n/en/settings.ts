@@ -70,6 +70,8 @@ export default {
   },
   grown: {
     intro: "Changes for {name}. These need a grown-up.",
+    progressTitle: "Progress",
+    progressGo: "See {name}'s progress",
     bandTitle: "Group",
     bandNow: "{name} is in the {band} group.",
     bandConfirm:
@@ -96,6 +98,7 @@ export default {
       renameProfile: "This changes a player's name.",
       changeBand: "This changes a player's group.",
       deleteProfile: "This deletes a player.",
+      parentDashboard: "This opens a player's progress charts.",
     },
     label: "Type the word",
     go: "Continue",

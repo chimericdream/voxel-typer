@@ -1,0 +1,305 @@
+/*
+ * Parent Dashboard charts (task M3-11). One color system for all charts, stepped per theme:
+ * day (light parchment panel), night (dark slate panel) and high contrast (black). The marks sit on
+ * a panel face (`--c-panel`); dots carry a ring in that color. Text always wears the text tokens,
+ * never the data color.
+ *
+ * Line and bar color clears 3:1 on its panel in every theme (checked with the dataviz validator):
+ * day #1c5cab on #e6d8ac, night #86b6ef on #444852, contrast #5fcdd4 on #000.
+ * Heat steps are one hue, monotone in lightness; the lowest step may fade into the panel (it means
+ * "hardly any mistakes"), every key keeps an edge, and the ink on each step is the one of black or
+ * white with the better contrast.
+ */
+.figure,
+.legend {
+  --viz-mark: #1c5cab;
+  --viz-grid: rgb(63 38 24 / 0.22);
+  --viz-edge: rgb(63 38 24 / 0.45);
+  --heat-0: #cde2fb;
+  --heat-1: #86b6ef;
+  --heat-2: #3987e5;
+  --heat-3: #1c5cab;
+  --heat-4: #0d366b;
+  --heat-ink-0: #141418;
+  --heat-ink-1: #141418;
+  --heat-ink-2: #141418;
+  --heat-ink-3: #ffffff;
+  --heat-ink-4: #ffffff;
+}
+
+:global(:root[data-theme="night"]) .figure,
+:global(:root[data-theme="night"]) .legend {
+  --viz-mark: #86b6ef;
+  --viz-grid: rgb(239 245 250 / 0.2);
+  --viz-edge: rgb(239 245 250 / 0.5);
+  --heat-0: #184f95;
+  --heat-1: #2671cc;
+  --heat-2: #5598e7;
+  --heat-3: #9ec5f4;
+  --heat-4: #e8f1fd;
+  --heat-ink-0: #ffffff;
+  --heat-ink-1: #ffffff;
+  --heat-ink-2: #141418;
+  --heat-ink-3: #141418;
+  --heat-ink-4: #141418;
+}
+
+:global(:root[data-theme="contrast"]) .figure,
+:global(:root[data-theme="contrast"]) .legend {
+  --viz-mark: #5fcdd4;
+  --viz-grid: rgb(255 255 255 / 0.45);
+  --viz-edge: #ffffff;
+  --heat-0: #0e3436;
+  --heat-1: #176d72;
+  --heat-2: #2aa3aa;
+  --heat-3: #5fcdd4;
+  --heat-4: #c9f4f6;
+  --heat-ink-0: #ffffff;
+  --heat-ink-1: #ffffff;
+  --heat-ink-2: #000000;
+  --heat-ink-3: #000000;
+  --heat-ink-4: #000000;
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  min-width: 0;
+}
+
+.plot {
+  width: 100%;
+  min-width: 0;
+}
+
+.svg {
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+  font-family: var(--font-body);
+}
+
+.grid line {
+  stroke: var(--viz-grid);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.baseline {
+  stroke: var(--viz-edge);
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+
+.tick {
+  fill: var(--c-text-muted);
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  font-variant-numeric: tabular-nums;
+}
+
+.endLabel {
+  fill: var(--c-text);
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  font-weight: 700;
+}
+
+.line {
+  fill: none;
+  stroke: var(--viz-mark);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.mark {
+  fill: var(--viz-mark);
+  stroke: var(--c-panel);
+  stroke-width: 2;
+}
+
+.bar {
+  fill: var(--viz-mark);
+}
+
+.hit {
+  fill: transparent;
+}
+
+.dot:hover .mark {
+  r: 6;
+}
+
+.heatKey rect {
+  fill: var(--heat-0);
+  stroke: var(--viz-edge);
+  stroke-width: 1;
+}
+
+.heatKey text {
+  font-family: var(--font-body);
+  font-weight: 700;
+  fill: var(--heat-ink-0);
+}
+
+.heatKey .heatPct {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.heatKey[data-bin="1"] rect {
+  fill: var(--heat-1);
+}
+.heatKey[data-bin="1"] text {
+  fill: var(--heat-ink-1);
+}
+.heatKey[data-bin="2"] rect {
+  fill: var(--heat-2);
+}
+.heatKey[data-bin="2"] text {
+  fill: var(--heat-ink-2);
+}
+.heatKey[data-bin="3"] rect {
+  fill: var(--heat-3);
+}
+.heatKey[data-bin="3"] text {
+  fill: var(--heat-ink-3);
+}
+.heatKey[data-bin="4"] rect {
+  fill: var(--heat-4);
+}
+.heatKey[data-bin="4"] text {
+  fill: var(--heat-ink-4);
+}
+.heatKey[data-bin="none"] rect {
+  fill: transparent;
+  stroke-dasharray: 4 3;
+}
+.heatKey[data-bin="none"] text {
+  fill: var(--c-text-muted);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  color: var(--c-text);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.swatch {
+  display: inline-block;
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  border: 1px solid var(--viz-edge);
+  border-radius: 3px;
+  background: var(--heat-0);
+}
+.swatch[data-bin="1"] {
+  background: var(--heat-1);
+}
+.swatch[data-bin="2"] {
+  background: var(--heat-2);
+}
+.swatch[data-bin="3"] {
+  background: var(--heat-3);
+}
+.swatch[data-bin="4"] {
+  background: var(--heat-4);
+}
+.swatch[data-bin="none"] {
+  background: transparent;
+  border-style: dashed;
+}
+
+.caption {
+  margin: 0;
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  line-height: 1.4;
+  color: var(--c-text-muted);
+}
+
+.numbers {
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  color: var(--c-text);
+}
+
+.summary {
+  cursor: pointer;
+  width: fit-content;
+  padding: var(--sp-1) 0;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.summary:focus-visible {
+  outline: var(--focus-w) solid var(--c-focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 calc(var(--focus-w) + var(--focus-halo-w)) var(--c-focus-halo);
+}
+
+.tableWrap {
+  max-height: calc(18rem * var(--text-scale));
+  margin-top: var(--sp-2);
+  overflow: auto;
+}
+
+.table {
+  border-collapse: collapse;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+.table th,
+.table td {
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 1px solid var(--viz-grid);
+  text-align: left;
+  font-weight: 400;
+}
+
+.table thead th {
+  font-weight: 700;
+}
+
+.table [data-numeric] {
+  text-align: right;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (forced-colors: active) {
+  .line {
+    stroke: CanvasText;
+  }
+  .mark,
+  .bar {
+    fill: CanvasText;
+  }
+  .heatKey rect {
+    stroke: CanvasText;
+  }
+}
