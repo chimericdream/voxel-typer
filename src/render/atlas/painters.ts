@@ -385,15 +385,31 @@ export function paintOverlayTop(
   checkInt("depth", depth, 0, N);
   const layer = paintNoise(palette, rng.fork("top"), topId, 3, 1);
   const px = base.slice();
+  if (depth === 0) return px;
+  const colors = ramp(palette, topId);
+  // A soft wavy edge (M4-FIX-6), not a ragged per-column drip: two gentle waves across the tile,
+  // so the edge meets itself where two blocks touch, then a few little tufts on the base below.
+  const shift = rng.next() * Math.PI;
+  let deepest = 0;
   for (let x = 0; x < N; x++) {
-    let len = depth;
-    const r = rng.next();
-    if (depth > 0 && r < 0.18) len -= 1;
-    else if (depth > 0 && r < 0.36) len += 1;
-    else if (depth > 0 && r < 0.46) len += 2;
-    len = clamp(len, 0, N);
+    const wave = Math.sin((4 * Math.PI * (x + 0.5)) / N + shift);
+    const len = clamp(depth + Math.round(wave * 1.2), 1, N);
+    deepest = Math.max(deepest, len);
     for (let y = 0; y < len; y++) put(px, x, y, read(layer, x, y));
-    if (len > 0 && len < N) put(px, x, len, shade(read(base, x, len), 0.72));
+    // A darker rim on the grass, then a soft shadow on the base under it.
+    put(px, x, len - 1, rampAt(colors, 1));
+    if (len < N) put(px, x, len, shade(read(base, x, len), 0.8));
+  }
+  // Tufts on green tops only: a short blade with a leaf to each side, like a tiny "v" of grass.
+  const green = topId === "grass" || topId === "moss";
+  const tufts = green && depth >= 2 && deepest + 4 < N ? rng.int(2, 3) : 0;
+  for (let t = 0; t < tufts; t++) {
+    const x = clamp(Math.round(((t + 0.5) / tufts) * N + (rng.next() - 0.5) * 3), 1, N - 2);
+    const y = rng.int(deepest + 3, N - 2);
+    put(px, x, y, rampAt(colors, 2));
+    put(px, x, y - 1, rampAt(colors, 3));
+    put(px, x - 1, y - 1, rampAt(colors, 1));
+    put(px, x + 1, y - 2, rampAt(colors, 2));
   }
   return px;
 }
@@ -687,26 +703,45 @@ const cap: CustomPainter = (palette, rng, arg) => {
   return px;
 };
 
-/** A lantern block: a metal frame and cross bars over four glowing panes, brightest in the middle. */
+/**
+ * A lantern block (M4-FIX-6): a round paper lantern glowing on a dark wooden board, with ribs
+ * across the globe and a metal cap above and below. No square panes and no grey grid.
+ */
 const lamp: CustomPainter = (palette, rng, arg) => {
   const glow = ramp(palette, need(arg, "lamp"));
+  const wood = ramp(palette, "oak-bark");
   const metal = ramp(palette, "metal");
   const top = glow.length - 1;
   const flicker = rng.fork("flicker");
+  const grain = field(rng.fork("grain"), 3);
+  const cx = 7.5;
+  const cy = 8;
+  const r = 5.6;
   const px = blank();
   for (let y = 0; y < N; y++) {
     for (let x = 0; x < N; x++) {
-      const ring = Math.min(x, y, N - 1 - x, N - 1 - y);
-      if (ring === 0) put(px, x, y, rampAt(metal, 0));
-      else if (ring === 1 || x === 7 || x === 8 || y === 7 || y === 8) {
-        put(px, x, y, rampAt(metal, ring === 1 && (x + y) % 6 === 0 ? 3 : 2));
-      } else {
-        const d = Math.hypot(x - 7.5, y - 7.5);
-        const i = top - Math.floor(d / 2.2) + (flicker.next() < 0.12 ? -1 : 0);
+      const edge = Math.min(x, y, N - 1 - x, N - 1 - y);
+      const d = Math.hypot((x - cx) * 1.05, y - cy);
+      if (d <= r) {
+        const rib = y === 5 || y === 8 || y === 11;
+        const i = top - Math.floor(d / 2) - (rib ? 1 : 0) + (flicker.next() < 0.1 ? -1 : 0);
         put(px, x, y, rampAt(glow, clamp(i, 1, top)));
+      } else if (d <= r + 1.3 && edge > 0) {
+        put(px, x, y, rampAt(glow, 0));
+      } else {
+        const tone = edge === 0 ? 0 : 1 + Math.round(fieldAt(grain, x, y));
+        put(px, x, y, rampAt(wood, tone));
       }
     }
   }
+  // Caps: a wider one on top, a small one under.
+  for (let x = 6; x <= 9; x++) {
+    put(px, x, 1, rampAt(metal, x === 6 ? 2 : 3));
+    put(px, x, 2, rampAt(metal, 2));
+  }
+  put(px, 7, 0, rampAt(metal, 1));
+  put(px, 8, 0, rampAt(metal, 1));
+  for (let x = 7; x <= 8; x++) put(px, x, 14, rampAt(metal, 2));
   return px;
 };
 
@@ -905,7 +940,7 @@ const flowersUnder: CustomPainter = (palette, rng, arg) => {
  * | `knit` | wool | knitted stitches |
  * | `facets` | crystal | diamond shards |
  * | `cap` | cap color, plus `mushroom-stem` | mushroom cap with spots |
- * | `lamp` | glow, plus `metal` | lantern block |
+ * | `lamp` | glow, plus `oak-bark` and `metal` | round lantern block |
  * | `ripple` | water | bands and glints, alpha 205 |
  * | `leaves` | leaf | leaf clusters |
  * | `pebbles` | stone | rounded stones |

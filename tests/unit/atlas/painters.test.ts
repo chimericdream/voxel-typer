@@ -290,3 +290,69 @@ describe("errors", () => {
     expect([...used].toSorted()).toEqual(Object.keys(CUSTOM_PAINTERS).toSorted());
   });
 });
+
+const DIRT_EDGE: TextureRecipe = { kind: "noise", ramp: "dirt", scale: 4, contrast: 1 };
+/** How far the top layer reaches down each column: rows from the top that are in the top ramp. */
+const reach = (px: Uint8ClampedArray, top: keyof typeof BASE_PALETTE): number[] =>
+  Array.from({ length: 16 }, (_, x) => {
+    let y = 0;
+    while (y < 16 && inRamp(top, pixelAt(px, x, 15 - y).rgb)) y++;
+    return y;
+  });
+
+/** Pixels of the top ramp below the edge (rows from the top), and the edge's deepest row. */
+const below = (top: "grass" | "moss" | "snow", seed: number) => {
+  const px = paintTile(
+    { kind: "overlay-top", base: DIRT_EDGE, top, depth: 3 },
+    BASE_PALETTE,
+    createRng(seed),
+  );
+  const r = reach(px, top);
+  const found: [number, number][] = [];
+  for (let x = 0; x < 16; x++) {
+    for (let y = (r[x] ?? 0) + 1; y < 16; y++)
+      if (inRamp(top, pixelAt(px, x, 15 - y).rgb)) found.push([x, y]);
+  }
+  return { found, deepest: Math.max(...r) };
+};
+
+describe("overlay-top edge (M4-FIX-6): a soft wave, not a ragged drip", () => {
+  it("neighbouring columns differ by at most one row, the tile's two edges too", () => {
+    assert(
+      property(integer({ min: 0, max: 10_000 }), (seed) => {
+        const px = paintTile(
+          { kind: "overlay-top", base: DIRT_EDGE, top: "snow", depth: 4 },
+          BASE_PALETTE,
+          createRng(seed),
+        );
+        const r = reach(px, "snow");
+        for (let x = 0; x < 16; x++) {
+          const next = r[(x + 1) % 16] ?? 0;
+          expect(Math.abs((r[x] ?? 0) - next)).toBeLessThanOrEqual(1);
+          expect(r[x]).toBeGreaterThanOrEqual(3);
+          expect(r[x]).toBeLessThanOrEqual(5);
+        }
+      }),
+      { seed: 211, numRuns: 200 },
+    );
+  });
+
+  it("tufts: grass and moss get a few, clear of the edge and the bottom row; snow gets none", () => {
+    assert(
+      property(integer({ min: 0, max: 10_000 }), (seed) => {
+        for (const top of ["grass", "moss"] as const) {
+          const { found, deepest } = below(top, seed);
+          // Two or three tufts of 4 pixels each.
+          expect(found.length).toBeGreaterThanOrEqual(6);
+          expect(found.length).toBeLessThanOrEqual(12);
+          for (const [, y] of found) {
+            expect(y).toBeGreaterThan(deepest);
+            expect(y).toBeLessThan(15);
+          }
+        }
+        expect(below("snow", seed).found).toEqual([]);
+      }),
+      { seed: 211, numRuns: 200 },
+    );
+  });
+});
