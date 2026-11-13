@@ -16,7 +16,7 @@ import { t } from "../../../src/i18n";
 import type { Profile, StoredSummary } from "../../../src/save/schema";
 import { BarChart, columnPath } from "../../../src/ui/charts/BarChart";
 import { niceTicks } from "../../../src/ui/charts/ChartFrame";
-import { KeyHeatmap } from "../../../src/ui/charts/KeyHeatmap";
+import { KeyHeatmap, SMALL_MIN_PX } from "../../../src/ui/charts/KeyHeatmap";
 import { LineChart } from "../../../src/ui/charts/LineChart";
 import {
   clearGrownUpPass,
@@ -172,6 +172,33 @@ describe("KeyHeatmap", () => {
     expect(root.querySelectorAll("[data-key]")).toHaveLength(keys.length);
     // The legend names every step in numbers, not color alone.
     expect(text(root.querySelector("ul"))).toContain(t("parent.keys.over", { pct: 20 }));
+  });
+});
+
+/** The percent labels' font sizes with the chart `width` px wide. */
+const heatLabelSizes = (width: number): number[] => {
+  const spy = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(width);
+  try {
+    const keys = keyHeat(fixture("uneven-builder"), EN_US);
+    const root = draw(<KeyHeatmap keys={keys} label="Keys" testId="keys" />);
+    const out = [...root.querySelectorAll("[data-key] text:nth-of-type(2)")].map((el) =>
+      Number(el.getAttribute("font-size")),
+    );
+    expect(out).toHaveLength(keys.length);
+    return out;
+  } finally {
+    spy.mockRestore();
+  }
+};
+describe("KeyHeatmap label sizes (M3-11 review N4)", () => {
+  it("keeps a key's percent at least 11 px in a half-width panel at 1280 px", () => {
+    // About 520 px of chart: keys of 34 px, where the percent used to be 9–10 px.
+    for (const size of heatLabelSizes(520)) expect(size).toBeGreaterThanOrEqual(SMALL_MIN_PX);
+  });
+
+  it("never makes the percent wider than its key on a very narrow chart", () => {
+    // 24 px keys: the percent fits the key (20 px inside) rather than keeping the floor.
+    for (const size of heatLabelSizes(200)) expect(size * 2.2).toBeLessThanOrEqual(20);
   });
 });
 
