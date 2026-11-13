@@ -228,6 +228,14 @@ const isNarrow = (): boolean =>
 export const LONG_PRESS_MS = 500;
 
 /**
+ * How close (in event time) a click must be to the held finger's lift to be that lift's own click.
+ * Chrome stamps the lift's click with the lift's own time, even when a busy page dispatches both
+ * late (M3-14: on CI the click came after the held mark had been cleared, and a long press opened
+ * Settings). A click from assistive tech comes later and goes (M3-FIX-4 review S1).
+ */
+export const LIFT_CLICK_MS = 5;
+
+/**
  * A corner button. In a wide window it shows its words. In a narrow one (1100 px or less) the four
  * buttons would wrap onto a second row at large text and crowd the island labels, so there each
  * shows its picture and keeps its words for screen readers and as a tip. The text size setting is
@@ -262,6 +270,8 @@ function CornerButton({
   const heldRef = useRef(false);
   /** Clears {@link heldRef} once the lift's own click (if any) has run. */
   const forgetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The event time of the held finger's lift, until its click (if any) has come. */
+  const liftAtRef = useRef<number | null>(null);
   const stopPress = (): void => {
     if (pressRef.current !== null) clearTimeout(pressRef.current);
     pressRef.current = null;
@@ -271,9 +281,10 @@ function CornerButton({
     forgetRef.current = null;
   };
   /** The finger is off the button: no long press now, and the held mark goes after this click. */
-  const release = (): void => {
+  const release = (e: PointerEvent): void => {
     stopPress();
     if (!heldRef.current) return;
+    liftAtRef.current ??= e.timeStamp;
     stopForget();
     forgetRef.current = setTimeout(() => {
       forgetRef.current = null;
@@ -303,6 +314,7 @@ function CornerButton({
       data-tip={tip ? "open" : undefined}
       onPointerDown={(e) => {
         heldRef.current = false;
+        liftAtRef.current = null;
         stopPress();
         stopForget();
         if (e.pointerType !== "touch" || !isNarrow()) return;
@@ -319,14 +331,18 @@ function CornerButton({
         stopPress();
         stopForget();
         heldRef.current = false;
+        liftAtRef.current = null;
       }}
       onContextMenu={(e) => {
         // A long press opens the words, not the browser's menu.
         if (heldRef.current || pressRef.current !== null) e.preventDefault();
       }}
       onClickCapture={(e) => {
-        const held = heldRef.current;
+        const liftAt = liftAtRef.current;
+        const held =
+          heldRef.current || (liftAt !== null && Math.abs(e.timeStamp - liftAt) <= LIFT_CLICK_MS);
         heldRef.current = false;
+        liftAtRef.current = null;
         // Only the click from the finger that held is swallowed; a key's click has no detail.
         if (!held || e.detail === 0) return;
         e.stopPropagation();
