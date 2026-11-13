@@ -24,20 +24,20 @@
       }
     },
     {
-      "name": "petals",
+      "name": "mushroom-stem",
       "parent": "cap",
-      "size": [3, 1, 3],
-      "pivot": [1.5, 0, 1.5],
+      "size": [2, 3, 2],
+      "pivot": [1, 0, 1],
       "offset": [2.5, 2, 0.5],
-      "color": "#f2d443"
+      "color": "#e6dcc4"
     },
     {
-      "name": "flower-heart",
-      "parent": "petals",
-      "size": [1, 1, 1],
-      "pivot": [0.5, 0, 0.5],
-      "offset": [0, 1, 0],
-      "color": "#d96d17"
+      "name": "mushroom-cap",
+      "parent": "mushroom-stem",
+      "size": [5, 2, 5],
+      "pivot": [2.5, 0, 2.5],
+      "offset": [0, 3, 0],
+      "color": "#b8473a"
     },
     {
       "name": "arm-left",
