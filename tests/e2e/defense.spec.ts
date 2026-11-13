@@ -183,6 +183,11 @@ test("a Miner's night plays from day to dawn inside the draw-call budget", async
       await lockFirst(page, 2);
       const p = await plates(page);
       expect(p.locked).toBe(1);
+      // Three or more visitors are out here, by design. The every-6-keys check below can miss
+      // them all (a quick typist clears each plate as it comes), so count them here too (M3-14:
+      // the `peakPlates > 1` flake).
+      peakPlates = Math.max(peakPlates, p.count);
+      expect(p.overlaps, "word plates overlap").toBe(0);
       await expect(page.locator(".vt-defense-shield")).toHaveAttribute(
         "aria-label",
         "Shield: 5 of 5",
