@@ -368,8 +368,9 @@
   animation: map-hop calc(1100ms * var(--motion-ok)) steps(4, jump-none) infinite alternate;
 }
 
+/* Inside the plate, not poking up over the island's base (M4-FIX-6). */
 .island .nextTag {
-  margin-top: calc(var(--sp-3) * -1);
+  margin-top: 0;
 }
 
 @keyframes map-hop {

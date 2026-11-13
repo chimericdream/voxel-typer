@@ -290,3 +290,34 @@ describe("errors", () => {
     expect([...used].toSorted()).toEqual(Object.keys(CUSTOM_PAINTERS).toSorted());
   });
 });
+
+describe("overlay-top edge (M4-FIX-6): a soft wave, not a ragged drip", () => {
+  const DIRT: TextureRecipe = { kind: "noise", ramp: "dirt", scale: 4, contrast: 1 };
+  /** How far the top layer reaches down each column: rows from the top that are in the top ramp. */
+  const reach = (px: Uint8ClampedArray, top: keyof typeof BASE_PALETTE): number[] =>
+    Array.from({ length: 16 }, (_, x) => {
+      let y = 0;
+      while (y < 16 && inRamp(top, pixelAt(px, x, 15 - y).rgb)) y++;
+      return y;
+    });
+
+  it("neighbouring columns differ by at most one row, the tile's two edges too", () => {
+    assert(
+      property(integer({ min: 0, max: 10_000 }), (seed) => {
+        const px = paintTile(
+          { kind: "overlay-top", base: DIRT, top: "snow", depth: 4 },
+          BASE_PALETTE,
+          createRng(seed),
+        );
+        const r = reach(px, "snow");
+        for (let x = 0; x < 16; x++) {
+          const next = r[(x + 1) % 16] ?? 0;
+          expect(Math.abs((r[x] ?? 0) - next)).toBeLessThanOrEqual(1);
+          expect(r[x]).toBeGreaterThanOrEqual(3);
+          expect(r[x]).toBeLessThanOrEqual(5);
+        }
+      }),
+      { seed: 211, numRuns: 200 },
+    );
+  });
+});
