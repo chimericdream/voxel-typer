@@ -63,6 +63,9 @@ function takeReturn(profile: Profile): BiomeId | null {
 
 type Mode = "loading" | "3d" | "flat";
 
+/** The least room (in rem, times the text scale) the heading takes beside the corner buttons. */
+const HEADING_MIN_REM = 14;
+
 /** Test builds mark each island's middle on screen, so the e2e can click the model itself. */
 const MARK_CENTERS = import.meta.env.MODE !== "production";
 
@@ -589,19 +592,31 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
   const openInfo = open === null ? null : (infos.find((i) => i.biome === open) ?? null);
 
   // The heading's plates stop short of the corner buttons (`--corner-w` in the CSS), so at 1024 px
-  // the hint wraps under the title instead of covering Change player (M4-FIX-1).
+  // the hint wraps under the title instead of covering Change player (M4-FIX-1). When the buttons
+  // leave the heading too little room beside them (large text: the four word buttons fill most of
+  // a 1280 px row), the heading moves below them instead (`data-stack`, `--corner-h`; M3-FIX-4).
   const cornerShown = openInfo === null;
   useLayoutEffect(() => {
     const el = corner.current;
     const host = root.current;
     if (!cornerShown || el === null || host === null) return undefined;
-    const set = (): void => host.style.setProperty("--corner-w", `${el.offsetWidth}px`);
+    const set = (): void => {
+      host.style.setProperty("--corner-w", `${el.offsetWidth}px`);
+      host.style.setProperty("--corner-h", `${el.offsetHeight}px`);
+      const scale = Number.parseFloat(getComputedStyle(host).getPropertyValue("--text-scale")) || 1;
+      const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const room = el.offsetLeft - (top.current?.offsetLeft ?? 0) - rem;
+      host.toggleAttribute("data-stack", room < HEADING_MIN_REM * rem * scale);
+    };
     set();
     const sizes = typeof ResizeObserver === "function" ? new ResizeObserver(set) : null;
     sizes?.observe(el);
+    sizes?.observe(host);
     return () => {
       sizes?.disconnect();
       host.style.removeProperty("--corner-w");
+      host.style.removeProperty("--corner-h");
+      host.removeAttribute("data-stack");
     };
   }, [cornerShown]);
 

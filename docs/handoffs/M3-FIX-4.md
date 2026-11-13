@@ -77,6 +77,16 @@ Status: done. The a11y review's blocking items B1–B4 and its should-fix items 
 - **S3, the clickable container:** the click and hover handlers are no longer on the map container. They are on an `aria-hidden` stage layer (`data-stage`) under the heading, labels and corner buttons, present only while the whole map shows in 3D. New unit test: a click on the heading asks nothing, and the layer is gone while a path is open.
 - **S4, near misses:** the fallback is now the ellipsoid inside each island's box, not the box. The box's empty corners, where the review found its near misses, are no longer targets. Gaps between trees still are. New unit test: a point just inside the outermost on-screen corner of Meadow's box doesn't pick Meadow. I didn't repeat the review's grid measurement of near misses.
 
+- **(c) at text scale 2 (found by M3-FIX-8's e2e):** at 1280×720 and text scale 2 on main, the hint lay over My Badges and took its clicks.
+  - On this branch the heading already stopped short of the corner buttons at every width (`--corner-w`). At text scale 2, though, the four word buttons leave it only about 290 px beside them at 1280 px.
+  - Now, when the room beside the buttons is under 14rem × the text scale, the heading moves below them (`data-stack`, `--corner-h`) and keeps 72 % of the width.
+  - The whole heading (title, hint and note) has `pointer-events: none`. It holds nothing to press, so even if a plate ever overlaps a button, the button keeps its clicks. A click on the heading's area now goes to the 3D picture under it.
+  - The e2e sweep runs at text scale 1 and 2, at 11 widths from 1024 to 1920 px, and checks four things:
+    - neither the title nor the hint overlaps a corner button;
+    - each plate is at least 100 px wide;
+    - the middle of each corner button is its own (`elementFromPoint`);
+    - the heading's `pointer-events` is `none`.
+
 ## Owner check at the M3 gate
 
 - **GrayText contrast in Windows Contrast themes.** Typed letters (`data-mark="ok"` and `"fixed"`) use the system `GrayText` color under `forced-colors: active`. The documented palettes suggest at least 4.5:1, but nobody has looked on a real Windows Contrast theme. Please check all four themes (Aquatic, Desert, Dusk, Night sky) once in a lesson: typed letters should look dimmer than the letters still to type, and stay readable.

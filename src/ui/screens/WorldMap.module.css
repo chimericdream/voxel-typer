@@ -39,6 +39,17 @@
    * M3-FIX-4 from 1101 px up, where the buttons show their words and are wider).
    */
   max-width: min(72%, calc(100% - var(--corner-w, 0px) - var(--sp-4) * 2 - var(--sp-3)));
+  /*
+   * The heading has nothing to press, so it never takes a click, even where a plate meets a
+   * corner button or a label (M3-FIX-8 found the hint taking My Badges' clicks at text size 2).
+   */
+  pointer-events: none;
+}
+
+/* Too little room beside the corner buttons (large text): the heading goes below them. */
+.map[data-stack]:not([data-mode="flat"]) .top {
+  top: calc(var(--sp-3) + var(--corner-h, 0px) + var(--sp-2));
+  max-width: 72%;
 }
 
 .map[data-mode="flat"] .top {

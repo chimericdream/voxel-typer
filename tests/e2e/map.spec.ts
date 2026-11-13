@@ -249,37 +249,72 @@ test.describe("the island itself is the target (M3-FIX-4)", () => {
   });
 });
 
-test.describe("the hint never covers a corner button (M3-FIX-4 (c))", () => {
+test.describe("the heading never covers a corner button (M3-FIX-4 (c), M3-FIX-8)", () => {
   test.beforeEach(async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
   });
 
-  test("from 1024 to 1920 px wide", async ({ page }) => {
-    test.slow();
-    await page.setViewportSize({ width: 1024, height: 720 });
+  for (const scale of [1, 2]) {
+    test(`from 1024 to 1920 px wide, text scale ${scale}`, async ({ page }) => {
+      test.slow();
+      await page.setViewportSize({ width: 1024, height: 720 });
+      const errors = await openMap(page, "fresh-sprout", "&freeze=1");
+      await expect(island(page, "Meadow Home")).toBeFocused();
+      await page.evaluate((s) => {
+        document.documentElement.style.setProperty("--text-scale", String(s));
+      }, scale);
+      const plates = [
+        { name: "title", el: page.locator("#app header > h1") },
+        { name: "hint", el: page.getByText("Pick an island. Press Enter to go in.") },
+      ];
+      const corner = page.locator("#app header ~ div button");
+      await expect(corner).toHaveCount(4);
+      const problems: string[] = [];
+      for (const width of [1024, 1100, 1101, 1180, 1280, 1366, 1440, 1536, 1600, 1680, 1920]) {
+        await page.setViewportSize({ width, height: 720 });
+        await settle(page);
+        for (const plate of plates) {
+          const h = await plate.el.boundingBox();
+          if (h === null) throw new Error(`no ${plate.name}`);
+          // Never squeezed into a sliver beside the buttons (M3-FIX-4: it goes below them).
+          if (h.width < 100) problems.push(`${width}px: the ${plate.name} is ${h.width} px wide`);
+          for (const b of await corner.all()) {
+            const c = await b.boundingBox();
+            if (c === null) continue;
+            const apart =
+              h.x + h.width <= c.x ||
+              c.x + c.width <= h.x ||
+              h.y + h.height <= c.y ||
+              c.y + c.height <= h.y;
+            if (!apart) {
+              problems.push(`${width}px: the ${plate.name} covers ${await b.innerText()}`);
+            }
+          }
+        }
+        // Each corner button takes its own clicks: the middle of it is its own (M3-FIX-8).
+        for (const b of await corner.all()) {
+          const mine = await b.evaluate((el) => {
+            const r = el.getBoundingClientRect();
+            const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return hit !== null && el.contains(hit);
+          });
+          if (!mine) problems.push(`${width}px: something lies over ${await b.innerText()}`);
+        }
+      }
+      expect(problems).toEqual([]);
+      expect(errors).toEqual([]);
+    });
+  }
+
+  test("the heading never takes a click (M3-FIX-8)", async ({ page }) => {
     const errors = await openMap(page, "fresh-sprout", "&freeze=1");
     await expect(island(page, "Meadow Home")).toBeFocused();
-    const hint = page.getByText("Pick an island. Press Enter to go in.");
-    const corner = page.locator("#app header ~ div button");
-    await expect(corner).toHaveCount(4);
-    const problems: string[] = [];
-    for (const width of [1024, 1100, 1101, 1180, 1280, 1366, 1440, 1536, 1600, 1680, 1920]) {
-      await page.setViewportSize({ width, height: 720 });
-      await settle(page);
-      const h = await hint.boundingBox();
-      if (h === null) throw new Error("no hint");
-      for (const b of await corner.all()) {
-        const c = await b.boundingBox();
-        if (c === null) continue;
-        const apart =
-          h.x + h.width <= c.x ||
-          c.x + c.width <= h.x ||
-          h.y + h.height <= c.y ||
-          c.y + c.height <= h.y;
-        if (!apart) problems.push(`${width}px: the hint covers ${await b.innerText()}`);
-      }
+    for (const el of [
+      page.locator("#app header"),
+      page.getByText("Pick an island. Press Enter to go in."),
+    ]) {
+      expect(await el.evaluate((e) => getComputedStyle(e).pointerEvents)).toBe("none");
     }
-    expect(problems).toEqual([]);
     expect(errors).toEqual([]);
   });
 });
