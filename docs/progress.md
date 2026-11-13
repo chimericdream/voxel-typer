@@ -61,37 +61,46 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 
 - [x] **M3-01** Curriculum validator + doc gen (S/B) — merged (PR #150)
 - [x] **M3-02** Word lists biomes 1–4 (L/A) — merged early (PR #128)
-- [ ] **M3-03** Lessons biomes 1–4 (M/A) — todo
+- [x] **M3-03** Lessons biomes 1–4 (M/A) — merged (PR #171)
 - [x] **M3-04** ✦ World map (L/A) — merged (PR #148)
 - [x] **M3-05** Placement test (M/B) — merged (PR #154)
-- [ ] **M3-06** Remedial + recommendations (M/B) — todo
+- [x] **M3-06** Remedial + recommendations (M/B) — merged (PR #196)
 - [x] **M3-07** Accessibility features (M/B) — merged (PR #156)
-- [ ] **M3-08** Settings + parent gate (M/B) — todo
+- [x] **M3-08** Settings + parent gate (M/B) — merged (PR #166)
 - [x] **M3-09** Profiles + avatar (M/B) — merged (PR #158)
-- [ ] **M3-10** Achievements v1 (M/B) — todo
-- [ ] **M3-11** Parent Dashboard v1 (L/B) — todo
-- [ ] **M3-12** Migrations + import/export UI (S/B) — todo
-- [ ] **M3-13** Progression sim study (M/A) — todo
-- [ ] **M3-14** ⛩ E2E + a11y sweep (M/B) — todo
+- [x] **M3-10** Achievements v1 (M/B) — merged (PR #160)
+- [x] **M3-11** Parent Dashboard v1 (L/B) — merged (PR #198)
+- [x] **M3-12** Migrations + import/export UI (S/B) — merged (PR #170)
+- [x] **M3-13** Progression sim study (M/A) — merged (PR #199)
+- [x] **M3-14** ⛩ E2E + a11y sweep (M/B) — merged (PR #203)
 - [x] **M3-FIX-1** World map polish (S/B) — merged (PR #155)
-- [ ] **M3-FIX-2** Pixel font legibility (S/B) — todo
-- [ ] **M3-FIX-3** Placement follow-ups (S/B) — todo
-- [ ] **M3-FIX-4** Map labels + a11y follow-ups (S/B) — todo
-- [ ] **M3-FIX-5** Avatar onto the model runtime (S/B) — todo
-- [ ] **M3-GATE** Gate — todo
+- [x] **M3-FIX-2** Pixel font legibility (S/B) — merged (PR #186)
+- [x] **M3-FIX-3** Placement follow-ups (S/B) — merged (PR #168)
+- [x] **M3-FIX-4** Map labels + a11y follow-ups (S/B) — merged (PR #189)
+- [x] **M3-FIX-5** Avatar onto the model runtime (S/B) — merged (PR #193)
+- [x] **M3-FIX-6** Letter groups safe when read aloud (S/A) — merged (PR #185)
+- [x] **M3-FIX-7** Replay variety, optional No Peeking! (S/B) — merged (PR #187)
+- [x] **M3-FIX-8** My Badges scroll cue + toasts (S/B) — merged (PR #190)
+- [x] **M3-FIX-9** Import/export + two-tab safety (S/B) — merged (PR #194)
+- [x] **M3-FIX-10** Placement small items + row floor (XS/C) — merged (PR #195)
+- [x] **M3-FIX-11** Progression fixes from the sim study (M/B) — merged (PR #202)
+- [x] **M3-GATE** Gate — passed 2026-11-13 without a child playtest (owner skipped it); tag `m3` waits for the owner's OK
 
 ## M4: Night Defense and Home Island Builder
 
 - [x] **M4-01** Voxel model runtime (M/A) — merged (PR #157)
-- [ ] **M4-02** Model Lab (S/C) — todo
-- [ ] **M4-03** ✦ Mobs wave 1 (L/A) — todo
-- [ ] **M4-04** ✦ ⛩ Night Defense mode (L/A) — todo
-- [ ] **M4-05** Wave director (M/A) — todo
+- [x] **M4-02** Model Lab (S/C) — merged (PR #169)
+- [x] **M4-03** ✦ Mobs wave 1 (L/A) — merged (PR #172)
+- [x] **M4-04** ✦ ⛩ Night Defense mode (L/A) — merged (PR #174)
+- [x] **M4-05** Wave director (M/A) — merged (PR #167)
 - [x] **M4-06** Island data + persistence (S/B) — merged (PR #159)
-- [ ] **M4-07** ✦ ⛩ Builder mode (L/A) — todo
-- [ ] **M4-08** Blueprints, expansion, snapshot (M/B) — todo
-- [ ] **M4-09** Inventory screen (M/B) — todo
+- [x] **M4-07** ✦ ⛩ Builder mode (L/A) — merged (PR #173)
+- [ ] **M4-08** Blueprints, expansion, snapshot (M/B) — review (PR #204)
+- [ ] **M4-09** Inventory screen (M/B) — review (PR #205)
 - [ ] **M4-10** ⛩ No-failure invariants + E2E (M/B) — todo
+- [x] **M4-FIX-1** Builder: digging keeps every block (S/B) — merged (PR #184)
+- [x] **M4-FIX-2** Night Defense pacing (S/B) — merged (PR #188)
+- [x] **M4-FIX-3** Night Defense for 5 WPM learners (S/B) — merged (PR #197)
 - [ ] **M4-GATE** Gate — todo
 
 ## M5: Minecart, Bosses, Daily Quest, biomes 5–9
@@ -127,6 +136,30 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 ## Gate notes
 
 Each gate records its result here: the date, the reviewer's verdict, owner checks (👤) and any accepted debt with its reason.
+
+### M3 — passed 2026-11-13, no child playtest (owner: "Skip the M3 playtest"); tag `m3` pending owner OK
+
+- **Cards:** M3-01..14 merged, plus M3-FIX-1..11 and, from M4, M4-FIX-1..3. Owner playtest 1
+  (2026-11-12, `docs/screenshots/`) produced seven bugs, all fixed (#184–#190); decisions 100–111.
+- **PLAN Phase 3 acceptance:**
+  - Curriculum doc generated and checked in CI (`docs/curriculum.md`, `gen-curriculum-doc --check`).
+  - Sim plausibility (M3-13, refreshed in M3-FIX-11): a median average Miner finishes Meadow in about
+    14 sessions (target 8–20) and biomes 1–4 in 56–62 (target 40–90); a CI test pins 40–90.
+  - Axe clean on every menu screen in day, night and high contrast (M3-14), plus a keyboard-only full
+    flow from a new profile to the Parent Dashboard. M3-14 was green on two CI runs in a row.
+- **Reviews:** every review-required card had a fresh Opus reviewer; data safety (M3-FIX-9) had two
+  reviews plus 240-run two-tab races.
+- **Owner checks (👤, still open):**
+  - Sprout's 2nd star at 80 % instead of 85 % (decision 80): the M3-13 and M3-FIX-11 studies put slow
+    Sprouts' 1★ share at 41–59 %, 49 % after the mastery alternation (err0 × 0.7).
+  - GrayText contrast in the Windows Contrast themes (M3-FIX-4).
+  - The open questions from M4-07 (Builder Sprout words, damaged-island reset, test fixture) and the
+    mob names (branding).
+  - The child playtest itself (skipped; "60 fps on an integrated GPU" was moved here and is untested).
+- **Accepted debt:**
+  - Sim learner parameters are guesses; findings are ranges with an err0 sensitivity table.
+  - A badge toast was once read about 20 s after Results on a cold preview server (lazy chunk); on the
+    playtest-2 watch-list.
 
 ### M0 — passed 2026-11-11 (tag `m0`)
 
