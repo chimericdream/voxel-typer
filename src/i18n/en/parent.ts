@@ -29,13 +29,14 @@ export default {
     recent: "Last {count} sessions",
     weekly: "By week",
     empty: "Charts show up here after {name} finishes a lesson.",
+    emptyRecent: "No recent sessions with typing in them yet. See the week-by-week view.",
     colSession: "Session",
     colWeek: "Week",
     colSessions: "Sessions",
   },
   speed: {
     title: "Speed",
-    caption: "Words per minute, counting only correct typing. Higher is better.",
+    caption: "Words per minute, with mistakes taken off. Higher is better.",
     summary:
       "Speed in words per minute, {count, plural, one {# point} other {# points}}. First {first}, latest {last}, best {best}.",
     col: "Speed (WPM)",
@@ -88,7 +89,7 @@ export default {
   lessons: {
     title: "Lessons",
     caption:
-      "Stars earned in each part of the world. Tested-out lessons were skipped by the placement test.",
+      "Stars earned in each part of the world. Tested out means the placement test showed {name} already knew it.",
     stars: "{stars} of {max} stars",
     played: "{done} of {total} lessons played",
     testedOutCount: "{count, plural, one {# lesson} other {# lessons}} tested out",
@@ -102,7 +103,9 @@ export default {
   },
   sessions: {
     title: "Recent sessions",
-    caption: "The newest {count} sessions. The CSV file has every one.",
+    caption: "The newest {count} sessions. The CSV file has every session.",
+    compacted:
+      "Older sessions are saved as weekly totals, so the CSV file lists them one row per week.",
     empty: "No sessions yet. They show up here after a lesson.",
     colDate: "Date",
     colActivity: "Activity",
@@ -118,5 +121,7 @@ export default {
     minutes: "Minutes",
     wpm: "Speed (WPM)",
     accuracy: "Accuracy (%)",
+    sessions: "Sessions",
+    weekly: "Weekly total",
   },
 } as const;

@@ -50,8 +50,10 @@ function LineChartSvg(props: LineChartProps & { width: number }) {
   const px = LABEL_PX * scale;
   const values = points.map((p) => p.value);
   const dataMax = Math.max(0, ...values);
-  const lo = props.min ?? 0;
-  const ticks = niceTicks(lo, Math.max(props.max ?? dataMax, lo + 1));
+  const floor = props.min ?? 0;
+  const ticks = niceTicks(floor, Math.max(props.max ?? dataMax, floor + 1));
+  // The axis runs from the first tick to the last, so every point is inside the plot.
+  const lo = ticks[0] ?? floor;
   const hi = ticks.at(-1) ?? lo + 1;
 
   const last = points.at(-1);

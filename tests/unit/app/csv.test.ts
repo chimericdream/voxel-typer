@@ -118,6 +118,7 @@ describe("sessions CSV", () => {
       t("parent.csv.minutes"),
       t("parent.csv.wpm"),
       t("parent.csv.accuracy"),
+      t("parent.csv.sessions"),
     ]);
     const shown = sessionRows(p, lessons);
     expect(rows.length).toBe(shown.length + 1);
@@ -130,12 +131,38 @@ describe("sessions CSV", () => {
         String(r.minutes),
         String(r.netWpm),
         String(r.accuracyPct),
+        "1",
       ]);
     });
     // Nothing else about the child: no id, no age band, no avatar.
     const text = toCsv(sessionsCsv(p, lessons));
     expect(text).not.toContain(p.id);
     expect(text).not.toContain(p.ageBand);
+  });
+
+  it("folded weeks are rows too, so the file holds every session ever played", () => {
+    const p: Profile = {
+      ...fixture("fresh-builder"),
+      weekly: [
+        {
+          weekStart: "2026-02-02",
+          minutes: 12.34,
+          sessions: 3,
+          avgNetWpm: 14.6,
+          avgAccuracy: 0.914,
+        },
+        { weekStart: "2026-01-26", minutes: 20, sessions: 4, avgNetWpm: 12, avgAccuracy: 0.9 },
+      ],
+      history: [stored()],
+    };
+    const rows = parseCsv(toCsv(sessionsCsv(p, lessons)));
+    expect(rows.slice(1)).toEqual([
+      [p.name, "2026-01-26", "", t("parent.csv.weekly"), "20", "12", "90", "4"],
+      [p.name, "2026-02-02", "", t("parent.csv.weekly"), "12.3", "15", "91", "3"],
+      [p.name, "2026-11-10", "16:30", t("lessonsMeadow.meadow01"), "2", "19", "95", "1"],
+    ]);
+    const sessions = rows.slice(1).reduce((n, r) => n + Number(r[7]), 0);
+    expect(sessions).toBe(8);
   });
 
   it("escapes a nickname that starts a formula", () => {
@@ -209,10 +236,25 @@ describe("dashboard numbers", () => {
     };
     const days = minutesPerDay(p, today);
     expect(days).toHaveLength(28);
+    // A day is the sum of its sessions' rounded minutes (1 + 1.5), like the CSV rows.
     expect(days[0]?.date).toBe("2026-10-16");
     expect(days[0]?.minutes).toBe(1);
     expect(days.at(-1)?.date).toBe("2026-11-12");
     expect(days.at(-1)?.minutes).toBe(2.5);
+  });
+
+  it("a day's minutes add up to its sessions' rounded minutes in the CSV", () => {
+    const today = new Date(2026, 10, 12, 20).getTime();
+    // 0.04 + 0.04 + 0.04 min: rounding the total gives 0.1, the rows give 0 + 0 + 0.
+    const p: Profile = {
+      ...fixture("fresh-builder"),
+      history: [1, 2, 3].map((h) =>
+        stored({ at: new Date(2026, 10, 12, h).getTime(), activeMs: 2400 }),
+      ),
+    };
+    const day = minutesPerDay(p, today).at(-1)?.minutes;
+    const rows = sessionRows(p, lessons).reduce((n, r) => n + r.minutes, 0);
+    expect(day).toBe(rows);
   });
 
   it("weekly trend joins compacted weeks and history weeks", () => {

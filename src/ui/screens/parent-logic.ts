@@ -49,8 +49,10 @@ const MIN_RATED_MS = 1000;
 // Rounding (shared by the page and the CSV)
 // ---------------------------------------------------------------------------------------------
 
-/** Minutes, to one decimal place. */
-export const roundMinutes = (ms: number): number => Math.round(ms / 6000) / 10;
+/** A count of minutes to one decimal place. */
+export const round1 = (minutes: number): number => Math.round(minutes * 10) / 10;
+/** A session's minutes (from ms), to one decimal place. */
+export const roundMinutes = (ms: number): number => round1(ms / 60000);
 /** Net WPM, whole. */
 export const roundWpm = (wpm: number): number => Math.round(wpm);
 /** Accuracy 0–1 as a whole percent. */
@@ -147,7 +149,23 @@ export function sessionsCsv(profile: Profile, lessons: readonly Lesson[]): CsvCe
     t("parent.csv.minutes"),
     t("parent.csv.wpm"),
     t("parent.csv.accuracy"),
+    t("parent.csv.sessions"),
   ];
+  // Weeks folded out of `history` (after 500 sessions) come first, as one row per week, so the
+  // file keeps every session ever played: as itself, or inside its week's total.
+  const weeks = profile.weekly
+    .filter((w) => w.sessions > 0)
+    .toSorted((a, b) => (a.weekStart < b.weekStart ? -1 : a.weekStart > b.weekStart ? 1 : 0))
+    .map((w): CsvCell[] => [
+      profile.name,
+      w.weekStart,
+      "",
+      t("parent.csv.weekly"),
+      round1(w.minutes),
+      roundWpm(w.avgNetWpm),
+      roundPct(w.avgAccuracy),
+      w.sessions,
+    ]);
   const rows = sessionRows(profile, lessons).map((r): CsvCell[] => [
     profile.name,
     r.date,
@@ -156,9 +174,14 @@ export function sessionsCsv(profile: Profile, lessons: readonly Lesson[]): CsvCe
     r.minutes,
     r.netWpm,
     r.accuracyPct,
+    1,
   ]);
-  return [head, ...rows];
+  return [head, ...weeks, ...rows];
 }
+
+/** True when there is anything to export: saved sessions or folded weeks. */
+export const hasSessions = (profile: Profile): boolean =>
+  profile.history.length > 0 || profile.weekly.some((w) => w.sessions > 0);
 
 // ---------------------------------------------------------------------------------------------
 // Trends
@@ -237,10 +260,11 @@ export function minutesPerDay(
   today: EpochMs,
   days: number = MINUTE_DAYS,
 ): DayMinutes[] {
-  const ms = new Map<string, number>();
+  // A day is the sum of its sessions' rounded minutes, so it adds up to the CSV's session rows.
+  const mins = new Map<string, number>();
   for (const s of profile.history) {
     const day = localDate(s.at);
-    ms.set(day, (ms.get(day) ?? 0) + s.activeMs);
+    mins.set(day, (mins.get(day) ?? 0) + roundMinutes(s.activeMs));
   }
   const end = new Date(today);
   const out: DayMinutes[] = [];
@@ -248,7 +272,7 @@ export function minutesPerDay(
     // Calendar steps, not 24 h steps, so a daylight-saving change never skips or repeats a day.
     const d = new Date(end.getFullYear(), end.getMonth(), end.getDate() - i);
     const date = localDate(d.getTime());
-    out.push({ date, label: shortDate(date), minutes: roundMinutes(ms.get(date) ?? 0) });
+    out.push({ date, label: shortDate(date), minutes: round1(mins.get(date) ?? 0) });
   }
   return out;
 }
@@ -305,7 +329,6 @@ export function keyHeat(profile: Profile, layout: LayoutDef): HeatKey[] {
   return out;
 }
 
-/** The keys to practice: highest recent mistake rate first, at most {@link TOP_WEAK}. */
 /** Rates that stand out: at least {@link STAND_OUT} above the median of all `rates`. */
 function standsOut(rates: readonly number[]): (rate: number) => boolean {
   const typical = median(rates) ?? 0;

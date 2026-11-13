@@ -329,7 +329,7 @@ function GrownUpsTab(props: {
           <Button
             onClick={() => {
               // The gate was passed for this tab; the dashboard doesn't ask again (M3-11).
-              handGrownUpPass();
+              handGrownUpPass(() => app.route().id === "parent");
               app.navigate({ id: "parent" });
             }}
           >

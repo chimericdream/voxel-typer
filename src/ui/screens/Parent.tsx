@@ -36,6 +36,7 @@ import { Tabs } from "@/ui/kit/Tabs";
 import { arrowStep, useScreenInput } from "./nav";
 import {
   curriculumProgress,
+  hasSessions,
   localDate,
   MINUTE_DAYS,
   minutesPerDay,
@@ -180,6 +181,8 @@ export function ParentDashboard({ app, profile, now, download }: ParentDashboard
     if (step === null || i.action === "left" || i.action === "right") return false;
     const r = root.current;
     if (!r) return false;
+    // A focused table area scrolls with the arrows (the browser's own scrolling).
+    if (document.activeElement?.closest("[data-scroll-area]")) return false;
     const items = navTargets(r);
     const at = items.findIndex((el) => el === document.activeElement);
     const next = at === -1 ? items[0] : items[(at + step + items.length) % items.length];
@@ -187,8 +190,9 @@ export function ParentDashboard({ app, profile, now, download }: ParentDashboard
     return next !== undefined;
   });
 
+  const canExport = hasSessions(profile);
   const exportCsv = (): void => {
-    if (profile.history.length === 0) return;
+    if (!canExport) return;
     const file = csvFileName(name, localDate(today));
     (download ?? downloadBlob)(csvBlob(toCsv(sessionsCsv(profile, lessons))), file);
     setSaved(file);
@@ -211,7 +215,7 @@ export function ParentDashboard({ app, profile, now, download }: ParentDashboard
           </Button>
         </span>
         <span data-nav="" data-parent-csv="">
-          <Button onClick={exportCsv} disabled={profile.history.length === 0}>
+          <Button onClick={exportCsv} disabled={!canExport}>
             {t("parent.download")}
           </Button>
         </span>
@@ -219,14 +223,14 @@ export function ParentDashboard({ app, profile, now, download }: ParentDashboard
       <output class={styles.intro} data-parent-saved="">
         {saved !== null
           ? t("parent.downloaded", { file: saved })
-          : profile.history.length === 0
+          : !canExport
             ? t("parent.downloadNone", { name })
             : null}
       </output>
 
       <div class={styles.grid}>
         <Panel heading={t("parent.trend.title")} class={styles.wide ?? ""}>
-          {recent.length === 0 ? (
+          {recent.length === 0 && weeks.length === 0 ? (
             <p class={styles.empty} data-empty="trend">
               {t("parent.trend.empty", { name })}
             </p>
@@ -237,7 +241,12 @@ export function ParentDashboard({ app, profile, now, download }: ParentDashboard
                 {
                   id: "recent",
                   label: t("parent.trend.recent", { count: TREND_SESSIONS }),
-                  content: <TrendCharts points={recent} weekly={false} scale={scale} />,
+                  content:
+                    recent.length === 0 ? (
+                      <p class={styles.empty}>{t("parent.trend.emptyRecent")}</p>
+                    ) : (
+                      <TrendCharts points={recent} weekly={false} scale={scale} />
+                    ),
                 },
                 {
                   id: "weekly",
@@ -359,7 +368,7 @@ export function ParentDashboard({ app, profile, now, download }: ParentDashboard
         )}
 
         <Panel heading={t("parent.lessons.title")} class={styles.wide ?? ""}>
-          <p class={styles.caption}>{t("parent.lessons.caption")}</p>
+          <p class={styles.caption}>{t("parent.lessons.caption", { name })}</p>
           <ul class={styles.biomes} data-biomes="">
             {biomes.map((b) => (
               <li key={b.biome} class={styles.biome} data-biome={b.biome}>
@@ -421,8 +430,13 @@ export function ParentDashboard({ app, profile, now, download }: ParentDashboard
           ) : (
             <>
               <p class={styles.caption}>{t("parent.sessions.caption", { count: newest.length })}</p>
+              {profile.weekly.length > 0 ? (
+                <p class={styles.caption} data-compacted="">
+                  {t("parent.sessions.compacted")}
+                </p>
+              ) : null}
               {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- reason: a scroll area must take focus to scroll by keyboard */}
-              <div class={styles.sessions} data-sessions="" tabIndex={0}>
+              <div class={styles.sessions} data-sessions="" data-scroll-area="" tabIndex={0}>
                 <DataTable
                   caption={t("parent.sessions.title")}
                   columns={[

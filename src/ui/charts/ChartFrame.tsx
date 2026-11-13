@@ -53,12 +53,16 @@ export function niceStep(span: number, count = 4): number {
   return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10) * mag;
 }
 
-/** Ticks from `min` up to a clean max at or above `max`. */
+/**
+ * Clean ticks covering `min`–`max`: the first is the step multiple at or below `min`, the last is
+ * at or above `max`. Callers draw the axis from the first tick to the last.
+ */
 export function niceTicks(min: number, max: number, count = 4): number[] {
   const step = niceStep(max - min, count);
-  const top = Math.max(min + step, Math.ceil(max / step) * step);
+  const bottom = Math.floor(min / step + 1e-9) * step;
+  const top = Math.max(bottom + step, Math.ceil(max / step - 1e-9) * step);
   const out: number[] = [];
-  for (let v = min; v <= top + step / 1e6; v += step) out.push(Math.round(v * 1e6) / 1e6);
+  for (let v = bottom; v <= top + step / 1e6; v += step) out.push(Math.round(v * 1e6) / 1e6);
   return out;
 }
 
@@ -117,7 +121,7 @@ export function NumbersToggle(props: { children: ComponentChildren; label?: stri
       </summary>
       {/* A scroll area a keyboard can reach and scroll (axe: scrollable-region-focusable). */}
       {/* oxlint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- reason: a scroll area must take focus to scroll by keyboard */}
-      <div class={styles.tableWrap} tabIndex={0}>
+      <div class={styles.tableWrap} data-scroll-area="" tabIndex={0}>
         {props.children}
       </div>
     </details>

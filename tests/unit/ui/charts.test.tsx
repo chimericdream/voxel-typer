@@ -3,6 +3,8 @@
  * Parent Dashboard charts and screen (task M3-11): the hand-rolled SVG charts, the gate, empty
  * states, tested-out and remedial rules, and the CSV holding the numbers the page shows.
  */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +18,14 @@ import { BarChart, columnPath } from "../../../src/ui/charts/BarChart";
 import { niceTicks } from "../../../src/ui/charts/ChartFrame";
 import { KeyHeatmap } from "../../../src/ui/charts/KeyHeatmap";
 import { LineChart } from "../../../src/ui/charts/LineChart";
+import {
+  clearGrownUpPass,
+  handGrownUpPass,
+  PASS_CHECK_MS,
+  PASS_TTL_MS,
+  takeGrownUpPass,
+} from "../../../src/ui/components/ParentGate";
+import { contrastRatio, parseColor } from "../../../src/ui/theme/themes";
 import { ParentDashboard } from "../../../src/ui/screens/Parent";
 import {
   keyHeat,
@@ -70,6 +80,9 @@ describe("chart maths", () => {
     expect(niceTicks(0, 34)).toEqual([0, 10, 20, 30, 40]);
     expect(niceTicks(80, 100)).toEqual([80, 85, 90, 95, 100]);
     expect(niceTicks(0, 1)).toEqual([0, 0.5, 1]);
+    // A floor that isn't a step multiple: the axis still reaches the top (95% stays inside).
+    expect(niceTicks(30, 100)).toEqual([20, 40, 60, 80, 100]);
+    expect(niceTicks(1, 10)).toEqual([0, 5, 10]);
   });
 
   it("a column is square at the baseline and rounded at the top", () => {
@@ -354,5 +367,104 @@ describe("Parent route", () => {
     h = await mount({ initial: { id: "parent" } });
     await h.settle();
     expect(text(h.root)).toContain(t("parent.noProfile"));
+  });
+});
+
+describe("heat map ink", () => {
+  it("every step's printed percent is at least 4.5:1 in every theme", () => {
+    const css = readFileSync(
+      resolve(import.meta.dirname, "../../../src/ui/charts/charts.module.css"),
+      "utf8",
+    );
+    // One block per theme: the default (day), night and contrast.
+    const blocks = css.split(/\n(?=[^\n]*\{)/).filter((b) => b.includes("--heat-ink-0: #"));
+    expect(blocks).toHaveLength(3);
+    for (const block of blocks) {
+      for (let i = 0; i < 5; i += 1) {
+        const fill = new RegExp(`--heat-${i}: (#[0-9a-f]{6})`).exec(block)?.[1] ?? "";
+        const ink = new RegExp(`--heat-ink-${i}: (#[0-9a-f]{6})`).exec(block)?.[1] ?? "";
+        const ratio = contrastRatio(parseColor(fill), parseColor(ink));
+        expect(ratio, `${block.split("{")[0]?.trim()} step ${i}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+});
+
+describe("the handed gate pass", () => {
+  afterEach(() => {
+    clearGrownUpPass();
+    vi.useRealTimers();
+  });
+
+  it("is used once", () => {
+    handGrownUpPass(() => true);
+    expect(takeGrownUpPass()).toBe(true);
+    expect(takeGrownUpPass()).toBe(false);
+  });
+
+  it("lapses when the app leaves the way to the dashboard before it loads", () => {
+    vi.useFakeTimers();
+    let going = true;
+    handGrownUpPass(() => going);
+    vi.advanceTimersByTime(PASS_CHECK_MS * 2);
+    going = false;
+    vi.advanceTimersByTime(PASS_CHECK_MS);
+    expect(takeGrownUpPass()).toBe(false);
+  });
+
+  it("lapses after a while if the dashboard never takes it", () => {
+    vi.useFakeTimers();
+    handGrownUpPass(() => true);
+    vi.advanceTimersByTime(PASS_TTL_MS);
+    expect(takeGrownUpPass()).toBe(false);
+  });
+
+  it("from Settings: Back, then any later visit asks the gate again", async () => {
+    h = await mount({ initial: { id: "settings" }, initialProfile: fixture("veteran-builder") });
+    void act(() => buttonByText(h!.root, t("settings.tab.grownUps")).click());
+    await h.settle();
+    await h.type(text(h.root.querySelector("[data-gate-word]")));
+    await h.press("Enter");
+    void act(() =>
+      buttonByText(h!.root, t("settings.grown.progressGo", { name: "Captain Quill" })).click(),
+    );
+    await h.settle();
+    expect(h.root.querySelector("[data-parent]")).not.toBeNull();
+    await h.press("Escape");
+    expect(h.route().id).toBe("settings");
+    h.shell.api.navigate({ id: "parent" });
+    await h.settle();
+    expect(h.root.querySelector("[data-gate='parentDashboard']")).not.toBeNull();
+    expect(h.root.querySelector("[data-parent]")).toBeNull();
+  });
+});
+
+describe("dashboard details", () => {
+  it("Up/Down inside a table area are left to the browser to scroll it", async () => {
+    h = await mount({ initial: { id: "splash" }, initialProfile: fixture("veteran-builder") });
+    h.shell.api.navigate({ id: "parent" });
+    await h.settle();
+    await h.type(text(h.root.querySelector("[data-gate-word]")));
+    await h.press("Enter");
+    const area = h.root.querySelector<HTMLElement>("[data-sessions]");
+    void act(() => area?.focus());
+    await h.press("ArrowDown");
+    expect(document.activeElement).toBe(area);
+  });
+
+  it("with only folded weeks, the trend panel still shows the week-by-week view", async () => {
+    const p: Profile = {
+      ...fixture("fresh-builder"),
+      weekly: [
+        { weekStart: "2026-01-05", minutes: 30, sessions: 3, avgNetWpm: 12, avgAccuracy: 0.9 },
+        { weekStart: "2026-01-12", minutes: 40, sessions: 4, avgNetWpm: 14, avgAccuracy: 0.92 },
+      ],
+    };
+    const { root, download } = await dashboard(p);
+    expect(root.querySelector("[data-empty='trend']")).toBeNull();
+    expect(text(root)).toContain(t("parent.trend.emptyRecent"));
+    expect(text(root.querySelector("[data-compacted]"))).toBe("");
+    void act(() => buttonByText(root, t("parent.download")).click());
+    expect(download).toHaveBeenCalledOnce();
   });
 });

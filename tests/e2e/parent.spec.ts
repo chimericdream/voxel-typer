@@ -140,6 +140,7 @@ test.describe("Parent Dashboard", () => {
       "Minutes",
       "Speed (WPM)",
       "Accuracy (%)",
+      "Sessions",
     ]);
     const rows = await page.locator("[data-sessions] tbody tr").all();
     const last = csv.slice(-rows.length).toReversed();
