@@ -11,7 +11,9 @@ import {
   AchievementToast,
   BADGE_TOAST_MS,
   clearBelow,
+  fitsUnder,
 } from "../../../src/ui/components/AchievementToast";
+import { STAR_STEP_MS, fillInMs } from "../../../src/ui/screens/Results";
 import { hiddenParts } from "../../../src/ui/screens/Achievements";
 import { Dialog } from "../../../src/ui/kit/Dialog";
 import { attachRouteAnnouncer } from "../../../src/a11y/route-announcer";
@@ -310,6 +312,113 @@ describe("a badge toast keeps clear of the map's corner (M3-FIX-8)", () => {
     } finally {
       s.done();
       corner.remove();
+    }
+  });
+});
+
+/** A `data-toast-dock` mark whose top edge is at `top`. */
+function dockAt(top: number): HTMLElement {
+  const dock = document.createElement("div");
+  dock.setAttribute("data-toast-dock", "");
+  dock.getBoundingClientRect = () => new DOMRect(300, top, 680, 0);
+  document.body.append(dock);
+  return dock;
+}
+
+/** Gives every docked toast box drawn from now on a height of `px`; returns the undo. */
+function toastHeight(px: number): () => void {
+  const spy = vi
+    .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+    .mockImplementation(function rect(this: HTMLElement) {
+      return this.matches("[data-docked]") ? new DOMRect(0, 0, 400, px) : new DOMRect();
+    });
+  return () => spy.mockRestore();
+}
+
+describe("a screen can hold badge toasts back, and give them a dock (M3-FIX-12)", () => {
+  it("the stars' fill-in time, and none with reduced motion", () => {
+    expect(fillInMs(3, false, false)).toBe(2 * STAR_STEP_MS + 450);
+    expect(fillInMs(1, false, false)).toBe(450);
+    expect(fillInMs(0, false, false)).toBe(0);
+    // A personal-best plate pops in last.
+    expect(fillInMs(3, true, false)).toBe(1500);
+    expect(fillInMs(3, true, true)).toBe(0);
+    expect(fillInMs(2, false, true)).toBe(0);
+  });
+
+  it("waits while a data-toast-hold mark is on the page: not drawn, read or timed", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const hold = document.createElement("div");
+    hold.setAttribute("data-toast-hold", "stars");
+    document.body.append(hold);
+    const s = show(["first-word"], true);
+    const badge = t("achievements.toast", { name: t("achievements.firstWord.name") });
+    try {
+      expect(s.root.textContent).toBe("");
+      vi.advanceTimersByTime(BADGE_TOAST_MS * 2);
+      expect(s.onShown).not.toHaveBeenCalled();
+      hold.removeAttribute("data-toast-hold");
+      await vi.waitFor(() => expect(text(s.root)).toContain(badge));
+      vi.advanceTimersByTime(BADGE_TOAST_MS);
+      expect(s.onShown).toHaveBeenCalledTimes(1);
+    } finally {
+      s.done();
+      hold.remove();
+    }
+  });
+
+  it("on a dock with room it shows centred under the dock's top", () => {
+    const dock = dockAt(500);
+    const undo = toastHeight(80);
+    const s = show(["first-word"], true);
+    try {
+      const wrap = s.root.querySelector<HTMLElement>("[data-testid='badge-toast']");
+      expect(wrap?.hasAttribute("data-docked")).toBe(true);
+      expect(wrap?.style.top).toBe("512px");
+      expect(wrap?.style.left).toBe("640px");
+      expect(text(s.root)).toContain(t("achievements.firstWord.name"));
+    } finally {
+      s.done();
+      undo();
+      dock.remove();
+    }
+  });
+
+  it("without room under the dock it isn't drawn, read or timed: it waits for the next screen", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const region = announcer(document, "toast").region;
+    const before = region.textContent;
+    const dock = dockAt(700);
+    const undo = toastHeight(80);
+    const s = show(["first-word"], true);
+    try {
+      expect(s.root.querySelector("[data-testid='badge-toast']")).toBeNull();
+      expect(s.root.textContent).not.toContain(t("achievements.firstWord.name"));
+      vi.advanceTimersByTime(BADGE_TOAST_MS * 2);
+      expect(s.onShown).not.toHaveBeenCalled();
+      expect(region.textContent).toBe(before);
+      // The screen goes (its dock with it): the toast shows in the window's corner.
+      dock.remove();
+      await vi.waitFor(() =>
+        expect(s.root.querySelector("[data-testid='badge-toast']")).not.toBeNull(),
+      );
+      expect(s.root.querySelector("[data-docked]")).toBeNull();
+    } finally {
+      s.done();
+      undo();
+      dock.remove();
+    }
+  });
+
+  it("fitsUnder keeps a margin above the window's bottom", () => {
+    const dock = dockAt(600);
+    try {
+      expect(window.innerHeight).toBe(768);
+      // 600 + 12 gap + 140 = 752 ≤ 768 − 8.
+      expect(fitsUnder(dock, 140, window)).toBe(true);
+      expect(fitsUnder(dock, 149, window)).toBe(false);
+    } finally {
+      dock.remove();
     }
   });
 });

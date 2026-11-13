@@ -41,6 +41,22 @@
   pointer-events: none;
 }
 
+/*
+ * On a screen's dock (M3-FIX-12; Results puts one under its buttons): `AchievementToast` sets `top`
+ * and `left` to the dock's top and middle, and the toast is centred there.
+ */
+.toastWrap[data-docked] {
+  right: auto;
+  justify-content: center;
+  width: max-content;
+  translate: -50% 0;
+}
+
+/* The hidden copy measured before a docked toast shows (`AchievementToast`). */
+.toastWrap[data-probe] {
+  visibility: hidden;
+}
+
 .toastBody {
   display: inline-flex;
   align-items: center;
