@@ -431,9 +431,11 @@ describe("World map", () => {
     expect(active()).toBe(birch);
     await s.press("ArrowDown");
     expect(text(active())).toBe(t("map.players"));
-    // The corner: Players, My Badges (M3-10), My Island (M4-07), Settings (M3-08).
+    // The corner: Players, My Badges (M3-10), My Blocks (M4-09), My Island (M4-07), Settings (M3-08).
     await s.press("ArrowRight");
     expect(text(active())).toBe(t("achievements.title"));
+    await s.press("ArrowRight");
+    expect(text(active())).toBe(t("inventory.title"));
     await s.press("ArrowRight");
     expect(text(active())).toBe(t("builder.title"));
     await s.press("ArrowRight");
@@ -444,6 +446,8 @@ describe("World map", () => {
     expect(text(active())).toBe(t("settings.title"));
     await s.press("ArrowLeft");
     expect(text(active())).toBe(t("builder.title"));
+    await s.press("ArrowLeft");
+    expect(text(active())).toBe(t("inventory.title"));
     await s.press("ArrowLeft");
     expect(text(active())).toBe(t("achievements.title"));
     await s.press("ArrowLeft");
