@@ -711,7 +711,7 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
           onClick={onMapClick}
         />
       ) : null}
-      <header class={styles.top} ref={top}>
+      <header class={styles.top} ref={top} data-toast-clear>
         <h1 class={styles.title}>{t("map.title")}</h1>
         {open === null ? <p class={styles.hint}>{t("map.hint")}</p> : null}
         {/* Always in the page, so a screen reader hears the line when it appears. */}
@@ -738,7 +738,7 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
         ))}
       </ul>
       {openInfo === null ? (
-        <div class={styles.corner} ref={corner}>
+        <div class={styles.corner} ref={corner} data-toast-clear>
           <CornerButton
             icon="players"
             label={t("map.players")}

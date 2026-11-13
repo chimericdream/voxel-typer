@@ -1,22 +1,145 @@
+/*
+ * The page is exactly as tall as the window, so the list takes the room the title, count, cue and
+ * Back leave and scrolls inside it (M3-FIX-8). A list that fits keeps its own height, centred.
+ */
 .page {
-  max-height: 100%;
+  height: 100%;
+  min-height: 0;
+  gap: var(--sp-4);
+  /* In a very short window the page scrolls; "safe" keeps the title reachable at the top. */
+  justify-content: safe center;
 }
 
-.scroll {
+/*
+ * Holds the list and draws its focus ring: the list's own outline would be cut off by its fade
+ * mask.
+ */
+.frame {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
   width: min(60rem, 100%);
-  max-height: 60vh;
-  overflow-y: auto;
+  /* Never less than about one wide card; below that the page scrolls instead. */
+  min-height: calc(7rem * var(--text-scale));
 }
 
-.scroll:focus-visible {
+.frame:has(> .scroll:focus-visible) {
   outline: var(--focus-w) solid var(--c-focus);
   outline-offset: var(--focus-halo-w);
   box-shadow: 0 0 0 var(--focus-halo-w) var(--c-focus-halo);
 }
 
+.scroll {
+  /* Short enough that the one row left at text scale 2 stays readable. */
+  --fade: min(calc(3rem * var(--text-scale)), 20%);
+
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  outline: none;
+}
+
+/* A cut edge fades out, so a card cut in half reads as "there is more", not as the end. */
+.scroll[data-below] {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--fade)), transparent);
+}
+
+.scroll[data-above] {
+  mask-image: linear-gradient(to top, #000 calc(100% - var(--fade)), transparent);
+}
+
+.scroll[data-above][data-below] {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--fade),
+    #000 calc(100% - var(--fade)),
+    transparent
+  );
+}
+
+/* The cue over Back. */
+.foot {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+/*
+ * A short window (1024×600 and the like): the cue sits beside Back and the edges are tighter, so
+ * the list keeps room for a whole card at text scale 2.
+ */
+@media (max-height: 640px) {
+  .page {
+    gap: var(--sp-3);
+    padding-block: var(--sp-3);
+  }
+
+  .foot {
+    flex-flow: row wrap;
+    justify-content: center;
+    gap: var(--sp-3);
+  }
+}
+
+/* "More badges below ↓": a plate like the map's, so it reads on the sky and in every theme. */
+.more {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-3);
+  border: var(--bevel-unit) solid var(--c-plate-text);
+  background-color: var(--c-plate);
+  color: var(--c-plate-text);
+  font-family: var(--font-body);
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  font-weight: 700;
+  line-height: 1.3;
+  cursor: pointer;
+  visibility: hidden;
+}
+
+.more[data-show] {
+  visibility: visible;
+}
+
+/* A blocky down arrow in the text colour, a little bigger than the words. */
+.arrow {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+  background-color: currentcolor;
+  clip-path: polygon(33% 0, 67% 0, 67% 50%, 100% 50%, 50% 100%, 0 50%, 33% 50%);
+  forced-color-adjust: none;
+  /* Three small hops when it appears, then still. None with reduced motion. */
+  animation: hop calc(0.6s * var(--motion-ok)) steps(3) 3;
+}
+
+@keyframes hop {
+  50% {
+    transform: translateY(0.2em);
+  }
+}
+
+/* Forced colours drop the plate's colours; keep a visible edge round it. */
+@media (forced-colors: active) {
+  .more {
+    border-color: CanvasText;
+  }
+}
+
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+  /*
+   * Columns are as wide as the text needs: three at text scale 1, two at 1.5, one wide column at 2.
+   * The root font size never scales (tokens.css), so the width multiplies by --text-scale itself.
+   * Narrow columns at large text stacked each card into a tall tower, taller than the list
+   * (M3-FIX-8).
+   */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(17rem * var(--text-scale))), 1fr));
   gap: var(--sp-3);
   margin: 0;
   padding: var(--sp-2);
