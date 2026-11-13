@@ -43,6 +43,8 @@
 
   /* The combo meter shows streak, not text: it grows with the text scale only up to 64-px slots. */
   --slot-base: min(56px, calc(64px / var(--text-scale)));
+  /* Its count badges stop at 30 % of the slot, so a capped slot's item stays in view (M4-FIX-4). */
+  --slot-badge-max: calc(var(--slot-base) * var(--text-scale) * 0.3);
 }
 
 .progress {
@@ -59,6 +61,11 @@
 .combo {
   flex: none;
   display: flex;
+}
+
+/* A mode hid its empty hotbar (M4-FIX-4). It keeps its room, so the stage under it never moves. */
+.combo[data-hidden] {
+  visibility: hidden;
 }
 
 .timer {
@@ -217,10 +224,25 @@
   translate: -50% 0;
 }
 
-/* The kit Toast, sized to the stage: at text scale 2 it stays one line and clear of the keys. */
+/* The kit Toast, sized to the stage: at text scale 2 it stays one line and clear of the keys.
+   (Night Defense keeps room for it from this size: `messageFontPx` in its logic.) */
 .messages output {
   max-width: 100%;
   font-size: min(calc(20px * var(--text-scale)), 3.6dvh);
+}
+
+/* Over the stage a message pops in quickly, so it reads at once (M4-FIX-4: the kit's 200 ms fade
+   left the dusk banner pale for a moment). Reduced motion: instant (--motion-ok is 0). A message
+   the flash guard held back (`data-still`) keeps no animation at all. */
+.messages output:not([data-still]) {
+  animation: message-in calc(var(--t-fast) * var(--motion-ok)) steps(2) both;
+}
+
+@keyframes message-in {
+  from {
+    transform: translateY(var(--sp-1));
+    opacity: 0.4;
+  }
 }
 
 .capsKey {
@@ -253,6 +275,32 @@
     calc(var(--kb-units) * 40px * var(--text-scale) + var(--kb-fixed)),
     calc(var(--kb-units) * (54dvh - 40px) / 8.1 + var(--kb-fixed))
   );
+}
+
+/*
+ * A mode that frames a field in the stage (Night Defense, M4-FIX-4) asks for a least stage height
+ * (`--stage-min`, the HUD's `stage` slice). The stage row then holds that floor, up to 55 % of the
+ * screen, and the keyboard row takes what is left, up to its usual height. The keyboard fills its
+ * row, so its key unit (--keyboard-max-unit) shrinks with it: smaller keys, the same next-key
+ * light and hint line.
+ */
+.stage[data-min] {
+  min-height: min(var(--stage-min), 55dvh);
+}
+
+.hud:has(> .stage[data-min]) {
+  --kb-h: min(calc(var(--kb-units) * 40px * var(--text-scale) + var(--kb-fixed)), 54dvh);
+
+  grid-template-rows: auto auto 1fr minmax(0, var(--kb-h));
+}
+
+/* The same height as `.keyboard[data-hands-caption]` above, as the row's limit. */
+.hud:has(> .stage[data-min]):has(> .keyboard[data-hands-caption]) {
+  --kb-h: min(calc(5.9 * 40px * var(--text-scale) + 36px), calc(5.9 * (54dvh - 40px) / 8.1 + 36px));
+}
+
+.hud:has(> .stage[data-min]) > .keyboard {
+  height: auto;
 }
 
 /* "Hear it again" (M3-07): a small key cap and its label on a plate, in the top row. */

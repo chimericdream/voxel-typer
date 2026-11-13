@@ -134,6 +134,24 @@
   visibility: visible;
 }
 
+/*
+ * A short keyboard row (a mode gave the stage its room on a short screen, M4-FIX-4): keys under
+ * about 34 px have no room for a label on every key, and the words ran into each other. Then only
+ * the lit keys (and a hovered one) keep their label; the hint line under the keys names the finger.
+ * The heights are 34 px keys in the HUD's row: 5 units plus 28 px, or 5.9 units plus 36 px with the
+ * hint line. Outside a size container (the previews) nothing changes.
+ */
+@container (max-height: 198px) {
+  .root[data-labels] .slot:not([data-next], :hover) .label {
+    visibility: hidden;
+  }
+}
+@container (max-height: 236px) {
+  [data-hands-caption] .root[data-labels] .slot:not([data-next], :hover) .label {
+    visibility: hidden;
+  }
+}
+
 /* Labels on: lift the glyph clear of the label. */
 .root[data-labels] .slot > kbd,
 .slot[data-next] > kbd {

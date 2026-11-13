@@ -92,7 +92,9 @@ button.slot {
   background: var(--c-badge);
   color: var(--c-badge-text);
   font-family: var(--font-pixel);
-  font-size: calc(var(--fs-sm) * var(--text-scale));
+  /* Grows with the text scale. A row of slots capped in size can cap the badge too
+     (--slot-badge-max, M4-FIX-4): at text scale 2 a full-size badge covered the item. */
+  font-size: min(calc(var(--fs-sm) * var(--text-scale)), var(--slot-badge-max, 100vw));
   font-weight: 700;
   line-height: 1.25;
   text-align: center;

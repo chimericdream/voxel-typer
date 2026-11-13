@@ -39,6 +39,43 @@ const HOP_BACK = 0.1;
 const HOP_HEIGHT = 0.9;
 /** A new mob grows in over this long, with a little overshoot, so it pops up and doesn't blink in. */
 const GROW_MS: Ms = 260;
+/**
+ * How much of its own colour a mob gives off at full glow (night): a soft lift, so a dark mob (the
+ * Moss Golem) reads on the dark lawn (M4-FIX-4). The lanes don't get it, so the mobs stand out.
+ */
+export const NIGHT_LIFT = 0.25;
+
+const LIFT_ANCHOR = "#include <emissivemap_fragment>";
+
+/**
+ * Makes a model material's emissive a lift of its own colour: the emissive uniform is multiplied
+ * by the lit surface's albedo (texture, vertex colour and tint), so `emissive = 0.25` adds 25 % of
+ * the mob's own colour and never a flat glow. Throws if three.js renamed the chunk.
+ */
+export function patchLiftShader(shader: { fragmentShader: string }): void {
+  const src = shader.fragmentShader;
+  const at = src.indexOf(LIFT_ANCHOR);
+  if (at < 0 || src.includes(LIFT_ANCHOR, at + LIFT_ANCHOR.length))
+    throw new Error(
+      `defense lift patch: "${LIFT_ANCHOR}" must occur exactly once in the fragmentShader`,
+    );
+  shader.fragmentShader =
+    src.slice(0, at) +
+    `${LIFT_ANCHOR}\n\ttotalEmissiveRadiance *= diffuseColor.rgb;` +
+    src.slice(at + LIFT_ANCHOR.length);
+}
+
+/** Adds the lift to a model's material (once), keeping the model runtime's own shader patch. */
+export function addLift(material: THREE.MeshLambertMaterial): void {
+  const before = material.onBeforeCompile.bind(material);
+  const key = material.customProgramCacheKey.bind(material);
+  material.onBeforeCompile = (shader, renderer) => {
+    before(shader, renderer);
+    patchLiftShader(shader);
+  };
+  material.customProgramCacheKey = () => `${key()}|vt-lift`;
+  material.emissive.setScalar(0);
+}
 
 export interface DefenseViewOptions {
   scene: THREE.Scene;
@@ -75,8 +112,11 @@ export interface DefenseView {
   frame(dtMs: Ms): void;
   /** Slides the picture so the field sits where the HUD leaves room. */
   applyShift(view: Pick<LaneView, "shiftX" | "shiftY">): void;
-  /** Where a mob's head is on the page, in CSS pixels. False when it is off the field's view. */
-  headOf(mob: FieldMob, out: { x: number; y: number }): boolean;
+  /**
+   * Where a mob's head is on the page, in CSS pixels. False when it is off the field's view. With
+   * `feet` in `out`, it also gets the page y of the mob's feet (the e2e measures mobs with it).
+   */
+  headOf(mob: FieldMob, out: { x: number; y: number; feet?: number }): boolean;
   /** A mob's middle in the world, for effects. */
   worldOf(mob: FieldMob, out: Vec3): Vec3;
   /** Counters for tests and the draw-call note. */
@@ -153,6 +193,8 @@ export function createDefenseView(opts: DefenseViewOptions): DefenseView {
 
   // --- mob types ---
   const kinds = new Map<string, Kind>();
+  /** The mobs' materials (one per type): their emissive is the night's lift. */
+  const lifted = new Set<THREE.MeshLambertMaterial>();
   let parts = 0;
   let shadowCasters = 0;
   for (const mob of opts.roster) {
@@ -166,6 +208,11 @@ export function createDefenseView(opts: DefenseViewOptions): DefenseView {
       const mesh = handle.part(part.name);
       if (mesh === undefined) continue;
       mesh.castShadow = part.parent === undefined;
+      const material = mesh.material;
+      if (material instanceof THREE.MeshLambertMaterial && !lifted.has(material)) {
+        lifted.add(material);
+        addLift(material);
+      }
       parts++;
       if (mesh.castShadow) shadowCasters++;
     }
@@ -342,7 +389,9 @@ export function createDefenseView(opts: DefenseViewOptions): DefenseView {
       opts.requestRender();
     },
     setGlow(level01) {
-      glow.intensity = 1.5 * Math.min(1, Math.max(0, level01));
+      const level = Math.min(1, Math.max(0, level01));
+      glow.intensity = 1.5 * level;
+      for (const material of lifted) material.emissive.setScalar(NIGHT_LIFT * level);
       opts.requestRender();
     },
     setShield(level01, pulse) {
@@ -386,6 +435,11 @@ export function createDefenseView(opts: DefenseViewOptions): DefenseView {
       if (v.z > 1 || v.z < -1) return false;
       out.x = canvas.offsetLeft + ((v.x + 1) / 2) * canvas.clientWidth;
       out.y = canvas.offsetTop + ((1 - v.y) / 2) * canvas.clientHeight;
+      if (out.feet !== undefined) {
+        v.set(xOf(mob.slot), layout.groundY, zOf(mob.p));
+        v.project(camera);
+        out.feet = canvas.offsetTop + ((1 - v.y) / 2) * canvas.clientHeight;
+      }
       return true;
     },
     worldOf(mob, out) {
@@ -403,6 +457,7 @@ export function createDefenseView(opts: DefenseViewOptions): DefenseView {
       for (const kind of kinds.values()) kind.handle.dispose();
       kinds.clear();
       shown.clear();
+      lifted.clear();
       ringGeo.dispose();
       ringMat.dispose();
       shieldGeo.dispose();

@@ -534,6 +534,53 @@ export interface LaneView {
   shiftY: number;
 }
 
+/** Room kept at the top of the stage for the HUD's message, CSS px at its base font (20 px). */
+export const BANNER_ROOM = 46;
+/** Room kept above the far end of the field for a locked word plate, CSS px at its base font (22 px). */
+export const PLATE_ROOM = 56;
+/**
+ * The open field a short screen keeps under the message's and the plate's room, CSS px (M4-FIX-4).
+ * The far end's mobs come out about 0.3 of it tall, so this keeps them near 48 px or more.
+ */
+export const FIELD_MIN_PX = 170;
+/** The stage never gets less than this share of the screen (M4-FIX-4: "about 40 %"). */
+export const STAGE_MIN_SHARE = 0.4;
+
+/**
+ * The word plates' font size, CSS px: `plates.ts`'s `min(22px × text scale, 5.4dvh)`.
+ * `viewH` is the viewport's height.
+ */
+export function plateFontPx(viewH: number, textScale: number): number {
+  return Math.min(22 * textScale, 0.054 * viewH);
+}
+
+/** The HUD message's font size, CSS px: `Hud.module.css`'s `min(20px × text scale, 3.6dvh)`. */
+export function messageFontPx(viewH: number, textScale: number): number {
+  return Math.min(20 * textScale, 0.036 * viewH);
+}
+
+/**
+ * The room kept at the top of the stage: for the HUD's message, and over that for a far mob's
+ * locked plate. Both follow their real font sizes, which a short screen caps (dvh), so at text
+ * scale 2 on a 600 px screen the room is about 130 px, not 2 × 102.
+ */
+export function stageRoom(viewH: number, textScale: number): { banner: number; plate: number } {
+  return {
+    banner: (BANNER_ROOM * messageFontPx(viewH, textScale)) / 20,
+    plate: (PLATE_ROOM * plateFontPx(viewH, textScale)) / 22,
+  };
+}
+
+/**
+ * The open stage's least height, CSS px, that Defense asks of the HUD (its `stage` slice): the
+ * message's and the plate's room plus {@link FIELD_MIN_PX} of field, and never under
+ * {@link STAGE_MIN_SHARE} of the screen. The HUD caps it and shrinks the keyboard to fit.
+ */
+export function stageFloor(viewH: number, textScale: number): number {
+  const room = stageRoom(viewH, textScale);
+  return Math.round(Math.max(STAGE_MIN_SHARE * viewH, FIELD_MIN_PX + room.banner + room.plate));
+}
+
 export const LANE_FOV = 38;
 /**
  * World units kept in view above the far end of the lanes: a mob's height. Its plate's room is

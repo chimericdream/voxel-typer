@@ -22,7 +22,7 @@ import { OnScreenKeyboard } from "@/ui/keyboard/OnScreenKeyboard";
 import { Hotbar } from "@/ui/kit/Hotbar";
 import { ProgressBar } from "@/ui/kit/ProgressBar";
 import { Toast } from "@/ui/kit/Toast";
-import { handsCaptionOnly, hotbarOf, wrongKeyOf } from "./bridge";
+import { handsCaptionOnly, hotbarOf, stageMinOf, wrongKeyOf } from "./bridge";
 import type { HudFields } from "./bridge";
 import { WordDisplay } from "./WordDisplay";
 import styles from "./Hud.module.css";
@@ -58,8 +58,12 @@ export function HudCombo({ fields }: Fields) {
           ...(item.icon !== "" && { icon: <img src={item.icon} alt="" /> }),
         },
   );
+  // A mode may hide the bar while it holds nothing (M4-FIX-4). It keeps its room, so the stage
+  // under it doesn't move when the first item lands.
+  const hidden =
+    items?.hideEmpty === true && lit === 0 && items.slots.every((item) => item === null);
   return (
-    <div class={styles.combo}>
+    <div class={styles.combo} data-hidden={hidden ? "1" : undefined}>
       <Hotbar label={t("hud.combo", { count: lit })} lit={lit} {...(slots && { slots })} />
     </div>
   );
@@ -88,6 +92,26 @@ export function HudTimer({ fields }: Fields) {
       </span>
       {text}
     </p>
+  );
+}
+
+/**
+ * The open stage over the 3D scene, where the message floats. A mode may ask for a least height
+ * (M4-FIX-4, the `stage` slice); the keyboard row then gives way to it.
+ */
+export function HudStage({ fields }: Fields) {
+  const min = useComputed(() => stageMinOf(fields.custom.value)).value;
+  return (
+    <div
+      class={styles.stage}
+      data-hud="stage"
+      data-min={min === null ? undefined : "1"}
+      style={min === null ? undefined : { "--stage-min": `${Math.round(min)}px` }}
+    >
+      <div class={styles.messages}>
+        <HudMessage fields={fields} />
+      </div>
+    </div>
   );
 }
 
@@ -202,11 +226,7 @@ export function Hud({
       </div>
       <HudWord fields={fields} />
       {/* `data-hud` marks the open stage and the keyboard, so a mode can frame its scene around them. */}
-      <div class={styles.stage} data-hud="stage">
-        <div class={styles.messages}>
-          <HudMessage fields={fields} />
-        </div>
-      </div>
+      <HudStage fields={fields} />
       {/* Finger labels on every key (M2-09 N3): a keyboard-only child never hovers. */}
       {keyboard ? (
         <HudKeyboard fields={fields} layout={layout} hands={hands} labels={labels} />

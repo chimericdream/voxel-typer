@@ -227,6 +227,11 @@ export interface HotbarItem {
 /** Up to 9 slots, left to right; `null` is an empty slot. */
 export interface HotbarSlice {
   slots: readonly (HotbarItem | null)[];
+  /**
+   * Hide the hotbar while every slot is empty and no combo slot is lit (M4-FIX-4: a night's day
+   * shows no empty bar). It keeps its room, so nothing moves when the first item lands.
+   */
+  hideEmpty?: boolean;
 }
 
 function isHotbarItem(v: unknown): v is HotbarItem | null {
@@ -241,7 +246,12 @@ function isHotbarItem(v: unknown): v is HotbarItem | null {
 function isHotbarSlice(v: unknown): v is HotbarSlice {
   if (typeof v !== "object" || v === null) return false;
   const slots: unknown = Reflect.get(v, "slots");
-  return Array.isArray(slots) && slots.every(isHotbarItem);
+  const hideEmpty: unknown = Reflect.get(v, "hideEmpty");
+  return (
+    Array.isArray(slots) &&
+    slots.every(isHotbarItem) &&
+    (hideEmpty === undefined || typeof hideEmpty === "boolean")
+  );
 }
 
 /** The hotbar items in `custom`, or null. Returns the same object until the mode sends a new one. */
@@ -260,4 +270,24 @@ export const HANDS_SLICE = "hands";
 /** True when a mode asked for the hint line without the drawn hands. */
 export function handsCaptionOnly(custom: Readonly<Record<string, unknown>>): boolean {
   return custom[HANDS_SLICE] === "caption";
+}
+
+/**
+ * The `custom` slice a mode uses to keep the open stage at least this tall, in CSS pixels
+ * (M4-FIX-4): Night Defense needs room for its field on a short screen. The HUD caps it at 55 % of
+ * the screen and shrinks the on-screen keyboard to fit; the keys, the next-key light and the hint
+ * line all stay.
+ */
+export const STAGE_SLICE = "stage";
+
+export interface StageSlice {
+  minPx: number;
+}
+
+/** The stage's least height a mode asked for, in CSS pixels, or null. */
+export function stageMinOf(custom: Readonly<Record<string, unknown>>): number | null {
+  const v = custom[STAGE_SLICE];
+  if (typeof v !== "object" || v === null) return null;
+  const min: unknown = Reflect.get(v, "minPx");
+  return typeof min === "number" && Number.isFinite(min) && min > 0 ? min : null;
 }
