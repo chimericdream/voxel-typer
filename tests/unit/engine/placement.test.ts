@@ -10,11 +10,14 @@ import {
   PLACEMENT_GATES,
   PLACEMENT_MIN_ACTIVE_MS,
   PLACEMENT_MIN_GATE_KEYS,
+  PLACEMENT_ROW_FLOOR,
   PLACEMENT_TIERS,
   coverKeys,
   createLadder,
   estimatePlacement,
+  firstTryShare,
   ladderRecord,
+  rowFloorKeys,
   rungRates,
   testsNewKey,
   tierKeys,
@@ -65,6 +68,16 @@ const prog = (over: Partial<PlacementProgression> = {}): PlacementProgression =>
 /** The start for a test at `netWpm` and `accuracy` that reached rung `tier`. */
 const at = (netWpm: number, accuracy = 0.97, tier = 5, band: AgeBand = "builder") =>
   estimatePlacement(summary({ netWpm, accuracy }), prog({ tierReached: tier, band })).startBiome;
+
+/** Per-key stats with `tries` places for each key of `keys`, `slips` of them slipped once first. */
+const row = (keys: string, tries: number, slips: number): SessionSummary["perKey"] =>
+  Object.fromEntries(
+    Array.from(keys, (k) => [k, { attempts: tries + slips, errors: slips, latencies: [] }]),
+  );
+
+/** The start for a fast, accurate test with these per-key stats. */
+const fastStart = (perKey: SessionSummary["perKey"]) =>
+  estimatePlacement(summary({ netWpm: 60, accuracy: 0.97, perKey }), prog()).startBiome;
 
 /** 61 blocks of one driver run, with a slip every 7th block. */
 function driverRun(ctx: TierContext): string[] {
@@ -415,6 +428,39 @@ describe("estimatePlacement", () => {
     // With enough keys the same accuracy counts.
     const enough: RungScore = { tier: 0, ms: 30_000, keystrokes: 72, correct: 60 };
     expect(estimatePlacement(fast, { ...p, rungs: [enough] }).startBiome).toBe("meadow");
+    // The floor's value, as a literal (M3-FIX-10): 45 keys at 83 % still fall through to the whole
+    // test, and 60 keys at 83 % count. Reading the constant back alone would let it drift.
+    const fortyFive: RungScore = { tier: 0, ms: 20_000, keystrokes: 45, correct: 37 };
+    expect(estimatePlacement(fast, { ...p, rungs: [fortyFive] }).startBiome).toBe("birch");
+    const sixty: RungScore = { tier: 0, ms: 25_000, keystrokes: 60, correct: 50 };
+    expect(estimatePlacement(fast, { ...p, rungs: [sixty] }).startBiome).toBe("meadow");
+  });
+
+  it("starts past Birch only with the top row known, and past the Shore with the bottom row too (M3-FIX-10)", () => {
+    expect(rowFloorKeys(tierOf("home"))).toEqual([]);
+    expect(rowFloorKeys(tierOf("top")).join("")).toBe("qwertyuiop");
+    expect(rowFloorKeys(tierOf("bottom")).join("")).toBe("qwertyuiopzxcvbnm");
+    expect(rowFloorKeys(tierOf("numbers"))).toEqual(rowFloorKeys(tierOf("bottom")));
+    expect(PLACEMENT_ROW_FLOOR).toBe(0.88);
+    // 9 of 10 top-row places hit first time is 90 %; 7 of 10 (a home-row-only child) is 70 %.
+    const top90 = row("qwertyuiop", 10, 1);
+    expect(firstTryShare({ perKey: top90 }, rowFloorKeys(1))).toBeCloseTo(0.9);
+    const top70 = row("qwertyuiop", 10, 3);
+    expect(firstTryShare({ perKey: top70 }, rowFloorKeys(1))).toBeCloseTo(0.7);
+    // Fast and accurate overall, but the top row isn't known: Birch, where it is taught.
+    expect(fastStart({ ...top70, ...row("zxcvbnm", 10, 0) })).toBe("birch");
+    // The top row known, the bottom row not: the Shore. Pooled with the top row, 3 slips on each
+    // bottom key is 31 slips in 170 places (82 %); 1 slip on each is 17 (90 %).
+    expect(fastStart({ ...top90, ...row("zxcvbnm", 10, 3) })).toBe("shore");
+    expect(fastStart({ ...top90, ...row("zxcvbnm", 10, 1) })).toBe("marsh");
+    // No record for a row (none happens in a real test: a letter rung can't be left before each
+    // of its keys broke cleanly) holds nothing back.
+    expect(firstTryShare({ perKey: {} }, rowFloorKeys(2))).toBe(1);
+    expect(fastStart({})).toBe("marsh");
+    // A place still being tried when the test ended: one wrong press, no right one.
+    expect(firstTryShare({ perKey: { q: { attempts: 1, errors: 1, latencies: [] } } }, ["q"])).toBe(
+      0,
+    );
   });
 
   it("starts a short test at the Meadow", () => {

@@ -121,6 +121,23 @@ describe("Profiles", () => {
     expect(s.route().id).toBe("map");
   });
 
+  it("doesn't offer the placement test again in the visit that showed it (M3-FIX-10)", async () => {
+    // Pip was just made and saw the test's intro, then quit to the map.
+    const pip = fixture("fresh-sprout");
+    const s = await open({ initial: { id: "placement" }, profiles: [pip], initialProfile: pip });
+    await s.settle();
+    expect(s.shell.api.placementOffered().has(pip.id)).toBe(true);
+    s.shell.api.navigate({ id: "profiles" });
+    await s.settle();
+    await s.press("Enter");
+    expect(s.route().id).toBe("map");
+    // Nothing settled, so the next visit (a fresh page) still offers it once more.
+    expect((await s.store.load(pip.id))?.progress.placement).toBeUndefined();
+    const next = await open({ initial: { id: "profiles" }, store: s.store });
+    await next.press("Enter");
+    expect(next.route().id).toBe("placement");
+  });
+
   it("with no players: a kind line and New player", async () => {
     const s = await open({ initial: { id: "profiles" } });
     expect(text(s.root)).toContain(t("profiles.empty"));

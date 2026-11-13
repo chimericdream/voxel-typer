@@ -49,8 +49,9 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const BANDS: readonly AgeBand[] = ["sprout", "miner", "builder"];
 /**
  * An average-speed child who knows only the home row (M3-FIX-3 N1): every top- and bottom-row
- * letter goes wrong 6 times as often (about 1 in 3). The ladder, not the speed gates, should hold
- * this child at the Meadow or Birch.
+ * letter goes wrong 6 times as often (about 1 in 3). This child should start at the Meadow or
+ * Birch, never further: the pooled gates hold most of them back, and the top-row floor
+ * (`PLACEMENT_ROW_FLOOR`, M3-FIX-10) the lucky rest.
  */
 export const HOME_ROW_ONLY: TypistProfile = {
   ...TYPIST_PROFILES.avg,
