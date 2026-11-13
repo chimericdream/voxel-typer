@@ -115,12 +115,13 @@ test.describe("Parent Dashboard", () => {
     expect(errors).toEqual([]);
   });
 
-  test("the CSV is a local file with the numbers on the page", async ({ page }) => {
+  test("the CSV is a local file with the numbers on the page", async ({ page, baseURL }) => {
+    // Every http(s) request must go to the app's own origin (Playwright's baseURL), never off it.
+    const home = new URL(baseURL ?? "http://127.0.0.1").origin;
     const outside: string[] = [];
     page.on("request", (r) => {
       const url = new URL(r.url());
-      if (!["http:", "https:"].includes(url.protocol)) return;
-      if (url.origin !== new URL(page.url() || "http://localhost").origin) outside.push(r.url());
+      if (["http:", "https:"].includes(url.protocol) && url.origin !== home) outside.push(r.url());
     });
     const errors = await open(page, "veteran-builder", "parent");
     await passGate(page);
