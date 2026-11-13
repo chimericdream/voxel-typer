@@ -91,6 +91,15 @@
  * stay for screen readers. Text size is untouched: the picture scales with it.
  */
 @media (max-width: 1100px) {
+  /*
+   * Clear of the corner buttons, whose width WorldMap.tsx measures into --corner-w: at 1024 px
+   * the hint wraps under the title instead of covering Change player (M4-FIX-1). Wider windows
+   * keep the 72% rule, where the word buttons already leave room.
+   */
+  .top {
+    max-width: min(72%, calc(100% - var(--corner-w, 0px) - var(--sp-4) * 2 - var(--sp-3)));
+  }
+
   .corner button {
     min-width: 0;
   }
@@ -106,6 +115,29 @@
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
+  }
+
+  /*
+   * The words come back as a tip under the picture on hover, on keyboard focus, and after a tap
+   * (`data-tip`, set by `CornerButton`; a `title` shows only on mouse hover; M4-07 review N-D).
+   */
+  .corner [data-nav]:hover .cornerText,
+  .corner [data-nav]:focus-within .cornerText,
+  .corner [data-nav][data-tip="open"] .cornerText {
+    top: calc(100% + var(--sp-2));
+    right: 0;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    padding: var(--sp-1) var(--sp-2);
+    background-color: var(--c-plate);
+    color: var(--c-plate-text);
+    box-shadow: 0 0 0 var(--bevel-unit) rgb(0 0 0 / 0.35);
+    font-family: var(--font-body);
+    font-size: calc(var(--fs-sm) * var(--text-scale));
+    font-weight: 700;
+    pointer-events: none;
   }
 }
 

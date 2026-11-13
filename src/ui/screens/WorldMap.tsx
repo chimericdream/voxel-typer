@@ -192,7 +192,7 @@ const CORNER_ICONS = {
     [3, 11, 10, 2],
     [5, 13, 6, 2],
   ],
-  // Three sliders.
+  // Two sliders, each with its knob.
   settings: [
     [1, 3, 14, 2],
     [4, 1, 3, 6],
@@ -201,11 +201,22 @@ const CORNER_ICONS = {
   ],
 } as const;
 
+/** The width at or under which the corner buttons show pictures (`WorldMap.module.css`). */
+const NARROW = "(max-width: 1100px)";
+
+const isNarrow = (): boolean =>
+  typeof window !== "undefined" &&
+  typeof window.matchMedia === "function" &&
+  window.matchMedia(NARROW).matches;
+
 /**
  * A corner button. In a wide window it shows its words. In a narrow one (1100 px or less) the four
  * buttons would wrap onto a second row at large text and crowd the island labels, so there each
- * shows its picture and keeps its words for screen readers and as a tooltip. The text size
- * setting is never overridden: the picture grows with it.
+ * shows its picture and keeps its words for screen readers and as a tip. The tip opens on hover
+ * and on keyboard focus (CSS), and on touch: in the narrow layout the first tap on a button opens
+ * its tip and keeps it open, a second tap goes, and a tap anywhere else closes it (pointer events,
+ * so it works in iOS Safari too, where `:hover` and `:active` don't hold). The text size setting is
+ * never overridden: the picture grows with it.
  */
 function CornerButton({
   icon,
@@ -216,8 +227,37 @@ function CornerButton({
   label: string;
   onClick: () => void;
 }) {
+  const [tip, setTip] = useState(false);
+  const wrapRef = useRef<HTMLSpanElement>(null);
+  /** The click under way comes from a finger, in the narrow layout. */
+  const touchRef = useRef(false);
+  useEffect(() => {
+    if (!tip) return undefined;
+    const close = (e: Event): void => {
+      if (!(e.target instanceof Node) || wrapRef.current?.contains(e.target) !== true)
+        setTip(false);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [tip]);
   return (
-    <span data-nav="" title={label}>
+    <span
+      data-nav=""
+      ref={wrapRef}
+      data-tip={tip ? "open" : undefined}
+      onPointerDown={(e) => {
+        touchRef.current = e.pointerType === "touch" && isNarrow();
+      }}
+      onClickCapture={(e) => {
+        if (!touchRef.current) return;
+        touchRef.current = false;
+        if (tip) return;
+        // The first tap shows the words; the button runs on the next one.
+        e.stopPropagation();
+        e.preventDefault();
+        setTip(true);
+      }}
+    >
       <Button onClick={onClick}>
         <svg class={styles.cornerIcon} viewBox="0 0 16 16" aria-hidden="true" focusable="false">
           {CORNER_ICONS[icon].map(([x, y, w, h]) => (
@@ -438,6 +478,23 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
   });
 
   const openInfo = open === null ? null : (infos.find((i) => i.biome === open) ?? null);
+
+  // The heading's plates stop short of the corner buttons (`--corner-w` in the CSS), so at 1024 px
+  // the hint wraps under the title instead of covering Change player (M4-FIX-1).
+  const cornerShown = openInfo === null;
+  useLayoutEffect(() => {
+    const el = corner.current;
+    const host = root.current;
+    if (!cornerShown || el === null || host === null) return undefined;
+    const set = (): void => host.style.setProperty("--corner-w", `${el.offsetWidth}px`);
+    set();
+    const sizes = typeof ResizeObserver === "function" ? new ResizeObserver(set) : null;
+    sizes?.observe(el);
+    return () => {
+      sizes?.disconnect();
+      host.style.removeProperty("--corner-w");
+    };
+  }, [cornerShown]);
 
   return (
     <div class={styles.map} ref={root} data-mode={mode} data-open={open ?? undefined}>
