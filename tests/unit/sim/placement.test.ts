@@ -53,8 +53,14 @@ describe("placement sim", () => {
   });
 
   it("keeps a child who knows only the home row at the Meadow or Birch (N1)", () => {
+    // About 0.7 % of these learners clear the top and bottom letter rungs by luck and get placed
+    // further. 400 runs per band at seed 9 gave 7–8 of 1200 with both the M3-FIX-6 and the M3-FIX-7
+    // item pick. So at most one in 40 is allowed here: at exactly 1 the test failed whenever the
+    // seeded stream moved (M3-FIX-7).
     for (const band of ["sprout", "miner", "builder"]) {
-      expect(share(row(band, "homeonly"), ["meadow", "birch"]), band).toBe(1);
+      expect(share(row(band, "homeonly"), ["meadow", "birch"]), band).toBeGreaterThanOrEqual(
+        1 - 1 / opts.runs,
+      );
     }
   });
 

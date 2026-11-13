@@ -10,6 +10,11 @@
  * 3. `letters`: no char more than 3 times in a row (impossible when only one key is allowed).
  * 4. Comfort cap (contracts §4): at least 50% of the generated non-space chars come from
  *    "comfortable" keys (see {@link comfortableKeys}).
+ *
+ * Word-like targets also never repeat an item from the last few picks (see
+ * `GENERATOR_CONSTANTS.recentItems`). This holds even when the cap relaxes: the fallback takes the
+ * most comfortable item outside that window, so a cap no other item can keep can't pin the whole
+ * session to one item (M3-FIX-7).
  */
 import { soundsUnsafe } from "@/content/wordlists/spoken-blocklist";
 import type { AgeBand } from "@/types/core";
@@ -58,6 +63,11 @@ export const GENERATOR_CONSTANTS = {
   comfortShare: 0.5,
   /** Rejection-sampling tries per word-like target before the cap relaxes (contracts §5). */
   itemTries: 200,
+  /**
+   * Word-like targets: an item is not picked again within this many picks, capped at half the
+   * candidate items so a small pool keeps its weighting (M3-FIX-7).
+   */
+  recentItems: 4,
   /** Tries per syllable before falling back to a single comfortable char. */
   syllableTries: 20,
   /** `letters`: the longest allowed run of one char. */
@@ -433,29 +443,40 @@ function generateItems(
     }
     return a;
   };
-  // The relaxed fallback: the most comfortable item, first in pool order on a tie.
-  let best = 0;
-  items.forEach((it, i) => {
-    if (it.share > (items[best]?.share ?? -1)) best = i;
-  });
+  // No repeat within the last `spacing` picks; a pool of one item can only repeat.
+  const spacing = Math.min(GENERATOR_CONSTANTS.recentItems, Math.floor(items.length / 2));
+  const recent: number[] = [];
+  const isRecent = (idx: number): boolean => recent.includes(idx);
+  // The relaxed fallback: the most comfortable item outside `recent`, first in pool order on a
+  // tie. Without the window this was one fixed item, and once it held the tally at the cap's edge
+  // no other item could ever pass: the same item for the rest of the session (M3-FIX-7).
+  const fallback = (): number => {
+    let best = -1;
+    items.forEach((it, i) => {
+      if (isRecent(i)) return;
+      if (best < 0 || it.share > (items[best]?.share ?? -1)) best = i;
+    });
+    return best;
+  };
 
-  let previous = -1;
   return fill(budget, true, () => {
     let chosen = -1;
     for (let i = 0; i < GENERATOR_CONSTANTS.itemTries; i++) {
       const idx = pickIndex();
       const it = items[idx];
-      if (it === undefined) continue;
-      if (idx === previous && items.length > 1) continue;
+      if (it === undefined || isRecent(idx)) continue;
       if (keepsCap(ctx.tally, it.comfortable, it.total)) {
         chosen = idx;
         break;
       }
     }
-    if (chosen < 0) chosen = best;
+    if (chosen < 0) chosen = fallback();
     const it = items[chosen];
     if (it === undefined) throw new Error("generateTargets: no candidate item");
-    previous = chosen;
+    if (spacing > 0) {
+      recent.push(chosen);
+      if (recent.length > spacing) recent.shift();
+    }
     ctx.tally.comfortable += it.comfortable;
     ctx.tally.total += it.total;
     return it.text;
@@ -480,7 +501,7 @@ function capitalizeFirst(text: string, allowed: ReadonlySet<string>): string {
  * - `words` / `phrases` / `sentences`: picks pool items for which `typeable(item, allowed)` holds,
  *   weighted by the sum of their chars' weights. It enforces the comfort cap (§4) by rejection
  *   sampling, with a fallback that relaxes the cap after 200 tries. It never relaxes the allowed
- *   set.
+ *   set. No item repeats within the last `recentItems` picks (at most half the candidates).
  * - If no pool item is typeable, it falls back to `syllables` and changes nothing else: the caller
  *   just sees fewer word-like targets. The curriculum validator (M3-01) makes sure this never
  *   happens for a shipped lesson.
