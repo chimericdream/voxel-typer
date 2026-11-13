@@ -291,21 +291,21 @@ describe("errors", () => {
   });
 });
 
-describe("overlay-top edge (M4-FIX-6): a soft wave, not a ragged drip", () => {
-  const DIRT: TextureRecipe = { kind: "noise", ramp: "dirt", scale: 4, contrast: 1 };
-  /** How far the top layer reaches down each column: rows from the top that are in the top ramp. */
-  const reach = (px: Uint8ClampedArray, top: keyof typeof BASE_PALETTE): number[] =>
-    Array.from({ length: 16 }, (_, x) => {
-      let y = 0;
-      while (y < 16 && inRamp(top, pixelAt(px, x, 15 - y).rgb)) y++;
-      return y;
-    });
+const DIRT_EDGE: TextureRecipe = { kind: "noise", ramp: "dirt", scale: 4, contrast: 1 };
+/** How far the top layer reaches down each column: rows from the top that are in the top ramp. */
+const reach = (px: Uint8ClampedArray, top: keyof typeof BASE_PALETTE): number[] =>
+  Array.from({ length: 16 }, (_, x) => {
+    let y = 0;
+    while (y < 16 && inRamp(top, pixelAt(px, x, 15 - y).rgb)) y++;
+    return y;
+  });
 
+describe("overlay-top edge (M4-FIX-6): a soft wave, not a ragged drip", () => {
   it("neighbouring columns differ by at most one row, the tile's two edges too", () => {
     assert(
       property(integer({ min: 0, max: 10_000 }), (seed) => {
         const px = paintTile(
-          { kind: "overlay-top", base: DIRT, top: "snow", depth: 4 },
+          { kind: "overlay-top", base: DIRT_EDGE, top: "snow", depth: 4 },
           BASE_PALETTE,
           createRng(seed),
         );
