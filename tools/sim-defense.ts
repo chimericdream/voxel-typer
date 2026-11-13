@@ -23,6 +23,12 @@
  * - Calm mode: mobs wait at the waiting line (85 % of the lane), so they never reach the base, and
  *   the typist feels half the pressure.
  *
+ * **Pacing** is the game's (M4-FIX-2): when the field empties, the wave's next mob (and the rest of
+ * the wave with it) is brought forward with the director's `idlePullMs`, and the pause between two
+ * waves is its `breakMs`. Events are played in time order, so the sim also measures every stretch
+ * of empty field (`idle`): from the moment the last mob still to type was typed or reached the
+ * base, to the next spawn.
+ *
  * The model is an assumption, not a measurement. The robustness rows rerun the main rows with
  * half and double the slope, to show the controller does not depend on its exact values.
  *
@@ -40,7 +46,7 @@ import { createRng } from "../src/engine/rng";
 import type { Rng } from "../src/engine/rng";
 import { createSession } from "../src/engine/session";
 import { median } from "../src/engine/stats";
-import { createDirector } from "../src/modes/defense/director";
+import { breakMs, createDirector, idlePullMs } from "../src/modes/defense/director";
 import type { DefenseMob, WaveFeedback, WaveSpec } from "../src/modes/defense/director";
 import type { AgeBand, Ms } from "../src/types/core";
 import {
@@ -84,6 +90,17 @@ export const DEFENSE_TYPISTS: Readonly<Record<string, TypistProfile>> = {
   "10wpm": { ...TYPIST_PROFILES.slow, wpm: 10 },
   "25wpm": { ...TYPIST_PROFILES.avg, wpm: 25 },
   "50wpm": { ...TYPIST_PROFILES.fast, wpm: 50 },
+};
+
+/**
+ * More typists for the pacing check (M4-FIX-2): the card's range is 5–60 WPM. Not in the main
+ * report, whose rows the convergence pins read.
+ */
+export const PACING_TYPISTS: Readonly<Record<string, TypistProfile>> = {
+  "5wpm": { ...TYPIST_PROFILES.slow, wpm: 5 },
+  ...DEFENSE_TYPISTS,
+  "40wpm": { ...TYPIST_PROFILES.fast, wpm: 40 },
+  "60wpm": { ...TYPIST_PROFILES.fast, wpm: 60 },
 };
 
 /**
@@ -139,6 +156,21 @@ export interface RowResult {
   low: number;
   /** The `swamped` share over waves 1–3: the part of the night every child plays. */
   swampedEarly: number;
+  /** The longest stretch of empty field in any learner's night (dawn not counted), in ms. */
+  idleMax: Ms;
+  /**
+   * The longest opening stretch: from the start of the night (the first frame of dusk, when the
+   * first wave starts) to its first mob, over every learner.
+   */
+  openingMax: Ms;
+}
+
+/** How a wave starts, and where it reports the empty stretches it measured. */
+export interface WavePacing {
+  /** How long the field has already been empty when the wave's clock starts. */
+  emptyBeforeMs: Ms;
+  /** Each stretch of empty field that ended in this wave is pushed here, in ms. */
+  idle?: Ms[];
 }
 
 export interface DefenseSimOptions {
@@ -197,6 +229,7 @@ export function playWave(
   pressure: PressureModel,
   rng: Rng,
   practice: Record<string, number>,
+  pacing: WavePacing = { emptyBeforeMs: 0 },
 ): WaveFeedback {
   const latencyRng = rng.fork("latency");
   const errorRng = rng.fork("errors");
@@ -221,22 +254,45 @@ export function playWave(
   let reached = 0;
   let keys = 0;
   let justErred = false;
+  /** How far the wave's spawn clock has been moved forward by an empty field. */
+  let shift: Ms = 0;
+  /** When the field last emptied, or null while a mob on it still needs typing. */
+  let emptySince: Ms | null = -Math.max(0, pacing.emptyBeforeMs);
 
   const arrival = (spawn: Ms, speed: number): Ms =>
     spawn + ((spec.calm ? WAIT_LINE : 1) * 1000) / speed;
-  const advance = (): void => {
-    while (next < pending.length && (pending[next]?.spawnAtMs ?? Infinity) <= t) {
-      const m = pending[next++];
-      if (m === undefined) break;
-      live.set(m.id, { id: m.id, word: m.word, arriveMs: arrival(m.spawnAtMs, m.speed) });
-      session.addTargets([{ id: m.id, text: m.word, priority: m.spawnAtMs }]);
-    }
-    if (spec.calm) return;
-    for (const m of live.values()) {
-      if (m.arriveMs > t) continue;
-      session.removeTarget(m.id, t);
-      live.delete(m.id);
-      reached++;
+  /** When the next mob sets out, after the empty field has brought it forward. */
+  const nextSpawnAt = (): Ms => {
+    const m = pending[next];
+    if (m === undefined) return Infinity;
+    if (emptySince !== null) shift += idlePullMs(m.spawnAtMs - shift - emptySince, 0);
+    return m.spawnAtMs - shift;
+  };
+  const emptied = (at: Ms): void => {
+    if (live.size === 0 && emptySince === null) emptySince = at;
+  };
+  /** Plays spawns and arrivals up to `to`, in time order. */
+  const advance = (to: Ms): void => {
+    for (;;) {
+      const s = nextSpawnAt();
+      let first: LiveMob | null = null;
+      if (!spec.calm)
+        for (const m of live.values()) if (first === null || m.arriveMs < first.arriveMs) first = m;
+      const a = first?.arriveMs ?? Infinity;
+      if (Math.min(s, a) > to) return;
+      if (s <= a) {
+        const m = pending[next++];
+        if (m === undefined) return;
+        if (emptySince !== null) pacing.idle?.push(s - emptySince);
+        emptySince = null;
+        live.set(m.id, { id: m.id, word: m.word, arriveMs: arrival(s, m.speed) });
+        session.addTargets([{ id: m.id, text: m.word, priority: m.spawnAtMs }]);
+      } else if (first !== null) {
+        session.removeTarget(first.id, a);
+        live.delete(first.id);
+        reached++;
+        emptied(a);
+      }
     }
   };
   const pressureAt = (): number => {
@@ -256,13 +312,13 @@ export function playWave(
   };
 
   for (;;) {
-    advance();
+    advance(t);
     // Drop finished mobs.
-    for (const v of session.view().targets) if (v.complete) live.delete(v.id);
+    for (const v of session.view().targets) if (v.complete && live.delete(v.id)) emptied(t);
     if (live.size === 0) {
-      const upcoming = pending[next];
-      if (upcoming === undefined) break;
-      t = Math.max(t, upcoming.spawnAtMs);
+      const at = nextSpawnAt();
+      if (!Number.isFinite(at)) break;
+      t = Math.max(t, at);
       continue;
     }
     if (keys >= MAX_KEYS) break;
@@ -292,7 +348,7 @@ export function playWave(
     if (view.active === null) dt += READ_MS + gap;
     if (justErred) dt += sampleNoticeDelay(noticeRng);
     t += dt;
-    advance();
+    advance(t);
     keys++;
     practice[expected] = (practice[expected] ?? 0) + 1;
     if (errorRng.next() < slip) {
@@ -319,8 +375,10 @@ export function playNight(
   pools: readonly WordPool[],
   waves: number,
   rng: Rng,
+  idle?: Ms[],
+  opening?: Ms[],
 ): { baseline: number; feedback: WaveFeedback[]; difficulty: number[] } {
-  const profile = DEFENSE_TYPISTS[spec.typist];
+  const profile = PACING_TYPISTS[spec.typist];
   if (profile === undefined) throw new Error(`unknown typist ${spec.typist}`);
   const bandPools = pools.filter((p) => p.band === spec.band || p.band === "all");
   const lessonPools = bandPools.filter(
@@ -344,7 +402,15 @@ export function playNight(
   for (let w = 0; w < waves; w++) {
     const wave = director.nextWave();
     difficulty.push(wave.difficulty);
-    const f = playWave(wave, profile, spec.pressure, rng.fork(`wave:${w}`), practice);
+    // The first wave starts the night, with the dusk announcement still up; each later one after
+    // the game's pause, which ends `maxIdleMs` after the field emptied. The sim's field is empty as
+    // a wave ends.
+    const emptyBeforeMs = w === 0 ? 0 : breakMs(0, wave.mobs[0]?.spawnAtMs ?? 0);
+    const stretches: Ms[] = [];
+    const pacing: WavePacing = { emptyBeforeMs, idle: stretches };
+    const f = playWave(wave, profile, spec.pressure, rng.fork(`wave:${w}`), practice, pacing);
+    idle?.push(...stretches);
+    if (w === 0 && stretches[0] !== undefined) opening?.push(stretches[0]);
     feedback.push(f);
     director.observe(f);
   }
@@ -392,6 +458,24 @@ export function reportRows(): RowSpec[] {
   return rows;
 }
 
+/**
+ * The pacing check's rows (M4-FIX-2): every band and every typist of {@link PACING_TYPISTS}, with
+ * a baseline, as a new profile, and calm.
+ */
+export function pacingRows(): RowSpec[] {
+  const rows: RowSpec[] = [];
+  const bands: readonly AgeBand[] = ["sprout", "miner", "builder"];
+  for (const typist of Object.keys(PACING_TYPISTS))
+    for (const band of bands)
+      for (const [label, calm, baseline] of [
+        ["main", false, true],
+        ["new profile", false, false],
+        ["calm", true, true],
+      ] as const)
+        rows.push({ typist, band, calm, baseline, pressure: DEFAULT_PRESSURE, label });
+  return rows;
+}
+
 /** Plays every learner of one row and takes the medians. */
 export function simulateRow(
   spec: RowSpec,
@@ -399,8 +483,17 @@ export function simulateRow(
   opts: DefenseSimOptions,
 ): RowResult {
   const root = createRng(opts.seed);
+  const idle: Ms[] = [];
+  const opening: Ms[] = [];
   const nights = Array.from({ length: opts.runs }, (_, r) =>
-    playNight(spec, pools, opts.waves, root.fork(`${spec.typist}:${spec.band}:run:${r}`)),
+    playNight(
+      spec,
+      pools,
+      opts.waves,
+      root.fork(`${spec.typist}:${spec.band}:run:${r}`),
+      idle,
+      opening,
+    ),
   );
   const perWave = (f: (n: (typeof nights)[number], w: number) => number): number[] =>
     Array.from({ length: opts.waves }, (_, w) => median(nights.map((n) => f(n, w))) ?? 0);
@@ -421,6 +514,8 @@ export function simulateRow(
       nights.flatMap((n) => n.feedback.slice(0, 3)),
       (f) => f.accuracy < 0.75 || reachedShare(f) > 0.3,
     ),
+    idleMax: Math.max(0, ...idle),
+    openingMax: Math.max(0, ...opening),
   };
 }
 
@@ -447,9 +542,10 @@ export function formatDefense(results: readonly RowResult[], opts: DefenseSimOpt
     "Swamped / Crowded / Low 4+: the share of all waves from wave 4 on (every learner, not medians)",
     "that were under 75 % accuracy or had over 30 % of the mobs at the base / had over 20 % of the",
     "mobs at the base / were under 85 % accuracy. Swamped 1-3: the swamped share over waves 1 to 3.",
+    "Empty max: the longest stretch with no mob left to type, in any learner's night, in seconds.",
     "",
-    `| Row | Typist | Band | Baseline | ${waves.join(" | ")} | Range 4+ | Learner mean 4+ | In band | Reached 4+ | Swamped 4+ | Crowded 4+ | Low 4+ | Swamped 1-3 | d first→last | Converged |`,
-    `|---|---|---|---:|${waves.map(() => "---:").join("|")}|---|---:|---:|---:|---:|---:|---:|---:|---|---|`,
+    `| Row | Typist | Band | Baseline | ${waves.join(" | ")} | Range 4+ | Learner mean 4+ | In band | Reached 4+ | Swamped 4+ | Crowded 4+ | Low 4+ | Swamped 1-3 | Empty max | d first→last | Converged |`,
+    `|---|---|---|---:|${waves.map(() => "---:").join("|")}|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|`,
   ];
   for (const r of results) {
     const later = r.accuracy.slice(3);
@@ -469,6 +565,7 @@ export function formatDefense(results: readonly RowResult[], opts: DefenseSimOpt
       `${pct0(r.crowded)}%`,
       `${pct0(r.low)}%`,
       `${pct0(r.swampedEarly)}%`,
+      (r.idleMax / 1000).toFixed(1),
       `${d0.toFixed(2)}→${d1.toFixed(2)}`,
       converged(r) ? "yes" : "no",
     ];

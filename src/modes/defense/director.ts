@@ -37,6 +37,15 @@
  * the base in calm mode, so its sign of "too fast" is time: a wave that took much longer than it
  * was planned to (mobs queued at the line) holds the pace, and a very slow one eases it.
  *
+ * **No long empty field** (M4-FIX-2, owner playtest 2026-11-12). The field is *empty* while no
+ * mob on it still needs typing (a mob that is popping or bonking doesn't count). It never stays
+ * empty for longer than {@link DIRECTOR_CONSTANTS.maxIdleMs}: when it empties, the mode moves the
+ * wave's spawn clock forward ({@link idlePullMs}), so the next mob sets out at most that long after
+ * the last one went, and the pause between two waves ends that long after the field emptied
+ * ({@link breakMs}). The rest of the wave moves with its next mob, so spawn gaps and arrival order
+ * stay as planned. A slow learner still gets fewer mobs from the count and the walking speed,
+ * never from waiting. Only the dawn at the end of the night is empty on purpose.
+ *
  * **No failure.** The director only plans waves. A wave that went badly makes the next one easier;
  * nothing it returns can take anything away from the child (M4-10).
  */
@@ -241,6 +250,12 @@ export const DIRECTOR_CONSTANTS = {
   reactionMs: { sprout: 1400, miner: 900, builder: 650 } satisfies Record<AgeBand, Ms>,
   /** The first mob of a wave appears this long after the wave starts. */
   firstSpawnMs: 1200,
+  /**
+   * The longest the field may stay empty (no mob left to type) before the next mob sets out, in
+   * a wave and between waves alike. The same for every band: a slow learner gets fewer mobs from
+   * {@link waveSize} and slower walking, never from waits (M4-FIX-2).
+   */
+  maxIdleMs: 2500,
   /** At `d = 1`, travel time = this many times a mob's base work (reaction + typing). */
   travelFactor: 3,
   /**
@@ -446,6 +461,26 @@ export function mobTiming(
     C.travelMs.max,
   );
   return { gapMs, speed: 1000 / travel };
+}
+
+/**
+ * How far to move a wave's spawn clock forward so that its next mob sets out at most `maxIdleMs`
+ * after the field emptied. `untilNextMs` is the time left until that mob's planned spawn, and
+ * `emptyMs` how long the field has been empty, or null while a mob on it still needs typing (then
+ * nothing moves). Never negative: a mob is only ever brought forward, never held back.
+ */
+export function idlePullMs(untilNextMs: Ms, emptyMs: Ms | null, maxIdleMs: Ms = C.maxIdleMs): Ms {
+  if (emptyMs === null || !Number.isFinite(untilNextMs)) return 0;
+  return Math.max(0, untilNextMs - Math.max(0, maxIdleMs - countOf(emptyMs)));
+}
+
+/**
+ * The pause between two waves, once the field has been empty for `emptyMs` (the last mob's pop or
+ * bonk still playing counts): the next wave's first mob, `firstSpawnAtMs` into that wave, then
+ * sets out `maxIdleMs` after the field emptied.
+ */
+export function breakMs(emptyMs: Ms, firstSpawnAtMs: Ms, maxIdleMs: Ms = C.maxIdleMs): Ms {
+  return Math.max(0, maxIdleMs - countOf(firstSpawnAtMs) - countOf(emptyMs));
 }
 
 /** Pools of single words (not phrases or sentences). */

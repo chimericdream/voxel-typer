@@ -295,6 +295,8 @@ Behavior:
 - `letters`: single chars, weighted by `weights`, no char repeated more than 3 times in a row. Targets have `trailingSpace: false`.
 - `syllables`: 2–3-char pseudo-syllables from allowed chars, consonant–vowel aware when vowels exist; for early home-row lessons (`a` is the only vowel), use patterns like `aa`, `as`, `sad`, `fa`.
 - `words` / `phrases` / `sentences`: pick from pool items where `typeable(item, allowed)` holds, weighted by the sum of their chars' weights; enforce the comfort cap (§4) by rejection sampling with a fallback that relaxes after 200 tries (never relaxes the allowed set).
+- No word-like item repeats within the last `min(4, ⌊candidates / 2⌋)` picks (M3-FIX-7, decision 104). The relaxed fallback takes the most comfortable item outside that window, so the cap can also relax when every item that keeps it was picked recently.
+- `syllables` never emit a group that `containsBlockedRun` or `soundsUnsafe` (`src/content/wordlists/spoken-blocklist.ts`) flags; a flagged draw is redrawn inside the `syllableTries` budget (M3-FIX-6, decision 100).
 - If no pool items are typeable, fall back to `syllables` and set nothing else silently: the caller sees fewer word-like targets. The curriculum validator (M3-01) makes sure this never happens for shipped lessons.
 - `{ seconds, estWpm }` converts to chars as `seconds/60 * estWpm * 5 * 1.3` (30% headroom so the learner never runs out).
 
@@ -339,7 +341,7 @@ baseline = median netWpm of the profile's last 10 summaries in mine/practice/min
 | miner | max(0.88, target − 0.02) | 0.93 | as above |
 | builder | max(0.90, target) | 0.95 | as above |
 
-**Unlocks:** completing a lesson (any stars) unlocks the next in its biome. A biome's `mastery` lesson with ≥ 2 stars unlocks the next biome in `BIOME_ORDER` (`caverns` unlocks both `sparkstone` and `citadel`). The placement test can unlock up to the biome it estimates. Nothing ever re-locks. **Tested out** (decision 92): a lesson the placement test skipped is stored as `{ bestStars: 1, bestNetWpm: 0, bestAccuracy: 0, plays: 0 }`. `plays === 0` is the marker, and every reader goes through `isTestedOut()` in `src/app/progress.ts`. Never show its zero WPM or accuracy as a score.
+**Unlocks:** completing a lesson (any stars) unlocks the next in its biome, with one exception (M3-FIX-7, decision 104): a lesson tagged `challenge-hide-keyboard` ("No Peeking!") is optional. It opens together with the lesson after it, as soon as the lesson before the challenge is complete, and it never gates a later lesson. Playing or skipping it changes no other unlock. A challenge lesson must not be tagged `mastery` and must not be the last lesson of its biome. The map does not recommend a challenge once a later lesson of its biome has been played. A biome's `mastery` lesson with ≥ 2 stars (band-aware, decision 80) still unlocks the next biome in `BIOME_ORDER` (`caverns` unlocks both `sparkstone` and `citadel`). The placement test can unlock up to the biome it estimates. Nothing ever re-locks. **Tested out** (decision 92): a lesson the placement test skipped is stored as `{ bestStars: 1, bestNetWpm: 0, bestAccuracy: 0, plays: 0 }`. `plays === 0` is the marker, and every reader goes through `isTestedOut()` in `src/app/progress.ts`. Never show its zero WPM or accuracy as a score.
 
 ---
 
@@ -635,7 +637,24 @@ export interface Profile {
   keyStats: Record<string, KeyStat>;
   bigramStats: Record<string, KeyStat>;
   inventory: Record<BlockId, number>;
-  island: { grid: ReturnType<VoxelGrid['toJSON']>; expansions: number; lastEdited: EpochMs } | null;
+  /**
+   * Blocks ever found in play (lesson and placement-test loot), per id. Never lowered by building
+   * or digging, and island digging never adds to it. Added 2026-11-12 (M3-10, additive): a save
+   * without it is read as a copy of `inventory` (`foundBlocks` in `src/engine/achievements.ts`).
+   * Only `applyResult` / `applyPlacement` write it; the island editor writes `foundBlocks(profile)`
+   * once before its first change to a profile without it. New profiles start with `{}`.
+   */
+  found?: Record<BlockId, number>;
+  island: {
+    grid: ReturnType<VoxelGrid['toJSON']>; expansions: number; lastEdited: EpochMs;
+    /**
+     * M4-FIX-1, additive, schemaVersion stays 1: Builder's hotbar slots in order, at most 6. The
+     * validator checks shape only (≤ 6 strings of 1–64 chars; duplicates allowed). Builder drops
+     * unknown, non-placeable, unowned and repeated ids on open; absent = rank by count. Never
+     * written for a damaged island.
+     */
+    palette?: BlockId[];
+  } | null;
   cosmetics: { unlocked: string[] };
   achievements: Record<AchievementId, EpochMs>;   // unlock time
   daily: { lastDone?: string; streakDates: string[] };   // "YYYY-MM-DD", local dates
@@ -653,7 +672,7 @@ export interface Settings {
   calmMode: boolean;              // no timers shown anywhere (the placement test still ends at 90 s, with no clock: decision 92)
   reducedMotion: boolean | 'system';
   highContrast: boolean;
-  font: 'pixel' | 'clean' | 'dyslexic';   // 'pixel': Pixelify on headings and HUD chrome; 'clean': no pixel font anywhere; 'dyslexic': OpenDyslexic everywhere. Typing targets are never Pixelify (decisions 68, 93)
+  font: 'pixel' | 'clean' | 'dyslexic';   // 'clean' and legacy 'pixel': Atkinson everywhere (M3-FIX-2, decision 101: Pixelify misread B/C/5/0 at every size and is no longer used for text; Settings no longer offers 'pixel' and shows a saved 'pixel' as Clear). 'dyslexic': OpenDyslexic everywhere. Typing targets are never Pixelify (decisions 68, 93)
   tts: boolean;
   volume: Record<Bus, number>;
   quality: QualityLevel | 'auto';
