@@ -8,10 +8,17 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; font-src 'self'; media-src 'self' blob:; worker-src 'self' blob:"
     />
-    <!-- Only the pixel font is preloaded (M2-08, docs/fonts.md). -->
+    <!-- The first screen's fonts are preloaded (M2-08, M3-FIX-2, docs/fonts.md). -->
     <link
       rel="preload"
-      href="/fonts/PixelifySans-wght.woff2"
+      href="/fonts/AtkinsonHyperlegible-Bold.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/AtkinsonHyperlegible-Regular.woff2"
       as="font"
       type="font/woff2"
       crossorigin

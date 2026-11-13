@@ -19,7 +19,7 @@ import { meadowLoot } from "../../../../src/content/loot/meadow";
 import { createRng } from "../../../../src/engine/rng";
 import type { EngineEvent } from "../../../../src/engine/types";
 import { mode } from "../../../../src/modes/mine";
-import { create } from "../../../../src/modes/mine/mine";
+import { create, focusKeys } from "../../../../src/modes/mine/mine";
 import type { MineHudSlice, MineInstance } from "../../../../src/modes/mine/mine";
 import type { ModeContext, ModeResult } from "../../../../src/modes/types";
 import type { Profile } from "../../../../src/save/schema";
@@ -206,6 +206,23 @@ function host(over: { breakDue?: boolean; away?: boolean } = {}) {
   };
   return { play, scene, hud, statuses, finished, saves, reminder, typeNext, run };
 }
+
+describe("mine mode: focus keys (M3-FIX-7 review)", () => {
+  const allowed = ["a", "s", "d", "f", "j", "k", "l", ";"];
+  it("adds review keys when they are a subset of the allowed keys", () => {
+    expect(focusKeys({ newKeys: ["g"], reviewKeys: ["f", "j"] }, [...allowed, "g"])).toEqual([
+      "g",
+      "f",
+      "j",
+    ]);
+  });
+  it("leaves review keys out when they cover every allowed key, so weak keys still stand out", () => {
+    expect(focusKeys({ newKeys: [], reviewKeys: allowed }, allowed)).toEqual([]);
+    expect(focusKeys({ newKeys: ["g"], reviewKeys: [...allowed, "g"] }, [...allowed, "g"])).toEqual(
+      ["g"],
+    );
+  });
+});
 
 describe("mine mode module", () => {
   it("registers as `mine` and loads lazily", async () => {

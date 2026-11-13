@@ -161,6 +161,21 @@ function bodyFont(): string {
   return set === "" ? fallback : set;
 }
 
+/**
+ * The keys a lesson leans on: its new keys, plus its review keys when they are a real subset of
+ * what it allows. Many lessons list every allowed key as review; focusing on all of them would
+ * flatten the weights and switch off weak-key practice (M3-FIX-7 review).
+ */
+export function focusKeys(
+  lesson: Pick<Lesson, "newKeys" | "reviewKeys">,
+  allowed: readonly string[],
+): string[] {
+  const allowedSet = new Set(allowed);
+  const review = lesson.reviewKeys.filter((k) => allowedSet.has(k));
+  const partial = new Set(review).size < allowedSet.size;
+  return partial ? [...lesson.newKeys, ...review] : [...lesson.newKeys];
+}
+
 /** Turns the lesson into targets and a session config. */
 function plan(ctx: ModeContext): { targets: Target[]; lesson: Lesson | null; limitMs: Ms | null } {
   const { lesson, band, profile, settings } = ctx;
@@ -175,7 +190,7 @@ function plan(ctx: ModeContext): { targets: Target[]; lesson: Lesson | null; lim
       allowed,
       weights: keyWeights({
         allowed,
-        focus: lesson?.newKeys ?? [],
+        focus: lesson ? focusKeys(lesson, allowed) : [],
         stats: profile.keyStats,
         sessionIndex: profile.sessionCounter,
         targetLatencyMs: TARGET_LATENCY[band],
