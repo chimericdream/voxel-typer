@@ -24,6 +24,7 @@ import { createRng } from "../../../../src/engine/rng";
 import { t } from "../../../../src/i18n";
 import type { EngineEvent } from "../../../../src/engine/types";
 import { mode } from "../../../../src/modes/defense";
+import { DIRECTOR_CONSTANTS } from "../../../../src/modes/defense/director";
 import {
   WAVE_END_EVENT,
   WAVE_EVENT,
@@ -80,6 +81,8 @@ interface Rig {
   bus: ReturnType<typeof createEmitter<GameEvents>>;
   /** The one clock: frames and keys both move it. */
   now: number;
+  /** Called after every frame (a test's probe), or null. */
+  afterFrame: (() => void) | null;
   /** Runs frames for `ms` of game time. */
   run(ms: number): void;
   /** Types one key `gapMs` after the last thing that happened. */
@@ -137,10 +140,12 @@ function rig(
     ends: [],
     bus,
     now: 10_000,
+    afterFrame: null,
     run(ms) {
       for (let left = ms; left > 0; left -= 16) {
         r.now += 16;
         r.instance.frame(16, 0);
+        r.afterFrame?.();
         const key = hud.get().banner?.key;
         if (key !== undefined && banners.at(-1) !== key) banners.push(key);
       }
@@ -298,6 +303,71 @@ describe("the night's flow", () => {
     }
   });
 
+  it("sends the first visitor while the dusk banner is still up, and it can be typed then", async () => {
+    for (const profile of [sprout, miner, builder]) {
+      forgetNights();
+      const r = await started(profile);
+      expect(r.until("dusk")).toBe(true);
+      const duskAt = r.now;
+      const announcement = r.hud.get().banner?.key;
+      expect(announcement).toMatch(/^defense\.onTheWay/);
+      let firstAt: number | null = null;
+      while (firstAt === null && r.instance.phase() === "dusk") {
+        r.run(16);
+        if ((r.instance.session()?.targets.length ?? 0) > 0) firstAt = r.now;
+      }
+      expect(firstAt, profile.ageBand).not.toBeNull();
+      expect((firstAt ?? 0) - duskAt).toBeLessThanOrEqual(DIRECTOR_CONSTANTS.maxIdleMs);
+      // Still dusk, the announcement still up, and the visitor's first letter is lit and types.
+      expect(r.instance.phase()).toBe("dusk");
+      expect(r.hud.get().banner?.key).toBe(announcement);
+      const key = r.hud.get().nextKey;
+      expect(key).not.toBeNull();
+      r.type(key ?? "", 50);
+      expect(r.instance.session()?.active?.typed).toBe(1);
+      expect(r.events.some((e) => e.type === "wrong")).toBe(false);
+    }
+  });
+
+  it("never leaves the field empty for longer than maxIdleMs, from dusk to dawn", async () => {
+    // The owner's playtest: never more than about 2–3 s of empty field.
+    expect(DIRECTOR_CONSTANTS.maxIdleMs).toBeLessThanOrEqual(3000);
+    // A quick typist, a slow one, a Sprout's calm night, and a child who never types (Miner and
+    // Builder: a calm night waits for its words for ever).
+    const cases = [
+      { profile: miner, gapMs: 150 },
+      { profile: miner, gapMs: 1500 },
+      { profile: miner, gapMs: null },
+      { profile: sprout, gapMs: 1000 },
+      { profile: builder, gapMs: 400 },
+      { profile: builder, gapMs: null },
+    ] as const;
+    for (const { profile, gapMs } of cases) {
+      forgetNights();
+      const r = await started(profile);
+      // From the first frame of dusk: that is when the night starts.
+      expect(r.until("dusk", 60_000)).toBe(true);
+      let empty = 0;
+      let longest = 0;
+      // Empty: no mob on the field still needs typing (a popping or bonking one doesn't count).
+      r.afterFrame = () => {
+        const phase = r.instance.phase();
+        if (phase !== "dusk" && phase !== "night") return;
+        const open = r.instance.session()?.targets.filter((v) => !v.complete).length ?? 0;
+        empty = open === 0 ? empty + 16 : 0;
+        longest = Math.max(longest, empty);
+      };
+      const end = r.now + 900_000;
+      while (r.results.length === 0 && r.now < end)
+        if (gapMs === null || !r.typeNext(gapMs)) r.run(160);
+      const label = `${profile.ageBand} ${gapMs ?? "idle"}`;
+      expect(r.results, label).toHaveLength(1);
+      expect(longest, label).toBeLessThanOrEqual(DIRECTOR_CONSTANTS.maxIdleMs + 250);
+      // The pause between waves is still there: the field does empty out.
+      expect(longest, label).toBeGreaterThan(1000);
+    }
+  });
+
   it("free play (no lesson) is a three-wave night on the home keys", async () => {
     const r = await started(miner, { lesson: null });
     const result = r.playOut();
@@ -327,8 +397,8 @@ describe("typing", () => {
 
   it("drops a habit space and keys pressed at an empty field: no slip, no broken streak", async () => {
     const r = await started(miner);
-    r.until("night");
-    // Before the first visitor is out: nothing to type.
+    // The start of dusk, before the first visitor is out: nothing to type.
+    r.until("dusk");
     r.type("q", 16);
     r.type(" ", 16);
     while (r.hud.get().nextKey === null) r.run(160);

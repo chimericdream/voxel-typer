@@ -47,6 +47,9 @@ test("lists every model file, and every one is valid", async ({ page }) => {
 test("opens every model and plays every anim, day and night, without console errors", async ({
   page,
 }) => {
+  // Every model times every anim, twice: 24-28 s on CI's software renderer, against the 30 s
+  // default. It grows with each model added, so it gets its own budget (M4-FIX-2).
+  test.setTimeout(90_000);
   const problems = await openLab(page);
   const entries: ModelLabHooks["entries"] = await page.evaluate(() => window.vtLab?.entries ?? []);
   for (const tod of ["day", "night"] as const) {

@@ -33,9 +33,16 @@ export const DAY_MS: Ms = 10_000;
 /** Keys are ignored for this long at the start of the day, so a held key can't skip it unseen. */
 export const DAY_HOLD_MS: Ms = 1500;
 export const DAY_SKIP_MS: Ms = 500;
-/** The dusk announcement stays up this long before the first mob sets out. */
+/**
+ * Dusk: the first wave's announcement stays up this long, then the sky turns to night. The first
+ * wave starts with dusk, so its first mob sets out while the announcement is still up (M4-FIX-2).
+ */
 export const DUSK_MS: Ms = 4000;
-/** The pause between two waves, with the next wave's announcement. */
+/**
+ * The longest pause between two waves, and how long the next wave's announcement stays up. The
+ * pause is shorter in practice: it ends so that the next mob sets out the director's `maxIdleMs`
+ * after the field emptied (M4-FIX-2).
+ */
 export const INTERMISSION_MS: Ms = 3000;
 /** Dawn: the sky brightens, the shield fills, the loot lands. Then Results. */
 export const DAWN_MS: Ms = 4500;
@@ -130,6 +137,14 @@ export interface FieldMob {
   readonly speed: number;
   p: number;
   state: MobState;
+}
+
+/**
+ * True while no mob on the field still needs typing: every one is popping or bonking, or there are
+ * none. That is the "empty field" the director's `maxIdleMs` limits (M4-FIX-2).
+ */
+export function fieldEmpty(mobs: readonly Pick<FieldMob, "state">[]): boolean {
+  return !mobs.some((m) => m.state === "walking" || m.state === "waiting");
 }
 
 /** Calm mode: mobs in one lane wait this far apart, as a share of the lane. */
@@ -341,6 +356,22 @@ export interface PlateBounds {
   readonly top: number;
   readonly right: number;
   readonly bottom: number;
+}
+
+/**
+ * The plates' bounds with their top moved down below `banner` (the HUD's message over the stage),
+ * so a banner never covers a word: the night's first mob sets out while the dusk announcement is
+ * still up (M4-FIX-2). The layout keeps room for a one-line banner already; this covers a taller
+ * one (a large text scale, a narrow screen). With no banner the bounds are unchanged.
+ */
+export function clearOfBanner(
+  bounds: PlateBounds,
+  banner: Pick<PlateBounds, "bottom"> | null,
+  gap: number = PLATE_GAP,
+): PlateBounds {
+  if (banner === null || !Number.isFinite(banner.bottom)) return bounds;
+  const top = Math.min(Math.max(bounds.top, banner.bottom + gap), bounds.bottom);
+  return { ...bounds, top };
 }
 
 /** Plates keep at least this many pixels between them. */
