@@ -19,6 +19,7 @@ import { Pause } from "@/ui/screens/Pause";
 import styles from "./App.module.css";
 import { realClock } from "./clock";
 import { FOOTER_ROUTES, screens } from "./routes";
+import { loadScreen, loadedScreen } from "./screen-cache";
 import type { Route } from "./routes";
 import type { Shell } from "./shell";
 import type { ScreenProps } from "./types";
@@ -47,8 +48,8 @@ function ScreenView({ shell, route }: { shell: Shell; route: Route }) {
   useEffect(() => {
     if (loader === undefined) return undefined;
     let live = true;
-    const p = loader().then((m) => {
-      if (live) setLoaded({ id: route.id, Screen: m.default });
+    const p = loadScreen(loader).then((Screen) => {
+      if (live) setLoaded({ id: route.id, Screen });
     });
     shell.api.whenReady(p);
     return () => {
@@ -56,9 +57,13 @@ function ScreenView({ shell, route }: { shell: Shell; route: Route }) {
     };
   }, [route.id, loader, shell.api]);
 
+  // A screen whose code is already here (a lesson's end screen, fetched as it started) draws in
+  // this very render, not after an effect and a promise (M4-FIX-7). It comes from state or from
+  // the cache, never made here, so it is the same component on each render and keeps its state.
+  const Screen = loaded?.id === route.id ? loaded.Screen : loadedScreen(loader);
   if (loader === undefined) return <Soon shell={shell} />;
-  if (loaded === null || loaded.id !== route.id) return null;
-  const { Screen } = loaded;
+  if (Screen === null) return null;
+  // oxlint-disable-next-line react/static-components -- reason: Screen is a module's default export, read from state or the screen cache; it is never created here
   return <Screen app={shell.api} route={route} />;
 }
 

@@ -378,6 +378,16 @@ export interface PlateWish {
   readonly height: number;
   /** Lower is placed first and so moves least: the locked mob, then the ones nearest the base. */
   readonly order: number;
+  /**
+   * The mob's head on the page ({@link mobHead}). Other plates keep off it (M4-FIX-7): a plate
+   * over another mob's head hides that mob, and a child reads it as gone. Optional.
+   */
+  readonly head?: PlateBounds;
+  /**
+   * The side this plate slid to last frame, if it did (`PlatePlace.side`). While that side still
+   * fits it is kept, so a plate doesn't jump from one side of a head to the other as mobs walk.
+   */
+  readonly side?: -1 | 1;
 }
 
 /** Where a plate went: its top-left corner. */
@@ -387,6 +397,13 @@ export interface PlatePlace {
   readonly top: number;
   readonly width: number;
   readonly height: number;
+  /**
+   * True when no free spot was found and the plate covers another mob's head. The plate layer
+   * marks it (`data-covers`) and leaves it fully opaque: it is a word to read.
+   */
+  readonly covers: boolean;
+  /** Slid sideways past a head: left (−1) or right (1); 0 when it wasn't. */
+  readonly side: -1 | 0 | 1;
 }
 
 export interface PlateBounds {
@@ -415,6 +432,22 @@ export function clearOfBanner(
 /** Plates keep at least this many pixels between them. */
 export const PLATE_GAP = 4;
 
+/** A mob's head box, as shares of its height on the page (top of the model to its feet). */
+export const HEAD_SHARE = 0.4;
+export const HEAD_WIDTH_SHARE = 0.7;
+
+/**
+ * A mob's head on the page: the top {@link HEAD_SHARE} of its height, {@link HEAD_WIDTH_SHARE} of
+ * it wide, centred on `x`. `top` is the model's top and `feet` its feet, CSS px. Null when the mob
+ * has no height on the page.
+ */
+export function mobHead(x: number, top: number, feet: number): PlateBounds | null {
+  const h = feet - top;
+  if (!(h > 0) || !Number.isFinite(h) || !Number.isFinite(x)) return null;
+  const half = (h * HEAD_WIDTH_SHARE) / 2;
+  return { left: x - half, top, right: x + half, bottom: top + h * HEAD_SHARE };
+}
+
 /** Slack for rounding: plates exactly `gap` apart must not count as touching. */
 const EPS = 1e-6;
 
@@ -426,13 +459,17 @@ const overlaps = (a: PlatePlace, b: PlatePlace, gap: number): boolean =>
 
 /**
  * Lays the word plates out so that no two overlap (card: "plates never overlap: a small layout
- * pass nudges them vertically").
+ * pass nudges them vertically"), and so that no plate covers another mob's head (M4-FIX-7).
  *
  * Plates are placed in `order`. Each one starts above its mob, slid sideways just enough to stay
- * inside `bounds`. While it touches a plate already placed it moves straight up, to sit on top of
- * the highest one in its way; if that takes it past the top of `bounds` it goes down from its
- * mob instead; and if there is no room either way it stacks above the bounds rather than cover
- * another word. So the result never has two overlapping plates, whatever the input.
+ * inside `bounds`. While it touches a plate already placed, or another mob's head, it moves
+ * straight up to sit on top of whatever is in the way. When only heads are in the way it may
+ * slide sideways instead, if that is nearer, but never so far that it stops spanning its own
+ * mob's middle. If neither fits inside `bounds`, heads are let go: it is placed clear of the plates
+ * alone, as before M4-FIX-7 (up, else down from its mob), and marked `covers` when it lies on a
+ * head. It never goes down past a head, which would put it on its own mob's body. If even that
+ * has no room it stacks above the bounds rather than cover another word. So the result never has
+ * two overlapping plates, whatever the input.
  */
 export function layoutPlates(
   wishes: readonly PlateWish[],
@@ -450,48 +487,124 @@ export function layoutPlates(
         Number.isFinite(w.y),
     )
     .toSorted((a, b) => a.order - b.order || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const heads = sorted.flatMap((w) =>
+    w.head === undefined ? [] : [{ id: w.id, box: boxOf(w.id, w.head) }],
+  );
   const placed: PlatePlace[] = [];
   for (const w of sorted) {
     const maxLeft = Math.max(bounds.left, bounds.right - w.width);
-    const left = clamp(w.x - w.width / 2, bounds.left, maxLeft);
+    const wishLeft = clamp(w.x - w.width / 2, bounds.left, maxLeft);
     const wishTop = clamp(
       w.y - w.height,
       bounds.top,
       Math.max(bounds.top, bounds.bottom - w.height),
     );
-    const at = (top: number): PlatePlace => ({
+    const at = (top: number, left = wishLeft): PlatePlace => ({
       id: w.id,
       left,
       top,
       width: w.width,
       height: w.height,
+      covers: false,
+      side: 0,
     });
-    const blockers = (p: PlatePlace): PlatePlace[] => placed.filter((q) => overlaps(p, q, gap));
-    // Each step clears every plate in the way and moves strictly on, so it ends within one step
-    // per placed plate. The guard is for arithmetic that could not move a plate at all.
-    const settle = (step: (hit: PlatePlace[]) => number): PlatePlace => {
-      let p = at(wishTop);
-      for (let i = 0; i <= placed.length; i++) {
-        const hit = blockers(p);
+    const wish = at(wishTop);
+    // The point a sideways plate must still span: the mob's middle, or as near it as the bounds let.
+    const middle = clamp(w.x, wishLeft, wishLeft + w.width);
+    const others = heads.filter((h) => h.id !== w.id).map((h) => h.box);
+    const onPlates = (p: PlatePlace): PlatePlace[] => placed.filter((q) => overlaps(p, q, gap));
+    const onHeads = (p: PlatePlace): PlatePlace[] => others.filter((q) => overlaps(p, q, 0));
+    const blockers = (p: PlatePlace, withHeads: boolean): PlatePlace[] =>
+      withHeads ? [...onPlates(p), ...onHeads(p)] : onPlates(p);
+    // Each step clears everything in the way and moves strictly on, so it ends within one step
+    // per obstacle. The guard is for arithmetic that could not move a plate at all.
+    const settle = (
+      withHeads: boolean,
+      step: (hit: PlatePlace[], p: PlatePlace) => PlatePlace | null,
+    ): PlatePlace | null => {
+      let p: PlatePlace | null = wish;
+      const n = placed.length + (withHeads ? others.length : 0);
+      for (let i = 0; i <= n && p !== null; i++) {
+        const hit = blockers(p, withHeads);
         if (hit.length === 0) return p;
-        p = at(step(hit));
+        p = step(hit, p);
       }
-      // Never reached with finite input; if it were, go clear of everything.
-      return at(Math.min(bounds.top, ...placed.map((q) => q.top)) - gap - w.height);
+      return null;
     };
+    const up = (hit: PlatePlace[], p: PlatePlace): PlatePlace =>
+      at(Math.min(...hit.map((q) => q.top)) - gap - w.height, p.left);
+    const down = (hit: PlatePlace[], p: PlatePlace): PlatePlace =>
+      at(Math.max(...hit.map((q) => q.top + q.height)) + gap, p.left);
+    // Sideways, only past heads: a plate in the way is passed by going up, as it always was.
+    const side =
+      (dir: -1 | 1) =>
+      (hit: PlatePlace[], p: PlatePlace): PlatePlace | null => {
+        if (onPlates(p).length > 0) return null;
+        const left =
+          dir < 0
+            ? Math.min(...hit.map((q) => q.left)) - w.width
+            : Math.max(...hit.map((q) => q.left + q.width));
+        return { ...at(p.top, left), side: dir };
+      };
+    const fits = (p: PlatePlace | null): p is PlatePlace =>
+      p !== null &&
+      p.top >= bounds.top - EPS &&
+      p.top + p.height <= bounds.bottom + EPS &&
+      p.left >= bounds.left - EPS &&
+      p.left <= maxLeft + EPS &&
+      p.left <= middle + EPS &&
+      middle <= p.left + p.width + EPS;
+    const moved = (p: PlatePlace): number => Math.hypot(p.left - wish.left, p.top - wish.top);
 
-    // Up: sit on top of whatever is in the way, until nothing is.
-    const up = settle((hit) => Math.min(...hit.map((q) => q.top)) - gap - w.height);
-    if (up.top >= bounds.top) {
-      placed.push(up);
+    const options = [settle(true, up), settle(true, side(-1)), settle(true, side(1))].filter(fits);
+    // The side used last frame wins while it still fits; otherwise the nearest spot.
+    const near =
+      options.find((p) => w.side !== undefined && p.side === w.side) ??
+      options.toSorted((a, b) => moved(a) - moved(b))[0];
+    // Only up or sideways: a plate moved down past a head would land on its own mob's body
+    // (M4-FIX-7 CI, 1024x500). With neither, the old rule below places it, marked if on a head.
+    if (near !== undefined) {
+      placed.push(near);
       continue;
     }
-    // Down: hang under whatever is in the way.
-    const down = settle((hit) => Math.max(...hit.map((q) => q.top + q.height)) + gap);
-    const downOk = down.top + w.height <= bounds.bottom && blockers(down).length === 0;
-    placed.push(downOk ? down : blockers(up).length === 0 ? up : settleAbove(up, placed, gap));
+
+    // No spot clear of the heads: clear of the plates alone, as before M4-FIX-7.
+    const loose = (p: PlatePlace): PlatePlace =>
+      onHeads(p).length > 0 ? { ...p, covers: true } : p;
+    const upOnly = settle(false, up) ?? settleAbove(wish, placed, gap);
+    if (upOnly.top >= bounds.top) {
+      placed.push(loose(upOnly));
+      continue;
+    }
+    const downOnly = settle(false, down);
+    const downOk =
+      downOnly !== null &&
+      downOnly.top + w.height <= bounds.bottom &&
+      onPlates(downOnly).length === 0;
+    placed.push(
+      loose(
+        downOk
+          ? downOnly
+          : onPlates(upOnly).length === 0
+            ? upOnly
+            : settleAbove(upOnly, placed, gap),
+      ),
+    );
   }
   return placed;
+}
+
+/** A head box in the shape of a placed plate, so one overlap test covers both. */
+function boxOf(id: string, b: PlateBounds): PlatePlace {
+  return {
+    id,
+    left: b.left,
+    top: b.top,
+    width: b.right - b.left,
+    height: b.bottom - b.top,
+    covers: false,
+    side: 0,
+  };
 }
 
 /** Last resort: straight above every placed plate. Always free. */

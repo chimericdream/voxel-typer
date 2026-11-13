@@ -17,7 +17,7 @@
  * set (never per frame) and writes only transforms while mobs move.
  */
 import { t } from "@/i18n";
-import { PLATE_GAP, layoutPlates } from "./logic";
+import { PLATE_GAP, layoutPlates, mobHead } from "./logic";
 import type { PlateBounds, PlateWish } from "./logic";
 
 /** How much bigger the locked plate is drawn. */
@@ -70,6 +70,10 @@ interface Plate {
   seen: boolean;
   /** The mob's box last written to `data-mob`. */
   mob: string;
+  /** Marked as lying on another mob's head (`data-covers`). */
+  covers: boolean;
+  /** The side the layout slid it to last frame (0: none), passed back so it keeps that side. */
+  side: -1 | 0 | 1;
 }
 
 const FONT_SIZE = "min(calc(22px * var(--text-scale, 1)), 5.4dvh)";
@@ -161,6 +165,8 @@ export function createPlateLayer(opts: PlateLayerOptions): PlateLayer {
       height: box.height > 0 ? box.height : 32,
       seen: true,
       mob: "",
+      covers: false,
+      side: 0,
     };
     return p;
   };
@@ -219,6 +225,8 @@ export function createPlateLayer(opts: PlateLayerOptions): PlateLayer {
           }
         }
         const scale = p.locked ? LOCKED_SCALE : 1;
+        // The mob's head, which other plates keep off (M4-FIX-7).
+        const box = item.feet === undefined ? null : mobHead(item.x, item.y, item.feet);
         wishes.push({
           id: item.id,
           x: item.x,
@@ -226,6 +234,8 @@ export function createPlateLayer(opts: PlateLayerOptions): PlateLayer {
           width: p.width * scale,
           height: p.height * scale,
           order: item.order,
+          ...(box === null ? {} : { head: box }),
+          ...(p.side === 0 ? {} : { side: p.side }),
         });
       }
       for (const [id, p] of plates) {
@@ -243,6 +253,15 @@ export function createPlateLayer(opts: PlateLayerOptions): PlateLayer {
         // The element keeps its own size; the scale grows it about its middle.
         const cx = place.left + place.width / 2;
         const cy = place.top + place.height / 2;
+        // A plate that found no spot clear of another mob's head is marked for the e2e. It stays
+        // fully opaque: it is a word to read and type, white on the dark plate, and fading it would
+        // drop its contrast (M4-FIX-7 review). The covered mob still has its own plate and stem.
+        p.side = place.side;
+        if (place.covers !== p.covers) {
+          p.covers = place.covers;
+          if (place.covers) p.el.dataset["covers"] = "1";
+          else delete p.el.dataset["covers"];
+        }
         p.el.style.transform = `translate3d(${(cx - p.width / 2).toFixed(1)}px, ${(cy - p.height / 2).toFixed(1)}px, 0) scale(${scale})`;
         // A stem from the plate's bottom middle to the mob, when the plate was moved away.
         const bottom = place.top + place.height;

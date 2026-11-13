@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createSilentAudio } from "../../../src/app/audio";
 import { realClock } from "../../../src/app/clock";
 import { createHudStore } from "../../../src/app/hud";
-import { createShell } from "../../../src/app/shell";
+import { createShell, endScreenOf } from "../../../src/app/shell";
 import type { ShellDeps } from "../../../src/app/shell";
 import type { Settings } from "../../../src/save/settings";
 import { NewerSaveError, createMemoryStore } from "../../../src/save/store";
@@ -140,6 +140,33 @@ describe("app shell", () => {
     // Results replaced play in history, so back goes to the map.
     s.shell.api.back();
     expect(s.shell.route.value.id).toBe("map");
+  });
+
+  it("a lesson fetches the screen it ends on as it starts (M4-FIX-7)", async () => {
+    const preloaded: string[] = [];
+    const s = setup({ preloadScreen: (id) => preloaded.push(id) });
+    const p = fixture("fresh-sprout");
+    await s.store.save(p);
+    s.shell.api.setProfile(p);
+    s.shell.api.navigate({ id: "map" });
+    expect(preloaded).toEqual([]);
+    s.shell.api.navigate({ id: "play", lesson: "meadow-01" });
+    // Asked for on arrival, long before the lesson finishes.
+    expect(preloaded).toEqual(["results"]);
+    await s.shell.ready();
+    s.mode.ctx().finish(result());
+    await flush();
+    expect(s.shell.route.value.id).toBe("results");
+    expect(preloaded).toEqual(["results"]);
+    s.shell.api.navigate({ id: "island" });
+    expect(preloaded).toEqual(["results", "map"]);
+  });
+
+  it("endScreenOf: Results, the map after Builder, its own screen after placement", () => {
+    expect(endScreenOf("meadow-01")).toBe("results");
+    expect(endScreenOf(undefined)).toBe("results");
+    expect(endScreenOf("builder")).toBe("map");
+    expect(endScreenOf("placement")).toBe("placement");
   });
 
   it("play with no profile or an unknown lesson shows the friendly panel", () => {

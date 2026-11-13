@@ -31,6 +31,7 @@ import {
   stageFloor,
   stageRoom,
   layoutPlates,
+  mobHead,
   lockedWpm,
   nextKeyFor,
   NIGHT_CAP_MS,
@@ -382,6 +383,177 @@ describe("scoring a wave", () => {
       count: 2,
     });
     expect(waveAnnouncement({ mobs: [] })).toEqual({ mobId: null, count: 0 });
+  });
+});
+
+const over = (a: PlatePlace, b: PlateBounds): boolean =>
+  a.left < b.right && b.left < a.left + a.width && a.top < b.bottom && b.top < a.top + a.height;
+
+// The review's case (#213 N3): the near mob's plate lands on the head of the mob behind it.
+const shade = (o: Partial<PlateWish> = {}): PlateWish => ({
+  id: "shade",
+  x: 500,
+  y: 294,
+  width: 90,
+  height: 30,
+  order: 0,
+  head: { left: 472, top: 300, right: 528, bottom: 332 },
+  ...o,
+});
+const rugs = (head: PlateBounds, o: Partial<PlateWish> = {}): PlateWish => ({
+  id: "rugs",
+  x: 520,
+  y: head.top - 6,
+  width: 72,
+  height: 30,
+  order: 1,
+  head,
+  ...o,
+});
+
+describe("plates and other mobs' heads (M4-FIX-7)", () => {
+  const bounds: PlateBounds = { left: 0, top: 80, right: 1280, bottom: 360 };
+  it("mobHead: the top 40 % of the mob, 70 % of its height wide", () => {
+    expect(mobHead(500, 200, 300)).toEqual({ left: 465, top: 200, right: 535, bottom: 240 });
+    expect(mobHead(500, 300, 300)).toBeNull();
+    expect(mobHead(Number.NaN, 200, 300)).toBeNull();
+  });
+
+  it("slides a plate off another mob's head when that is nearest, still over its own mob", () => {
+    const head = { left: 502.5, top: 250, right: 537.5, bottom: 270 };
+    const placed = new Map(layoutPlates([shade(), rugs(head)], bounds).map((p) => [p.id, p]));
+    const s = placed.get("shade");
+    // 42.5 px to the left beats 48 px up; the plate still spans the mob's middle (x 500).
+    expect(s).toMatchObject({ left: 412.5, top: 264, covers: false });
+    expect(s && s.left <= 500 && 500 <= s.left + s.width).toBe(true);
+    expect(s && over(s, head)).toBe(false);
+    // The far mob's plate had nothing in its way: it stays at its wish.
+    expect(placed.get("rugs")).toMatchObject({ left: 484, top: 214, covers: false });
+  });
+
+  it("keeps last frame's slide while it still fits, instead of jumping to a nearer spot", () => {
+    // Up is nearer here (36 px) than the slide left (42.5 px).
+    const head = { left: 502.5, top: 262, right: 537.5, bottom: 270 };
+    const fresh = layoutPlates([shade(), rugs(head)], bounds).find((p) => p.id === "shade");
+    expect(fresh).toMatchObject({ left: 455, top: 262 - PLATE_GAP - 30, side: 0 });
+    // Slid left last frame: it stays slid while that still fits.
+    const kept = layoutPlates([shade({ side: -1 }), rugs(head)], bounds).find(
+      (p) => p.id === "shade",
+    );
+    expect(kept).toMatchObject({ left: 412.5, top: 264, side: -1, covers: false });
+    // Once the head has moved away, the slide is let go and the plate goes back over its mob.
+    const away = { left: 800, top: 262, right: 835, bottom: 270 };
+    const back = layoutPlates([shade({ side: -1 }), rugs(away)], bounds).find(
+      (p) => p.id === "shade",
+    );
+    expect(back).toMatchObject({ left: 455, top: 264, side: 0 });
+  });
+
+  it("moves up past a head too wide to slide by, keeping its x", () => {
+    const head = { left: 440, top: 270, right: 560, bottom: 290 };
+    const placed = new Map(
+      layoutPlates([shade(), rugs(head, { x: 500, y: 200 })], bounds).map((p) => [p.id, p]),
+    );
+    expect(placed.get("shade")).toMatchObject({ left: 455, top: 270 - PLATE_GAP - 30 });
+    expect(placed.get("shade")?.covers).toBe(false);
+  });
+
+  it("keeps the order: the first plate keeps its spot; a later one moves for it and the heads", () => {
+    const head = { left: 502.5, top: 250, right: 537.5, bottom: 270 };
+    // The far mob is locked: placed first, at its wish. The near plate works round it.
+    const placed = new Map(
+      layoutPlates([shade({ order: 1 }), rugs(head, { order: -1 })], bounds).map((p) => [p.id, p]),
+    );
+    expect(placed.get("rugs")).toMatchObject({ left: 484, top: 214, covers: false });
+    const s = placed.get("shade");
+    expect(s?.covers).toBe(false);
+    expect(s && over(s, head)).toBe(false);
+  });
+
+  it("with no free spot, lies on the head and says so (covers), never on another plate", () => {
+    const tight: PlateBounds = { left: 0, top: 250, right: 1280, bottom: 300 };
+    const head = { left: 440, top: 262, right: 560, bottom: 285 };
+    const placed = new Map(layoutPlates([shade(), rugs(head)], tight).map((p) => [p.id, p]));
+    // No room above, below or beside: it stays where it wished to be, marked.
+    expect(placed.get("shade")).toMatchObject({ left: 455, top: 264, covers: true });
+    const s = placed.get("shade");
+    const r = placed.get("rugs");
+    if (s && r) expect(touching(s, r, PLATE_GAP)).toBe(false);
+    // Without heads nothing is ever marked.
+    const { head: _a, ...bareShade } = shade();
+    const { head: _b, ...bareRugs } = rugs(head);
+    expect(layoutPlates([bareShade, bareRugs], tight).every((p) => !p.covers)).toBe(true);
+  });
+
+  it("never goes down past a head onto its own mob, even with room below (1024x500 on CI)", () => {
+    // No room above the far mob's head, none beside, plenty below.
+    const short: PlateBounds = { left: 0, top: 250, right: 1280, bottom: 420 };
+    const head = { left: 440, top: 262, right: 560, bottom: 285 };
+    const s = layoutPlates([shade(), rugs(head)], short).find((p) => p.id === "shade");
+    // It stays over its own mob, marked, instead of hanging under the heads on its mob's body.
+    expect(s).toMatchObject({ left: 455, top: 264, covers: true, side: 0 });
+    expect(s && s.top + s.height <= 300).toBe(true);
+  });
+
+  it("never overlap, and any plate on another mob's head is marked (property)", () => {
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.record({
+            x: fc.double({ min: 0, max: 1280, noNaN: true }),
+            top: fc.double({ min: 60, max: 380, noNaN: true }),
+            tall: fc.double({ min: 20, max: 90, noNaN: true }),
+            width: fc.double({ min: 30, max: 220, noNaN: true }),
+            order: fc.integer({ min: -1, max: 30 }),
+          }),
+          { maxLength: 16 },
+        ),
+        (raw) => {
+          const wishes: PlateWish[] = raw.map((m, i) => {
+            const head = mobHead(m.x, m.top, m.top + m.tall);
+            return {
+              id: `m${i}`,
+              x: m.x,
+              y: m.top - 6,
+              width: m.width,
+              height: 30,
+              order: m.order,
+              ...(head === null ? {} : { head }),
+            };
+          });
+          const placed = layoutPlates(wishes, bounds);
+          expect(placed).toHaveLength(wishes.length);
+          for (let i = 0; i < placed.length; i++)
+            for (let j = i + 1; j < placed.length; j++) {
+              const a = placed[i];
+              const b = placed[j];
+              if (a && b) expect(touching(a, b, PLATE_GAP), `${a.id} over ${b.id}`).toBe(false);
+            }
+          for (const p of placed) {
+            const onHead = wishes.some(
+              (w) => w.id !== p.id && w.head !== undefined && over(p, w.head),
+            );
+            if (onHead) expect(p.covers, `${p.id} covers a head unmarked`).toBe(true);
+          }
+        },
+      ),
+      { seed: 7216, numRuns: 400 },
+    );
+  });
+
+  it("most plates find a spot clear of every head on a normal night", () => {
+    // Three lanes, mobs at a few depths: about what 1024×600 draws.
+    const wishes: PlateWish[] = [];
+    let i = 0;
+    for (const x of [300, 512, 724])
+      for (const top of [140, 200, 260]) {
+        const tall = 30 + (top - 140) / 3;
+        const head = mobHead(x, top, top + tall);
+        if (head === null) continue;
+        wishes.push({ id: `m${i}`, x, y: top - 6, width: 80, height: 28, order: i++, head });
+      }
+    const placed = layoutPlates(wishes, { left: 0, top: 40, right: 1024, bottom: 340 });
+    expect(placed.filter((p) => p.covers).length).toBeLessThanOrEqual(1);
   });
 });
 

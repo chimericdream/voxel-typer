@@ -323,6 +323,42 @@ describe("word plates", () => {
     plates.dispose();
   });
 
+  it("marks a plate that has to lie on another mob's head, and keeps it fully opaque (M4-FIX-7)", () => {
+    const { plates, host } = layer();
+    // Too little room to move: the near mob's plate (90 × 32 here) can only sit on the far mob's
+    // head, right behind it.
+    const tight = { left: 0, top: 250, right: 1280, bottom: 300 };
+    const near = (o: Partial<PlateItem> = {}): PlateItem =>
+      item("shade", { word: "shade", x: 400, y: 300, feet: 380, ...o });
+    const far = item("rugs", { word: "rugs", x: 400, y: 262, feet: 330, order: 1 });
+    const el = (word: string): HTMLElement | null =>
+      host.querySelector<HTMLElement>(`.vt-defense-plate[data-word="${word}"]`);
+    // White letters on the dark plate must keep their contrast: no opacity on the plate, and every
+    // letter not typed yet at full strength.
+    const opaque = (word: string): void => {
+      const plate = el(word);
+      expect(plate?.style.opacity).toBe("");
+      // Nor on the layer around it.
+      expect(plate?.closest<HTMLElement>(".vt-defense-plates")?.style.opacity).toBe("");
+      const typed = Number(plate?.dataset["typed"] ?? 0);
+      const chars = [...(plate?.querySelectorAll<HTMLElement>("span") ?? [])];
+      expect(chars.length).toBe(word.length);
+      chars.forEach((c, i) => expect(c.style.opacity).toBe(i < typed ? "0.55" : "1"));
+    };
+    plates.sync([near(), far], tight);
+    expect(el("shade")?.dataset["covers"]).toBe("1");
+    opaque("shade");
+    // Locked, the same: marked, and its word and frame at full strength.
+    plates.sync([near({ locked: true, typed: 2, order: -1 }), far], tight);
+    expect(el("shade")?.dataset["covers"]).toBe("1");
+    opaque("shade");
+    // With room, it moves off the head instead, and the mark goes.
+    plates.sync([near(), far], bounds);
+    expect(el("shade")?.hasAttribute("data-covers")).toBe(false);
+    opaque("shade");
+    plates.dispose();
+  });
+
   it("marks the locked plate with a frame and a bigger size, and the typed chars", () => {
     const { plates, host } = layer();
     plates.sync([item("a", { locked: true, typed: 2 })], bounds);
