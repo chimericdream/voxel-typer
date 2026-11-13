@@ -74,10 +74,14 @@ import {
   stampOrigin,
   startCursor,
   restorePalette,
+  ringCells,
+  ringsToAdd,
   steadyPalette,
   turn,
+  wholeIslandPose,
 } from "./logic";
 import type { Cell, CellBox, Pose, Quarter } from "./logic";
+import { captureIsland, saveFile, snapshotFileName } from "./snapshot";
 import { createBuilderView } from "./view";
 import type { BuilderView } from "./view";
 
@@ -95,9 +99,15 @@ export const HINT_MS: Ms = 5000;
 /** Camera glides: following the cursor, and a quarter turn. Snaps under reduced motion. */
 const FOLLOW_MS: Ms = 220;
 const TURN_MS: Ms = 360;
+/**
+ * The expansion ceremony (M4-08): the camera sweeps out to show the whole island, each new ring
+ * appears in turn, and the camera comes back. All of it is instant under reduced motion.
+ */
+export const SWEEP_MS: Ms = 1600;
+export const RING_MS: Ms = 900;
 
 export interface BuilderOptions {
-  /** The blueprints on offer. Default: {@link blueprintsFor} (none until M4-08). */
+  /** The blueprints on offer. Default: {@link blueprintsFor} (the unlocked ones). */
   blueprints?: readonly BuilderBlueprint[];
   /** Where the arrow and Page keys come from. Default: `window` when there is one. */
   keys?: NavTarget | null;
@@ -140,6 +150,8 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
     blocks: placeable,
     blueprints: blueprints.map((b) => b.typedName),
     band,
+    // A picture needs the 3D scene; the 2D fallback has none to take.
+    photo: scene.three !== null,
   });
   const nameOf = (id: BlockId): string => {
     const def = defById.get(id);
@@ -170,6 +182,13 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
    */
   let edited = false;
   let sinceSave: Ms = 0;
+  /**
+   * Rings the island is owed for completed biomes (M4-08). With motion they appear in the
+   * ceremony once the island is on screen; under reduced motion (and `?frozen`) at once, below.
+   */
+  const owed = editor === null ? [] : ringsToAdd(profile, editor.expansions);
+  /** Rings added this visit. */
+  let grew = 0;
   const touches = createTouchLog(UNDO_LIMIT);
 
   /**
@@ -294,7 +313,8 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
     habitLeft = 0;
   };
 
-  const live = (): boolean => status === "ready" && !paused && !left && !disposed;
+  const live = (): boolean =>
+    status === "ready" && !paused && !left && !disposed && ceremony === null;
 
   // --- HUD ---
 
@@ -328,6 +348,8 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
       layer: cursor.y + 1,
       facing: facing(quarter),
       undo: editor?.undoDepth ?? 0,
+      plans: blueprints.map((b) => b.typedName),
+      photo: scene.three !== null,
     };
     hud.set({ custom: { ...hud.get().custom, [BUILDER_SLICE]: slice } });
   };
@@ -371,6 +393,82 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
         for (let x = box.min.x; x <= box.max.x; x++) scene.markDirty(x, y, z);
       }
     }
+  };
+
+  // --- expansions (M4-08) ---
+
+  /**
+   * Adds the next ring the island is owed. `show` redraws it (the island is on screen). An
+   * expansion changes the island, so it is saved like an edit; it is not an undo step.
+   */
+  const grow = (show: boolean): boolean => {
+    const biome = owed.shift();
+    if (biome === undefined || editor === null) return false;
+    if (!editor.expand(biome)) {
+      owed.length = 0;
+      return false;
+    }
+    edited = true;
+    grew += 1;
+    if (!show) return true;
+    if (canMarkDirty(scene)) {
+      for (const c of ringCells(editor.expansions)) scene.markDirty(c.x, c.y, c.z);
+    } else {
+      redraw(null);
+    }
+    return true;
+  };
+
+  /** Where the ceremony is: sweeping out, showing rings, coming back. Null when not running. */
+  let ceremony: { step: "out" | "rings" | "back"; left: Ms } | null = null;
+
+  /** Bursts of grass at the new ring's corners, and a cheer. */
+  const cheerRing = (): void => {
+    if (editor === null) return;
+    const f = editor.footprint;
+    for (const [x, z] of [
+      [f.x0, f.z0],
+      [f.x1, f.z0],
+      [f.x0, f.z1],
+      [f.x1, f.z1],
+    ] as const) {
+      scene.fx.burst({ x, y: 6, z }, { blockId: "grass", count: 10, speed: 0.8 });
+    }
+    audio.sfx("star", { gain: 0.5 });
+    say({ key: "builder.hint.grew" }, "cheer");
+  };
+
+  const startCeremony = (): void => {
+    const camera = scene.camera;
+    if (owed.length === 0) return;
+    ceremony = { step: "out", left: SWEEP_MS };
+    if (canMoveTo(camera)) {
+      camera.moveTo(wholeIslandPose(cameraPose(target, quarter, zoom), Math.PI / 2), {
+        durationMs: SWEEP_MS,
+      });
+    }
+  };
+
+  const stepCeremony = (): void => {
+    if (ceremony === null) return;
+    if (owed.length > 0 && grow(true)) {
+      cheerRing();
+      ceremony = { step: "rings", left: RING_MS };
+    } else if (ceremony.step !== "back") {
+      applyCamera(SWEEP_MS);
+      ceremony = { step: "back", left: SWEEP_MS };
+    } else {
+      ceremony = null;
+    }
+    publish();
+  };
+
+  /** Ends the ceremony now: every ring owed is added and the camera is back. */
+  const finishCeremony = (): void => {
+    if (ceremony === null) return;
+    while (grow(true));
+    ceremony = null;
+    applyCamera(0);
   };
 
   // --- commands ---
@@ -538,6 +636,43 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
     afterEdit(box);
   };
 
+  /** True while a picture is being made, so a second `photo` waits for it. */
+  let snapping = false;
+
+  /** `photo`: saves a picture of the island to the downloads, with the cursor hidden. */
+  const photo = (): void => {
+    const three = scene.three;
+    if (three === null || snapping) return;
+    snapping = true;
+    say({ key: "builder.hint.photoSaving" });
+    audio.sfx("click");
+    let shot: Promise<Blob | null>;
+    try {
+      shot = captureIsland(three, () => {
+        view?.setShown(false);
+        return () => view?.setShown(true);
+      });
+    } catch (err) {
+      shot = Promise.reject(err instanceof Error ? err : new Error(String(err)));
+    }
+    // The picture was drawn at a bigger size: draw the screen again.
+    scene.requestRender();
+    shot
+      .then((blob) => {
+        if (blob === null) throw new Error("no picture");
+        saveFile(blob, snapshotFileName(ctx.clock.epoch()));
+        if (!disposed) say({ key: "builder.hint.photoSaved" }, "cheer");
+      })
+      .catch((err: unknown) => {
+        console.warn("[builder] the picture did not save", err);
+        if (!disposed) say({ key: "builder.hint.photoFailed" });
+      })
+      .finally(() => {
+        snapping = false;
+        if (!disposed && status === "ready") publish();
+      });
+  };
+
   const run = (command: Command): void => {
     switch (command.kind) {
       case "put":
@@ -557,6 +692,9 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
         break;
       case "blueprint":
         stamp(command.name);
+        break;
+      case "photo":
+        photo();
         break;
       default:
         break;
@@ -615,13 +753,16 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
     applyCamera(0);
     showCursor();
     const first = armed === null ? null : vocab.wordOf(armed);
-    say(
-      first === null || first === undefined
-        ? { key: "builder.hint.welcomeEmpty" }
-        : { key: "builder.hint.welcome", params: { word: first } },
-    );
+    if (grew > 0) say({ key: "builder.hint.grew" }, "cheer");
+    else
+      say(
+        first === null || first === undefined
+          ? { key: "builder.hint.welcomeEmpty" }
+          : { key: "builder.hint.welcome", params: { word: first } },
+      );
     // The welcome line stays until the first key.
     hintLeft = Number.POSITIVE_INFINITY;
+    startCeremony();
     publish();
   };
 
@@ -630,6 +771,8 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
       scene.setEnvironment({ biome: "meadow", timeOfDay: "day" });
       publish();
       if (editor === null) return;
+      // Without motion the new land is simply there when the island appears.
+      if (reduced() || frozen) while (grow(false));
       scene.loadDiorama("island", editor.grid).then(ready, (err: unknown) => {
         console.warn("[builder] the island did not draw; building without the picture", err);
         ready();
@@ -691,6 +834,10 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
     frame(dtMs: Ms) {
       if (disposed || status !== "ready") return;
       view?.frame(dtMs);
+      if (ceremony !== null) {
+        ceremony.left -= dtMs;
+        if (ceremony.left <= 0) stepCeremony();
+      }
       if (hintLeft > 0 && Number.isFinite(hintLeft)) {
         hintLeft -= dtMs;
         if (hintLeft <= 0) {
@@ -716,6 +863,7 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
       keys = [];
       quiet = [];
       habitLeft = 0;
+      finishCeremony();
       if (status === "ready") publish();
       // A pause is also what a hidden or closing tab looks like: save now.
       autosave();
@@ -728,6 +876,7 @@ export function create(ctx: ModeContext, opts: BuilderOptions = {}): BuilderInst
     leave() {
       if (left) return;
       left = true;
+      finishCeremony();
       emit(session.end(ctx.clock.now()));
       if (summary === null) return;
       const last = edited || slotsMoved() ? patch() : null;

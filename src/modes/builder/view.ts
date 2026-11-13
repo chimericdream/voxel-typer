@@ -53,6 +53,8 @@ export interface BuilderView {
   /** Shows block `blockNum` at `cell`, or hides the ghost when either is null. */
   setGhost(blockNum: number | null, cell: Cell | null): void;
   /** Advances the breath. Returns true while the frame is moving. */
+  /** Shows or hides the cursor and the ghost together (hidden for a snapshot). */
+  setShown(on: boolean): void;
   frame(dtMs: Ms): boolean;
   dispose(): void;
 }
@@ -182,6 +184,9 @@ export function createBuilderView(opts: BuilderViewOptions): BuilderView {
       ghost.geometry = geometryOf(blockNum, atlas);
       ghost.position.set(cell.x, cell.y, cell.z);
       ghost.visible = true;
+    },
+    setShown(on) {
+      root.visible = on;
     },
     frame(dtMs) {
       if (opts.frozen || opts.reducedMotion()) {

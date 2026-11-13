@@ -13,6 +13,7 @@ const NAMES = [
   "veteran-builder",
   "a11y-contrast",
   "full-bag-miner",
+  "island-builder",
 ] as const;
 
 function fixture(name: string): Profile {

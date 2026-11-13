@@ -28,6 +28,7 @@ import builder from "./builder";
 import defense from "./defense";
 import remedial from "./remedial";
 import parent from "./parent";
+import blueprints from "./blueprints";
 import inventory from "./inventory";
 
 const en = {
@@ -54,6 +55,7 @@ const en = {
   defense,
   remedial,
   parent,
+  blueprints,
   inventory,
 } as const;
 

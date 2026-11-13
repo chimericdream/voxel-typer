@@ -47,6 +47,10 @@ export interface BuilderHudSlice {
   facing: Direction;
   /** Undo steps available. */
   undo: number;
+  /** The words of the blueprints on offer, in listing order (M4-08). */
+  plans?: readonly string[];
+  /** True when `photo` saves a picture here (M4-08). */
+  photo?: boolean;
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
