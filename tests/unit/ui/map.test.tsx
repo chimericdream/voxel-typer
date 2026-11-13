@@ -11,6 +11,7 @@ import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { applyResult } from "../../../src/app/progress";
 import { lessons as shipped } from "../../../src/content/lessons";
+import { REMEDIAL_EVERY } from "../../../src/engine/remedial";
 import { t } from "../../../src/i18n";
 import en from "../../../src/i18n/en";
 import type { Profile } from "../../../src/save/schema";
@@ -74,7 +75,7 @@ function played(profile: Profile, id: string, stars: 0 | 1 | 2 | 3): Profile {
   return applyResult(profile, lesson, result({ stars, summary: summary({ lessonId: id }) }), 1);
 }
 
-/** `p` with a shaky `d`, at session `at` (sessions 0, 3, 6, … are remedial offer slots). */
+/** `p` with a shaky `d`, at session `at` (sessions 0, 4, 8, … are remedial offer slots). */
 const weakD = (p: Profile, at: number = p.sessionCounter): Profile => ({
   ...p,
   sessionCounter: at,
@@ -254,7 +255,7 @@ describe("map logic", () => {
 
   it("while a remedial is due, the next lesson still pulses and the camp sits beside it (M3-06)", () => {
     expect(practiceCamp(sprout, lessons, "meadow")).toBeNull();
-    const shaky = weakD(played(played(sprout, "meadow-01", 2), "meadow-02", 2), 3);
+    const shaky = weakD(played(played(sprout, "meadow-01", 2), "meadow-02", 2), REMEDIAL_EVERY);
     expect(practiceCamp(shaky, lessons, "birch")).toBeNull();
     const camp = practiceCamp(shaky, lessons, "meadow");
     expect(camp?.label).toBe(
@@ -280,7 +281,7 @@ describe("map logic", () => {
       sprout,
     );
     expect(done.progress.unlockedBiomes).toContain("birch");
-    const p = weakD(done, 30);
+    const p = weakD(done, 8 * REMEDIAL_EVERY);
     expect(practiceCamp(p, twoBiomes, "meadow")).toBeNull();
     const camp = practiceCamp(p, twoBiomes, "birch");
     expect(camp).not.toBeNull();
@@ -293,23 +294,23 @@ describe("map logic", () => {
     expect(startIsland(infos)).toBe("birch");
   });
 
-  it("a camp passed by stays away for three sessions, then comes back (M3-06)", () => {
-    let p = weakD(played(played(sprout, "meadow-01", 2), "meadow-02", 2), 3);
+  it("a camp passed by stays away for four sessions, then comes back (M3-06, M3-FIX-11)", () => {
+    let p = weakD(played(played(sprout, "meadow-01", 2), "meadow-02", 2), REMEDIAL_EVERY);
     expect(practiceCamp(p, lessons, "meadow")).not.toBeNull();
     // The child plays lessons instead; `d` stays shaky (the helper's summaries only type `f`).
-    p = played(p, "meadow-03", 2);
-    expect(practiceCamp(p, lessons, "meadow")).toBeNull();
-    p = played(p, "meadow-04", 2);
-    expect(practiceCamp(p, lessons, "meadow")).toBeNull();
-    p = played(p, "meadow-05", 2);
-    expect(p.sessionCounter).toBe(6);
+    for (const id of ["meadow-03", "meadow-04", "meadow-05"]) {
+      p = played(p, id, 2);
+      expect(practiceCamp(p, lessons, "meadow")).toBeNull();
+    }
+    p = played(p, "meadow-05", 3);
+    expect(p.sessionCounter).toBe(2 * REMEDIAL_EVERY);
     expect(practiceCamp(p, lessons, "meadow")).not.toBeNull();
     // The stones never stopped pointing ahead.
     expect(recommendedLesson(p, lessons)?.id).toBe("meadow-06");
   });
 
   it("the practice camp opens its remedial lesson's intro, which the shell can find (M3-06)", async () => {
-    const shaky = weakD(played(played(sprout, "meadow-01", 2), "meadow-02", 2), 3);
+    const shaky = weakD(played(played(sprout, "meadow-01", 2), "meadow-02", 2), REMEDIAL_EVERY);
     const s = await openMap(shaky);
     void act(() => island(s.root, "meadow").click());
     await s.settle();

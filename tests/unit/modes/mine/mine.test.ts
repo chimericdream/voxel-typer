@@ -16,10 +16,12 @@ import type { AudioApi, SfxName } from "../../../../src/audio/types";
 import { lessons } from "../../../../src/content/lessons";
 import type { Lesson } from "../../../../src/content/lessons/types";
 import { meadowLoot } from "../../../../src/content/loot/meadow";
+import { wordPools } from "../../../../src/content/wordlists/pools";
 import { createRng } from "../../../../src/engine/rng";
 import type { EngineEvent } from "../../../../src/engine/types";
 import { mode } from "../../../../src/modes/mine";
-import { create, focusKeys } from "../../../../src/modes/mine/mine";
+import { focusKeys, planLesson } from "../../../../src/modes/mine/logic";
+import { create } from "../../../../src/modes/mine/mine";
 import type { MineHudSlice, MineInstance } from "../../../../src/modes/mine/mine";
 import type { ModeContext, ModeResult } from "../../../../src/modes/types";
 import type { Profile } from "../../../../src/save/schema";
@@ -273,6 +275,27 @@ describe("mine mode: starting", () => {
     expect(words.length).toBeGreaterThan(5);
     for (const w of words) expect(w).toMatch(/^[asdfjkl]+$/);
     expect(b.hud.get().banner).toEqual({ key: "mine.startWord", tone: "info" });
+  });
+
+  it("plays the blocks planLesson makes, the function the progression study shares (M3-FIX-11)", async () => {
+    for (const [id, p] of [
+      ["meadow-01", sprout],
+      ["meadow-05", miner],
+    ] as const) {
+      const r = await started(id, p);
+      const planned = planLesson({
+        lessons,
+        lesson: lessonById(id),
+        band: p.ageBand,
+        profile: p,
+        calm: p.settings.calmMode,
+        pools: wordPools,
+        rng: createRng(7),
+      });
+      expect((r.instance.session()?.targets ?? []).map((t) => t.text)).toEqual(
+        planned.targets.map((t) => t.text),
+      );
+    }
   });
 
   it("takes the start hint away at the first correct key, or after a while", async () => {
