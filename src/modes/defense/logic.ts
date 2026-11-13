@@ -35,7 +35,11 @@ export const DAY_HOLD_MS: Ms = 1500;
 export const DAY_SKIP_MS: Ms = 500;
 /** The dusk announcement stays up this long before the first mob sets out. */
 export const DUSK_MS: Ms = 4000;
-/** The pause between two waves, with the next wave's announcement. */
+/**
+ * The longest pause between two waves, and how long the next wave's announcement stays up. The
+ * pause is shorter in practice: it ends so that the next mob sets out the director's `maxIdleMs`
+ * after the field emptied (M4-FIX-2).
+ */
 export const INTERMISSION_MS: Ms = 3000;
 /** Dawn: the sky brightens, the shield fills, the loot lands. Then Results. */
 export const DAWN_MS: Ms = 4500;
@@ -130,6 +134,14 @@ export interface FieldMob {
   readonly speed: number;
   p: number;
   state: MobState;
+}
+
+/**
+ * True while no mob on the field still needs typing: every one is popping or bonking, or there are
+ * none. That is the "empty field" the director's `maxIdleMs` limits (M4-FIX-2).
+ */
+export function fieldEmpty(mobs: readonly Pick<FieldMob, "state">[]): boolean {
+  return !mobs.some((m) => m.state === "walking" || m.state === "waiting");
 }
 
 /** Calm mode: mobs in one lane wait this far apart, as a share of the lane. */

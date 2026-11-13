@@ -130,7 +130,11 @@ async function lockFirst(page: Page, chars: number): Promise<void> {
 test("a Miner's night plays from day to dawn inside the draw-call budget", async ({
   page,
 }, info) => {
-  test.setTimeout(420_000);
+  // A whole night runs on game time, and CI's software renderer draws frames slowly, so game time
+  // runs well behind the wall clock: on main this test took 6.1-7.2 min against 7 (M4-FIX-2). The
+  // pacing fix cut the night itself by about a third (124 s to 82 s of game time at 300 ms a
+  // key), and this budget keeps a third in hand on top of the slowest run seen.
+  test.setTimeout(600_000);
   const errors = collectErrors(page);
   await toDusk(page, info, "profile=meadow-done-miner", "miner");
   const app = page.locator("#app");

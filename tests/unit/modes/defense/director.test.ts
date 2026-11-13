@@ -11,8 +11,10 @@ import { createRng } from "../../../../src/engine/rng";
 import {
   DIRECTOR_CONSTANTS as C,
   accuracyTargetFor,
+  breakMs,
   controllerStep,
   createDirector,
+  idlePullMs,
   initialControllerState,
   laneCount,
   mobTiming,
@@ -391,6 +393,51 @@ describe("waves", () => {
       highFast += classCount(1.6, "fast", i);
     }
     expect(lowFast).toBeLessThan(highFast);
+  });
+});
+
+describe("pacing (M4-FIX-2)", () => {
+  it("has one maxIdleMs for every band, 2.5 s", () => {
+    expect(C.maxIdleMs).toBe(2500);
+  });
+
+  it("brings the next mob forward so it sets out at most maxIdleMs after the field emptied", () => {
+    // Just emptied, next mob 10 s away: it comes in 2.5 s instead.
+    expect(idlePullMs(10_000, 0)).toBe(7500);
+    // Empty for 2 s already, next mob 4 s away: 0.5 s left.
+    expect(idlePullMs(4000, 2000)).toBe(3500);
+    // Empty for longer than maxIdleMs: at once.
+    expect(idlePullMs(4000, 9000)).toBe(4000);
+    // Due soon anyway: nothing moves.
+    expect(idlePullMs(1000, 0)).toBe(0);
+    // A mob still to type on the field, or no next mob: nothing moves.
+    expect(idlePullMs(10_000, null)).toBe(0);
+    expect(idlePullMs(Infinity, 0)).toBe(0);
+  });
+
+  it("never holds a mob back and never pulls it past now (property)", () => {
+    fc.assert(
+      fc.property(
+        fc.double({ min: -1e6, max: 1e6, noNaN: true }),
+        fc.option(fc.double({ min: -1e6, max: 1e6, noNaN: true })),
+        (until, empty) => {
+          const pull = idlePullMs(until, empty);
+          expect(pull).toBeGreaterThanOrEqual(0);
+          expect(pull).toBeLessThanOrEqual(Math.max(0, until));
+          // After the pull, the next mob is due within what is left of maxIdleMs.
+          if (empty !== null && until - pull > 0)
+            expect(until - pull + Math.max(0, empty)).toBeLessThanOrEqual(C.maxIdleMs + 1e-6);
+        },
+      ),
+      { seed: 42, numRuns: 500 },
+    );
+  });
+
+  it("ends the pause between waves so the next first mob comes maxIdleMs after the field emptied", () => {
+    expect(breakMs(0, C.firstSpawnMs)).toBe(C.maxIdleMs - C.firstSpawnMs);
+    expect(breakMs(500, C.firstSpawnMs)).toBe(C.maxIdleMs - C.firstSpawnMs - 500);
+    expect(breakMs(5000, C.firstSpawnMs)).toBe(0);
+    expect(breakMs(Number.NaN, C.firstSpawnMs)).toBe(C.maxIdleMs - C.firstSpawnMs);
   });
 });
 

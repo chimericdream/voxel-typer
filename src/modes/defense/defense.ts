@@ -68,7 +68,7 @@ import type { Flight } from "../mine/logic";
 import { createLootFly } from "../mine/loot-fly";
 import type { LootFly } from "../mine/loot-fly";
 import type { ModeContext, ModeInstance } from "../types";
-import { createDirector } from "./director";
+import { breakMs, createDirector, idlePullMs } from "./director";
 import type { WaveSpec } from "./director";
 import {
   BAND_LANES,
@@ -83,6 +83,7 @@ import {
   baselineAccuracy,
   bonkShield,
   emptyTally,
+  fieldEmpty,
   fitLaneView,
   laneSlot,
   lockedWpm,
@@ -247,6 +248,11 @@ export function create(ctx: ModeContext): DefenseInstance {
   let nextSpawn = 0;
   let spawnClock: Ms = 0;
   let intermissionLeft: Ms = 0;
+  /**
+   * How long the field has had no mob left to type, in night time (waves and the pauses between
+   * them). The next mob never waits for more than `maxIdleMs` of it (M4-FIX-2).
+   */
+  let emptyMs: Ms = 0;
   let wavesDone = 0;
   let tally: WaveTally = emptyTally();
   /** Mobs of the current wave that are gone (typed or bonked, their anim over). */
@@ -369,6 +375,7 @@ export function create(ctx: ModeContext): DefenseInstance {
       state: "walking",
     };
     field.push(mob);
+    emptyMs = 0;
     seqOf.set(mob.id, spawnSeq);
     // Each mob is a lockOn target, added on spawn. No trailing space: its last char sends it home.
     session.addTargets([{ id: mob.id, text: mob.word, trailingSpace: false, priority: spawnSeq }]);
@@ -487,7 +494,11 @@ export function create(ctx: ModeContext): DefenseInstance {
       return;
     }
     nextWave = director.nextWave();
-    intermissionLeft = INTERMISSION_MS;
+    // The pause ends so that the next wave's first mob comes `maxIdleMs` after the field emptied.
+    intermissionLeft = Math.min(
+      INTERMISSION_MS,
+      breakMs(emptyMs, nextWave.mobs[0]?.spawnAtMs ?? 0),
+    );
     announce(nextWave, INTERMISSION_MS);
   };
 
@@ -497,6 +508,10 @@ export function create(ctx: ModeContext): DefenseInstance {
     tally.activeMs += dtMs;
     // Calm mode: nobody new sets out while a few friends are already waiting.
     if (!w.calm || field.length < CALM_MAX_LIVE) spawnClock += dtMs;
+    // An empty field brings the next mob forward, and the rest of the wave with it.
+    const upcoming = w.mobs[nextSpawn];
+    if (upcoming !== undefined)
+      spawnClock += idlePullMs(upcoming.spawnAtMs - spawnClock, fieldEmpty(field) ? emptyMs : null);
     while (nextSpawn < w.mobs.length) {
       const m = w.mobs[nextSpawn];
       if (m === undefined || m.spawnAtMs > spawnClock) break;
@@ -527,6 +542,7 @@ export function create(ctx: ModeContext): DefenseInstance {
   const toNight = (): void => {
     phase = "night";
     setTime("night");
+    emptyMs = 0;
     startWave();
   };
 
@@ -845,7 +861,8 @@ export function create(ctx: ModeContext): DefenseInstance {
         phaseLeft -= dtMs;
         if (phaseLeft <= 0) toNight();
       } else if (phase === "night") {
-        if (intermissionLeft > 0) {
+        emptyMs = fieldEmpty(field) ? emptyMs + dtMs : 0;
+        if (wave === null) {
           intermissionLeft -= dtMs;
           if (intermissionLeft <= 0) startWave();
         } else {

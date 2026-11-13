@@ -28,6 +28,7 @@ import {
   nightWaves,
   projectLane,
   stepMobs,
+  fieldEmpty,
   waveAnnouncement,
   waveFeedback,
 } from "../../../../src/modes/defense/logic";
@@ -221,6 +222,15 @@ describe("mobs", () => {
       complete: false,
     };
     expect(nextKeyFor(active, [far, near])).toBe("a");
+  });
+});
+
+describe("the empty field (M4-FIX-2)", () => {
+  it("is empty while no mob still needs typing", () => {
+    expect(fieldEmpty([])).toBe(true);
+    expect(fieldEmpty([{ state: "popping" }, { state: "bonking" }])).toBe(true);
+    expect(fieldEmpty([{ state: "popping" }, { state: "walking" }])).toBe(false);
+    expect(fieldEmpty([{ state: "waiting" }])).toBe(false);
   });
 });
 
