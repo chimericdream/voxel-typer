@@ -8,7 +8,7 @@ import { act } from "preact/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { blocks } from "../../../src/content/blocks";
 import { createIsland, islandBlocks } from "../../../src/engine/island";
-import { t } from "../../../src/i18n";
+import { setLocale, t } from "../../../src/i18n";
 import type { Profile } from "../../../src/save/schema";
 import type { SaveProblem } from "../../../src/save/problems";
 import {
@@ -20,9 +20,10 @@ import {
   readExportFile,
 } from "../../../src/save/store";
 import type { ExportFileEntry } from "../../../src/save/store";
-import { ImportExport } from "../../../src/ui/components/ImportExport";
+import { ImportExport, dateText } from "../../../src/ui/components/ImportExport";
 import {
   exportFileName,
+  hasIsland,
   idsInExport,
   islandOk,
   lastPlayed,
@@ -264,6 +265,26 @@ describe("helpers", () => {
     expect(lastPlayed({ ...p, history: [], progress: { ...p.progress, lessons: {} } })).toBe(
       p.createdAt,
     );
+  });
+});
+
+describe("dateText (review N5)", () => {
+  afterEach(() => setLocale("en"));
+
+  it("formats in the game's locale, not the browser's", () => {
+    const at = Date.UTC(2026, 10, 12, 12, 0, 0);
+    expect(dateText(at)).toBe(new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(at));
+    expect(dateText(at, "de")).toBe(
+      new Intl.DateTimeFormat("de", { dateStyle: "medium" }).format(at),
+    );
+    // The pseudo-locale has no date rules of its own; it reads like English.
+    setLocale("en-XA");
+    expect(dateText(at)).toMatch(/2026/);
+  });
+
+  it("hasIsland: an island, or none yet", () => {
+    expect(hasIsland(withIsland(fixture("fresh-builder")))).toBe(true);
+    expect(hasIsland({ ...fixture("fresh-builder"), island: null })).toBe(false);
   });
 });
 
@@ -550,6 +571,33 @@ describe("ImportExport: import", () => {
     await click(s, t("importexport.import.go"));
     expect(outcomes(s)).toEqual(["added", "skipped:full"]);
     expect(await s.h.store.listProfiles()).toHaveLength(MAX_PROFILES);
+  });
+
+  it("each side says whether that copy has an island (review N4)", async () => {
+    const mine = withIsland(fixture("meadow-done-miner"));
+    const s = await setup({ profiles: [mine] });
+    await pick(s, fileOf([{ ...mine, island: null }]));
+    expect(text(s.root.querySelector("[data-side='device']"))).toContain(
+      t("importexport.import.hasIsland"),
+    );
+    expect(text(s.root.querySelector("[data-side='file']"))).toContain(
+      t("importexport.import.noIsland"),
+    );
+    // Using the file's copy would take the island away, so the check says so.
+    expect(text(s.root.querySelector("[data-island-gone]"))).toBe(
+      t("importexport.import.islandGone", { name: mine.name }),
+    );
+  });
+
+  it("no island warning when the file's copy has one too, or the device's has none", async () => {
+    const mine = withIsland(fixture("meadow-done-miner"));
+    const s = await setup({ profiles: [mine, player(1)] });
+    await pick(s, fileOf([mine, withIsland(player(1))]));
+    expect(s.root.querySelector("[data-island-gone]")).toBeNull();
+    const files = [...s.root.querySelectorAll("[data-side='file']")].map((el) => text(el));
+    expect(files.every((x) => x.includes(t("importexport.import.hasIsland")))).toBe(true);
+    const devices = [...s.root.querySelectorAll("[data-side='device']")].map((el) => text(el));
+    expect(devices[1]).toContain(t("importexport.import.noIsland"));
   });
 
   it("a bad island in the file never replaces a good one", async () => {

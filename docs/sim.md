@@ -619,3 +619,258 @@ never on the word. Real children also slip more on longer and harder words. That
 the director could use for fast learners (longer words as `d` rises) once real play data exists.
 The first real numbers will come from the owner's playtest: the mode sends each wave's feedback
 and the new difficulty on the bus as `defense:waveEnd`.
+
+## Progression study (`tools/sim-progression.ts`, M3-13)
+
+This study plays synthetic children through the whole shipped curriculum: Meadow, Birch Forest,
+Sandy Shore and Frosty Peaks, 55 lessons. It answers four questions (`PLAN.md` §8 Phase 3, §9.3).
+How many sessions does each biome take? What stars do children get? How often do remedial camps
+fire, and do they help the weak keys? Does anyone get stuck?
+
+```sh
+npm run tool -- sim-progression --study --runs 40 --seed 1        # the tables below (about 2 min)
+npm run tool -- sim-progression --runs 40 --camps skip            # one configuration
+npm run tool -- sim-progression --trace sprout:slow:0 --max 60    # one learner, session by session
+```
+
+| Flag       | Default | Meaning                                                                    |
+| ---------- | ------- | -------------------------------------------------------------------------- |
+| `--runs`   | `40`    | Learners per band and pace                                                 |
+| `--seed`   | `1`     | Root seed. Same arguments give byte-identical output                       |
+| `--max`    | `300`   | A learner stops after this many sessions                                   |
+| `--camps`  | `take`  | `take`: play every camp `recommendNext` offers. `skip`: pass every camp by |
+| `--policy` | `game`  | `game`: the shipped recommendation. `mastery-first`: a what-if (below)     |
+| `--study`  | off     | Print the three configurations below: game, camps passed by, mastery-first |
+| `--trace`  | off     | `band:pace:run`: print that learner's sessions                             |
+
+`tests/unit/sim/progression.test.ts` runs a few learners (about 2 s) and checks that the output
+is the same for the same seed.
+
+### What one session does
+
+Every step except the typing is the game's own code:
+
+1. `recommendNext` (`src/app/recommend.ts`) picks the session. It returns a due remedial camp,
+   or else the next curriculum lesson. Its unlock rules, the optional "No Peeking!" challenge
+   (decision 104) and the remedial rate limit (M3-06) all apply. With `--camps skip` the learner
+   plays `nextCurriculumLesson` instead. The offer still counts for the rate limit.
+2. The session is built the way Mine's `plan()` builds it, from `src/modes/mine/logic.ts`:
+   `allowedKeys`, `lengthPlan` (calm mode for Sprouts, as their default settings say),
+   `keyWeights` with `focusKeys`, `poolsFor`, `generateTargets`, `blockTargets`, `policyFor` and
+   `caseSensitiveFor`. `focusKeys` is copied from `mine.ts`, which loads Vite-only modules, and
+   a test checks the copy against the real one for every lesson. The learner types on the real
+   `TypingSession`.
+3. `computeStars` with the band (decision 80) and the profile's own baseline.
+4. `applyResult` (`src/app/progress.ts`) folds the session into the profile: key and bigram
+   stats, history, best stars and unlocks.
+
+Learners start at the Meadow, as if they pressed Skip on the placement offer. A biome is
+**finished** in the session where its mastery lesson earns 2 stars, because that opens the next
+island. Counts are cumulative from the first session, and camps count as sessions. The fastest
+possible path is 54 sessions: every lesson up to Frosty's mastery check, once each. A **stuck
+run** is 5 or more sessions in a row in which no new lesson or biome opened.
+
+**Not modelled.** The three Defense nights (`birch-08`, `shore-05`, `frosty-06`) are played as
+Mine sessions of the same words, with Mine's stars. The director and the "send visitors home"
+part of `nightStars` are left out. Any play of a Defense night opens the next lesson, so they
+never gate a biome. Boss lessons run as Mine, as they do in the game until M5. The learner
+never quits, never takes a break, never forgets, and always plays the lesson it is
+recommended. The placement test is not used.
+
+### The learner (`tools/sim/learner.ts`)
+
+Each key has its own power-law learning curve. `n` is the number of earlier presses aimed at
+that key, in any session:
+
+```
+err_k(n) = err0_k × (1 + n/τ)^−β                                 slip chance
+lat_k(n) = floor_k + (lat0_k − floor_k) × (1 + n/τ)^−0.6β         median gap before the key
+```
+
+- `err0_k` and `lat0_k` are the profile's base values times the key's class (slips / gap). Home
+  row 1 / 1, top row 1.3 / 1.15, bottom row 1.5 / 1.25, digits 2 / 1.6, other symbols 1.6 / 1.4,
+  space 0.4 / 0.8, and ×1.25 / ×1.1 more for pinky keys. Then each learner draws a factor of its
+  own for each key (lognormal, σ = 0.3, from its seed and the key only). So every child has a few
+  keys that are weaker than the rest, which is what remedial camps are for.
+- **Transfer.** A key met later starts a little easier: `err0` and `lat0 − floor` are scaled by
+  `(1 + N/1500)^−0.15`, where N is every press so far.
+- A capital costs 1.5× the slips and 1.6× the gap, as in M3-FIX-3's placement typist. "No
+  Peeking!" costs 1.4× the slips in a band that normally shows the on-screen keyboard (Sprout
+  and Miner). Builder's keyboard is off by default.
+- Corrections follow M1-07's typist: under `stay` the learner waits a 150–400 ms notice delay,
+  then types the right key. Under `skip` it carries on, and under `backspace` it erases first.
+  Gap jitter is σ = 0.35 (log). τ = 25 for every learner.
+
+| Band    | Pace | err0 | β    | lat0 (ms) | floor (ms) | Floor WPM |
+| ------- | ---- | ---- | ---- | --------- | ---------- | --------: |
+| sprout  | slow | 0.30 | 0.40 | 2400      | 1000       |        12 |
+| sprout  | avg  | 0.24 | 0.50 | 1800      | 800        |        15 |
+| sprout  | fast | 0.17 | 0.60 | 1300      | 600        |        20 |
+| miner   | slow | 0.22 | 0.45 | 1500      | 650        |        18 |
+| miner   | avg  | 0.16 | 0.55 | 1100      | 450        |        27 |
+| miner   | fast | 0.11 | 0.65 | 800       | 320        |        37 |
+| builder | slow | 0.16 | 0.50 | 1100      | 450        |        27 |
+| builder | avg  | 0.11 | 0.60 | 800       | 320        |        37 |
+| builder | fast | 0.07 | 0.70 | 600       | 220        |        55 |
+
+These numbers are assumptions. They come from rough figures for 2nd-, 4th- and 7th-graders:
+about 5–8, 10–15 and 20–30 WPM after some practice, at 85–95 % accuracy. They were set before
+the first run and **not tuned to make the curriculum pass**. Real play data should replace them.
+
+### Results (`--study --runs 40 --seed 1`)
+
+**The game as shipped** (camps taken). Sessions to finish each biome: median [10th–90th
+percentile].
+
+| Band    | Learner |     meadow |      birch |        shore |        frosty | Not done |
+| ------- | ------- | ---------: | ---------: | -----------: | ------------: | -------: |
+| sprout  | slow    | 18 [17–51] | 78 [41–96] | 113 [90–140] | 131 [108–158] |       0% |
+| sprout  | avg     | 16 [14–34] | 44 [35–57] |   68 [56–81] |    86 [74–99] |       0% |
+| sprout  | fast    | 13 [13–14] | 29 [28–32] |   44 [42–48] |    58 [55–64] |       0% |
+| miner   | slow    | 18 [17–39] | 56 [41–72] |   78 [62–98] |   96 [80–114] |       0% |
+| miner   | avg     | 14 [13–16] | 33 [31–36] |   53 [48–56] |    68 [65–72] |       0% |
+| miner   | fast    | 13 [13–13] | 28 [28–29] |   43 [42–44] |    56 [54–58] |       0% |
+| builder | slow    | 17 [15–18] | 39 [38–50] |   62 [59–71] |    80 [77–89] |       0% |
+| builder | avg     | 14 [13–16] | 32 [29–34] |   50 [46–53] |    65 [60–68] |       0% |
+| builder | fast    | 13 [13–13] | 28 [28–29] |   42 [42–44] |    54 [54–57] |       0% |
+
+Stars on curriculum plays (camps not included). "Replays" counts plays of a lesson already
+played, other than the mastery lesson. "Mastery plays" counts the plays of each biome's mastery
+lesson until it gave 2 stars (median).
+
+| Band    | Learner | All: 1★ / 2★ / 3★ | First play: 1★ / 2★ / 3★ | Replays | Longest 1★ run (median / max) | Mastery plays (meadow / birch / shore / frosty) |
+| ------- | ------- | ----------------- | ------------------------ | ------: | ----------------------------- | ----------------------------------------------- |
+| sprout  | slow    | 59% / 26% / 15%   | 67% / 21% / 12%          |      32 | 10 / 20                       | 1.5 / 2 / 2 / 1                                 |
+| sprout  | avg     | 44% / 29% / 27%   | 47% / 28% / 25%          |       8 | 6 / 13                        | 1 / 1 / 1 / 1                                   |
+| sprout  | fast    | 19% / 30% / 51%   | 19% / 30% / 51%          |       0 | 2 / 8                         | 1 / 1 / 1 / 1                                   |
+| miner   | slow    | 45% / 41% / 14%   | 49% / 40% / 11%          |      10 | 6 / 12                        | 1 / 1 / 1 / 1                                   |
+| miner   | avg     | 20% / 48% / 32%   | 20% / 48% / 32%          |       0 | 2 / 7                         | 1 / 1 / 1 / 1                                   |
+| miner   | fast    | 5% / 35% / 60%    | 5% / 35% / 60%           |       0 | 1 / 4                         | 1 / 1 / 1 / 1                                   |
+| builder | slow    | 27% / 53% / 20%   | 28% / 53% / 19%          |       0 | 4 / 9                         | 1 / 1 / 1 / 1                                   |
+| builder | avg     | 6% / 45% / 49%    | 6% / 45% / 49%           |       0 | 1 / 3                         | 1 / 1 / 1 / 1                                   |
+| builder | fast    | 1% / 22% / 78%    | 1% / 22% / 78%           |       0 | 0 / 2                         | 1 / 1 / 1 / 1                                   |
+
+Remedial camps and stuck runs. "Camp keys among 3 truly weakest" is the share of a camp's focus
+keys that were among the learner's three worst keys by the model's true slip chance. "Before →
+after" is the true slip chance on those keys just before and just after the camp. "Weakest-2 at
+the end" is the mean true slip chance of the learner's two worst known keys after their last
+session.
+
+| Band    | Learner | Camps offered (median) | Share of sessions | Camp keys among 3 truly weakest | Slip chance on camp keys: before → after | Learners with a stuck run | Longest run without an unlock (median / max) | Weakest-2 slip chance at the end |
+| ------- | ------- | ---------------------: | ----------------: | ------------------------------: | ---------------------------------------- | ------------------------: | -------------------------------------------- | -------------------------------: |
+| sprout  | slow    |                     42 |               32% |                             34% | 24.2% → 24.0%                            |                       95% | 32 / 52                                      |                            34.6% |
+| sprout  | avg     |                     24 |               27% |                             34% | 20.4% → 20.2%                            |                       73% | 13 / 31                                      |                            30.0% |
+| sprout  | fast    |                    3.5 |                7% |                             41% | 16.4% → 16.0%                            |                        3% | 2 / 6                                        |                            21.5% |
+| miner   | slow    |                     31 |               32% |                             34% | 16.3% → 16.1%                            |                       75% | 16 / 32                                      |                            24.3% |
+| miner   | avg     |                     14 |               20% |                             38% | 12.7% → 12.4%                            |                        8% | 2 / 6                                        |                            17.2% |
+| miner   | fast    |                      2 |                4% |                             49% | 10.4% → 10.1%                            |                        0% | 1 / 2                                        |                            12.0% |
+| builder | slow    |                     26 |               31% |                             31% | 11.7% → 11.5%                            |                       33% | 2 / 16                                       |                            19.5% |
+| builder | avg     |                     11 |               17% |                             41% | 8.7% → 8.5%                              |                        0% | 2 / 2                                        |                            12.4% |
+| builder | fast    |                      0 |                2% |                             59% | 6.1% → 5.8%                              |                        0% | 1 / 2                                        |                             7.5% |
+
+**Camps passed by** (`--camps skip`):
+
+| Band    | Learner |     meadow |      birch |       shore |       frosty | Not done |
+| ------- | ------- | ---------: | ---------: | ----------: | -----------: | -------: |
+| sprout  | slow    | 32 [13–39] | 56 [43–80] | 88 [71–108] | 102 [82–122] |       0% |
+| sprout  | avg     | 13 [13–24] | 39 [28–46] |  53 [42–66] |   68 [54–77] |       0% |
+| sprout  | fast    | 13 [13–13] | 28 [28–31] |  42 [42–46] |   54 [54–58] |       0% |
+| miner   | slow    | 13 [13–28] | 44 [28–51] |  60 [42–73] |   72 [54–85] |       0% |
+| miner   | avg     | 13 [13–13] | 28 [28–28] |  42 [42–47] |   54 [54–58] |       0% |
+| miner   | fast    | 13 [13–13] | 28 [28–28] |  42 [42–42] |   54 [54–54] |       0% |
+| builder | slow    | 13 [13–22] | 28 [28–40] |  47 [42–56] |   58 [54–68] |       0% |
+| builder | avg     | 13 [13–13] | 28 [28–28] |  42 [42–42] |   54 [54–54] |       0% |
+| builder | fast    | 13 [13–13] | 28 [28–28] |  42 [42–42] |   54 [54–54] |       0% |
+
+| Band    | Learner | Camps offered (median) | Share of sessions | Camp keys among 3 truly weakest | Slip chance on camp keys: before → after | Learners with a stuck run | Longest run without an unlock (median / max) | Weakest-2 slip chance at the end |
+| ------- | ------- | ---------------------: | ----------------: | ------------------------------: | ---------------------------------------- | ------------------------: | -------------------------------------------- | -------------------------------: |
+| sprout  | slow    |                     33 |                 · |                               · | ·                                        |                      100% | 27 / 45                                      |                            34.3% |
+| sprout  | avg     |                     19 |                 · |                               · | ·                                        |                       80% | 10.5 / 22                                    |                            32.1% |
+| sprout  | fast    |                      4 |                 · |                               · | ·                                        |                       10% | 1 / 9                                        |                            22.6% |
+| miner   | slow    |                     23 |                 · |                               · | ·                                        |                       88% | 15 / 21                                      |                            26.3% |
+| miner   | avg     |                     11 |                 · |                               · | ·                                        |                       10% | 1 / 7                                        |                            18.6% |
+| miner   | fast    |                      1 |                 · |                               · | ·                                        |                        0% | 1 / 1                                        |                            12.4% |
+| builder | slow    |                     18 |                 · |                               · | ·                                        |                       50% | 5 / 16                                       |                            20.5% |
+| builder | avg     |                      9 |                 · |                               · | ·                                        |                        0% | 1 / 2                                        |                            13.4% |
+| builder | fast    |                      0 |                 · |                               · | ·                                        |                        0% | 1 / 1                                        |                             7.7% |
+
+**What-if: mastery first** (`--policy mastery-first`, not the game). When the game would send
+the learner back to an old lesson while the biome's mastery lesson has been played with fewer
+than 2 stars, the learner replays the mastery lesson instead.
+
+| Band    | Learner |     meadow |      birch |      shore |     frosty | Not done |
+| ------- | ------- | ---------: | ---------: | ---------: | ---------: | -------: |
+| sprout  | slow    | 18 [17–23] | 45 [41–50] | 68 [63–74] | 87 [83–93] |       0% |
+| sprout  | avg     | 16 [14–20] | 38 [33–42] | 59 [53–63] | 77 [71–81] |       0% |
+| sprout  | fast    | 13 [13–14] | 29 [28–32] | 44 [42–48] | 58 [55–63] |       0% |
+| miner   | slow    | 18 [17–23] | 42 [41–47] | 65 [62–69] | 83 [80–86] |       0% |
+| miner   | avg     | 14 [13–16] | 33 [31–36] | 51 [48–56] | 68 [65–72] |       0% |
+| miner   | fast    | 13 [13–13] | 28 [28–29] | 43 [42–44] | 56 [54–58] |       0% |
+| builder | slow    | 17 [15–18] | 39 [38–44] | 62 [59–65] | 80 [77–81] |       0% |
+| builder | avg     | 14 [13–16] | 32 [29–34] | 50 [46–53] | 65 [60–68] |       0% |
+| builder | fast    | 13 [13–13] | 28 [28–29] | 42 [42–44] | 54 [54–57] |       0% |
+
+| Band    | Learner | All: 1★ / 2★ / 3★ | First play: 1★ / 2★ / 3★ | Replays | Longest 1★ run (median / max) | Mastery plays (meadow / birch / shore / frosty) |
+| ------- | ------- | ----------------- | ------------------------ | ------: | ----------------------------- | ----------------------------------------------- |
+| sprout  | slow    | 75% / 17% / 8%    | 77% / 16% / 7%           |       0 | 11 / 19                       | 1.5 / 3 / 2 / 1.5                               |
+| sprout  | avg     | 47% / 30% / 23%   | 48% / 29% / 23%          |       0 | 6 / 13                        | 1 / 1 / 1 / 1                                   |
+| sprout  | fast    | 19% / 31% / 51%   | 19% / 31% / 51%          |       0 | 2 / 8                         | 1 / 1 / 1 / 1                                   |
+| miner   | slow    | 53% / 37% / 10%   | 54% / 36% / 10%          |       0 | 6.5 / 12                      | 1 / 1 / 1 / 1                                   |
+| miner   | avg     | 20% / 48% / 32%   | 20% / 48% / 32%          |       0 | 2 / 7                         | 1 / 1 / 1 / 1                                   |
+| miner   | fast    | 5% / 35% / 60%    | 5% / 35% / 60%           |       0 | 1 / 4                         | 1 / 1 / 1 / 1                                   |
+| builder | slow    | 28% / 53% / 19%   | 28% / 53% / 19%          |       0 | 4 / 9                         | 1 / 1 / 1 / 1                                   |
+| builder | avg     | 6% / 45% / 49%    | 6% / 45% / 49%           |       0 | 1 / 3                         | 1 / 1 / 1 / 1                                   |
+| builder | fast    | 1% / 22% / 78%    | 1% / 22% / 78%           |       0 | 0 / 2                         | 1 / 1 / 1 / 1                                   |
+
+| Band    | Learner | Camps offered (median) | Share of sessions | Camp keys among 3 truly weakest | Slip chance on camp keys: before → after | Learners with a stuck run | Longest run without an unlock (median / max) | Weakest-2 slip chance at the end |
+| ------- | ------- | ---------------------: | ----------------: | ------------------------------: | ---------------------------------------- | ------------------------: | -------------------------------------------- | -------------------------------: |
+| sprout  | slow    |                     28 |               32% |                             26% | 25.3% → 25.1%                            |                       65% | 5 / 14                                       |                            39.2% |
+| sprout  | avg     |                     23 |               28% |                             30% | 20.6% → 20.3%                            |                        5% | 2 / 5                                        |                            31.6% |
+| sprout  | fast    |                      4 |                8% |                             39% | 16.3% → 15.9%                            |                        0% | 2 / 2                                        |                            21.5% |
+| miner   | slow    |                     26 |               32% |                             30% | 16.6% → 16.4%                            |                       15% | 2 / 9                                        |                            25.7% |
+| miner   | avg     |                     14 |               21% |                             38% | 12.6% → 12.3%                            |                        0% | 2 / 2                                        |                            17.1% |
+| miner   | fast    |                      2 |                4% |                             49% | 10.4% → 10.1%                            |                        0% | 1 / 2                                        |                            12.0% |
+| builder | slow    |                     25 |               31% |                             31% | 11.8% → 11.6%                            |                        3% | 2 / 5                                        |                            19.7% |
+| builder | avg     |                     11 |               17% |                             41% | 8.7% → 8.5%                              |                        0% | 2 / 2                                        |                            12.4% |
+| builder | fast    |                      0 |                2% |                             59% | 6.1% → 5.8%                              |                        0% | 1 / 2                                        |                             7.5% |
+
+### Findings
+
+1. **The plausibility targets hold.** A median average Miner finishes the Meadow in 14 sessions
+   (target 8–20) and biomes 1–4 in 68 (target 40–90). Fast learners of every band need 54–58,
+   close to the fastest possible path of 54. Average Builders take 65, slow Builders 80 and slow
+   Miners 96.
+2. **A failed mastery check sends a child back to the start of the biome.** By the time the
+   mastery lesson is played with fewer than 2 stars and the boss is done, every lesson in the
+   biome has been played. `nextCurriculumLesson` then picks the open lesson with the fewest
+   stars, and the first one in curriculum order wins ties. So the child replays lesson 01, then
+   02, then 03, each until it gets past 1★, and only then does the mastery lesson come back. In
+   the trace of `sprout:slow:0` the Meadow mastery check gives 1★ at session 18. Then come 31
+   sessions of old Meadow lessons and camps (21 replays, 11 of them 1★, and 10 camps), until
+   meadow-13 gives 3★ at session 52. This is the main cause of stuck runs. 95 % of slow Sprouts,
+   73 % of average Sprouts and 75 % of slow Miners have one, and the longest lasts a median of
+   32, 13 and 16 sessions. Under mastery-first those shares fall to 65 %, 5 % and 15 %, and the
+   median longest run to 5, 2 and 2. Slow Sprouts then finish biomes 1–4 in 87 sessions instead
+   of 131, and slow Miners in 83 instead of 96. Faster learners don't change, because they pass
+   every mastery check the first time.
+3. **Remedial camps fire often and help little.** For slow learners every free slot fires:
+   31–32 % of all sessions are camps, the most the rate limit allows (1 in 3). For average
+   learners the share is 17–27 %. A camp is one 60-second session, so the true slip chance on its
+   keys drops by only 0.2–0.4 points, about what any session gives those keys. Only 31–49 % of
+   camp keys are among the learner's three truly weakest; chance would be about 12–30 %, with
+   10–26 keys allowed. Passing every camp by leaves the two weakest keys 0–2 points worse at the
+   end, and biomes 1–4 take about 14 fewer sessions (average Miner 54 against 68). Part of that
+   gap is just the extra practice the camps add. The weights find a weak key only roughly: with
+   α = 0.1, `recentErrRate` forgets fast, as M1-07 found. Camps do have a good side: in the
+   traces a camp is often the session where a struggling child gets 3★.
+4. **Slow Sprouts see a lot of 1★.** 59 % of their curriculum plays and 67 % of their first
+   plays get 1★, with a median longest run of 10 in a row (the worst: 20). For average Sprouts
+   the figures are 44 % and 6. This learner types new keys at 60–80 % accuracy, and Sprout's
+   second star needs 85 %. Stars are accuracy-only in these biomes for Sprouts, so shorter
+   lessons won't change them. Only the bar, or an easier first meeting with a key, would. No
+   other band shows this: average Miners get 1★ on 20 % of plays, and 2★ is their most common
+   result.
+5. **No dead ends.** Every learner in every configuration finishes Frosty Peaks within 300
+   sessions. Nothing ever re-locks, and stars never fall.
+
+The handoff note (`docs/handoffs/M3-13.md`) has the proposed changes. None of them is applied.
