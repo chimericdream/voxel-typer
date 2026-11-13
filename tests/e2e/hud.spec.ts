@@ -122,7 +122,11 @@ test("typing: right keys advance, a wrong key marks the char and wobbles its key
 test("Caps Lock hint wins over the banner; no timer for Sprout", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await open(page, "band=sprout&caps=1&banner=1");
-  await expect(page.getByText("Caps Lock is on! Tap it to turn it off.")).toBeVisible();
+  // Scoped to the HUD: the hint is also read out through the toast live region (M3-FIX-4), so a
+  // page-wide text match can find two elements, depending on timing.
+  await expect(
+    page.locator("#hud").getByText("Caps Lock is on! Tap it to turn it off."),
+  ).toBeVisible();
   await expect(page.locator("output")).toHaveCount(1);
   await expect(page.getByText("0:42")).toHaveCount(0);
 });

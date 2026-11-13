@@ -45,6 +45,12 @@ export interface AppApi {
    */
   damagedProfiles(): ReadonlySet<string>;
   /**
+   * Ids of profiles shown the placement test's intro since the page loaded (M3-FIX-10). The
+   * placement screen adds to it; "Who is playing?" doesn't offer the test again to an id in it,
+   * so a quit test comes back on the next visit, not straight away.
+   */
+  placementOffered(): Set<string>;
+  /**
    * Deletes a profile and its `<id>:prev` snapshot (M3-09). Refuses a read-only profile (a newer
    * build owns it). If it was the active profile, no profile is active afterwards. Never rejects:
    * resolves false, with a kind notice, when nothing was removed.

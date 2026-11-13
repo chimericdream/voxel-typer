@@ -75,14 +75,30 @@ type Part = VoxelModel["parts"][number];
 type V3 = [number, number, number];
 
 /*
- * Model space (PROVISIONAL until M4-03 settles `VoxelModel` geometry for mobs): one unit is one
- * face pixel, y is up and the avatar faces +z. A part's `offset` is its box's min corner and its
- * `pivot` is the joint it turns around, both in model space. `parent` only matters for animation.
+ * Model space (contracts.md §8.4): one model pixel is one face pixel, 16 make a block, y is up
+ * and the avatar faces +z. The avatar is 26 pixels tall, about a block and a half.
+ *
+ * The parts below are written as boxes in model space (`min`, `size`) with the joint each one
+ * turns about, which is easy to read and check against the face grid. {@link toModel} turns them
+ * into §8.4 parts: `pivot` measured from the box's min corner, `offset` from the parent's pivot.
+ * A part with no joint of its own (a face pixel, the belt) pivots at its min corner and simply
+ * moves with its parent.
  *
  * The head is 10 wide, 10 tall and 8 deep, sitting on top of the torso at y = 16. Its front layer
  * (1 deep) is the face, one box per run of one color in a row; behind it, each row is one box of
- * hair (or skin, at the jaw), merged with the rows below while they match.
+ * hair (or skin, at the jaw), merged with the rows below while they match. The jaw row is the
+ * `head` part: it sits on the neck, and the rest of the head hangs from it.
  */
+interface Box {
+  name: string;
+  parent: string | null;
+  min: V3;
+  size: V3;
+  /** The joint in model space. Default: the box's min corner. */
+  joint?: V3;
+  color: string;
+}
+
 const HEAD_BOTTOM = 16;
 const HEAD_FRONT = 4;
 const HEAD_BACK = -4;
@@ -92,8 +108,8 @@ const NECK: V3 = [0, HEAD_BOTTOM, 0];
 const colorOf = (c: string): string => FACE_INK[c] ?? SKIN_TOKEN;
 const rowY = (row: number): number => HEAD_BOTTOM + (FACE.length - 1 - row);
 
-function headParts(): Part[] {
-  const parts: Part[] = [];
+function headBoxes(): Box[] {
+  const boxes: Box[] = [];
   // The back of the head: one box per row span, merged downward while span and color match.
   const spans: { row: number; x0: number; x1: number; color: string }[] = [];
   FACE.forEach((line, row) => {
@@ -110,29 +126,21 @@ function headParts(): Part[] {
     }
     spans.push({ row, x0, x1, color: color ?? SKIN_TOKEN });
   });
-  // The tallest span is the `head` part the rest hang from.
   let top = 0;
-  let tallest = 0;
-  for (const s of spans) {
-    const rows = s.row - top + 1;
+  spans.forEach((s, i) => {
     const back = top === 0 ? 1 : HEAD_BACK;
-    const i = parts.length;
-    if (rows > (parts[tallest]?.size[1] ?? 0)) tallest = i;
-    parts.push({
-      name: `head-${i}`,
-      parent: "head",
-      size: [s.x1 - s.x0, rows, HEAD_FRONT - 1 - back],
-      pivot: NECK,
-      offset: [HEAD_LEFT + s.x0, rowY(s.row), back],
+    // The bottom span (the jaw) is the head; it holds the neck joint.
+    const jaw = i === spans.length - 1;
+    boxes.push({
+      name: jaw ? "head" : `head-${i}`,
+      parent: jaw ? "torso" : "head",
+      min: [HEAD_LEFT + s.x0, rowY(s.row), back],
+      size: [s.x1 - s.x0, s.row - top + 1, HEAD_FRONT - 1 - back],
+      ...(jaw ? { joint: NECK } : {}),
       color: s.color,
     });
     top = s.row + 1;
-  }
-  const head = parts[tallest];
-  if (head) {
-    head.name = "head";
-    head.parent = "torso";
-  }
+  });
   // The face: one 1-deep box per run of one color.
   FACE.forEach((line, row) => {
     let x = 0;
@@ -141,58 +149,111 @@ function headParts(): Part[] {
       let end = x + 1;
       while (end < line.length && line.charAt(end) === c) end++;
       if (c !== ".") {
-        parts.push({
+        boxes.push({
           name: `face-${row}-${x}`,
           parent: "head",
+          min: [HEAD_LEFT + x, rowY(row), HEAD_FRONT - 1],
           size: [end - x, 1, 1],
-          pivot: NECK,
-          offset: [HEAD_LEFT + x, rowY(row), HEAD_FRONT - 1],
           color: colorOf(c),
         });
       }
       x = end;
     }
   });
-  return parts;
+  return boxes;
 }
 
-function box(
-  name: string,
-  parent: string | null,
-  min: V3,
-  size: V3,
-  pivot: V3,
-  color: string,
-): Part {
-  return {
-    name,
-    ...(parent === null ? {} : { parent }),
-    size,
-    pivot,
-    offset: min,
-    color,
-  };
-}
-
-function bodyParts(): Part[] {
+/*
+ * Sizes are whole pixels (§8.4). Where a trim is thinner than that, the box sinks into the one it
+ * sits on and only its outer part shows: the collar is 1 deep but stands out half a pixel from
+ * the tunic.
+ */
+function bodyBoxes(): Box[] {
+  const t = OUTFIT;
   return [
-    box("torso", null, [-4, 8, -2], [8, 8, 4], [0, 8, 0], OUTFIT.tunic),
-    box("collar", "torso", [-3, 15, 2], [6, 1, 0.5], [0, 8, 0], OUTFIT.collar),
-    box("belt", "torso", [-4.25, 9, -2.25], [8.5, 1, 4.5], [0, 8, 0], OUTFIT.belt),
-    box("arm-left", "torso", [-6, 9, -1.5], [2, 7, 3], [-5, 15, 0], OUTFIT.tunic),
-    box("hand-left", "arm-left", [-6, 7.5, -1.5], [2, 1.5, 3], [-5, 15, 0], SKIN_TOKEN),
-    box("arm-right", "torso", [4, 9, -1.5], [2, 7, 3], [5, 15, 0], OUTFIT.tunic),
-    box("hand-right", "arm-right", [4, 7.5, -1.5], [2, 1.5, 3], [5, 15, 0], SKIN_TOKEN),
-    box("leg-left", "torso", [-3.5, 2, -1.5], [3.5, 6, 3], [-1.75, 8, 0], OUTFIT.trousers),
-    box("boot-left", "leg-left", [-3.75, 0, -1.75], [3.75, 2, 3.75], [-1.75, 8, 0], OUTFIT.boots),
-    box("leg-right", "torso", [0, 2, -1.5], [3.5, 6, 3], [1.75, 8, 0], OUTFIT.trousers),
-    box("boot-right", "leg-right", [0, 0, -1.75], [3.75, 2, 3.75], [1.75, 8, 0], OUTFIT.boots),
+    {
+      name: "torso",
+      parent: null,
+      min: [-4, 8, -2],
+      size: [8, 8, 4],
+      joint: [0, 8, 0],
+      color: t.tunic,
+    },
+    { name: "collar", parent: "torso", min: [-3, 15, 1.5], size: [6, 1, 1], color: t.collar },
+    { name: "belt", parent: "torso", min: [-4.5, 9, -2.5], size: [9, 1, 5], color: t.belt },
+    {
+      name: "arm-left",
+      parent: "torso",
+      min: [-6, 9, -1.5],
+      size: [2, 7, 3],
+      joint: [-5, 15, 0],
+      color: t.tunic,
+    },
+    {
+      name: "hand-left",
+      parent: "arm-left",
+      min: [-6, 7, -1.5],
+      size: [2, 2, 3],
+      color: SKIN_TOKEN,
+    },
+    {
+      name: "arm-right",
+      parent: "torso",
+      min: [4, 9, -1.5],
+      size: [2, 7, 3],
+      joint: [5, 15, 0],
+      color: t.tunic,
+    },
+    {
+      name: "hand-right",
+      parent: "arm-right",
+      min: [4, 7, -1.5],
+      size: [2, 2, 3],
+      color: SKIN_TOKEN,
+    },
+    // A pixel apart, and inset from the tunic's sides.
+    {
+      name: "leg-left",
+      parent: "torso",
+      min: [-3.5, 2, -1.5],
+      size: [3, 6, 3],
+      joint: [-2, 8, 0],
+      color: t.trousers,
+    },
+    { name: "boot-left", parent: "leg-left", min: [-4, 0, -2], size: [4, 2, 4], color: t.boots },
+    {
+      name: "leg-right",
+      parent: "torso",
+      min: [0.5, 2, -1.5],
+      size: [3, 6, 3],
+      joint: [2, 8, 0],
+      color: t.trousers,
+    },
+    { name: "boot-right", parent: "leg-right", min: [0, 0, -2], size: [4, 2, 4], color: t.boots },
   ];
+}
+
+/** Model-space boxes to §8.4 parts. */
+function toModel(boxes: readonly Box[]): Part[] {
+  const joints = new Map(boxes.map((b): [string, V3] => [b.name, b.joint ?? b.min]));
+  return boxes.map((b) => {
+    const joint = b.joint ?? b.min;
+    const from = b.parent === null ? [0, 0, 0] : joints.get(b.parent);
+    if (from === undefined) throw new Error(`avatar: "${b.name}" has no parent "${b.parent}"`);
+    return {
+      name: b.name,
+      ...(b.parent === null ? {} : { parent: b.parent }),
+      size: b.size,
+      pivot: [joint[0] - b.min[0], joint[1] - b.min[1], joint[2] - b.min[2]],
+      offset: [joint[0] - (from[0] ?? 0), joint[1] - (from[1] ?? 0), joint[2] - (from[2] ?? 0)],
+      color: b.color,
+    };
+  });
 }
 
 /** The default avatar. No animations yet: the profile cards show a still pose. */
 export const BASE_AVATAR: VoxelModel = {
   id: "avatar-base",
-  parts: [...bodyParts(), ...headParts()],
+  parts: toModel([...bodyBoxes(), ...headBoxes()]),
   anims: {},
 };

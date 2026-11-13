@@ -209,8 +209,8 @@ export const PLACEMENT_MS: Ms = 90_000;
 // ---------------------------------------------------------------------------------------------
 
 /**
- * What the test measured on the blocks typed at or below one rung: everything from the start of
- * the test until the next rung opened (cumulative, so it includes the earlier rungs). Placement mode records one for each rung it leaves
+ * What the test measured from its start until the rung after this one opened: cumulative, so it
+ * takes in the earlier rungs too. Placement mode records one for each rung it leaves
  * (`createPlacementDriver().rungScores()`).
  */
 export interface RungScore {
@@ -246,8 +246,9 @@ export interface PlacementEstimate {
 
 /**
  * The speed and accuracy a player needs to start in each biome past the Meadow. Reaching the
- * biome's rung on the ladder is needed too. Each gate is judged on the blocks that earned the
- * rung, not on the whole test (see {@link estimatePlacement}). Net WPM counts a single letter as
+ * biome's rung on the ladder is needed too. Each gate is judged on the blocks typed before the
+ * biome's rung opened, with at least {@link PLACEMENT_MIN_GATE_KEYS} keystrokes, not on the whole
+ * test (see {@link estimatePlacement}). Net WPM counts a single letter as
  * one char, like every WPM in the game.
  */
 export const PLACEMENT_GATES: Readonly<
@@ -274,6 +275,55 @@ export const PLACEMENT_MIN_GATE_KEYS = 60;
  */
 export const PLACEMENT_MIN_ACTIVE_MS: Ms = 30_000;
 
+/**
+ * The row floor (M3-FIX-10): a player starts past Birch Forest only if they typed the top row
+ * right on the first try at least this share of the time, over the whole test, and past Sandy
+ * Shore only if they did the same on the top and bottom rows together ({@link rowFloorKeys}).
+ *
+ * The speed and accuracy gates pool every key, so a child who slips on a third of the top row
+ * could pass them by luck and miss all of Birch Forest. The floor is Birch's own accuracy bar. It
+ * pools a row's keys because one key gets only 5–10 tries in a test, too few to tell a slip from a
+ * gap; a row gets about 25–140.
+ */
+export const PLACEMENT_ROW_FLOOR = 0.88;
+
+/**
+ * The share of the places asking for one of `keys` that the player hit on the first try, over the
+ * whole test; 1 when none was asked for. Every wrong-key policy is `stay`, so each place ends on
+ * one right press, and a second wrong press at the same place isn't counted (`./stats`): places
+ * are `attempts − errors`.
+ */
+export function firstTryShare(
+  summary: Pick<SessionSummary, "perKey">,
+  keys: readonly string[],
+): number {
+  let attempts = 0;
+  let errors = 0;
+  for (const k of keys) {
+    attempts += summary.perKey[k]?.attempts ?? 0;
+    errors += summary.perKey[k]?.errors ?? 0;
+  }
+  const places = attempts - errors;
+  return places <= 0 ? (errors === 0 ? 1 : 0) : Math.max(0, 1 - errors / places);
+}
+
+/**
+ * The keys whose {@link PLACEMENT_ROW_FLOOR} a player must meet to start past rung `tier`'s biome:
+ * the letter rows from the top row up to that rung's. So the top row past Birch, and the top and
+ * bottom rows together past the Shore: the bottom row alone is about 20 places, too few to judge
+ * a fast typist on. The home row has no floor: everyone starts at the Meadow anyway, and in the
+ * sim a home-row floor only moved average and weak-pinky typists back there. Past the letter rungs
+ * nothing is added: the gates judge the word rungs.
+ */
+export function rowFloorKeys(tier: number): readonly string[] {
+  const keys: string[] = [];
+  for (const [i, t] of PLACEMENT_TIERS.entries()) {
+    if (i === 0 || i > tier || t.kind !== "letters" || !t.keepEarlier) continue;
+    keys.push(...t.newKeys);
+  }
+  return keys;
+}
+
 /** Net WPM and accuracy of a {@link RungScore}, by the session formulas (`./stats`). */
 export function rungRates(score: RungScore): { netWpm: number; accuracy: number } {
   // Every wrong-key policy is `stay` in the test, so nothing is left uncorrected: net = gross.
@@ -292,8 +342,16 @@ export function rungRates(score: RungScore): { netWpm: number; accuracy: number 
  *    the ones it teaches. With fewer than {@link PLACEMENT_MIN_GATE_KEYS} keystrokes there, the
  *    blocks of the following rungs join in, up to the whole test. So the slower digits and Shift
  *    of later rungs don't pull down the gates before them (M3-FIX-3 N2). A result without rung
- *    scores is judged on the whole test;
- * 3. the band allows it: a Sprout never starts past Frosty Peaks, a Miner never past the Deep
+ *    scores is judged on the whole test.
+ *
+ *    In practice that 60-key floor decides most of it. The three letter rungs come to about 35 keys, so
+ *    the Birch, Shore, Frosty and Deep Mines gates are all judged on everything up to the end of
+ *    the words rung (or on the whole test, if the test never left it, as for every Sprout). Only
+ *    the Marsh gate is judged on its own blocks, everything up to the end of the capitals;
+ * 3. the start skips no row the player doesn't know: past Birch the top row, and past the Shore
+ *    the top and bottom rows, typed right on the first try at least {@link PLACEMENT_ROW_FLOOR}
+ *    of the time over the whole test (M3-FIX-10);
+ * 4. the band allows it: a Sprout never starts past Frosty Peaks, a Miner never past the Deep
  *    Mines.
  *
  * A short test (under {@link PLACEMENT_MIN_ACTIVE_MS}) starts at the Meadow.
@@ -322,6 +380,8 @@ export function estimatePlacement(
       if (gate === undefined) break;
       const got = scoreFor(i);
       if (got.netWpm < gate.netWpm || got.accuracy < gate.accuracy) break;
+      // Starting here skips the biome before it: its row must be known (M3-FIX-10).
+      if (firstTryShare(summary, rowFloorKeys(i - 1)) < PLACEMENT_ROW_FLOOR) break;
       start = i;
     }
   }

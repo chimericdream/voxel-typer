@@ -2,7 +2,8 @@
  * Placement test screen (task M3-05, PLAN.md §3.2.8): "Find your level".
  *
  * Shown right after a new player is made, and once more on the next visit if that test was quit or
- * lost to a reload (`shouldOfferPlacement`, M3-FIX-3 N4). Before the test it explains it in two lines and
+ * lost to a reload (`shouldOfferPlacement`, M3-FIX-3 N4). Not again in the same visit
+ * (`AppApi.placementOffered`, M3-FIX-10). Before the test it explains it in two lines and
  * offers "Let's dig!" and a clear Skip (Skip = start at Meadow Home; Escape skips too). After the
  * test (`route.lesson` is set) it says where the player starts, never a score, and goes on to the
  * world map.
@@ -52,6 +53,11 @@ function useFocusFirst(): RefObject<HTMLDivElement | null> {
 
 function Intro({ app }: { app: App }) {
   const actions = useFocusFirst();
+  // Shown once this visit: "Who is playing?" won't offer it again until the next one (M3-FIX-10).
+  useEffect(() => {
+    const id = app.profile()?.id;
+    if (id !== undefined) app.placementOffered().add(id);
+  }, [app]);
   const start = (): void =>
     app.navigate({ id: "play", lesson: PLACEMENT_LESSON_ID }, { replace: true });
   const skip = (): void => {
