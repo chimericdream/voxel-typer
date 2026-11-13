@@ -45,8 +45,8 @@ import type { CameraPose } from "@/render/camera";
 import { breakShake } from "@/render/fx/tuning";
 import type { CameraRig, SceneHandle, Vec3 } from "@/render/types";
 import type { BiomeId, BlockId, Ms } from "@/types/core";
-import { HANDS_SLICE, HOTBAR_SLICE, reportWrongKey } from "@/ui/hud/bridge";
-import type { HotbarItem, HotbarSlice } from "@/ui/hud/bridge";
+import { HANDS_SLICE, HOTBAR_SLICE, STAGE_SLICE, reportWrongKey } from "@/ui/hud/bridge";
+import type { HotbarItem, HotbarSlice, StageSlice } from "@/ui/hud/bridge";
 import {
   BANNER_SHOW_MS,
   NO_SLOT,
@@ -85,7 +85,10 @@ import {
   clearOfBanner,
   emptyTally,
   fieldEmpty,
+  capStageFloor,
   fitLaneView,
+  stageFloor,
+  stageRoom,
   laneSlot,
   lockedWpm,
   nextKeyFor,
@@ -116,15 +119,34 @@ const START_HINT_MS: Ms = 7000;
 const GLOW = { day: 0, dusk: 0.5, night: 1, dawn: 0.3 } as const;
 /** Calm mode: no new mob sets out while this many are already on the field. */
 const CALM_MAX_LIVE = 4;
-/** Room kept at the top of the stage for the banner, in CSS pixels (times the text scale). */
-const BANNER_ROOM = 46;
-/** Room kept above the far end of the field for a locked word plate, in CSS pixels (× scale). */
-const PLATE_ROOM = 56;
 /**
  * Frames the HUD message's box is measured after it changes: the HUD renders on a later frame,
  * and the message's pop-in (`--t-med`) has to end. About half a second at 60 fps.
  */
 const MESSAGE_SETTLE_FRAMES = 30;
+/** Frames between asking the HUD for a new stage height and framing the field in it. */
+const RELAYOUT_AFTER_HUD = 3;
+/**
+ * How tall the stage can be above the keyboard at its smallest (its `min-height`: a 28 px key),
+ * in CSS pixels, or null without the HUD. The stage's top doesn't move with the floor.
+ */
+function roomAboveKeys(doc: Document): number | null {
+  const stageEl = doc.querySelector('[data-hud="stage"]');
+  const hudEl = stageEl?.parentElement;
+  if (!stageEl || !hudEl) return null;
+  const hudStyle = getComputedStyle(hudEl);
+  let room =
+    hudEl.getBoundingClientRect().bottom -
+    (Number.parseFloat(hudStyle.paddingBottom) || 0) -
+    stageEl.getBoundingClientRect().top;
+  const keys = hudEl.querySelector(':scope > [data-hud="keyboard"]');
+  if (keys)
+    room -=
+      (Number.parseFloat(hudStyle.rowGap) || 0) +
+      (Number.parseFloat(getComputedStyle(keys).minHeight) || 0);
+  return room;
+}
+
 /** Keys a free-play night uses when there is no lesson. */
 const FREE_PLAY_KEYS = ["f", "j", "d", "k", "s", "l", "a", ";"];
 
@@ -318,7 +340,8 @@ export function create(ctx: ModeContext): DefenseInstance {
   };
 
   const publishHotbar = (): void => {
-    const hotbar: HotbarSlice = { slots: [...slots] };
+    // No empty bar during the day: it shows once there is loot (M4-FIX-4).
+    const hotbar: HotbarSlice = { slots: [...slots], hideEmpty: true };
     hud.set({ custom: { ...hud.get().custom, [HOTBAR_SLICE]: hotbar } });
   };
 
@@ -706,6 +729,10 @@ export function create(ctx: ModeContext): DefenseInstance {
 
   let stageCanvas: HTMLCanvasElement | null = null;
   let layoutKey = "";
+  /** The stage's least height last asked of the HUD (its `stage` slice), CSS px. */
+  let stageMin = 0;
+  /** Frames until the field is framed again after the HUD's stage changed (0: none due). */
+  let relayoutIn = 0;
   let layoutW = 0;
   let layoutH = 0;
   let frames = 0;
@@ -744,7 +771,20 @@ export function create(ctx: ModeContext): DefenseInstance {
     const stage = boxOf(doc.querySelector('[data-hud="stage"]'));
     const scale =
       Number(getComputedStyle(doc.documentElement).getPropertyValue("--text-scale")) || 1;
-    const room = Math.min(BANNER_ROOM * scale, (stage?.height ?? origin.height) * 0.25);
+    // The room the message and a far plate take, at their real (screen-capped) font sizes.
+    const viewH = doc.defaultView?.innerHeight ?? origin.height;
+    const rooms = stageRoom(viewH, scale);
+    // Ask the HUD for a stage tall enough for the field (it shrinks the keyboard to fit). It
+    // renders on a later frame, so the field is framed again once it has.
+    // The keyboard's 28 px key floor wins: ask for no more stage than is left above it.
+    const floor = capStageFloor(stageFloor(viewH, scale), roomAboveKeys(doc));
+    if (floor !== stageMin) {
+      stageMin = floor;
+      const slice: StageSlice = { minPx: floor };
+      hud.set({ custom: { ...hud.get().custom, [STAGE_SLICE]: slice } });
+      relayoutIn = RELAYOUT_AFTER_HUD;
+    }
+    const room = Math.min(rooms.banner, (stage?.height ?? origin.height) * 0.25);
     const free: Box = stage
       ? { left: stage.left, top: stage.top + room, width: stage.width, height: stage.height - room }
       : { left: 0, top: room, width: origin.width, height: origin.height - room };
@@ -761,7 +801,7 @@ export function create(ctx: ModeContext): DefenseInstance {
       layout,
       { width: origin.width, height: origin.height },
       free,
-      PLATE_ROOM * scale,
+      rooms.plate,
     );
     if (canMoveTo(scene.camera))
       scene.camera.moveTo({
@@ -782,7 +822,7 @@ export function create(ctx: ModeContext): DefenseInstance {
     showShield(shield);
   };
 
-  const head = { x: 0, y: 0 };
+  const head = { x: 0, y: 0, feet: 0 };
   const syncPlates = (): void => {
     if (plates === null || view === null) return;
     const active = session.view().active;
@@ -799,6 +839,7 @@ export function create(ctx: ModeContext): DefenseInstance {
         locked,
         x: head.x,
         y: head.y,
+        feet: head.feet,
         // The locked word moves least, then the mobs nearest the base.
         order: locked ? -1 : (seqOf.get(mob.id) ?? 0),
       });
@@ -844,6 +885,8 @@ export function create(ctx: ModeContext): DefenseInstance {
     }
     // The lanes need the stage's height: keep the keys and the hint line, drop the drawn hands.
     hud.set({ custom: { ...hud.get().custom, [HANDS_SLICE]: "caption" } });
+    // The hotbar holds the night's loot: hidden while it is empty (M4-FIX-4).
+    publishHotbar();
     phase = "day";
     phaseLeft = DAY_MS;
     dayRan = 0;
@@ -906,7 +949,9 @@ export function create(ctx: ModeContext): DefenseInstance {
       if (stageCanvas !== null) {
         frames++;
         const resized = stageCanvas.clientWidth !== layoutW || stageCanvas.clientHeight !== layoutH;
-        if (resized || frames === 2 || frames === 10 || frames === 30 || frames === 90) relayout();
+        const due = relayoutIn > 0 && --relayoutIn === 0;
+        if (resized || due || frames === 2 || frames === 10 || frames === 30 || frames === 90)
+          relayout();
       }
       flyNow += dtMs;
       if (flights.flights.length > 0) {

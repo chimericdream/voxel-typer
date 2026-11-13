@@ -17,12 +17,14 @@ import {
   HANDS_SLICE,
   HOTBAR_SLICE,
   HUD_FIELDS,
+  STAGE_SLICE,
   WRONG_KEY_SLICE,
   createHudStore,
   emptyHudState,
   handsCaptionOnly,
   hotbarOf,
   reportWrongKey,
+  stageMinOf,
   wrongKeyOf,
 } from "../../../src/ui/hud/bridge";
 import type { HudState } from "../../../src/ui/hud/bridge";
@@ -32,6 +34,7 @@ import {
   HudKeyboard,
   HudMessage,
   HudProgress,
+  HudStage,
   HudTimer,
   HudWord,
   formatTime,
@@ -201,6 +204,51 @@ describe("stylesheet", () => {
     expect(rule(".word")).toMatch(/font-family: var\(--font-body\)/);
   });
 
+  it("a message pops in quickly, and at once under reduced motion (M4-FIX-4)", () => {
+    const pop = rule(".messages output:not([data-still])");
+    expect(pop).toMatch(/animation: message-in calc\(var\(--t-fast\) \* var\(--motion-ok\)\)/);
+    // It starts part-way visible, so the message reads from its first frame.
+    expect(rule("@keyframes message-in")).toMatch(/opacity: 0\.4/);
+  });
+
+  it("a stage floor gives way to the keyboard row, which fills what is left (M4-FIX-4)", () => {
+    expect(rule(".stage[data-min]")).toMatch(/min-height: min\(var\(--stage-min\), 55dvh\)/);
+    const field = rule(".hud:has(> .stage[data-min])");
+    expect(field).toMatch(
+      /grid-template-rows: auto auto 1fr minmax\(var\(--kb-min\), var\(--kb-h\)\)/,
+    );
+    // The keys' floor (review B1): a 28 px key unit, never more than the usual height.
+    expect(field).toMatch(
+      /--kb-min: min\(var\(--kb-h\), calc\(var\(--kb-units\) \* 28px \+ var\(--kb-fixed\)\)\)/,
+    );
+    const keys = rule(".hud:has(> .stage[data-min]) > .keyboard");
+    expect(keys).toMatch(/height: auto/);
+    expect(keys).toMatch(/min-height: var\(--kb-min\)/);
+    // In a short row letters are half the key (≥ 14 px at the 28 px floor), and a key whose label
+    // is hidden keeps its letter in the middle (review B2).
+    const board = readFileSync(join(REPO, "src/ui/keyboard/OnScreenKeyboard.module.css"), "utf8");
+    const short = board.slice(board.indexOf("@container (max-height: 198px)"));
+    expect(short).toMatch(
+      /\.slot\[data-face="glyph"\] > kbd \{\s*font-size: calc\(var\(--u\) \* 0\.5\);/,
+    );
+    expect(short).toMatch(/:not\(\[data-next\], :hover\) > kbd \{\s*padding-bottom: 0;/);
+    // Without the hint line (a Miner), the lit key keeps its label even when it is wide.
+    expect(short).toMatch(
+      /\[data-hud="keyboard"\]:not\(\[data-hands-caption\]\) \.root \.slot\[data-next\]\[data-label-off\] \.label \{\s*visibility: visible;/,
+    );
+  });
+
+  it("caps the top row's hotbar badges at 30 % of a slot, and hides an empty bar in place", () => {
+    expect(rule(".top")).toMatch(
+      /--slot-badge-max: calc\(var\(--slot-base\) \* var\(--text-scale\) \* 0\.3\)/,
+    );
+    expect(rule(".combo[data-hidden]")).toMatch(/visibility: hidden/);
+    const slot = readFileSync(join(REPO, "src/ui/kit/Slot.module.css"), "utf8");
+    expect(slot).toMatch(
+      /font-size: min\(calc\(var\(--fs-sm\) \* var\(--text-scale\)\), var\(--slot-badge-max, 100vw\)\)/,
+    );
+  });
+
   it("uses only checked text colors and no rem", () => {
     const fgs = new Set(
       TEXT_PAIRS.map(([fg]) => fg.replaceAll(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)),
@@ -211,6 +259,10 @@ describe("stylesheet", () => {
     expect(css).not.toMatch(/\d+(?:\.\d+)?rem\b/);
   });
 });
+
+const comboOf = (): Element | null | undefined =>
+  host.querySelector('[role="group"]')?.parentElement;
+const stageOf = (): HTMLElement | null => host.querySelector<HTMLElement>('[data-hud="stage"]');
 
 describe("parts", () => {
   it("formatTime rounds up", () => {
@@ -304,6 +356,41 @@ describe("parts", () => {
     expect(hotbarOf({ [HOTBAR_SLICE]: { slots: [{ label: 1 }] } })).toBeNull();
     expect(hotbarOf({ [HOTBAR_SLICE]: "no" })).toBeNull();
     expect(hotbarOf({})).toBeNull();
+  });
+
+  it("a mode can hide the hotbar while it is empty; it shows once lit or filled (M4-FIX-4)", () => {
+    const hud = createHudStore();
+    hud.set({ custom: { [HOTBAR_SLICE]: { slots: [], hideEmpty: true } } });
+    mount(<HudCombo fields={hud.fields} />);
+    expect(comboOf()?.getAttribute("data-hidden")).toBe("1");
+    // A lit combo slot shows it.
+    void act(() => hud.set({ combo: 3 }));
+    expect(comboOf()?.hasAttribute("data-hidden")).toBe(false);
+    void act(() => hud.set({ combo: 0 }));
+    expect(comboOf()?.getAttribute("data-hidden")).toBe("1");
+    // So does the first item.
+    const dirt = { label: "Dirt, 1", count: 1, icon: "" };
+    void act(() => hud.set({ custom: { [HOTBAR_SLICE]: { slots: [dirt], hideEmpty: true } } }));
+    expect(comboOf()?.hasAttribute("data-hidden")).toBe(false);
+    // Without the flag an empty bar shows, as in Mine.
+    void act(() => hud.set({ custom: { [HOTBAR_SLICE]: { slots: [] } } }));
+    expect(comboOf()?.hasAttribute("data-hidden")).toBe(false);
+    expect(hotbarOf({ [HOTBAR_SLICE]: { slots: [], hideEmpty: "yes" } })).toBeNull();
+  });
+
+  it("a mode can ask for a least stage height (M4-FIX-4)", () => {
+    const hud = createHudStore();
+    mount(<HudStage fields={hud.fields} />);
+    expect(stageOf()?.hasAttribute("data-min")).toBe(false);
+    void act(() => hud.set({ custom: { [STAGE_SLICE]: { minPx: 301.6 } } }));
+    expect(stageOf()?.getAttribute("data-min")).toBe("1");
+    expect(stageOf()?.style.getPropertyValue("--stage-min")).toBe("302px");
+    void act(() => hud.reset());
+    expect(stageOf()?.hasAttribute("data-min")).toBe(false);
+    expect(stageMinOf({ [STAGE_SLICE]: { minPx: -4 } })).toBeNull();
+    expect(stageMinOf({ [STAGE_SLICE]: { minPx: Number.NaN } })).toBeNull();
+    expect(stageMinOf({ [STAGE_SLICE]: 300 })).toBeNull();
+    expect(stageMinOf({})).toBeNull();
   });
 
   it("the keyboard follows nextKey and wobbles the key of a reported wrong press", () => {

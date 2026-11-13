@@ -35,6 +35,8 @@ export interface PlateItem {
   /** Where the mob's head is on the page, CSS pixels. */
   x: number;
   y: number;
+  /** Where the mob's feet are on the page (y, CSS pixels), if known. */
+  feet?: number;
   /** Placement order: lower moves least (see `PlateWish.order`). */
   order: number;
 }
@@ -66,6 +68,8 @@ interface Plate {
   width: number;
   height: number;
   seen: boolean;
+  /** The mob's box last written to `data-mob`. */
+  mob: string;
 }
 
 const FONT_SIZE = "min(calc(22px * var(--text-scale, 1)), 5.4dvh)";
@@ -156,6 +160,7 @@ export function createPlateLayer(opts: PlateLayerOptions): PlateLayer {
       width: box.width > 0 ? box.width : 20 + 14 * chars.length,
       height: box.height > 0 ? box.height : 32,
       seen: true,
+      mob: "",
     };
     return p;
   };
@@ -204,6 +209,14 @@ export function createPlateLayer(opts: PlateLayerOptions): PlateLayer {
           p.typed = item.typed;
           p.locked = item.locked;
           paint(p);
+        }
+        // The mob's head and feet on the page, for the e2e (written only when they move a pixel).
+        if (item.feet !== undefined) {
+          const mob = `${Math.round(item.x)} ${Math.round(item.y)} ${Math.round(item.feet)}`;
+          if (mob !== p.mob) {
+            p.mob = mob;
+            p.el.dataset["mob"] = mob;
+          }
         }
         const scale = p.locked ? LOCKED_SCALE : 1;
         wishes.push({

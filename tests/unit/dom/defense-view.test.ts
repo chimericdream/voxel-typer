@@ -10,8 +10,15 @@ import { arenaLayout } from "../../../src/content/worldgen/defense-arena";
 import type { FieldMob } from "../../../src/modes/defense/logic";
 import { LOCKED_SCALE, createPlateLayer } from "../../../src/modes/defense/plates";
 import type { PlateItem } from "../../../src/modes/defense/plates";
-import { POOL_SIZE, createDefenseView, modelHeight } from "../../../src/modes/defense/view";
-import { parseModel } from "../../../src/render/models";
+import {
+  NIGHT_LIFT,
+  POOL_SIZE,
+  addLift,
+  createDefenseView,
+  modelHeight,
+  patchLiftShader,
+} from "../../../src/modes/defense/view";
+import { modelMaterial, parseModel } from "../../../src/render/models";
 import { drawCalls } from "../models/helpers";
 
 const layout = arenaLayout(5);
@@ -170,6 +177,74 @@ describe("defense view", () => {
     view.dispose();
   });
 
+  it("gives the feet's page y too, below the head, when asked (M4-FIX-4)", () => {
+    const { view } = stage(rosterFor("meadow"));
+    const m = mob("a", "slimeling", { p: 0.2, slot: 1 });
+    view.spawn(m);
+    const plain = { x: 0, y: 0 };
+    view.headOf(m, plain);
+    expect(plain).not.toHaveProperty("feet");
+    const at = { x: 0, y: 0, feet: 0 };
+    expect(view.headOf(m, at)).toBe(true);
+    expect(at.feet).toBeGreaterThan(at.y + 5);
+    view.dispose();
+  });
+
+  it("lifts the mobs at night with their own colour, and costs no draw call (M4-FIX-4)", () => {
+    const { scene, view } = stage();
+    const materials = new Set<THREE.MeshLambertMaterial>();
+    scene.traverse((o) => {
+      if (o instanceof THREE.InstancedMesh && o.material instanceof THREE.MeshLambertMaterial)
+        materials.add(o.material);
+    });
+    // One material per mob type, each with the lift patch and its own program key.
+    expect(materials.size).toBe(MOBS.length);
+    for (const m of materials) {
+      expect(m.emissive.r).toBe(0);
+      expect(m.customProgramCacheKey()).toContain("vt-lift");
+    }
+    view.setGlow(1);
+    for (const m of materials) expect(m.emissive.r).toBeCloseTo(NIGHT_LIFT);
+    view.setGlow(0.5);
+    for (const m of materials) expect(m.emissive.g).toBeCloseTo(NIGHT_LIFT / 2);
+    view.setGlow(0);
+    for (const m of materials) expect(m.emissive.b).toBe(0);
+    // The material's hook multiplies the emissive by the albedo (three.js's own Lambert shader).
+    const shader = {
+      vertexShader: THREE.ShaderLib.lambert.vertexShader,
+      fragmentShader: THREE.ShaderLib.lambert.fragmentShader,
+    };
+    const first = [...materials][0];
+    if (first === undefined) throw new Error("no material");
+    // oxlint-disable-next-line typescript/unbound-method -- reason: applied with its own `this`, as three.js does
+    Reflect.apply(first.onBeforeCompile, first, [shader, undefined]);
+    expect(shader.fragmentShader).toContain("totalEmissiveRadiance *= diffuseColor.rgb;");
+    view.dispose();
+  });
+
+  it("keeps the model runtime's own shader patch under the lift (an atlas-textured model)", () => {
+    const material = modelMaterial(new THREE.Texture());
+    addLift(material);
+    expect(material.customProgramCacheKey()).toMatch(/vt-lift$/);
+    const shader = {
+      vertexShader: THREE.ShaderLib.lambert.vertexShader,
+      fragmentShader: THREE.ShaderLib.lambert.fragmentShader,
+    };
+    // oxlint-disable-next-line typescript/unbound-method -- reason: applied with its own `this`, as three.js does
+    Reflect.apply(material.onBeforeCompile, material, [shader, undefined]);
+    // The runtime's `vtTex` patch, then the lift.
+    expect(shader.vertexShader).toContain("attribute float vtTex;");
+    expect(shader.fragmentShader).toContain("mix( vec4( 1.0 ), sampledDiffuseColor, vVtTex )");
+    expect(shader.fragmentShader).toContain("totalEmissiveRadiance *= diffuseColor.rgb;");
+    material.dispose();
+  });
+
+  it("the lift patch fails loudly if three.js renamed its chunk", () => {
+    expect(() => patchLiftShader({ fragmentShader: "void main() {}" })).toThrow(/emissivemap/);
+    const twice = "#include <emissivemap_fragment>\n#include <emissivemap_fragment>";
+    expect(() => patchLiftShader({ fragmentShader: twice })).toThrow(/exactly once/);
+  });
+
   it("measures every model's height from its parts", () => {
     for (const m of MOBS) {
       const h = modelHeight(parseModel(m.model, m.id));
@@ -231,6 +306,20 @@ describe("word plates", () => {
     expect(host.querySelectorAll(".vt-defense-plate")).toHaveLength(1);
     plates.sync([], bounds);
     expect(host.querySelectorAll(".vt-defense-plate")).toHaveLength(0);
+    plates.dispose();
+  });
+
+  it("carries its mob's head and feet for the e2e, written only when they move (M4-FIX-4)", () => {
+    const { plates, host } = layer();
+    plates.sync([item("a")], bounds);
+    const el = (): HTMLElement | null => host.querySelector<HTMLElement>(".vt-defense-plate");
+    expect(el()?.hasAttribute("data-mob")).toBe(false);
+    plates.sync([item("a", { x: 400.4, y: 300.2, feet: 352.7 })], bounds);
+    expect(el()?.dataset["mob"]).toBe("400 300 353");
+    const before = el();
+    plates.sync([item("a", { x: 400.2, y: 300.4, feet: 352.6 })], bounds);
+    expect(el()).toBe(before);
+    expect(el()?.dataset["mob"]).toBe("400 300 353");
     plates.dispose();
   });
 
