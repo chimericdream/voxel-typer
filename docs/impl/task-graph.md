@@ -151,13 +151,19 @@ Waves are a schedule hint. The real rule is "dependencies merged" plus rules 2�
 | M4-05 | Wave director | M/A | M1-04, M1-06, M1-07 | merged |
 | M4-06 | Island data + persistence | S/B | M1-09, M1-13 | merged |
 | M4-07 | ✦ ⛩ Builder mode | L/A | M4-06, M2-13, M2-14 | merged |
-| M4-08 | Blueprints, expansion, snapshot | M/B | M4-07 | review (#204) |
-| M4-09 | Inventory screen | M/B | M2-07, M2-04 | review (#205) |
-| M4-10 | ⛩ No-failure invariants + E2E | M/B | M4-04, M4-07, M4-08, M4-09 | todo |
+| M4-08 | Blueprints, expansion, snapshot | M/B | M4-07 | merged |
+| M4-09 | Inventory screen | M/B | M2-07, M2-04 | merged |
+| M4-10 | ⛩ No-failure invariants + E2E | M/B | M4-04, M4-07, M4-08, M4-09 | merged |
 | M4-FIX-1 | Builder: digging keeps every block | S/B | M4-07 | merged |
 | M4-FIX-2 | Night Defense pacing | S/B | M4-04, M4-05 | merged |
 | M4-FIX-3 | Night Defense for 5 WPM learners | S/B | M4-FIX-2 | merged |
-| M4-GATE | Gate | — | all M4 | todo |
+| M4-FIX-4 | Night Defense layout on short screens | M/A | M4-04 | merged |
+| M3-FIX-12 | Results toast placement and Sprout finger labels | S/B | M3-10, M2-09 | merged |
+| M4-FIX-5 | Builder: see what you built, simpler Sprout help | S/B | M4-08 | merged |
+| M4-FIX-6 | Art: move three looks further from famous games | S/A | M4-03, M2-03 | merged |
+| M4-FIX-7 | Night Defense Results line slow, plates over other mobs | S/B | M4-FIX-4 | merged |
+| M3-FIX-13 | Small key names, Results at text scale 2, Escape race | S/B | M4-FIX-4, M3-FIX-12 | merged |
+| M4-GATE | Gate | — | all M4 | ready (owner playtest; tag pending) |
 | M5-01 | ✦ ⛩ Minecart Run | L/A | M2-13, M4-01 | todo |
 | M5-02 | ⛩ Boss framework + DSL | M/A | M4-01, M4-04, M2-13 | todo |
 | M5-03 | ✦ Boss designs + models | L/A | M4-01, M4-02 | todo |
