@@ -14,7 +14,7 @@
  * personal-best plate, have filled in; with reduced motion there is nothing to wait for. A dock
  * under the buttons (`data-toast-dock`) is where they show, so they never cover the card.
  */
-import { useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { ScreenProps } from "@/app/types";
 import { blocks } from "@/content/blocks";
 import { createRng } from "@/engine/rng";
@@ -57,6 +57,37 @@ export function fillInMs(stars: number, best: boolean, reduced: boolean): number
   return Math.max(lastStar, best ? BEST_DELAY_MS + FILL_MS : 0);
 }
 
+/**
+ * Lays Results out side by side (`data-layout="side"`) only when the one-column layout doesn't fit
+ * the window (M3-FIX-13): at text scale 2, or on a very short window. Measured in one column first,
+ * in a layout effect, so the child never sees the switch; again when the window resizes and when
+ * fonts finish loading. The CSS uses it on a wide window only (Results.module.css).
+ */
+export function chooseLayout(page: HTMLElement): void {
+  const box = page.parentElement;
+  page.dataset["layout"] = "stack";
+  if (!box) return;
+  const over = box.scrollHeight > box.clientHeight + 1;
+  page.dataset["layout"] = over ? "side" : "stack";
+}
+
+function useLayoutChoice(page: { current: HTMLElement | null }): void {
+  useLayoutEffect(() => {
+    const el = page.current;
+    if (!el) return undefined;
+    const fit = (): void => chooseLayout(el);
+    fit();
+    const view = el.ownerDocument.defaultView;
+    view?.addEventListener("resize", fit);
+    const fonts = "fonts" in el.ownerDocument ? el.ownerDocument.fonts : null;
+    fonts?.addEventListener("loadingdone", fit);
+    return () => {
+      view?.removeEventListener("resize", fit);
+      fonts?.removeEventListener("loadingdone", fit);
+    };
+  }, [page]);
+}
+
 const icons = new Map<string, string>();
 
 /** A 16×16 icon of the block's side face, as a data URI ("" without a 2D canvas). */
@@ -88,6 +119,8 @@ export default function Results({ app, route }: ScreenProps) {
   const profile = app.profile();
   const lesson = route.lesson === undefined ? null : app.lesson(route.lesson);
   const actions = useRef<HTMLDivElement>(null);
+  const page = useRef<HTMLDivElement>(null);
+  useLayoutChoice(page);
   const armed = useRef(false);
   const reduced = useReducedMotion(profile?.settings.reducedMotion);
   const stars = result?.stars ?? 0;
@@ -166,7 +199,12 @@ export default function Results({ app, route }: ScreenProps) {
   const aim = aimLine(result.summary.accuracy, band);
 
   return (
-    <div class={`${screen.screen} ${styles.page}`} data-toast-hold={filling ? "stars" : undefined}>
+    <div
+      ref={page}
+      class={`${screen.screen} ${styles.page}`}
+      data-layout="stack"
+      data-toast-hold={filling ? "stars" : undefined}
+    >
       <h1 class={`${screen.title} ${styles.title}`}>{t("screens.results.title")}</h1>
       <div class={styles.card}>
         <div class={styles.stars}>

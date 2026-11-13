@@ -98,6 +98,29 @@ describe("app shell", () => {
     expect(s.shell.route.value.id).toBe("splash");
   });
 
+  it("drops an Escape no screen takes until the route's screen has drawn (M3-FIX-13)", () => {
+    const s = setup();
+    const escape = (): void => s.shell.router.handle({ kind: "control", action: "back", t: 0 });
+    s.shell.api.navigate({ id: "lessonIntro", lesson: "meadow-01" });
+    s.shell.screenDrawn(s.shell.route.value);
+    // "Back to the map", and Escape before the map has loaded: nothing happens.
+    s.shell.api.navigate({ id: "map" });
+    escape();
+    expect(s.shell.route.value.id).toBe("map");
+    // Once the map is up, an Escape it leaves alone goes back as before.
+    s.shell.screenDrawn(s.shell.route.value);
+    escape();
+    expect(s.shell.route.value.id).toBe("lessonIntro");
+    // The screen a route drew before doesn't count for the next route with the same id.
+    s.shell.api.navigate({ id: "lessonIntro", lesson: "meadow-02" });
+    escape();
+    expect(s.shell.route.value).toEqual({ id: "lessonIntro", lesson: "meadow-02" });
+    // The app's own Back buttons are never held back.
+    s.shell.api.back();
+    expect(s.shell.route.value.id).toBe("lessonIntro");
+    expect(s.shell.route.value.lesson).toBe("meadow-01");
+  });
+
   it("back arrives on a fresh route object, so a settle wait restarts (M3-10 re-review N1)", () => {
     const s = setup();
     s.shell.api.navigate({ id: "map" });

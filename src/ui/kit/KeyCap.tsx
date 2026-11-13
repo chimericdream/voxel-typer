@@ -2,11 +2,15 @@
  * A keyboard key drawn as a chunky block (task M2-07), for lesson intros and hints. `bump` draws
  * the F/J home-row bump.
  */
+import type { ComponentChildren } from "preact";
 import styles from "./KeyCap.module.css";
 
 export interface KeyCapProps {
-  /** What is printed on the key: a letter, a symbol, or `t()` output for named keys ("Space"). */
-  glyph: string;
+  /**
+   * What is printed on the key: a letter, a symbol, `t()` output for named keys ("Space"), or a
+   * drawing (the on-screen keyboard's key icons, M3-FIX-13).
+   */
+  glyph: ComponentChildren;
   /** Spoken name when the glyph alone is unclear (";" → "semicolon"). Pass `t()` output. */
   label?: string;
   size?: "md" | "lg";

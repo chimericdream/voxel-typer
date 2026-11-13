@@ -207,6 +207,9 @@ test.describe("badge toast on the World Map", () => {
     await page.waitForTimeout(RESULTS_ARM_MS + 100);
     await page.getByRole("button", { name: "Map", exact: true }).click();
     await expectScreen(page, "map");
+    // The map must be up before Escape closes its lesson path (M3-FIX-13): sooner, no screen took
+    // it, and it went back to Lesson Intro.
+    await expect(page.getByRole("heading", { name: "World Map" })).toBeAttached();
     await page.keyboard.press("Escape");
     const corner = page.locator("[data-toast-clear]").filter({ has: page.getByRole("button") });
     await expect(corner).toBeVisible();

@@ -28,7 +28,7 @@ import {
   zoneOf,
 } from "../../../src/ui/keyboard/model";
 import type { BoardKey, WobbleGate } from "../../../src/ui/keyboard/model";
-import { OnScreenKeyboard, fitLabels } from "../../../src/ui/keyboard/OnScreenKeyboard";
+import { OnScreenKeyboard, fitFaces, fitLabels } from "../../../src/ui/keyboard/OnScreenKeyboard";
 import type { WrongKey } from "../../../src/ui/keyboard/OnScreenKeyboard";
 import en from "../../../src/i18n/en";
 import {
@@ -285,7 +285,84 @@ describe("faceOf", () => {
     expect(glyph("KeyD")).toBe("D");
     expect(glyph("Digit2")).toBe("@\n2");
     expect(glyph("Space")).toBe(en.keyboard.key.space);
-    expect(glyph("CapsLock")).toBe(en.keyboard.key.caps);
+  });
+
+  it("draws an icon, named through t(), on the long-named keys (M3-FIX-13)", () => {
+    mount(<OnScreenKeyboard layout={EN_US} nextKey={null} />);
+    const named = {
+      Backspace: en.keyboard.key.backspace,
+      CapsLock: en.keyboard.key.caps,
+      Tab: en.keyboard.key.tab,
+      Enter: en.keyboard.key.enter,
+      ShiftLeft: en.keyboard.key.shift,
+      ShiftRight: en.keyboard.key.shift,
+    };
+    for (const [code, name] of Object.entries(named)) {
+      const icon = one(`[data-code="${code}"] kbd svg[data-key-icon]`);
+      expect(icon.getAttribute("role")).toBe("img");
+      expect(icon.getAttribute("aria-label")).toBe(name);
+      expect(glyph(code)).toBe("");
+    }
+    expect(all('[data-code="Space"] svg')).toHaveLength(0);
+  });
+});
+
+/** Lays every two-char key out `height` px tall, with the given font size and lift. */
+function layOut(height: number, font: number, lift = 0): void {
+  for (const cap of all('[data-face="dual"] kbd')) {
+    cap.getBoundingClientRect = () => new DOMRect(0, 0, height, height);
+    cap.style.fontSize = `${font}px`;
+    cap.style.paddingBottom = `${lift}px`;
+  }
+}
+
+function tight(code: string): boolean {
+  return one(`[data-code="${code}"]`).hasAttribute("data-face-tight");
+}
+
+describe("fitFaces (M3-FIX-13)", () => {
+  it("keeps both chars when two lines of the size fit, and one when they don't", () => {
+    mount(<OnScreenKeyboard layout={EN_US} nextKey="f" />);
+    const board = one("[role=img][data-layout]");
+    // 2 × 12 px × 1.05 = 25.2 px of text; a 40 px key has 34 px inside its outline.
+    layOut(40, 12);
+    fitFaces(board);
+    expect(tight("Digit1")).toBe(false);
+    // The lift that clears a finger label leaves too little room.
+    layOut(40, 12, 9.6);
+    fitFaces(board);
+    expect(tight("Digit1")).toBe(true);
+    expect(tight("Semicolon")).toBe(true);
+    // Letters are never two-char keys.
+    expect(tight("KeyF")).toBe(false);
+  });
+
+  it("with labels on, counts the label's lift even while the key hides it (hover shows it)", () => {
+    mount(<OnScreenKeyboard layout={EN_US} nextKey="f" labels />);
+    const board = one("[role=img][data-layout]");
+    // A short row: the key's label is hidden and its lift is 0, until the pointer is over it.
+    layOut(40, 12, 0);
+    for (const label of all('[data-face="dual"] [data-finger-label]'))
+      label.style.fontSize = "12px";
+    fitFaces(board);
+    expect(tight("Digit1")).toBe(true);
+    // A label too wide for its key never shows, so it lifts nothing.
+    for (const slot of all('[data-face="dual"]')) slot.toggleAttribute("data-label-off", true);
+    fitFaces(board);
+    expect(tight("Digit1")).toBe(false);
+  });
+
+  it("shows the Shift char on a small key lit for it", () => {
+    mount(<OnScreenKeyboard layout={EN_US} nextKey="!" />);
+    expect(one('[data-code="Digit1"]').dataset["shifted"]).toBe("1");
+    expect(one('[data-code="Digit2"]').dataset["shifted"]).toBeUndefined();
+    mount(<OnScreenKeyboard layout={EN_US} nextKey="1" />);
+    expect(one('[data-code="Digit1"]').dataset["shifted"]).toBeUndefined();
+  });
+
+  it("leaves keys alone before they are laid out", () => {
+    mount(<OnScreenKeyboard layout={EN_US} nextKey="f" labels />);
+    expect(all("[data-face-tight]")).toHaveLength(0);
   });
 });
 
@@ -585,9 +662,9 @@ describe("OnScreenKeyboard", () => {
 
   it("draws the hands only when asked", () => {
     mount(<OnScreenKeyboard layout={EN_US} nextKey="f" />);
-    expect(all("svg")).toHaveLength(0);
+    expect(all("svg:not([data-key-icon])")).toHaveLength(0);
     mount(<OnScreenKeyboard layout={EN_US} nextKey="f" hands />);
-    expect(all("svg")).toHaveLength(2);
+    expect(all("svg:not([data-key-icon])")).toHaveLength(2);
   });
 
   it("names the next key and finger for screen readers", () => {

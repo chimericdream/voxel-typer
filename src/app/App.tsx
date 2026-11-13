@@ -5,7 +5,7 @@
  */
 import type { ReadonlySignal } from "@preact/signals";
 import type { ComponentType } from "preact";
-import { useCallback, useEffect, useState } from "preact/hooks";
+import { useCallback, useEffect, useLayoutEffect, useState } from "preact/hooks";
 import { fingerLabelsOn, hearAgainKey, hearAgainShown } from "@/a11y/options";
 import { EN_US, layoutById } from "@/content/layouts";
 import { t } from "@/i18n";
@@ -38,19 +38,38 @@ function Soon({ shell }: { shell: Shell }) {
   );
 }
 
+/**
+ * Tells the shell when `route`'s screen has drawn (M3-FIX-13; see `Shell.screenDrawn`). A layout
+ * effect: it runs as the render commits, so no key press lands between a screen drawn from the
+ * cache (M4-FIX-7) and the shell hearing of it.
+ */
+function useScreenDrawn(shell: Shell, route: Route, drawn: boolean): void {
+  useLayoutEffect(() => {
+    if (drawn) shell.screenDrawn(route);
+  }, [shell, route, drawn]);
+}
+
 function ScreenView({ shell, route }: { shell: Shell; route: Route }) {
   const loader = screens[route.id];
   const [loaded, setLoaded] = useState<{
     id: string;
     Screen: ComponentType<ScreenProps>;
   } | null>(null);
+  // The route whose screen code failed to load.
+  const [failed, setFailed] = useState<string | null>(null);
 
   useEffect(() => {
     if (loader === undefined) return undefined;
     let live = true;
-    const p = loadScreen(loader).then((Screen) => {
-      if (live) setLoaded({ id: route.id, Screen });
-    });
+    const p = loadScreen(loader).then(
+      (Screen) => {
+        if (live) setLoaded({ id: route.id, Screen });
+      },
+      (err: unknown) => {
+        if (live) setFailed(route.id);
+        throw err;
+      },
+    );
     shell.api.whenReady(p);
     return () => {
       live = false;
@@ -61,6 +80,10 @@ function ScreenView({ shell, route }: { shell: Shell; route: Route }) {
   // this very render, not after an effect and a promise (M4-FIX-7). It comes from state or from
   // the cache, never made here, so it is the same component on each render and keeps its state.
   const Screen = loaded?.id === route.id ? loaded.Screen : loadedScreen(loader);
+  // Tell the shell once this route's screen is up (or can't come: its code failed to load, say
+  // offline), so an Escape before then isn't a step back, and one after it still works (M3-FIX-13).
+  const drawn = loader === undefined || Screen !== null || failed === route.id;
+  useScreenDrawn(shell, route, drawn);
   if (loader === undefined) return <Soon shell={shell} />;
   if (Screen === null) return null;
   // oxlint-disable-next-line react/static-components -- reason: Screen is a module's default export, read from state or the screen cache; it is never created here
@@ -191,6 +214,9 @@ export interface AppProps {
 export function App({ shell, localVoice }: AppProps) {
   const route = shell.route.value;
   const voice = localVoice?.value ?? false;
+  // The play view draws at once (no lazy screen): it is up as soon as its route is. Said here too,
+  // so a session that starts on `play` turns the shell's Escape hold on (M3-FIX-13).
+  useScreenDrawn(shell, route, route.id === "play");
   return (
     <div class={styles.app} data-route={route.id}>
       <main class={styles.main}>

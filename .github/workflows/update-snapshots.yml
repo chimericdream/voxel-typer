@@ -118,7 +118,8 @@ jobs:
     name: update snapshots
     needs: resolve
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The full suite outgrew 30 minutes (run 43441195360 was cancelled at the limit, M3-FIX-13).
+    timeout-minutes: 50
     permissions:
       contents: read
     container:

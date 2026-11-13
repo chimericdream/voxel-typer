@@ -5,8 +5,11 @@
  * ring. The class is doubled so it wins over `.screen` whatever order the sheets load in.
  */
 .page.page {
+  /* Room under the buttons for the focus ring; the side-by-side layout docks toasts on it too. */
+  --page-end: calc(var(--sp-4) + var(--focus-w) + var(--focus-halo-w));
+
   gap: var(--sp-4);
-  padding-bottom: calc(var(--sp-4) + var(--focus-w) + var(--focus-halo-w));
+  padding-bottom: var(--page-end);
 }
 
 /*
@@ -225,5 +228,54 @@
 
   .slots {
     --slot-base: 36px;
+  }
+}
+
+/*
+ * Side by side (M3-FIX-13), when the one-column layout doesn't fit the window (`data-layout`, set
+ * by `chooseLayout` in Results.tsx: text scale 2 on 1024×600 or 1280×720, say) and the window is
+ * wide. The buttons stand in a column beside the card, under the heading, so the heading, the
+ * stars and the buttons show together. Before, at text scale 2, the buttons wrapped into two rows
+ * under the card, and focusing "Next lesson" on arrival scrolled the heading off by up to 308 px.
+ * A tall card may still run below the window; the page scrolls for it, and the heading and the
+ * buttons stay put on arrival. Where one column fits (text scale 1 and 1.5), it stays one column.
+ *
+ * The badge toast's dock goes under both columns, across the page: the toast shows below the
+ * card and the buttons, so it covers neither, and waits when there is no room (M3-FIX-12).
+ */
+@media (min-aspect-ratio: 3/2) {
+  .page.page[data-layout="side"] {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "title title"
+      "card actions";
+    align-content: start;
+    align-items: start;
+    column-gap: var(--sp-5);
+    /* As tall as its content, so the dock below can sit on the content's bottom edge. */
+    min-height: 0;
+  }
+
+  .page[data-layout="side"] .title.title {
+    grid-area: title;
+  }
+
+  .page[data-layout="side"] .card {
+    grid-area: card;
+    justify-self: center;
+  }
+
+  .page[data-layout="side"] .actions.actions {
+    position: static;
+    grid-area: actions;
+    flex-flow: column nowrap;
+    align-items: stretch;
+  }
+
+  .page[data-layout="side"] .toastDock {
+    top: auto;
+    bottom: var(--page-end);
   }
 }
