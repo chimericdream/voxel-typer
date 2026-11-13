@@ -42,9 +42,13 @@ export interface InventoryEntry {
   /** How many the player has now (0 unless owned). */
   count: number;
   kind: BlockKind;
-  /** The islands whose lessons give this block, in curriculum order. */
+  /**
+   * The loot tables that list this block, in curriculum order. Lessons on an island without its
+   * own table roll from the Meadow table, so this says whether lessons give the block at all, not
+   * on which island.
+   */
   lootBiomes: BiomeId[];
-  /** The islands the "Island" filter lists it under: its loot islands and `biome:` tags. */
+  /** The block's own islands, from its `biome:` tags: what the "Island" filter lists it under. */
   biomes: BiomeId[];
 }
 
@@ -78,9 +82,7 @@ export function inventoryEntries(
       .filter((tag) => tag.startsWith("biome:"))
       .map((tag) => tag.slice("biome:".length))
       .filter((b): b is BiomeId => (BIOME_ORDER as readonly string[]).includes(b));
-    const biomes = [...new Set([...lootBiomes, ...tagged])].toSorted(
-      (a, b) => biomeRank(a) - biomeRank(b),
-    );
+    const biomes = [...new Set(tagged)].toSorted((a, b) => biomeRank(a) - biomeRank(b));
     out.push({
       def,
       state: owned > 0 ? "owned" : known ? "placed" : "unknown",

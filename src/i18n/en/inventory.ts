@@ -46,9 +46,11 @@ export default {
     have: "You have {count}.",
     placed: "You have 0 here. They are all on your island!",
     unknownHave: "You have not found this one yet.",
-    where: "Found in {places}.",
-    whereUnknown: "Look for it in {places}.",
+    where: "Found in lessons.",
+    whereUnknown: "Look for it in lessons.",
     whereNone: "No lesson gives this one yet.",
+    // Only for a block that belongs to an island: "It comes from Meadow Home."
+    home: "It comes from {places}.",
     // Joins two or more island names: "Meadow Home and Birch Forest".
     and: "{first} and {last}",
   },

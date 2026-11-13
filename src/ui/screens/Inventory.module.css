@@ -215,7 +215,9 @@
   gap: var(--bevel-unit);
 }
 
+/* The pips and the count sit above the rarity ring (::after), so the ring never hides them. */
 .slot .pips {
+  z-index: 1;
   position: absolute;
   top: var(--bevel-unit);
   right: var(--bevel-unit);
@@ -231,6 +233,7 @@
 
 /* The count, bottom right, always shown for a found block (0 too: it is on the island). */
 .badge {
+  z-index: 1;
   position: absolute;
   right: calc(var(--bevel-w) * -1 + 1px);
   bottom: calc(var(--bevel-w) * -1 + 1px);

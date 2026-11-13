@@ -101,6 +101,13 @@ test.describe("My Blocks", () => {
       "aria-label",
       "Glass, 0. All on your island",
     );
+    // A rare block's ring never covers its count: the badge stacks above the ring (review of #205).
+    const order = await page.locator('[data-block="lantern"]').evaluate((slot) => ({
+      ring: getComputedStyle(slot, "::after").zIndex,
+      badge: getComputedStyle(slot.querySelector("[data-count]") ?? slot).zIndex,
+    }));
+    expect(order).toEqual({ ring: "auto", badge: "1" });
+    await expect(page.getByTestId("inventory-details")).toContainText("Found in lessons.");
     await expectNoAxeViolations(page, "my blocks, day");
     await still(page);
     await expect(page).toHaveScreenshot("inventory-rich.png", { timeout: 30_000 });

@@ -114,8 +114,13 @@ describe("the details panel's words", () => {
       name: "Oak Planks",
       have: "You have 1250.",
       rarity: t("inventory.rarity.common"),
-      where: "Found in Meadow Home.",
+      where: "Found in lessons.",
+      // Planks belong to no one island (no `biome:` tag).
+      home: null,
     });
+    // Grass is a Meadow block: the panel says so, and the Island filter lists it there.
+    expect(detailView(entry(list, "grass")).home).toBe("It comes from Meadow Home.");
+    expect(entry(list, "oak-planks").biomes).toEqual([]);
     expect(slotLabel(entry(list, "oak-planks"))).toBe("Oak Planks, 1250");
   });
 
@@ -130,13 +135,19 @@ describe("the details panel's words", () => {
     expect(gem.state).toBe("unknown");
     const view = detailView(gem);
     expect(view.name).toBe(t("inventory.detail.unknownName"));
-    expect(view.where).toBe("Look for it in Meadow Home.");
+    expect(view.where).toBe("Look for it in lessons.");
+    // Every lesson rolls from a loot table, so no island is named for a block without one.
+    expect(view.home).toBeNull();
     expect(slotLabel(gem)).toBe(t("inventory.cell.unknown"));
     expect(JSON.stringify(view)).not.toContain("Green Wool");
   });
 
   it("has no pressure or loss words, and every block name is safe to read aloud", () => {
-    const words = list.flatMap((e) => Object.values(detailView(e)).concat(slotLabel(e)));
+    const words = list.flatMap((e) =>
+      Object.values(detailView(e))
+        .filter((w): w is string => w !== null)
+        .concat(slotLabel(e)),
+    );
     for (const w of words) expect(w).not.toMatch(/\b(lost|gone|wrong|hurry|fast|fail)/i);
     for (const def of blocks) {
       // Decision 100: a name a screen reader or read-aloud says must not sound unsafe.

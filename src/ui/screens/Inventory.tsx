@@ -61,14 +61,19 @@ export function slotLabel(e: InventoryEntry): string {
   return t("inventory.cell.owned", { name, count: e.count });
 }
 
-/** What the panel says about a block. */
+/**
+ * What the panel says about a block. Every lesson rolls from a loot table, and islands without
+ * their own table use the Meadow one, so "where" says lessons, not an island. A block whose
+ * content tags tie it to an island (`biome:`) also says which.
+ */
 export function detailView(e: InventoryEntry): {
   name: string;
   have: string;
   rarity: string;
   where: string;
+  home: string | null;
 } {
-  const places = placesText(e.lootBiomes);
+  const places = placesText(e.biomes);
   return {
     name: e.state === "unknown" ? t("inventory.detail.unknownName") : t(e.def.nameKey),
     have:
@@ -79,11 +84,12 @@ export function detailView(e: InventoryEntry): {
           : t("inventory.detail.unknownHave"),
     rarity: t(`inventory.rarity.${e.def.rarity}`),
     where:
-      places === ""
+      e.lootBiomes.length === 0
         ? t("inventory.detail.whereNone")
         : e.state === "unknown"
-          ? t("inventory.detail.whereUnknown", { places })
-          : t("inventory.detail.where", { places }),
+          ? t("inventory.detail.whereUnknown")
+          : t("inventory.detail.where"),
+    home: places === "" ? null : t("inventory.detail.home", { places }),
   };
 }
 
@@ -166,6 +172,7 @@ function Details({ app, entry }: { app: AppApi; entry: InventoryEntry }) {
         <span>{view.rarity}</span>
       </p>
       <p class={styles.detailText}>{view.where}</p>
+      {view.home === null ? null : <p class={styles.detailText}>{view.home}</p>}
     </section>
   );
 }
