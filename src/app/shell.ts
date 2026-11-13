@@ -31,7 +31,7 @@ import type { InputRouter } from "./input-router";
 import { createPlayHost } from "./play-host";
 import { remedialById } from "./recommend";
 import type { PlayHost, PlayStatus } from "./play-host";
-import type { Route } from "./routes";
+import type { Route, RouteId } from "./routes";
 import type { AppScene } from "./scene-host";
 import type { AppApi, ScreenInputHandler } from "./types";
 
@@ -58,6 +58,12 @@ export interface ShellDeps {
   focusOnControl(): boolean;
   /** Shows or hides the shared canvas. */
   showCanvas(on: boolean): void;
+  /**
+   * Fetches a screen's code ahead of time (M4-FIX-7). A lesson asks for the screen it ends on as
+   * it starts, so that screen draws at once when it comes: fetched only then, a slow server (one
+   * stall was 10 s) left the child looking at an empty page. Optional; tests leave it out.
+   */
+  preloadScreen?(id: RouteId): void;
   initial?: Route;
   /** A profile to start with (`?profile=` fixtures). Set before the first route is entered, so a
    * deep link straight into `play` finds it. */
@@ -127,6 +133,16 @@ const recordOf = (p: Profile): string => JSON.stringify(compactHistory(p));
 /** The Home Island is Builder mode on the play route (M4-07); `island` is its address. */
 const homeIsland = (to: Route): Route =>
   to.id === "island" ? { id: "play", lesson: BUILDER_LESSON_ID } : to;
+
+/**
+ * The screen a finished lesson goes to: Results, except Builder (no Results: back to the map,
+ * M4-07) and the placement test (its own screen, M3-05).
+ */
+export function endScreenOf(lesson: string | undefined): RouteId {
+  if (lesson === BUILDER_LESSON_ID) return "map";
+  if (lesson === PLACEMENT_LESSON_ID) return "placement";
+  return "results";
+}
 
 export function createShell(deps: ShellDeps): Shell {
   const route = signal<Route>(deps.initial ?? { id: "splash" });
@@ -393,18 +409,8 @@ export function createShell(deps: ShellDeps): Shell {
     onFinished(_result, _updated) {
       const current = route.value;
       if (current.id !== "play") return;
-      // Builder has no Results: leaving the island goes back to the map (M4-07).
-      if (current.lesson === BUILDER_LESSON_ID) {
-        go({ id: "map" }, true);
-        return;
-      }
-      // The placement test shows where the player starts, on its own screen (M3-05).
-      if (current.lesson === PLACEMENT_LESSON_ID) {
-        go({ id: "placement", lesson: PLACEMENT_LESSON_ID }, true);
-        return;
-      }
-      const next: Route = { id: "results" };
-      if (current.lesson !== undefined) next.lesson = current.lesson;
+      const next: Route = { id: endScreenOf(current.lesson) };
+      if (next.id !== "map" && current.lesson !== undefined) next.lesson = current.lesson;
       go(next, true);
     },
   });
@@ -413,6 +419,7 @@ export function createShell(deps: ShellDeps): Shell {
     // The world map draws its islands in the shared scene too (M3-04).
     deps.showCanvas(to.id === "play" || to.id === "map");
     if (to.id !== "play") return;
+    deps.preloadScreen?.(endScreenOf(to.lesson));
     const lesson =
       to.lesson === PLACEMENT_LESSON_ID
         ? PLACEMENT_LESSON

@@ -160,6 +160,10 @@ async function boot(host: HTMLElement): Promise<void> {
     showCanvas(on) {
       canvas.hidden = !on;
     },
+    preloadScreen(id) {
+      // A failed fetch here is tried again when the screen is shown.
+      screens[id]?.().catch(() => undefined);
+    },
     initial,
     initialProfile: firstProfile,
     ...(tabs && { tabs }),

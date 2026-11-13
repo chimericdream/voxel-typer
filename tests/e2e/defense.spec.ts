@@ -9,6 +9,7 @@
  */
 import { expect, test } from "@playwright/test";
 import type { Page, TestInfo } from "@playwright/test";
+import { resultsTiming, watchResults } from "./helpers/results-timing";
 import { collectErrors, ready, state } from "./helpers/vt";
 
 interface NightState {
@@ -158,6 +159,8 @@ test("a Miner's night plays from day to dawn inside the draw-call budget", async
   await toDusk(page, info, "profile=meadow-done-miner", "miner");
   const app = page.locator("#app");
   await shot(page, info, "miner-dusk-banner");
+  // When Results and its lines come, timed in the page (M4-FIX-7).
+  await watchResults(page, ["sent home", "Best streak"]);
 
   let keys = 0;
   let peakCalls = 0;
@@ -230,6 +233,18 @@ test("a Miner's night plays from day to dawn inside the draw-call budget", async
   expect(end.done).toBeGreaterThan(5);
   expect(end.lootTotal).toBeGreaterThanOrEqual(end.done);
   await expect(app.getByText(/sent home$/)).toBeVisible();
+  // Results draws its lines within 1.5 s of the route change, with the heading (M4-FIX-7). Its
+  // code is fetched when the night starts; once, fetched only at the end, it came 10 s late.
+  await expect
+    .poll(async () => (await resultsTiming(page)).lines, { timeout: 5000 })
+    .not.toBe(null);
+  const timing = await resultsTiming(page);
+  info.annotations.push({
+    type: "Results lines after the route change",
+    description: `${timing.lines} ms`,
+  });
+  expect(timing.lines ?? Infinity).toBeLessThanOrEqual(1500);
+  expect(timing.lines).toBe(timing.heading);
   // The stars and the loot fill in one by one.
   await page.waitForTimeout(2500);
   await shot(page, info, "miner-results");
