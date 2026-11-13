@@ -319,11 +319,17 @@ test.describe("the heading never covers a corner button (M3-FIX-4 (c), M3-FIX-8)
   });
 });
 
-/** Touches a button through the browser's own touch input, held for `holdMs`. */
+/**
+ * Touches a button through the browser's own touch input, held for `holdMs`, and then (with
+ * `until`) for as long as it takes `until` to come true, at most 10 s more. On CI's software
+ * renderer a slow frame can hold the page's long-press timer back past a fixed hold, and the lift
+ * then runs first and cancels it (M3-14: the long-press flake). Holding until the tip is open
+ * tests the same thing, a press that stays down, without racing the timer.
+ */
 async function touch(
   page: Page,
   name: string,
-  opts: { holdMs?: number; cancel?: boolean } = {},
+  opts: { holdMs?: number; cancel?: boolean; until?: () => Promise<boolean> } = {},
 ): Promise<void> {
   const box = await page.getByRole("button", { name }).boundingBox();
   if (box === null) throw new Error(`${name} not on screen`);
@@ -331,6 +337,7 @@ async function touch(
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [point] });
   if (opts.holdMs !== undefined) await page.waitForTimeout(opts.holdMs);
+  if (opts.until !== undefined) await expect.poll(opts.until, { timeout: 10_000 }).toBe(true);
   await cdp.send("Input.dispatchTouchEvent", {
     type: opts.cancel === true ? "touchCancel" : "touchEnd",
     touchPoints: [],
@@ -349,8 +356,9 @@ test.describe("corner buttons on touch, narrow window (M3-FIX-4 (a), (b))", () =
     const words = page.getByRole("button", { name: "Settings" }).getByText("Settings");
 
     // A long press: the words show, and lifting the finger doesn't leave the map.
-    await touch(page, "Settings", { holdMs: 900 });
-    await expect.poll(async () => (await words.boundingBox())?.width ?? 0).toBeGreaterThan(40);
+    const shown = async (): Promise<boolean> => ((await words.boundingBox())?.width ?? 0) > 40;
+    await touch(page, "Settings", { holdMs: 900, until: shown });
+    await expect.poll(shown).toBe(true);
     await page.waitForTimeout(300);
     await expectScreen(page, "map");
 

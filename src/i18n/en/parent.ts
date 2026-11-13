@@ -27,7 +27,8 @@ export default {
     title: "Speed and accuracy",
     span: "Time span",
     recent: "Last {count} sessions",
-    weekly: "By week",
+    /** Only weeks that had practice are drawn, side by side (M3-11 review N6). */
+    weekly: "Weeks with practice",
     empty: "Charts show up here after {name} finishes a lesson.",
     emptyRecent: "No recent sessions with typing in them yet. See the week-by-week view.",
     colSession: "Session",
