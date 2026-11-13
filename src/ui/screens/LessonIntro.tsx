@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { ScreenProps } from "@/app/types";
 import { EN_US, fingerFor, layoutById } from "@/content/layouts";
+import { isRemedialId } from "@/engine/remedial";
 import type { Lesson } from "@/content/lessons/types";
 import { t } from "@/i18n";
 import { Button } from "@/ui/kit/Button";
@@ -80,7 +81,9 @@ function Intro({ app, lesson }: { app: ScreenProps["app"]; lesson: Lesson }) {
       {lesson.newKeys.length > 0 ? (
         <section class={styles.keys} aria-labelledby="lesson-intro-keys">
           <h2 id="lesson-intro-keys" class={styles.keysHeading}>
-            {t("screens.lessonIntro.newKeys")}
+            {isRemedialId(lesson.id)
+              ? t("remedial.practiceKeys")
+              : t("screens.lessonIntro.newKeys")}
           </h2>
           <ul class={styles.keyList}>
             {lesson.newKeys.map((k) => {

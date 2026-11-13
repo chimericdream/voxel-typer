@@ -27,6 +27,7 @@ import type { HudStore } from "./hud";
 import { createInputRouter } from "./input-router";
 import type { InputRouter } from "./input-router";
 import { createPlayHost } from "./play-host";
+import { remedialById } from "./recommend";
 import type { PlayHost, PlayStatus } from "./play-host";
 import type { Route } from "./routes";
 import type { AppScene } from "./scene-host";
@@ -201,7 +202,9 @@ export function createShell(deps: ShellDeps): Shell {
     return true;
   };
 
-  const lessonById = (id: string): Lesson | null => deps.lessons.find((l) => l.id === id) ?? null;
+  // A remedial practice lesson (M3-06) is not shipped: the map handed it out, so ask for it there.
+  const lessonById = (id: string): Lesson | null =>
+    deps.lessons.find((l) => l.id === id) ?? remedialById(id);
 
   const play = createPlayHost({
     acquireScene: () => deps.acquireScene(),
