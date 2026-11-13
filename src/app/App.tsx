@@ -4,6 +4,7 @@
  * remount it.
  */
 import type { ReadonlySignal } from "@preact/signals";
+import { h } from "preact";
 import type { ComponentType } from "preact";
 import { useCallback, useEffect, useState } from "preact/hooks";
 import { fingerLabelsOn, hearAgainKey, hearAgainShown } from "@/a11y/options";
@@ -19,6 +20,7 @@ import { Pause } from "@/ui/screens/Pause";
 import styles from "./App.module.css";
 import { realClock } from "./clock";
 import { FOOTER_ROUTES, screens } from "./routes";
+import { loadScreen, loadedScreen } from "./screen-cache";
 import type { Route } from "./routes";
 import type { Shell } from "./shell";
 import type { ScreenProps } from "./types";
@@ -47,8 +49,8 @@ function ScreenView({ shell, route }: { shell: Shell; route: Route }) {
   useEffect(() => {
     if (loader === undefined) return undefined;
     let live = true;
-    const p = loader().then((m) => {
-      if (live) setLoaded({ id: route.id, Screen: m.default });
+    const p = loadScreen(loader).then((Screen) => {
+      if (live) setLoaded({ id: route.id, Screen });
     });
     shell.api.whenReady(p);
     return () => {
@@ -57,9 +59,13 @@ function ScreenView({ shell, route }: { shell: Shell; route: Route }) {
   }, [route.id, loader, shell.api]);
 
   if (loader === undefined) return <Soon shell={shell} />;
-  if (loaded === null || loaded.id !== route.id) return null;
-  const { Screen } = loaded;
-  return <Screen app={shell.api} route={route} />;
+  // A screen whose code is already here (a lesson's end screen, fetched as it started) draws in
+  // this very render, not after an effect and a promise (M4-FIX-7).
+  // The component comes from the cache or from state, never made here, so it is the same one on
+  // each render and keeps its state.
+  const screen = loaded?.id === route.id ? loaded.Screen : loadedScreen(loader);
+  if (screen === null) return null;
+  return h(screen, { app: shell.api, route });
 }
 
 /**

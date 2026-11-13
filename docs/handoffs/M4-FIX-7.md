@@ -33,11 +33,20 @@ a fetch at that moment.
 - `src/app/shell.ts`: `endScreenOf(lesson)` gives Results, `map` for Builder and `placement` for
   the placement test. `onFinished` now routes with it (same routes as before), and `enter` calls
   the new optional dep `preloadScreen(endScreenOf(lesson))` on every `play` route.
-- `src/main.ts`: `preloadScreen(id)` calls `screens[id]?.()` and ignores a failure (the screen
-  tries again when it is shown).
+- `src/main.ts`: `preloadScreen(id)` loads `screens[id]` through `loadScreen` and ignores a
+  failure (the screen tries again when it is shown).
+- `src/app/screen-cache.ts` (new): `loadScreen(loader)` fetches a screen's code and remembers the
+  component, and `loadedScreen(loader)` returns it at once if it has arrived.
+- `src/app/App.tsx` (`ScreenView`): a screen whose code is already here is drawn **in the same
+  render as the route change**. Before, `ScreenView` always rendered nothing first, then waited
+  for an effect (after a frame) and a promise. A screen not loaded yet works as before.
 
-A lesson lasts far longer than any stall, so the chunk is in memory when Results comes. The
-`import()` promise is the browser's module cache, so the later load returns the same module.
+A lesson lasts far longer than any stall, so the chunk is in memory when Results comes.
+
+**Why the second part.** With the preload alone, CI's first run (`43433584261`) measured the
+Miner night's lines **1940 ms** and **2001 ms** (retry) after the route change, against 70–90 ms
+locally. The chunk was there, but the effect waits for a frame, and on CI's software renderer a
+frame right after the night ends is slow. Drawing from the cache takes frames out of the path.
 
 Mine's Results goes through the same `ScreenView`, so it had the same exposure and gets the same
 fix. It is checked below.
@@ -65,6 +74,8 @@ Built on #213's layout (`clearOfBanner`, the stage floor), merged in first.
 
 ## Tests
 
+- `tests/unit/app/screen-cache.test.ts` (new): a screen is known only once its code has arrived,
+  then at once; a failed fetch leaves nothing behind.
 - `tests/unit/app/shell.test.ts`: entering `play` asks for `results` at once, before the lesson
   ends. The island asks for `map`. `endScreenOf` for each lesson kind.
 - `tests/unit/modes/defense/logic.test.ts`, new block "plates and other mobs' heads (M4-FIX-7)":

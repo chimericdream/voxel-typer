@@ -16,6 +16,7 @@ import { realClock, fixedStepClock } from "@/app/clock";
 import { parseDebugParams } from "@/app/debug";
 import { createHudStore } from "@/app/hud";
 import { screens } from "@/app/routes";
+import { loadScreen } from "@/app/screen-cache";
 import type { Route } from "@/app/routes";
 import { createSceneHost, renderCoreFactory } from "@/app/scene-host";
 import { createShell } from "@/app/shell";
@@ -162,7 +163,8 @@ async function boot(host: HTMLElement): Promise<void> {
     },
     preloadScreen(id) {
       // A failed fetch here is tried again when the screen is shown.
-      screens[id]?.().catch(() => undefined);
+      const loader = screens[id];
+      if (loader !== undefined) loadScreen(loader).catch(() => undefined);
     },
     initial,
     initialProfile: firstProfile,
