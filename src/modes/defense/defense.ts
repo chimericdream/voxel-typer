@@ -85,6 +85,7 @@ import {
   clearOfBanner,
   emptyTally,
   fieldEmpty,
+  capStageFloor,
   fitLaneView,
   stageFloor,
   stageRoom,
@@ -125,6 +126,27 @@ const CALM_MAX_LIVE = 4;
 const MESSAGE_SETTLE_FRAMES = 30;
 /** Frames between asking the HUD for a new stage height and framing the field in it. */
 const RELAYOUT_AFTER_HUD = 3;
+/**
+ * How tall the stage can be above the keyboard at its smallest (its `min-height`: a 28 px key),
+ * in CSS pixels, or null without the HUD. The stage's top doesn't move with the floor.
+ */
+function roomAboveKeys(doc: Document): number | null {
+  const stageEl = doc.querySelector('[data-hud="stage"]');
+  const hudEl = stageEl?.parentElement;
+  if (!stageEl || !hudEl) return null;
+  const hudStyle = getComputedStyle(hudEl);
+  let room =
+    hudEl.getBoundingClientRect().bottom -
+    (Number.parseFloat(hudStyle.paddingBottom) || 0) -
+    stageEl.getBoundingClientRect().top;
+  const keys = hudEl.querySelector(':scope > [data-hud="keyboard"]');
+  if (keys)
+    room -=
+      (Number.parseFloat(hudStyle.rowGap) || 0) +
+      (Number.parseFloat(getComputedStyle(keys).minHeight) || 0);
+  return room;
+}
+
 /** Keys a free-play night uses when there is no lesson. */
 const FREE_PLAY_KEYS = ["f", "j", "d", "k", "s", "l", "a", ";"];
 
@@ -754,7 +776,8 @@ export function create(ctx: ModeContext): DefenseInstance {
     const rooms = stageRoom(viewH, scale);
     // Ask the HUD for a stage tall enough for the field (it shrinks the keyboard to fit). It
     // renders on a later frame, so the field is framed again once it has.
-    const floor = stageFloor(viewH, scale);
+    // The keyboard's 28 px key floor wins: ask for no more stage than is left above it.
+    const floor = capStageFloor(stageFloor(viewH, scale), roomAboveKeys(doc));
     if (floor !== stageMin) {
       stageMin = floor;
       const slice: StageSlice = { minPx: floor };

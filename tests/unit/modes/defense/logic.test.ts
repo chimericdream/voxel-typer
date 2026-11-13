@@ -25,6 +25,7 @@ import {
   emptyTally,
   fitLaneView,
   laneSlot,
+  capStageFloor,
   messageFontPx,
   plateFontPx,
   stageFloor,
@@ -624,14 +625,18 @@ const REPO = resolve(import.meta.dirname, "../../../..");
 
 describe("short screens (M4-FIX-4)", () => {
   it("sizes the message's and the plate's room from their real, screen-capped fonts", () => {
-    // 1280×720 at text scale 1: the old fixed room.
-    expect(stageRoom(720, 1)).toEqual({ banner: 46, plate: 56 });
+    // 1280×720 at text scale 1: the banner's old room, and a locked plate's real height
+    // (1.47 em × 1.2) plus its 6 px gap and a little more.
+    const base = stageRoom(720, 1);
+    expect(base.banner).toBe(46);
+    expect(base.plate).toBeCloseTo(51.6);
+    expect(base.plate).toBeGreaterThanOrEqual(22 * 1.47 * 1.2 + 6 + 4);
     // 600 px tall at text scale 2: the fonts stop at 3.6 and 5.4 dvh, and so does the room.
     expect(messageFontPx(600, 2)).toBeCloseTo(21.6);
     expect(plateFontPx(600, 2)).toBeCloseTo(32.4);
     const r = stageRoom(600, 2);
     expect(r.banner).toBeCloseTo(49.68);
-    expect(r.plate).toBeCloseTo(82.47, 1);
+    expect(r.plate).toBeCloseTo(70.32, 1);
     // The fonts' own formulas: keep them in step with the CSS.
     const css = readFileSync(join(REPO, "src/ui/hud/Hud.module.css"), "utf8");
     expect(css).toContain("font-size: min(calc(20px * var(--text-scale)), 3.6dvh);");
@@ -648,10 +653,18 @@ describe("short screens (M4-FIX-4)", () => {
         expect(floor).toBeGreaterThanOrEqual(Math.round(FIELD_MIN_PX + r.banner + r.plate) - 1);
       }
     // 1024×600: about half the screen at text scale 2, under that at 1.
-    expect(stageFloor(600, 2)).toBe(302);
-    expect(stageFloor(600, 1)).toBe(272);
+    expect(stageFloor(600, 2)).toBe(290);
+    expect(stageFloor(600, 1)).toBe(268);
     // A tall screen: the 40 % share decides.
     expect(stageFloor(1080, 1)).toBe(432);
+  });
+
+  it("never asks for more stage than is left above the keys at their smallest (review B1)", () => {
+    expect(capStageFloor(290, 400)).toBe(290);
+    expect(capStageFloor(290, 183.7)).toBe(183);
+    expect(capStageFloor(290, -20)).toBe(0);
+    expect(capStageFloor(290, null)).toBe(290);
+    expect(capStageFloor(290, Number.NaN)).toBe(290);
   });
 
   it("frames mobs about 48 px tall at 1024×600, with the plate's room above the far end", () => {

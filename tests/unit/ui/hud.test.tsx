@@ -213,10 +213,29 @@ describe("stylesheet", () => {
 
   it("a stage floor gives way to the keyboard row, which fills what is left (M4-FIX-4)", () => {
     expect(rule(".stage[data-min]")).toMatch(/min-height: min\(var\(--stage-min\), 55dvh\)/);
-    expect(rule(".hud:has(> .stage[data-min])")).toMatch(
-      /grid-template-rows: auto auto 1fr minmax\(0, var\(--kb-h\)\)/,
+    const field = rule(".hud:has(> .stage[data-min])");
+    expect(field).toMatch(
+      /grid-template-rows: auto auto 1fr minmax\(var\(--kb-min\), var\(--kb-h\)\)/,
     );
-    expect(rule(".hud:has(> .stage[data-min]) > .keyboard")).toMatch(/height: auto/);
+    // The keys' floor (review B1): a 28 px key unit, never more than the usual height.
+    expect(field).toMatch(
+      /--kb-min: min\(var\(--kb-h\), calc\(var\(--kb-units\) \* 28px \+ var\(--kb-fixed\)\)\)/,
+    );
+    const keys = rule(".hud:has(> .stage[data-min]) > .keyboard");
+    expect(keys).toMatch(/height: auto/);
+    expect(keys).toMatch(/min-height: var\(--kb-min\)/);
+    // In a short row letters are half the key (≥ 14 px at the 28 px floor), and a key whose label
+    // is hidden keeps its letter in the middle (review B2).
+    const board = readFileSync(join(REPO, "src/ui/keyboard/OnScreenKeyboard.module.css"), "utf8");
+    const short = board.slice(board.indexOf("@container (max-height: 198px)"));
+    expect(short).toMatch(
+      /\.slot\[data-face="glyph"\] > kbd \{\s*font-size: calc\(var\(--u\) \* 0\.5\);/,
+    );
+    expect(short).toMatch(/:not\(\[data-next\], :hover\) > kbd \{\s*padding-bottom: 0;/);
+    // Without the hint line (a Miner), the lit key keeps its label even when it is wide.
+    expect(short).toMatch(
+      /\[data-hud="keyboard"\]:not\(\[data-hands-caption\]\) \.root \.slot\[data-next\]\[data-label-off\] \.label \{\s*visibility: visible;/,
+    );
   });
 
   it("caps the top row's hotbar badges at 30 % of a slot, and hides an empty bar in place", () => {

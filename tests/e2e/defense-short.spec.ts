@@ -1,8 +1,9 @@
 /**
  * Night Defense on a short screen (task M4-FIX-4): at 1024×600 the field keeps at least 40 % of
  * the screen, the mobs are big enough to read (about 48 px tall or more) at text scale 1 to 2, and
- * no word plate covers its own mob. The keyboard shrinks to make the room, but its next-key light
- * stays. The empty hotbar is hidden during the day, and the dusk banner pops in quickly.
+ * no word plate covers its own mob. The keyboard shrinks to make the room, but never under a 28 px
+ * key with 13 px letters, and its next-key light stays; at 1024×500 the field gives way instead.
+ * The empty hotbar is hidden during the day, and the dusk banner pops in quickly.
  *
  * Each plate carries its mob's box on the page as `data-mob="x head feet"` (`plates.ts`). A night
  * runs on real time, so the pictures are attached for review, not compared.
@@ -11,7 +12,10 @@ import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { collectErrors, ready } from "./helpers/vt";
 
-/** The smallest mob a child should have to read, CSS pixels (the gate review's "about 48 px"). */
+/**
+ * The smallest mob a child should have to read, CSS pixels (the gate review's "about 48 px"). Every
+ * case measures 2 px or more over it.
+ */
 const MIN_MOB_PX = 46;
 
 interface Look {
@@ -21,6 +25,9 @@ interface Look {
   stageShare: number;
   /** The lit key on the on-screen keyboard (its code), or null. */
   litKey: string | null;
+  /** One key unit (the F key's width) and a letter's font size, CSS px. */
+  keyPx: number;
+  letterPx: number;
 }
 
 async function look(page: Page): Promise<Look> {
@@ -40,34 +47,53 @@ async function look(page: Page): Promise<Look> {
     );
     const stage = document.querySelector('[data-hud="stage"]')?.getBoundingClientRect();
     const lit = document.querySelector<HTMLElement>('[data-hud="keyboard"] [data-next="key"]');
+    const f = document.querySelector('[data-hud="keyboard"] [data-code="KeyF"]');
+    const glyph = f?.querySelector("kbd");
     return {
       mobs,
       stageShare: (stage?.height ?? 0) / window.innerHeight,
       litKey: lit?.dataset["code"] ?? null,
+      keyPx: f?.getBoundingClientRect().width ?? 0,
+      letterPx: glyph ? Number.parseFloat(getComputedStyle(glyph).fontSize) : 0,
     };
   });
 }
 
-for (const [profile, scale] of [
-  ["small-text-miner", 1],
-  ["meadow-done-miner", 1.25],
-  ["fresh-sprout", 1.5],
-  ["voice-miner", 2],
-] as const) {
-  test(`1024×600, ${profile} (text scale ${scale}): big mobs, plates clear of them`, async ({
+/**
+ * The cases: profile, text scale, viewport, and whether the field must keep its 40 % and big
+ * mobs. At 1024×500 the keys' floor (28 px) wins and the field gives way (M4-FIX-4 review B1),
+ * so only the keys, the letters and the plates are checked there.
+ */
+const CASES = [
+  ["small-text-miner", 1, 1024, 600, true],
+  ["meadow-done-miner", 1.25, 1024, 600, true],
+  ["fresh-sprout", 1.5, 1024, 600, true],
+  ["voice-miner", 2, 1024, 600, true],
+  ["fresh-sprout", 1.5, 1024, 500, false],
+  ["voice-miner", 2, 1024, 500, false],
+  ["voice-miner", 2, 1280, 720, true],
+] as const;
+
+/** The keyboard's floor: a 28 px key, with letters of 13 px or more (M4-FIX-4 review B1, B2). */
+const MIN_KEY_PX = 28;
+const MIN_LETTER_PX = 13;
+
+for (const [profile, scale, width, height, field] of CASES) {
+  test(`${width}×${height}, ${profile} (text scale ${scale}): keys and mobs big enough, plates clear`, async ({
     page,
   }, info) => {
     test.setTimeout(180_000);
-    await page.setViewportSize({ width: 1024, height: 600 });
+    await page.setViewportSize({ width, height });
     const errors = collectErrors(page);
     await page.goto(`/?profile=${profile}&screen=play&lesson=birch-08&seed=1&nosave=1`);
     await ready(page);
     const app = page.locator("#app");
     await expect(app.getByText("Night is coming!")).toBeVisible({ timeout: 30_000 });
     // The field keeps at least 40 % of the screen (the HUD renders the floor a frame later).
-    await expect
-      .poll(async () => (await look(page)).stageShare, { timeout: 10_000 })
-      .toBeGreaterThanOrEqual(0.4);
+    if (field)
+      await expect
+        .poll(async () => (await look(page)).stageShare, { timeout: 10_000 })
+        .toBeGreaterThanOrEqual(0.4);
     // No empty hotbar during the day: it keeps its room, so nothing moves when loot lands.
     await expect(page.locator('[role="group"][data-lit]')).toBeHidden();
     const dusk = app.getByText(/on the way!$/);
@@ -90,23 +116,29 @@ for (const [profile, scale] of [
     let worst = -Infinity;
     for (let i = 0; i < 6; i++) {
       const l = await look(page);
-      expect(l.stageShare).toBeGreaterThanOrEqual(0.4);
+      if (field) expect(l.stageShare).toBeGreaterThanOrEqual(0.4);
+      expect(l.keyPx, "the keys are too small").toBeGreaterThanOrEqual(MIN_KEY_PX - 0.5);
+      expect(l.letterPx, "the letters are too small").toBeGreaterThanOrEqual(MIN_LETTER_PX);
       for (const m of l.mobs) {
         smallest = Math.min(smallest, m.height);
         worst = Math.max(worst, m.overlap);
       }
       await page.waitForTimeout(250);
     }
+    const keys = await look(page);
     info.annotations.push({ type: "smallest mob (px)", description: smallest.toFixed(1) });
+    info.annotations.push({ type: "key unit (px)", description: keys.keyPx.toFixed(1) });
+    info.annotations.push({ type: "letter (px)", description: keys.letterPx.toFixed(1) });
+    info.annotations.push({ type: "stage share", description: keys.stageShare.toFixed(2) });
     info.annotations.push({
       type: "plate past its mob's head (px)",
       description: worst.toFixed(1),
     });
-    await info.attach(`${profile}-1024x600`, {
+    await info.attach(`${profile}-${width}x${height}`, {
       body: await page.screenshot(),
       contentType: "image/png",
     });
-    expect(smallest, "a mob is too small to read").toBeGreaterThanOrEqual(MIN_MOB_PX);
+    if (field) expect(smallest, "a mob is too small to read").toBeGreaterThanOrEqual(MIN_MOB_PX);
     // A couple of pixels of slack: the plate keeps 6 px above the head.
     expect(worst, "a word plate covers its own mob").toBeLessThanOrEqual(2);
     // The smaller keyboard still lights the next key: the first letter of a word on the field.

@@ -280,9 +280,11 @@
 /*
  * A mode that frames a field in the stage (Night Defense, M4-FIX-4) asks for a least stage height
  * (`--stage-min`, the HUD's `stage` slice). The stage row then holds that floor, up to 55 % of the
- * screen, and the keyboard row takes what is left, up to its usual height. The keyboard fills its
- * row, so its key unit (--keyboard-max-unit) shrinks with it: smaller keys, the same next-key
- * light and hint line.
+ * screen, and the keyboard row takes what is left, between a 28 px key (--kb-min) and its usual
+ * height. The keyboard fills its row, so its key unit (--keyboard-max-unit) follows it.
+ *
+ * The key floor wins: the mode reads the keyboard's `min-height` and asks for no more stage than
+ * is left above it, so on a very short screen the field gives way, never the keys.
  */
 .stage[data-min] {
   min-height: min(var(--stage-min), 55dvh);
@@ -290,17 +292,21 @@
 
 .hud:has(> .stage[data-min]) {
   --kb-h: min(calc(var(--kb-units) * 40px * var(--text-scale) + var(--kb-fixed)), 54dvh);
+  --kb-min: min(var(--kb-h), calc(var(--kb-units) * 28px + var(--kb-fixed)));
 
-  grid-template-rows: auto auto 1fr minmax(0, var(--kb-h));
+  grid-template-rows: auto auto 1fr minmax(var(--kb-min), var(--kb-h));
 }
 
 /* The same height as `.keyboard[data-hands-caption]` above, as the row's limit. */
 .hud:has(> .stage[data-min]):has(> .keyboard[data-hands-caption]) {
+  --kb-units: 5.9;
+  --kb-fixed: 36px;
   --kb-h: min(calc(5.9 * 40px * var(--text-scale) + 36px), calc(5.9 * (54dvh - 40px) / 8.1 + 36px));
 }
 
 .hud:has(> .stage[data-min]) > .keyboard {
   height: auto;
+  min-height: var(--kb-min);
 }
 
 /* "Hear it again" (M3-07): a small key cap and its label on a plate, in the top row. */

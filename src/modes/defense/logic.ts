@@ -536,8 +536,12 @@ export interface LaneView {
 
 /** Room kept at the top of the stage for the HUD's message, CSS px at its base font (20 px). */
 export const BANNER_ROOM = 46;
-/** Room kept above the far end of the field for a locked word plate, CSS px at its base font (22 px). */
-export const PLATE_ROOM = 56;
+/**
+ * Room kept above the far end of the field for a locked word plate, CSS px at its base font (22 px):
+ * the plate's height (line 1.15 em plus 0.32 em of padding, drawn 1.2× when locked), the 6 px gap
+ * over the mob's head and a little more (`stageRoom` scales it with the real font).
+ */
+export const PLATE_ROOM = Math.round(1.8 * 22 + 12);
 /**
  * The open field a short screen keeps under the message's and the plate's room, CSS px (M4-FIX-4).
  * The far end's mobs come out about 0.3 of it tall, so this keeps them near 48 px or more.
@@ -567,7 +571,7 @@ export function messageFontPx(viewH: number, textScale: number): number {
 export function stageRoom(viewH: number, textScale: number): { banner: number; plate: number } {
   return {
     banner: (BANNER_ROOM * messageFontPx(viewH, textScale)) / 20,
-    plate: (PLATE_ROOM * plateFontPx(viewH, textScale)) / 22,
+    plate: 1.8 * plateFontPx(viewH, textScale) + 12,
   };
 }
 
@@ -579,6 +583,16 @@ export function stageRoom(viewH: number, textScale: number): { banner: number; p
 export function stageFloor(viewH: number, textScale: number): number {
   const room = stageRoom(viewH, textScale);
   return Math.round(Math.max(STAGE_MIN_SHARE * viewH, FIELD_MIN_PX + room.banner + room.plate));
+}
+
+/**
+ * The floor a mode asks for, held to the room above the keyboard at its smallest (`room`, CSS px;
+ * null: unknown). The keys' floor wins over the field's (M4-FIX-4 review: accessibility and
+ * learning come first), so a very short screen gets a smaller field, never smaller keys.
+ */
+export function capStageFloor(want: number, room: number | null): number {
+  if (room === null || !Number.isFinite(room)) return want;
+  return Math.max(0, Math.min(want, Math.floor(room)));
 }
 
 export const LANE_FOV = 38;
