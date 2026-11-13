@@ -49,11 +49,20 @@ describe("base avatar", () => {
 
   it("every face pixel has a front box of its own color at the head's front", () => {
     const front = BASE_AVATAR.parts.filter((p) => p.name.startsWith("face-"));
+    // The head's pivot (the neck) in model space: the torso's pivot plus the head's offset.
+    const torso = BASE_AVATAR.parts.find((p) => p.name === "torso");
+    const head = BASE_AVATAR.parts.find((p) => p.name === "head");
+    const neck = [0, 1, 2].map((i) => (torso?.offset[i] ?? NaN) + (head?.offset[i] ?? NaN));
+    expect(neck).toEqual([0, 16, 0]);
     let pixels = 0;
     for (const row of FACE) pixels += row.replaceAll(".", "").length;
     expect(front.reduce((n, p) => n + p.size[0], 0)).toBe(pixels);
     for (const p of front) {
-      expect(p.offset[2] + p.size[2]).toBe(4);
+      // Children of the head pivot at their min corner, so the front is the head's pivot z
+      // (the neck, z = 0) plus the offset plus the depth.
+      expect(p.parent).toBe("head");
+      expect(p.pivot).toEqual([0, 0, 0]);
+      expect((neck[2] ?? NaN) + p.offset[2] + p.size[2]).toBe(4);
       const [, row, x] = p.name.split("-").map(Number);
       const c = FACE[row ?? 0]?.charAt(x ?? 0) ?? ".";
       expect(p.color).toBe(FACE_INK[c] ?? SKIN_TOKEN);

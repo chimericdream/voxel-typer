@@ -1,76 +1,71 @@
 /**
- * Still avatar snapshots (task M3-09): the voxel avatar drawn once into an off-screen render target
- * of the app's one renderer, read back, and handed out as a PNG data URL for an `<img>`.
+ * Still avatar snapshots (tasks M3-09, M3-FIX-5): the voxel avatar built by the model runtime
+ * (`buildModel`, contracts.md §8.4), drawn once into an off-screen render target of the app's one
+ * renderer, read back, and handed out as a PNG data URL for an `<img>`.
  *
  * There is one WebGL context for the whole app (decision 73), so this never makes a renderer of
  * its own. It borrows the shared one between frames, synchronously, and puts back everything it
  * changed (render target, clear color and alpha). Callers cache the result: a snapshot is drawn
  * once per look, never per frame.
  *
- * The boxes use flat face shading baked into vertex colors (top brightest, sides darker, as the
- * world's blocks are lit), so the portrait doesn't depend on the scene's lights or sky. The render
- * target stores linear color; the read-back converts to sRGB and averages {@link SUPERSAMPLE}²
- * samples per pixel for smooth edges.
+ * The snapshot scene has its own lights, one along each axis, so each box face gets a fixed shade
+ * (top brightest, sides darker, as the world's blocks are lit) and the portrait doesn't depend on
+ * the game scene's lights or sky. The render target stores linear color; the read-back converts
+ * to sRGB and averages {@link SUPERSAMPLE}² samples per pixel for smooth edges.
  */
 import * as THREE from "three";
+import { buildModel } from "./models/build";
+import { MODEL_UNIT } from "./models/rig";
 import type { VoxelModel } from "./models/types";
 
 /** Samples per pixel along each axis. */
 export const SUPERSAMPLE = 3;
 
-/** Shading per box face, in BoxGeometry's group order: +x, −x, +y, −y, +z, −z. */
-const FACE_SHADE = [0.8, 0.72, 1, 0.55, 1, 0.65] as const;
+/** The shade of each box face, by the axis direction it faces. */
+export const FACE_SHADE: readonly { dir: readonly [number, number, number]; shade: number }[] = [
+  { dir: [1, 0, 0], shade: 0.8 },
+  { dir: [-1, 0, 0], shade: 0.72 },
+  { dir: [0, 1, 0], shade: 1 },
+  { dir: [0, -1, 0], shade: 0.55 },
+  { dir: [0, 0, 1], shade: 1 },
+  { dir: [0, 0, -1], shade: 0.65 },
+];
 
 export interface SnapshotOptions {
   /** Width and height of the image, in pixels. */
   px: number;
   /** Replaces `color` values equal to a key (the skin token, say). */
   colors?: Readonly<Record<string, string>>;
-  /** What to frame, in model units: the box min and max y. Default: the whole model. */
+  /** What to frame, in model pixels: the bottom and top y. Default: the whole model. */
   frameY?: readonly [number, number];
 }
 
-/** Box meshes for a model's parts, in model space, sharing nothing with the scene. */
-export function buildModelGroup(
+/** `model` with every part color that is a key of `colors` swapped for its value. */
+export function withColors(
   model: Readonly<VoxelModel>,
   colors: Readonly<Record<string, string>> = {},
-): THREE.Group {
-  const group = new THREE.Group();
-  group.name = model.id;
-  const material = new THREE.MeshBasicMaterial({ vertexColors: true });
-  const tint = new THREE.Color();
-  for (const part of model.parts) {
-    const [w, h, d] = part.size;
-    const geo = new THREE.BoxGeometry(w, h, d);
-    const hex = part.color === undefined ? "#ff00ff" : (colors[part.color] ?? part.color);
-    tint.set(hex);
-    const rgb = new Float32Array(24 * 3);
-    for (let v = 0; v < 24; v++) {
-      const shade = FACE_SHADE[Math.floor(v / 4)] ?? 1;
-      rgb[v * 3] = tint.r * shade;
-      rgb[v * 3 + 1] = tint.g * shade;
-      rgb[v * 3 + 2] = tint.b * shade;
-    }
-    geo.setAttribute("color", new THREE.BufferAttribute(rgb, 3));
-    const mesh = new THREE.Mesh(geo, material);
-    mesh.name = part.name;
-    const [x, y, z] = part.offset;
-    mesh.position.set(x + w / 2, y + h / 2, z + d / 2);
-    group.add(mesh);
-  }
-  return group;
+): VoxelModel {
+  return {
+    ...model,
+    parts: model.parts.map((p) => {
+      const color = p.color === undefined ? undefined : colors[p.color];
+      return color === undefined ? p : { ...p, color };
+    }),
+  };
 }
 
-/** Frees the geometry and material of {@link buildModelGroup}. */
-export function disposeModelGroup(group: THREE.Group): void {
-  const materials = new Set<THREE.Material>();
-  group.traverse((o) => {
-    if (o instanceof THREE.Mesh) {
-      if (o.geometry instanceof THREE.BufferGeometry) o.geometry.dispose();
-      if (o.material instanceof THREE.Material) materials.add(o.material);
-    }
+/**
+ * One directional light per axis. A Lambert face lit head-on by a light of intensity `π · shade`
+ * shows its color times `shade` exactly (three.js divides diffuse light by π), and a light along
+ * one axis doesn't touch faces along the other two.
+ */
+export function portraitLights(): THREE.DirectionalLight[] {
+  return FACE_SHADE.map(({ dir, shade }) => {
+    const light = new THREE.DirectionalLight(0xffffff, Math.PI * shade);
+    light.position.set(dir[0], dir[1], dir[2]);
+    light.target.position.set(0, 0, 0);
+    return light;
   });
-  for (const m of materials) m.dispose();
 }
 
 /** Linear 0–1 to an sRGB byte. */
@@ -122,15 +117,11 @@ export function downsampleToSrgb(
   return out;
 }
 
-/** A camera that frames the model's y range from a friendly three-quarter angle. */
-function frameCamera(model: Readonly<VoxelModel>, frameY?: readonly [number, number]) {
-  let lo = Infinity;
-  let hi = -Infinity;
-  for (const p of model.parts) {
-    lo = Math.min(lo, p.offset[1]);
-    hi = Math.max(hi, p.offset[1] + p.size[1]);
-  }
-  const [y0, y1] = frameY ?? [lo, hi];
+/**
+ * A camera that frames `y0`–`y1` (world units) above the model origin from a friendly
+ * three-quarter angle.
+ */
+function frameCamera(y0: number, y1: number): THREE.PerspectiveCamera {
   const fov = 20;
   // A little room around the subject; the turn makes the box look wider than it is.
   const half = ((y1 - y0) / 2) * 1.2;
@@ -146,6 +137,25 @@ function frameCamera(model: Readonly<VoxelModel>, frameY?: readonly [number, num
   );
   camera.lookAt(target);
   return camera;
+}
+
+/** The scene a snapshot draws: the model at the origin in its rest pose, and the lights. */
+export function snapshotScene(
+  model: Readonly<VoxelModel>,
+  opts: Pick<SnapshotOptions, "colors" | "frameY">,
+): { scene: THREE.Scene; camera: THREE.PerspectiveCamera; dispose: () => void } {
+  const scene = new THREE.Scene();
+  const handle = buildModel(withColors(model, opts.colors), null);
+  scene.add(handle.root, ...portraitLights());
+  let y0: number;
+  let y1: number;
+  if (opts.frameY) {
+    [y0, y1] = [opts.frameY[0] * MODEL_UNIT, opts.frameY[1] * MODEL_UNIT];
+  } else {
+    const box = new THREE.Box3().setFromObject(handle.root);
+    [y0, y1] = [box.min.y, box.max.y];
+  }
+  return { scene, camera: frameCamera(y0, y1), dispose: () => handle.dispose() };
 }
 
 /**
@@ -166,10 +176,7 @@ export function renderModelPixels(
     type: THREE.UnsignedByteType,
     format: THREE.RGBAFormat,
   });
-  const scene = new THREE.Scene();
-  const group = buildModelGroup(model, opts.colors);
-  scene.add(group);
-  const camera = frameCamera(model, opts.frameY);
+  const { scene, camera, dispose } = snapshotScene(model, opts);
 
   const before = {
     target: renderer.getRenderTarget(),
@@ -189,7 +196,7 @@ export function renderModelPixels(
     renderer.setRenderTarget(before.target);
     renderer.setClearColor(before.color, before.alpha);
     renderer.autoClear = before.autoClear;
-    disposeModelGroup(group);
+    dispose();
     target.dispose();
   }
   return downsampleToSrgb(buf, px, SUPERSAMPLE);
