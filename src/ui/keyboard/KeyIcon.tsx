@@ -2,7 +2,8 @@
  * Icons for the on-screen keyboard's long-named keys (task M3-FIX-13): Backspace, Caps Lock, Tab,
  * Enter and Shift. Their names were 8 to 10 px on a Sprout's keyboard, under the 12-px floor; an
  * icon reads at any key size. Each has its key's name through `t()` as its accessible name. Space
- * keeps its word, since the space bar has room for it.
+ * keeps its word, since the space bar has room for it. Shift is an up arrow and Caps Lock a padlock,
+ * so the two never look alike.
  */
 import { t } from "@/i18n";
 import type { NamedKey } from "./model";
@@ -13,8 +14,8 @@ export type IconKey = Exclude<NamedKey, "space">;
 const PATHS: Readonly<Record<IconKey, readonly string[]>> = {
   // A key-shaped arrow pointing left, with a cross: rub out the letter before.
   backspace: ["M6 3h8v10H6L2 8z", "M8 5.5l4 5", "M12 5.5l-4 5"],
-  // An up arrow over a bar: capitals stay on.
-  caps: ["M8 2L2 8h3v3h6V8h3z", "M5 14h6"],
+  // A padlock: capitals locked on. Not an arrow, so it never looks like Shift's.
+  caps: ["M3 8h10v6H3z", "M5 8V5.5a3 3 0 0 1 6 0V8", "M8 10.5v1.5"],
   // An up arrow: one capital.
   shift: ["M8 2L2 9h3v5h6V9h3z"],
   // An arrow to a wall: jump ahead.

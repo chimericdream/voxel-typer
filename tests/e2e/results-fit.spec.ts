@@ -1,9 +1,9 @@
 /**
  * Results on short, wide windows (task M3-FIX-13): at 1024×600 and 1280×720, at text scale 1 and
- * 2, for a Builder and a Sprout, the buttons stand beside the card, and with "Next lesson" focused
- * on arrival the heading, the stars and every button show together, with nothing scrolled. At text
- * scale 1 the whole card shows too. (Before, at text scale 2, the heading scrolled off by up to
- * 308 px.) The badge toast's dock is checked in results-toast.spec.
+ * 2, for a Builder and a Sprout, with "Next lesson" focused on arrival, the heading, the stars,
+ * every button and the focus ring show together, with nothing scrolled. At text scale 1 one column
+ * fits, whole card included, and stays; at text scale 2 the buttons stand beside the card. (Before,
+ * at text scale 2, the heading scrolled off by up to 308 px.) The badge toast's dock is checked in results-toast.spec.
  */
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
@@ -76,13 +76,41 @@ for (const p of PROFILES) {
       for (const b of buttons) await expect(b).toBeInViewport({ ratio: 1 });
       if (p.scale === 1) await expect(card).toBeInViewport({ ratio: 1 });
 
-      // Side by side: the buttons in a column right of the card, under the heading.
+      // The focus ring (outline plus halo, 7 px outside the button) is wholly on screen too.
+      const ring = await next.evaluate((el) => {
+        const css = getComputedStyle(el);
+        const out = Number.parseFloat(css.outlineWidth) + Number.parseFloat(css.outlineOffset);
+        const r = el.getBoundingClientRect();
+        return {
+          out,
+          top: r.top - out,
+          bottom: r.bottom + out,
+          left: r.left - out,
+          right: r.right + out,
+        };
+      });
+      expect(ring.out, "a focus ring on Next lesson").toBeGreaterThan(0);
+      expect(ring.top).toBeGreaterThanOrEqual(0);
+      expect(ring.left).toBeGreaterThanOrEqual(0);
+      expect(ring.bottom).toBeLessThanOrEqual(view.height);
+      expect(ring.right).toBeLessThanOrEqual(view.width);
+
+      // One column where it fits (text scale 1); side by side only where it doesn't (scale 2):
+      // then the buttons stand in a column right of the card, under the heading.
+      const layout = page.locator("main > [data-layout]");
+      await expect(layout).toHaveAttribute("data-layout", p.scale === 2 ? "side" : "stack");
       const c = await box(card);
       const h = await box(heading);
       for (const b of buttons) {
         const r = await box(b);
-        expect(r.x, "a button left of the card's right edge").toBeGreaterThanOrEqual(c.x + c.width);
-        expect(r.y, "a button over the heading").toBeGreaterThanOrEqual(h.y + h.height);
+        if (p.scale === 2) {
+          expect(r.x, "a button left of the card's right edge").toBeGreaterThanOrEqual(
+            c.x + c.width,
+          );
+          expect(r.y, "a button over the heading").toBeGreaterThanOrEqual(h.y + h.height);
+        } else {
+          expect(r.y, "a button under the card").toBeGreaterThanOrEqual(c.y + c.height);
+        }
       }
       expect(errors).toEqual([]);
     });
