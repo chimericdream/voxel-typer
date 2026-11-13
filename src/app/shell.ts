@@ -128,6 +128,7 @@ export function createShell(deps: ShellDeps): Shell {
   const readOnly = new Set<string>();
   /** Profiles the store could not read at all: they hold a slot until removed (M3-09). */
   const damaged = new Set<string>();
+  const placementOffered = new Set<string>();
   let noticeId = 0;
 
   const notify = (kind: SaveProblemKind): void => {
@@ -313,6 +314,7 @@ export function createShell(deps: ShellDeps): Shell {
     saveProfile,
     readOnlyProfiles: () => readOnly,
     damagedProfiles: () => damaged,
+    placementOffered: () => placementOffered,
     removeProfile,
     lessons: deps.lessons,
     lesson: lessonById,
