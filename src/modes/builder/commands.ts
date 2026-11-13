@@ -2,7 +2,8 @@
  * Builder's command line (task M4-07, PLAN.md §3.2.4). Pure: text in, commands and hints out.
  *
  * **Words.** A command is one real word: a block's `typedName` (arms that block), `put`, `dig`,
- * `undo`, a blueprint's name, or a direction (`up down north south east west`). A direction may
+ * `undo`, `photo` (M4-08, where a picture can be made), a blueprint's name, or a direction
+ * (`up down north south east west`). A direction may
  * take a number of steps, 1 to {@link MAX_STEPS}: `east 3`.
  *
  * **When a command runs** (the card's rule, with decision 81: no trailing space):
@@ -48,6 +49,8 @@ export type Command =
   | { kind: "put" }
   | { kind: "dig" }
   | { kind: "undo" }
+  /** Saves a picture of the island (M4-08). Only offered where a picture can be made. */
+  | { kind: "photo" }
   | { kind: "move"; dir: Direction; steps: number }
   | { kind: "blueprint"; name: string };
 
@@ -74,6 +77,8 @@ export interface VocabularyInput {
   blocks: readonly { id: BlockId; typedName: string }[];
   /** Blueprint names (M4-08). */
   blueprints?: readonly string[];
+  /** Offer `photo` (M4-08). Off by default, so the word list stays as it was without a scene. */
+  photo?: boolean;
   /** Sprout gets short block codes. */
   band: AgeBand;
 }
@@ -109,6 +114,7 @@ export function buildVocabulary(input: VocabularyInput): Vocabulary {
   add("put", { kind: "put" });
   add("dig", { kind: "dig" });
   add("undo", { kind: "undo" });
+  if (input.photo === true) add("photo", { kind: "photo" });
   for (const dir of DIRECTIONS) add(dir, { kind: "direction", dir });
   for (const b of input.blocks) add(b.typedName, { kind: "arm", block: b.id });
   for (const name of input.blueprints ?? []) add(name, { kind: "blueprint", name });

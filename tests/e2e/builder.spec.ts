@@ -6,6 +6,7 @@
  * The card writes the sequence as `oak`, `put`, `east 2`, `put`, `undo`. No block is typed `oak`
  * (the registry has `log` and `planks`), so the block here is `planks`.
  */
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { expectNoAxeViolations, expectScreen } from "./helpers/slice";
@@ -308,6 +309,47 @@ test("an island that won't open: a calm note, and the saved island is left as it
   expect(errors).toEqual([]);
 });
 
+test("a grown island: plans by name, a house stamped and saved, and a photo (M4-08)", async ({
+  page,
+}) => {
+  test.slow();
+  const requests: string[] = [];
+  page.on("request", (r) => requests.push(r.url()));
+  const errors = await openIsland(page, "island-builder");
+  await expect(hud(page)).toBeVisible();
+  // Birch Forest is completed, so the island grew one ring; reduced motion shows it at once.
+  await expect(page.locator("#app").getByText("Your island grew!")).toBeVisible();
+  await expect(page.locator('[data-builder="plans"]')).toHaveAttribute(
+    "data-text",
+    "well house tower",
+  );
+  await typeWord(page, "house");
+  await expect(page.locator("#app").getByText("You built a House!")).toBeVisible();
+  // A pause saves the island and the bag together.
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Back to the map" })).toBeVisible();
+  await expect.poll(async () => (await profile(page)).island?.expansions).toBe(1);
+  const p = await profile(page);
+  expect(p.inventory).toMatchObject({ cobble: 20, clay: 8, glass: 2, "oak-planks": 14 });
+  await page.getByRole("button", { name: "Keep playing" }).click();
+
+  // The picture: a local PNG download, the canvas back at its size, nothing sent anywhere.
+  const canvas = page.locator("canvas.vt-stage");
+  const size = await canvas.evaluate((c: HTMLCanvasElement) => [c.width, c.height]);
+  const download = page.waitForEvent("download");
+  await typeWord(page, "photo");
+  const file = await download;
+  expect(file.suggestedFilename()).toMatch(/^my-island-\d{4}-\d{2}-\d{2}\.png$/);
+  const path = await file.path();
+  const bytes = readFileSync(path);
+  expect([...bytes.subarray(1, 4)].map((b) => String.fromCharCode(b)).join("")).toBe("PNG");
+  await expect(page.locator("#app").getByText("Your picture is saved.")).toBeVisible();
+  expect(await canvas.evaluate((c: HTMLCanvasElement) => [c.width, c.height])).toEqual(size);
+  const origin = new URL(page.url()).origin;
+  expect(requests.filter((u) => !u.startsWith(origin) && !u.startsWith("blob:"))).toEqual([]);
+  expect(errors).toEqual([]);
+});
+
 test.describe("baselines", () => {
   test.use({ colorScheme: "light" });
 
@@ -319,6 +361,15 @@ test.describe("baselines", () => {
     await typeWord(page, "pl");
     await expect(line(page)).toHaveAttribute("data-text", "pl");
     await expect(page).toHaveScreenshot("builder-miner.png", { timeout: 30_000 });
+    expect(errors).toEqual([]);
+  });
+
+  test("a grown island with a house (M4-08)", async ({ page }) => {
+    const errors = await openIsland(page, "island-builder");
+    await expect(hud(page)).toBeVisible();
+    await typeWord(page, "house");
+    await expect(page.locator("#app").getByText("You built a House!")).toBeVisible();
+    await expect(page).toHaveScreenshot("builder-grown.png", { timeout: 30_000 });
     expect(errors).toEqual([]);
   });
 

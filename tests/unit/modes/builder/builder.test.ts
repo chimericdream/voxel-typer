@@ -12,10 +12,23 @@ import { createPlayHost } from "../../../../src/app/play-host";
 import type { PlayStatus } from "../../../../src/app/play-host";
 import type { AudioApi, SfxName } from "../../../../src/audio/types";
 import { blocks } from "../../../../src/content/blocks";
-import { ISLAND_MAX, countBlocks, createIsland, islandBlocks } from "../../../../src/engine/island";
+import {
+  ISLAND_MAX,
+  countBlocks,
+  createIsland,
+  footprint,
+  islandBlocks,
+} from "../../../../src/engine/island";
 import type { EngineEvent } from "../../../../src/engine/types";
 import { mode } from "../../../../src/modes/builder";
-import { AUTOSAVE_MS, HABIT_MS, HINT_MS, create } from "../../../../src/modes/builder/builder";
+import {
+  AUTOSAVE_MS,
+  HABIT_MS,
+  HINT_MS,
+  RING_MS,
+  SWEEP_MS,
+  create,
+} from "../../../../src/modes/builder/builder";
 import type { BuilderInstance } from "../../../../src/modes/builder/builder";
 import type { BuilderBlueprint } from "../../../../src/modes/builder/blueprints";
 import { builderHudOf } from "../../../../src/modes/builder/hud";
@@ -91,7 +104,7 @@ interface Visit {
 
 async function visit(
   profile: Profile,
-  over: { blueprints?: BuilderBlueprint[]; markDirty?: boolean } = {},
+  over: { blueprints?: BuilderBlueprint[]; markDirty?: boolean; frozen?: boolean } = {},
 ): Promise<Visit> {
   const scene = fakeScene();
   const keys = fakeKeys();
@@ -138,7 +151,7 @@ async function visit(
     audio,
     clock: fixedStepClock(1000, 1),
     nextSeed: () => 7,
-    frozen: true,
+    frozen: over.frozen ?? true,
     record: false,
     reminder: createBreakReminder(),
     currentProfile: () => current,
@@ -1067,5 +1080,151 @@ describe("builder: the registered mode", () => {
     expect(mode.id).toBe("builder");
     const loaded = await mode.load();
     expect(Object.is(Reflect.get(loaded, "create"), create)).toBe(true);
+  });
+});
+
+const withBadges = (p: Profile, ids: string[]): Profile => ({
+  ...p,
+  achievements: Object.fromEntries(ids.map((id) => [id, 1])),
+});
+/** A ring cell's column is outside the starter footprint: count its ground. */
+const ringGround = (g: VoxelGrid): number => {
+  const f = footprint(0);
+  let n = 0;
+  for (let z = 0; z < ISLAND_MAX.sz; z++) {
+    for (let x = 0; x < ISLAND_MAX.sx; x++) {
+      if (x >= f.x0 && x < f.x1 && z >= f.z0 && z < f.z1) continue;
+      if (g.get(x, 0, z) !== 0) n += 1;
+    }
+  }
+  return n;
+};
+
+describe("builder: the island grows when a biome is completed (M4-08)", () => {
+  it("adds nothing for the Meadow alone (its ring is the starter plot)", async () => {
+    const v = await visit(withBadges(miner, ["meadow-master"]), { frozen: false });
+    expect(v.moves.some((m) => m.durationMs === SWEEP_MS)).toBe(false);
+    v.play.quit();
+    await flush();
+    // Nothing changed, so nothing is written.
+    expect(v.saves).toEqual([]);
+  });
+
+  it("sweeps out, adds one ring per completed biome, comes back, then takes keys", async () => {
+    const v = await visit(withBadges(miner, ["meadow-master", "birch-master", "shore-master"]), {
+      frozen: false,
+    });
+    // The camera sweeps out over the whole island first; the new land is not there yet.
+    const out = v.moves.at(-1);
+    expect(out).toMatchObject({ durationMs: SWEEP_MS });
+    expect(out?.distance).toBeGreaterThan(60);
+    expect(ringGround(v.grid())).toBe(0);
+    // Keys wait for the ceremony.
+    v.type("planks");
+    expect(v.hud().line).toBe("");
+    v.run(SWEEP_MS);
+    expect(ringGround(v.grid())).toBeGreaterThan(0);
+    expect(v.hud().hint).toEqual({ key: "builder.hint.grew", tone: "cheer" });
+    expect(v.sfx).toContain("star");
+    const first = ringGround(v.grid());
+    v.run(RING_MS);
+    expect(ringGround(v.grid())).toBeGreaterThan(first);
+    // The new cells were redrawn, not the whole island.
+    expect(v.loads).toHaveLength(1);
+    expect(v.dirty.length).toBeGreaterThan(0);
+    v.run(RING_MS + SWEEP_MS + 200);
+    expect(v.moves.at(-1)).toMatchObject({ durationMs: SWEEP_MS });
+    v.type("planks");
+    expect(v.hud().armed).toBe("oak-planks");
+    v.play.quit();
+    await flush();
+    expect(v.profile().island?.expansions).toBe(2);
+  });
+
+  it("is instant without motion: the land is there when the island appears", async () => {
+    const v = await visit(withBadges(miner, ["birch-master"]));
+    expect(ringGround(v.grid())).toBeGreaterThan(0);
+    expect(v.moves.some((m) => m.durationMs === SWEEP_MS)).toBe(false);
+    expect(v.hud().hint).toEqual({ key: "builder.hint.grew", tone: "cheer" });
+    v.type("planks");
+    expect(v.hud().armed).toBe("oak-planks");
+    v.play.quit();
+    await flush();
+    expect(v.profile().island?.expansions).toBe(1);
+  });
+
+  it("never adds a ring twice", async () => {
+    const p = withBadges(miner, ["birch-master"]);
+    const v = await visit(p);
+    v.play.quit();
+    await flush();
+    const again = await visit(v.profile());
+    again.play.quit();
+    await flush();
+    // The second visit owed nothing and changed nothing, so it wrote nothing.
+    expect(again.saves).toEqual([]);
+    expect(v.profile().island?.expansions).toBe(1);
+  });
+
+  it("a pause mid-ceremony finishes it and saves the new land", async () => {
+    const v = await visit(withBadges(miner, ["birch-master", "shore-master"]), { frozen: false });
+    v.play.pause(60_000);
+    await flush();
+    const last = v.saves.at(-1);
+    expect(last?.island?.expansions).toBe(2);
+    expect(v.moves.at(-1)?.durationMs).toBe(0);
+  });
+
+  it("a damaged island is left alone: no ring and no save", async () => {
+    const v = await visit(withBadges(veteran, ["birch-master", "shore-master"]), {
+      frozen: false,
+    });
+    v.run(SWEEP_MS * 3);
+    v.play.quit();
+    await flush();
+    expect(v.profile().island).toEqual(veteran.island);
+  });
+});
+
+describe("builder: blueprints and the picture (M4-08)", () => {
+  it("offers unlocked blueprints by name; a stamp spends the bag and undo gives it back", async () => {
+    const bag = { cobble: 30, "oak-log": 4, "oak-planks": 3 };
+    const p: Profile = { ...withBlocks(miner, bag), achievements: { "first-lesson": 1 } };
+    const v = await visit(p);
+    expect(v.hud().plans).toEqual(["well"]);
+    const before = { ...countBlocks(v.grid(), lookup) };
+    v.type("well");
+    expect(v.hud().hint).toEqual({
+      key: "builder.hint.built",
+      params: { name: "Well" },
+      tone: "cheer",
+    });
+    const after = countBlocks(v.grid(), lookup);
+    expect((after["cobble"] ?? 0) - (before["cobble"] ?? 0)).toBe(16);
+    expect((after["oak-log"] ?? 0) - (before["oak-log"] ?? 0)).toBe(4);
+    v.play.pause(60_000);
+    await flush();
+    expect(v.saves.at(-1)?.inventory).toEqual({ cobble: 14, "oak-log": 0, "oak-planks": 0 });
+    v.play.resume(61_000);
+    v.type("undo");
+    expect(countBlocks(v.grid(), lookup)).toEqual(before);
+    v.play.quit();
+    await flush();
+    expect(v.profile().inventory).toEqual(bag);
+  });
+
+  it("a locked blueprint is not a word", async () => {
+    const v = await visit(miner);
+    expect(v.hud().plans).toEqual([]);
+    v.type("well");
+    expect(v.hud().line).not.toBe("well");
+  });
+
+  it("offers no photo where there is no 3D scene", async () => {
+    const v = await visit(miner);
+    expect(v.hud().photo).toBe(false);
+    v.type("ph");
+    // `p` starts put and planks; `h` fits no word here.
+    expect(v.hud().line).toBe("p");
   });
 });

@@ -14,6 +14,7 @@ import {
 } from "../../../../src/modes/builder/lesson";
 import {
   FOLLOW_SLACK,
+  RING_BIOMES,
   ZOOM_MAX,
   ZOOM_MIN,
   arrowDirection,
@@ -29,6 +30,8 @@ import {
   stampOrigin,
   startCursor,
   restorePalette,
+  ringCells,
+  ringsToAdd,
   steadyPalette,
   turn,
 } from "../../../../src/modes/builder/logic";
@@ -421,5 +424,36 @@ describe("what Builder tells the play host", () => {
       withBuilderIsland(miner, { extra: { [BUILDER_ISLAND_EXTRA]: { island, inventory: {} } } })
         .island,
     ).toEqual(island);
+  });
+});
+
+describe("expansions (M4-08)", () => {
+  const miner = fixture("meadow-done-miner");
+  const badges = (...ids: string[]) => ({
+    ...miner,
+    achievements: Object.fromEntries(ids.map((id) => [id, 1])),
+  });
+
+  it("owes one ring per completed core biome after the Meadow, less the rings given", () => {
+    expect(RING_BIOMES).toEqual(["birch", "shore", "frosty", "mines", "marsh", "caverns"]);
+    expect(ringsToAdd(badges("meadow-master"), 0)).toEqual([]);
+    expect(ringsToAdd(badges("birch-master", "shore-master"), 0)).toEqual(["birch", "shore"]);
+    expect(ringsToAdd(badges("birch-master", "shore-master"), 1)).toEqual(["shore"]);
+    expect(ringsToAdd(badges("birch-master"), 3)).toEqual([]);
+    // A save's count out of range is clamped, never negative.
+    expect(ringsToAdd(badges("birch-master"), -2)).toEqual(["birch"]);
+  });
+
+  it("names exactly the new ring's cells", () => {
+    const cells = ringCells(1);
+    const inner = footprint(0);
+    const outer = footprint(1);
+    const cols = new Set(cells.map((c) => `${c.x},${c.z}`));
+    expect(cols.size).toBe(
+      (outer.x1 - outer.x0) * (outer.z1 - outer.z0) - (inner.x1 - inner.x0) * (inner.z1 - inner.z0),
+    );
+    for (const c of cells) {
+      expect(c.x >= inner.x0 && c.x < inner.x1 && c.z >= inner.z0 && c.z < inner.z1).toBe(false);
+    }
   });
 });
