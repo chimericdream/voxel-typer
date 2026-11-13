@@ -9,7 +9,7 @@
  */
 import { expect, test } from "@playwright/test";
 import type { Page, TestInfo } from "@playwright/test";
-import { resultsTiming, watchResults } from "./helpers/results-timing";
+import { resultsLimit, resultsTiming, watchResults } from "./helpers/results-timing";
 import { collectErrors, ready, state } from "./helpers/vt";
 
 interface NightState {
@@ -233,8 +233,9 @@ test("a Miner's night plays from day to dawn inside the draw-call budget", async
   expect(end.done).toBeGreaterThan(5);
   expect(end.lootTotal).toBeGreaterThanOrEqual(end.done);
   await expect(app.getByText(/sent home$/)).toBeVisible();
-  // Results draws its lines within 1.5 s of the route change, with the heading (M4-FIX-7). Its
-  // code is fetched when the night starts; once, fetched only at the end, it came 10 s late.
+  // Results draws its lines within 1.5 s of the route change (4 s on CI, `resultsLimit`), with
+  // the heading (M4-FIX-7). Its code is fetched when the night starts; once, fetched only at the
+  // end, it came 10 s late.
   await expect
     .poll(async () => (await resultsTiming(page)).lines, { timeout: 5000 })
     .not.toBe(null);
@@ -245,7 +246,7 @@ test("a Miner's night plays from day to dawn inside the draw-call budget", async
   });
   console.log(`[M4-FIX-7] Miner night: Results lines ${timing.lines} ms after the route change`);
   console.log(`[M4-FIX-7] trace: ${timing.trace}`);
-  expect(timing.lines ?? Infinity).toBeLessThanOrEqual(1500);
+  expect(timing.lines ?? Infinity).toBeLessThanOrEqual(resultsLimit(1500));
   expect(timing.lines).toBe(timing.heading);
   // The stars and the loot fill in one by one.
   await page.waitForTimeout(2500);

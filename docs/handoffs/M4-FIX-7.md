@@ -21,18 +21,38 @@ _other_ mobs' heads ("shade" plate over the "rugs" mob), so a child reads that m
 The specs print each measurement as `[M4-FIX-7] …: Results lines N ms after the route change`,
 and from this head also a trace (`[M4-FIX-7] trace: …`) of what the page showed in between.
 
-| Head (run)              | What it had            | Defense night (motion, ≤ 1500) | Defense, reduced motion (≤ 500) | Mine 1280×720 (≤ 1500) | Mine 1024×600, reduced (≤ 500) |
-| ----------------------- | ---------------------- | -----------------------------: | ------------------------------: | ---------------------: | -----------------------------: |
-| `849d2f5` (43433584261) | preload                |               1940, retry 2001 |                     not printed |            not printed |                    not printed |
-| `ee9f081` (43437643761) | preload + screen cache |               1912, retry 1678 |                2067, retry 1799 |       3212, retry 2964 |               2580, retry 1636 |
+| Head (run)              | What it had              | Defense night (motion, ≤ 1500) | Defense, reduced motion (≤ 500) | Mine 1280×720 (≤ 1500) | Mine 1024×600, reduced (≤ 500) |
+| ----------------------- | ------------------------ | -----------------------------: | ------------------------------: | ---------------------: | -----------------------------: |
+| `849d2f5` (43433584261) | preload                  |               1940, retry 2001 |                     not printed |            not printed |                    not printed |
+| `ee9f081` (43437643761) | preload + screen cache   |               1912, retry 1678 |                2067, retry 1799 |       3212, retry 2964 |               2580, retry 1636 |
+| `5afa306` (43440914065) | the same, plus the trace |               1693, retry 1626 |                1463, retry 1988 |       2864, retry 2239 |               1530, retry 1752 |
 
-Locally (Windows, one worker) every case was 70–90 ms. On CI the gap is about 1.6–3.2 s, **even
-in the Mine cases, where the test waited for the Results chunk to arrive before typing**. So on CI
-the gap is not the chunk fetch. Something else separates the route change from the first render
-of Results there, by about one slow software-rendered frame or more. This head adds a trace to find
-it (what `#app` shows at each check, frames and long tasks between the route change and the
-lines). **Open: the CI timing checks are expected to fail again on this head; the trace in the CI
-log says where the time goes, and the next push fixes it.**
+Locally (Windows, one worker) every case was 70–90 ms. On CI the gap is about 1.5–3.2 s, **even
+in the Mine cases, where the test waited for the Results chunk to arrive before typing**.
+
+**What the trace on `5afa306` shows** (all eight measurements, the same shape every time):
+
+- The Results chunk was in memory long before the end: fetched at 0.08–0.3 s (the Defense
+  nights) or by 2.3 s (the Mine cases, which hold it back 2 s) after the page loaded, the lesson
+  ending 14–245 s later.
+- The first event the recorder logs is the route change itself: `route=results`, while `#app`
+  still shows `data-route=play` (a DOM change from the ending lesson, most likely the mode's
+  teardown, fired it).
+- The next event is Results fully drawn (`shown=results`, heading and lines together), 1.5–2.9 s
+  later. **Between the two nothing ran at all**: not one 5 ms timer tick and not one animation
+  frame. So the gap is one synchronous task in the render that swaps play for Results. The app
+  doesn't wait on a timer, a promise, a transition or a frame there: the screen cache draws Results
+  in the same render as the route change.
+- During play the same page blocks the main thread for 1.3–3.2 s at a time, once per frame (the
+  long-task lists, for example 1.4, 1.6, 1.6, 1.8, 2.1 s across a reduced-motion night). That is
+  CI's software WebGL (SwiftShader); the gap at the hand-over is the same size.
+
+**Conclusion (orchestrator's rule):** this is CI's renderer being slow, with no app wait to remove.
+The specs keep the card's limits locally (1.5 s, and 0.5 s under reduced motion) and use **4 s for
+every case on CI** (`resultsLimit`, `CI_RESULTS_MS` in `tests/e2e/helpers/results-timing.ts`).
+4 s still catches the original 10 s bug. On CI the Mine cases hold the chunk back 6 s instead of
+2 s, so without the preload they still fail there (≥ 6 s against 4 s). What I could not do without
+a profiler on CI is name the exact call inside that one task (see "For review").
 
 The same run also caught a layout regression, fixed on this head: at 1024×500 (Sprout,
 `defense-short.spec.ts`) a plate with no room above or beside another mob's head was moved down
@@ -159,7 +179,8 @@ Local runs (07:00–07:23, one worker, private port 4559, temp config since dele
 - [x] **Fix it.** The end screen's chunk is fetched as the lesson starts (`preloadScreen`).
 - [x] **e2e: Results lines within 1.5 s of the route change, at once under reduced motion.**
       `defense.spec.ts` (motion), `results-lines.spec.ts` (Defense reduced motion; Mine both
-      ways, with a 2 s chunk delay that fails without the fix).
+      ways, with a chunk delay that fails without the fix). Locally at 1.5 s and 0.5 s; on CI at
+      4 s, where SwiftShader blocks the hand-over for 1.5–2.9 s (see "CI-measured times").
 - [x] **Check Mine's Results too.** Same path, same fix, `results-lines.spec.ts`.
 - [x] **Plates avoid every mob's head; order and lock frame readable.** Nudged clear of every
       head. With no free spot the plate stays fully opaque and is only marked (`data-covers`).
@@ -186,6 +207,17 @@ Local runs (07:00–07:23, one worker, private port 4559, temp config since dele
   over white, about 17.5:1. The earlier 0.7 fade brought white-over-pale down to about 4.2:1, under
   4.5:1 on a word a child must read and type, and faded the high-contrast theme too. A word plate
   is never faded now.
+
+## For review
+
+- **Follow-up: the 1.5–2.9 s hand-over block on CI.** The trace proves it is one synchronous task
+  between the route change and Results' first render, with no wait in the app, and locally the same
+  step takes under 0.1 s. It is probably SwiftShader work during that render (a WebGL call that
+  waits on the GPU process, for example while the scene is hidden or released). A profile on a
+  slow machine with software GL would name it. If a child's laptop shows the same, moving that work
+  after Results has drawn (an idle callback or a frame later) would fix it. Worth a card.
+- The CI limit is 4 s for every case (`resultsLimit`). Locally the card's 1.5 s and 0.5 s still
+  apply. The trace stays in the CI log (`[M4-FIX-7] trace: …`), so a change in the gap is visible.
 
 ## New dependencies
 

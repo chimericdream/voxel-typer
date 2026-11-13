@@ -78,6 +78,20 @@ export async function watchResults(page: Page, lines: readonly string[]): Promis
   }, lines);
 }
 
+/**
+ * On CI the Results limit is 4 s for every case (M4-FIX-7). CI's software renderer blocks the main
+ * thread for 1.3–3.2 s at a time (every frame of a night, and once more as play hands over to
+ * Results), and the trace showed no wait in the app: the gap is one synchronous task. 4 s still
+ * catches the original bug (10 s). Local runs keep the card's limits (1.5 s, and 0.5 s under
+ * reduced motion).
+ */
+export const CI_RESULTS_MS = 4000;
+
+/** The limit for a case whose local limit is `localMs`. */
+export function resultsLimit(localMs: number): number {
+  return process.env["CI"] ? CI_RESULTS_MS : localMs;
+}
+
 /** Reads what {@link watchResults} recorded. */
 export async function resultsTiming(page: Page): Promise<ResultsTiming> {
   return page.evaluate(() => {

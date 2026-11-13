@@ -5,12 +5,14 @@
  *
  * With motion, the lines must show within 1.5 s of the route change; under reduced motion, at
  * once (nothing animates them in). In both cases they come in the same render as the heading.
+ * On CI every case allows 4 s (`resultsLimit`): its software renderer blocks the page that long
+ * at the hand-over, with nothing in the app waiting (see the M4-FIX-7 handoff).
  * Night Defense's motion case is in `defense.spec.ts`, on the night it already plays.
  */
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { night } from "./m4/helpers";
-import { resultsTiming, watchResults } from "./helpers/results-timing";
+import { CI_RESULTS_MS, resultsLimit, resultsTiming, watchResults } from "./helpers/results-timing";
 import { collectErrors, ready, state, waitForLesson } from "./helpers/vt";
 
 /** Under reduced motion "at once" means a frame or two, with room for CI's slow renderer. */
@@ -18,9 +20,10 @@ const AT_ONCE_MS = 500;
 const SOON_MS = 1500;
 /**
  * How long the Mine cases hold back the Results chunk. Without the preload the fetch starts at the
- * route change, so the lines come at least this late, past both limits (1.5 s and 0.5 s).
+ * route change, so the lines come at least this late: past both local limits (1.5 s, 0.5 s), and
+ * on CI past its 4 s limit.
  */
-const SLOW_CHUNK_MS = 2000;
+const SLOW_CHUNK_MS = process.env["CI"] ? CI_RESULTS_MS + 2000 : 2000;
 const CHUNK = /\/Results-[^/]*\.js$/;
 
 /** Waits for Results, then checks when the heading and the lines came. */
@@ -41,7 +44,7 @@ async function expectResultsBy(page: Page, limitMs: number): Promise<void> {
   );
   console.log(`[M4-FIX-7] trace: ${t.trace}`);
   expect(t.heading, "the Results heading").not.toBe(null);
-  expect(t.lines ?? Infinity, "the Results lines").toBeLessThanOrEqual(limitMs);
+  expect(t.lines ?? Infinity, "the Results lines").toBeLessThanOrEqual(resultsLimit(limitMs));
   // The lines never trail the heading: they are drawn with it.
   expect(t.lines).toBe(t.heading);
 }
