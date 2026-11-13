@@ -1,0 +1,173 @@
+/*
+ * Parent Dashboard (task M3-11). The page scrolls. Panels sit in a grid that gives two columns on
+ * a 1024 px window at text scale 1 and one column at text scale 2; every row wraps, so nothing
+ * runs off the side.
+ */
+.page {
+  justify-content: flex-start;
+  gap: var(--sp-4);
+}
+
+.intro {
+  margin: 0;
+  max-width: calc(48rem * var(--text-scale));
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  line-height: 1.4;
+  text-align: center;
+  color: var(--c-bg-text);
+  overflow-wrap: anywhere;
+}
+
+.intro:empty {
+  display: none;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(26rem * var(--text-scale))), 1fr));
+  align-items: start;
+  gap: var(--sp-4);
+  box-sizing: border-box;
+  width: min(100%, 72rem);
+}
+
+.grid > * {
+  min-width: 0;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+.gate {
+  max-width: 100%;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, calc(22rem * var(--text-scale))), 1fr));
+  gap: var(--sp-4);
+  padding-top: var(--sp-3);
+}
+
+.trend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.chartBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.subhead {
+  margin: 0;
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  font-weight: 700;
+  line-height: var(--lh);
+  color: var(--c-text);
+}
+
+.empty,
+.caption {
+  margin: 0;
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  line-height: 1.4;
+  color: var(--c-text);
+  overflow-wrap: anywhere;
+}
+
+.caption {
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  color: var(--c-text-muted);
+}
+
+.list {
+  margin: 0;
+  padding-left: 1.6em;
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  line-height: 1.4;
+  color: var(--c-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.biomes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.biome {
+  display: grid;
+  grid-template-columns: minmax(min(100%, calc(11rem * var(--text-scale))), auto) minmax(6rem, 1fr);
+  align-items: center;
+  gap: var(--sp-1) var(--sp-3);
+  color: var(--c-text);
+}
+
+.biomeName {
+  font-size: calc(var(--fs-md) * var(--text-scale));
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+/* A thin meter: the filled part in the chart color, the track a lighter step of it. */
+.meter {
+  position: relative;
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: color-mix(in srgb, #1c5cab 22%, var(--c-panel));
+  outline: 1px solid color-mix(in srgb, var(--c-text) 30%, transparent);
+}
+
+.meterFill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: #1c5cab;
+}
+
+:global(:root[data-theme="night"]) .meter {
+  background: color-mix(in srgb, #86b6ef 25%, var(--c-panel));
+}
+:global(:root[data-theme="night"]) .meterFill {
+  background: #86b6ef;
+}
+:global(:root[data-theme="contrast"]) .meter {
+  background: #000000;
+  outline-color: #ffffff;
+}
+:global(:root[data-theme="contrast"]) .meterFill {
+  background: #5fcdd4;
+}
+
+.biomeStats {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-4);
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  line-height: 1.4;
+  color: var(--c-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.sessions {
+  overflow-x: auto;
+  font-size: calc(var(--fs-sm) * var(--text-scale));
+  color: var(--c-text);
+}
+
+@media (forced-colors: active) {
+  .meterFill {
+    background: CanvasText;
+  }
+}
