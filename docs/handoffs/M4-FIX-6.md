@@ -25,9 +25,10 @@ and IP review.
 - `src/ui/screens/WorldMap.module.css` (optional item 4): the "Go here next!" tag no longer has a
   negative top margin, so it sits inside its plate and no longer pokes up over the Meadow island's
   base.
-- `tests/unit/atlas/painters.test.ts`: a fast-check property (seed 211, 200 runs). The overlay
-  edge moves at most one row between neighbouring columns, the two tile edges included, and stays
-  within depth ±1.
+- `tests/unit/atlas/painters.test.ts`: two fast-check properties (seed 211, 200 runs). The
+  overlay edge moves at most one row between neighbouring columns, the two tile edges included,
+  and stays within depth ±1. Grass and moss get 2–3 tufts, all below the edge's deepest row and
+  above the bottom row; snow gets none.
 
 ## How each look differs from famous blocky games (IP check)
 
@@ -42,7 +43,10 @@ and IP review.
   mossy head, which fits a moss creature in the woods. The body, mossy cap, amber eyes and arms
   are as before (M4-03).
 - I checked the results by eye at 8× (atlas preview), as cube icons (My Blocks), on the map
-  islands and in the Model Lab. The shots are in the PR conversation.
+  islands and in the Model Lab, in local screenshots that are not attached here. The remade baselines
+  show the same changes: `atlas.png` (grass side, lantern), `inventory-rich.png` (cube icons),
+  `diorama.spec.ts/meadow-overview.png` (wavy grass edges) and `map-all-open.png` (round lanterns
+  on Meadow Home, the tag inside its plate). No CI baseline shows the Moss Golem.
 
 ## Acceptance
 
