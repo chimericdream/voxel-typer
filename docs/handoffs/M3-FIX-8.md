@@ -114,18 +114,21 @@ stays clear of them at text scale 2.
   one on the page.
 - `useModalOpen(document, watch)` in `AchievementToast.tsx` can be reused if another queued message
   must wait for modals.
-- **Reconcile with M3-FIX-4 (#189)**, which delays toasts after route announcements and gives them
-  their own live region. The modal hold here is the hook `useModalOpen` plus one term in
-  `showing` (`&& !modal`). Keep both: a separate toast region outside `#app` is still inert
-  under `showModal()`, so the hold is still needed.
+- **Merged with M3-FIX-4 (#189).** The two toast changes stack. #189's toast live region and
+  its `TOAST_AFTER_PAGE_MS` gap live in the kit (`announce.ts`). This task's modal hold
+  (`useModalOpen`, plus `&& !modal` in `showing`) decides when the badge toast mounts at all. A
+  toast region in `body` is still inert under `showModal()`, so both are needed. The modal unit
+  test now watches the toast region and waits out the gap.
+- **The toast clears the map heading too.** #189 moves the heading under the corner buttons at
+  large text, so the heading also carries `data-toast-clear`. `clearBelow(doc, span)` counts only
+  marked elements above or below the toast, so a heading on the left doesn't push it down. The e2e
+  checks that the toast is clear of the corner buttons, the title and the hint.
 - M3-FIX-2 (fonts) changes `--font-pixel` users. This task's new CSS uses only `--font-body`.
 
 ## Contract change request / Questions
 
-- **Found, not fixed (WorldMap is not this card's):** at text scale 2 on 1280×720, the World Map's
-  hint ("Pick an island. Press Enter to go in.") lies over the **My Badges** corner button and
-  takes its clicks. Playwright's click on it waited 30 s, blocked by the hint in `<header>`. The
-  keyboard still works, and the e2e here opens My Badges with Enter. M4-FIX-1 fixed the same
-  overlap at 1024 px; 1280 px at scale 2 needs the same treatment. This needs a card.
+- (none.) The overlap this task found (at text scale 2 on 1280×720 the map's hint took **My
+  Badges**' clicks) is fixed on main by M3-FIX-4 (#189): the heading now has
+  `pointer-events: none` and goes under the corner buttons when room is short.
 
 Closes #178

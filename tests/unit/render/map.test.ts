@@ -21,6 +21,7 @@ import {
   ZOOM_MS,
   cloudCover,
   createWorldMapView,
+  HOVER_BRIGHTEN,
   islandPose,
   overviewPose,
   steppingStones,
@@ -411,6 +412,86 @@ describe("world map view", () => {
     v.refresh();
     f.pump();
     expect(calls).toBe(3);
+    v.dispose();
+  });
+
+  it("pick() finds the island under a point, its middle included (M3-FIX-4)", () => {
+    const f = fake();
+    const v = view(f, ["meadow", "birch"]);
+    f.pump();
+    const centers = v.centers();
+    expect(centers.size).toBe(9);
+    for (const biome of BIOME_ORDER) {
+      const c = centers.get(biome);
+      expect(c, biome).toBeDefined();
+      if (c === undefined) continue;
+      expect(c.x).toBeGreaterThan(0);
+      expect(c.x).toBeLessThan(1280);
+      expect(c.y).toBeGreaterThan(0);
+      expect(c.y).toBeLessThan(720);
+      expect(v.pick(c), biome).toBe(biome);
+    }
+    // The empty sky in a corner is no island.
+    expect(v.pick({ x: 4, y: 4 })).toBeNull();
+    // The outermost corner of an island's box on screen is sky, not island (review S4): the
+    // fallback is the ellipsoid inside the box, not the box.
+    const group = v.root.getObjectByName("island meadow");
+    if (group === undefined) throw new Error("no meadow");
+    v.root.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(group);
+    const mid = centers.get("meadow") ?? { x: 0, y: 0 };
+    let corner = { x: 0, y: 0 };
+    let far = -1;
+    for (const x of [bounds.min.x, bounds.max.x]) {
+      for (const y of [bounds.min.y, bounds.max.y]) {
+        for (const z of [bounds.min.z, bounds.max.z]) {
+          const p = new THREE.Vector3(x, y, z).project(f.stage.three.camera);
+          const onScreen = { x: (p.x * 0.5 + 0.5) * 1280, y: (1 - (p.y * 0.5 + 0.5)) * 720 };
+          const dist = Math.hypot(onScreen.x - mid.x, onScreen.y - mid.y);
+          if (dist > far) {
+            far = dist;
+            corner = onScreen;
+          }
+        }
+      }
+    }
+    // Just inside the corner, toward the middle: still inside the box, outside the ellipsoid.
+    const k = 0.97;
+    const nearCorner = { x: mid.x + (corner.x - mid.x) * k, y: mid.y + (corner.y - mid.y) * k };
+    expect(v.pick(nearCorner)).not.toBe("meadow");
+    // A whole close view: the middle of the screen is the island the camera is on.
+    v.show("meadow", { snap: true });
+    f.pump();
+    const close = v.centers().get("meadow");
+    if (close === undefined) throw new Error("no meadow");
+    expect(v.pick(close)).toBe("meadow");
+    v.dispose();
+    expect(v.pick(close)).toBeNull();
+  });
+
+  it("hover() brightens one island by color only, renders once and starts no frames", () => {
+    const f = fake();
+    const v = view(f, ["meadow", "birch"]);
+    f.pump();
+    const lit = (biome: BiomeId): THREE.Material | THREE.Material[] | undefined =>
+      meshes(v.root.getObjectByName(`island ${biome}`) ?? new THREE.Group())[0]?.material;
+    const plain = lit("birch");
+    const renders = f.renders;
+    v.hover("meadow");
+    expect(f.subscribers()).toBe(0);
+    expect(f.renders).toBe(renders + 1);
+    const bright = lit("meadow");
+    expect(bright).not.toBe(plain);
+    expect(bright instanceof THREE.MeshLambertMaterial && bright.color.r).toBeCloseTo(
+      HOVER_BRIGHTEN,
+    );
+    expect(lit("birch")).toBe(plain);
+    // The same island again: nothing to do.
+    v.hover("meadow");
+    expect(f.renders).toBe(renders + 1);
+    v.hover(null);
+    expect(lit("meadow")).toBe(plain);
+    expect(f.renders).toBe(renders + 2);
     v.dispose();
   });
 

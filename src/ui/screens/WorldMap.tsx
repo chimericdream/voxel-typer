@@ -10,6 +10,10 @@
  *
  * Keyboard: the arrow keys (or Tab) move between the open islands, Enter goes in, the arrows then
  * move along the lesson path, Enter plays, and Escape comes back out.
+ *
+ * Pointer: a click or tap anywhere on an island's model does what its label does (M3-FIX-4, owner
+ * playtest: a child kept clicking the island itself). The 3D view finds the island under the
+ * pointer (`pick`); the island under a mouse is drawn a little brighter and its label lights up.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 import type { AppApi, ScreenProps } from "@/app/types";
@@ -18,6 +22,7 @@ import { t } from "@/i18n";
 import type { WorldMapView } from "@/render/map/view";
 import type { Profile } from "@/save/schema";
 import type { BiomeId } from "@/types/core";
+import { NEXT_ANNOUNCE_MS } from "@/ui/kit/announce";
 import { Button } from "@/ui/kit/Button";
 import { Panel } from "@/ui/kit/Panel";
 import { BiomePath, MiniStars } from "./BiomePath";
@@ -57,6 +62,12 @@ function takeReturn(profile: Profile): BiomeId | null {
 }
 
 type Mode = "loading" | "3d" | "flat";
+
+/** The least room (in rem, times the text scale) the heading takes beside the corner buttons. */
+const HEADING_MIN_REM = 14;
+
+/** Test builds mark each island's middle on screen, so the e2e can click the model itself. */
+const MARK_CENTERS = import.meta.env.MODE !== "production";
 
 /** How long the "not yet" line stays after clicking an island in the clouds. */
 const NOTE_MS = 4000;
@@ -103,11 +114,14 @@ function NoPlayer({ app }: { app: AppApi }) {
 
 function IslandButton({
   info,
+  hovered,
   onEnter,
   onSelect,
   onLocked,
 }: {
   info: IslandInfo;
+  /** The pointer is over this island's model: the label lights up as if hovered. */
+  hovered: boolean;
   onEnter: () => void;
   onSelect: () => void;
   /** A click on an island that is still in the clouds. */
@@ -120,6 +134,7 @@ function IslandButton({
       data-nav={info.unlocked ? "" : undefined}
       data-locked={info.unlocked ? undefined : "1"}
       data-next={info.unlocked && info.next ? "1" : undefined}
+      data-hover={hovered ? "1" : undefined}
       aria-disabled={info.unlocked ? undefined : "true"}
       tabIndex={info.unlocked ? 0 : -1}
       onClick={(e) => {
@@ -209,14 +224,26 @@ const isNarrow = (): boolean =>
   typeof window.matchMedia === "function" &&
   window.matchMedia(NARROW).matches;
 
+/** How long a finger rests on a corner button before its words show instead (narrow layout). */
+export const LONG_PRESS_MS = 500;
+
 /**
  * A corner button. In a wide window it shows its words. In a narrow one (1100 px or less) the four
  * buttons would wrap onto a second row at large text and crowd the island labels, so there each
- * shows its picture and keeps its words for screen readers and as a tip. The tip opens on hover
- * and on keyboard focus (CSS), and on touch: in the narrow layout the first tap on a button opens
- * its tip and keeps it open, a second tap goes, and a tap anywhere else closes it (pointer events,
- * so it works in iOS Safari too, where `:hover` and `:active` don't hold). The text size setting is
+ * shows its picture and keeps its words for screen readers and as a tip. The text size setting is
  * never overridden: the picture grows with it.
+ *
+ * The tip opens on mouse hover and on keyboard focus (CSS). On touch, one tap always does what the
+ * button says, the same as a click, a key or a screen reader's double tap (M3-FIX-4: two taps
+ * confused children, and VoiceOver's double tap only opened the tip). A finger that rests on the
+ * button for {@link LONG_PRESS_MS} shows the words instead, and lifting it then does nothing, so a
+ * child can find out what a picture means without going there. A tap anywhere else closes the
+ * tip. A touch that turns into a scroll (`pointercancel`) leaves nothing behind (M3-FIX-4 (b)).
+ *
+ * The "held" mark that swallows the lift's click lives only until that click: it is cleared in a
+ * task right after the finger lifts (the lift's own click, if the browser makes one, comes first).
+ * So a later click with no pointer before it (TalkBack's double tap, Switch Access, Voice Access)
+ * always goes (M3-FIX-4 a11y review S1).
  */
 function CornerButton({
   icon,
@@ -229,8 +256,37 @@ function CornerButton({
 }) {
   const [tip, setTip] = useState(false);
   const wrapRef = useRef<HTMLSpanElement>(null);
-  /** The click under way comes from a finger, in the narrow layout. */
-  const touchRef = useRef(false);
+  /** The long-press timer while a finger rests on the button. */
+  const pressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** A long press just showed the tip: the click its finger makes on lifting is not a tap. */
+  const heldRef = useRef(false);
+  /** Clears {@link heldRef} once the lift's own click (if any) has run. */
+  const forgetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stopPress = (): void => {
+    if (pressRef.current !== null) clearTimeout(pressRef.current);
+    pressRef.current = null;
+  };
+  const stopForget = (): void => {
+    if (forgetRef.current !== null) clearTimeout(forgetRef.current);
+    forgetRef.current = null;
+  };
+  /** The finger is off the button: no long press now, and the held mark goes after this click. */
+  const release = (): void => {
+    stopPress();
+    if (!heldRef.current) return;
+    stopForget();
+    forgetRef.current = setTimeout(() => {
+      forgetRef.current = null;
+      heldRef.current = false;
+    }, 0);
+  };
+  useEffect(
+    () => () => {
+      stopPress();
+      stopForget();
+    },
+    [],
+  );
   useEffect(() => {
     if (!tip) return undefined;
     const close = (e: Event): void => {
@@ -246,16 +302,35 @@ function CornerButton({
       ref={wrapRef}
       data-tip={tip ? "open" : undefined}
       onPointerDown={(e) => {
-        touchRef.current = e.pointerType === "touch" && isNarrow();
+        heldRef.current = false;
+        stopPress();
+        stopForget();
+        if (e.pointerType !== "touch" || !isNarrow()) return;
+        pressRef.current = setTimeout(() => {
+          pressRef.current = null;
+          heldRef.current = true;
+          setTip(true);
+        }, LONG_PRESS_MS);
+      }}
+      onPointerUp={release}
+      onPointerLeave={release}
+      onPointerCancel={() => {
+        // A scroll, or the system took the touch: no tap, no tip, and no flag left set.
+        stopPress();
+        stopForget();
+        heldRef.current = false;
+      }}
+      onContextMenu={(e) => {
+        // A long press opens the words, not the browser's menu.
+        if (heldRef.current || pressRef.current !== null) e.preventDefault();
       }}
       onClickCapture={(e) => {
-        if (!touchRef.current) return;
-        touchRef.current = false;
-        if (tip) return;
-        // The first tap shows the words; the button runs on the next one.
+        const held = heldRef.current;
+        heldRef.current = false;
+        // Only the click from the finger that held is swallowed; a key's click has no detail.
+        if (!held || e.detail === 0) return;
         e.stopPropagation();
         e.preventDefault();
-        setTip(true);
       }}
     >
       <Button onClick={onClick}>
@@ -298,6 +373,9 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
   const top = useRef<HTMLElement>(null);
   const corner = useRef<HTMLDivElement>(null);
   const [note, setNote] = useState<string | null>(null);
+  /** The island under the pointer, while it is over an open island's model. */
+  const [hovered, setHovered] = useState<BiomeId | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   // The 3D view uses only these from the profile. A new profile object for the same player with
   // the same open islands (a settings save, say) must not rebuild it.
   const unlockedKey = profile.progress.unlockedBiomes.toSorted().join(",");
@@ -343,6 +421,16 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
         spot.style.transform = `translate(${at.left}px, ${at.top}px)`;
         spot.dataset["placed"] = "1";
       });
+      if (MARK_CENTERS) {
+        const canvas = canvasRef.current?.getBoundingClientRect();
+        for (const [biome, at] of made.centers()) {
+          const spot = ul.querySelector<HTMLElement>(`[data-spot="${biome}"]`);
+          if (spot && canvas) {
+            spot.dataset["center"] =
+              `${Math.round(canvas.left + at.x)},${Math.round(canvas.top + at.y)}`;
+          }
+        }
+      }
     };
     // Labels change size when the fonts arrive or the text size changes: place them again.
     const sizes = typeof ResizeObserver === "function" ? new ResizeObserver(() => place()) : null;
@@ -355,6 +443,7 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
           return;
         }
         const canvas = three.renderer.domElement;
+        canvasRef.current = canvas;
         made = map.createWorldMapView(
           {
             three,
@@ -391,6 +480,7 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
       window.removeEventListener("resize", onResize);
       sizes?.disconnect();
       view.current = null;
+      canvasRef.current = null;
       made?.dispose();
     };
     // Built once per visit (the screen remounts on every route change), and again only when the
@@ -425,9 +515,30 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
     app.audio.sfx("whoosh");
   };
 
+  // The same line again (a second click on the same island) is taken away and put back a moment
+  // later, so its timer starts over and a screen reader hears it again (M3-FIX-1 review N4).
+  const againRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (againRef.current !== null) clearTimeout(againRef.current);
+    },
+    [],
+  );
+
   // A click on an island still in the clouds: a little shake and a kind line, never "locked".
   const nudge = (info: IslandInfo, button: HTMLElement): void => {
-    setNote(notYetLine(info));
+    const line = notYetLine(info);
+    if (againRef.current !== null) clearTimeout(againRef.current);
+    againRef.current = null;
+    if (note === line) {
+      setNote(null);
+      againRef.current = setTimeout(() => {
+        againRef.current = null;
+        setNote(line);
+      }, NEXT_ANNOUNCE_MS);
+    } else {
+      setNote(line);
+    }
     app.audio.sfx("pop", { gain: 0.5 });
     const still = prefersReducedMotion(profile.settings.reducedMotion);
     if (!still && typeof button.animate === "function") {
@@ -458,8 +569,9 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
   };
 
   useScreenInput(app, (i) => {
-    if (i.kind !== "control") return false;
+    // Any key clears the "not yet" line, typed letters too (M3-FIX-1 review N3).
     setNote(null);
+    if (i.kind !== "control") return false;
     if (i.action === "back") {
       // Out of a path first; from the whole map, back to "Who is playing?". The app's own history
       // would lead to the lesson just played, which is not where a child expects Escape to go.
@@ -480,25 +592,126 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
   const openInfo = open === null ? null : (infos.find((i) => i.biome === open) ?? null);
 
   // The heading's plates stop short of the corner buttons (`--corner-w` in the CSS), so at 1024 px
-  // the hint wraps under the title instead of covering Change player (M4-FIX-1).
+  // the hint wraps under the title instead of covering Change player (M4-FIX-1). When the buttons
+  // leave the heading too little room beside them (large text: the four word buttons fill most of
+  // a 1280 px row), the heading moves below them instead (`data-stack`, `--corner-h`; M3-FIX-4).
   const cornerShown = openInfo === null;
   useLayoutEffect(() => {
     const el = corner.current;
     const host = root.current;
     if (!cornerShown || el === null || host === null) return undefined;
-    const set = (): void => host.style.setProperty("--corner-w", `${el.offsetWidth}px`);
+    const set = (): void => {
+      host.style.setProperty("--corner-w", `${el.offsetWidth}px`);
+      host.style.setProperty("--corner-h", `${el.offsetHeight}px`);
+      const scale = Number.parseFloat(getComputedStyle(host).getPropertyValue("--text-scale")) || 1;
+      const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const room = el.offsetLeft - (top.current?.offsetLeft ?? 0) - rem;
+      host.toggleAttribute("data-stack", room < HEADING_MIN_REM * rem * scale);
+    };
     set();
     const sizes = typeof ResizeObserver === "function" ? new ResizeObserver(set) : null;
     sizes?.observe(el);
+    sizes?.observe(host);
     return () => {
       sizes?.disconnect();
       host.style.removeProperty("--corner-w");
+      host.style.removeProperty("--corner-h");
+      host.removeAttribute("data-stack");
     };
   }, [cornerShown]);
 
+  // Clicks and taps on the islands' models (M3-FIX-4). Only on the whole map, and only where the
+  // pointer is on the 3D picture itself: a label, the heading or a corner button handles its own.
+  const picking = mode === "3d" && open === null;
+  const islandAt = (e: {
+    clientX: number;
+    clientY: number;
+    target: EventTarget | null;
+  }): IslandInfo | null => {
+    const canvas = canvasRef.current;
+    const made = view.current;
+    if (!picking || canvas === null || made === null) return null;
+    if (
+      e.target instanceof Element &&
+      e.target.closest("button, a, input, header, [data-nav]") !== null
+    ) {
+      return null;
+    }
+    const r = canvas.getBoundingClientRect();
+    const biome = made.pick({ x: e.clientX - r.left, y: e.clientY - r.top });
+    return biome === null ? null : (infos.find((i) => i.biome === biome) ?? null);
+  };
+  /** Lights up the open island under the mouse (never a locked one), or none. */
+  const hoverOn = (info: IslandInfo | null): void => {
+    const biome = info?.unlocked === true ? info.biome : null;
+    view.current?.hover(biome);
+    setHovered(biome);
+  };
+  // One pick per frame at most while the mouse moves; nothing runs while it rests.
+  const moveFrameRef = useRef<number | null>(null);
+  const lastMoveRef = useRef<{
+    clientX: number;
+    clientY: number;
+    target: EventTarget | null;
+  } | null>(null);
+  useEffect(
+    () => () => {
+      if (moveFrameRef.current !== null) cancelAnimationFrame(moveFrameRef.current);
+    },
+    [],
+  );
+  useEffect(() => {
+    if (picking) return;
+    view.current?.hover(null);
+    setHovered(null);
+  }, [picking]);
+  const onPointerMove = (e: PointerEvent): void => {
+    if (!picking || e.pointerType !== "mouse") return;
+    lastMoveRef.current = { clientX: e.clientX, clientY: e.clientY, target: e.target };
+    if (moveFrameRef.current !== null) return;
+    moveFrameRef.current = requestAnimationFrame(() => {
+      moveFrameRef.current = null;
+      const at = lastMoveRef.current;
+      if (at !== null) hoverOn(islandAt(at));
+    });
+  };
+  const onMapClick = (e: MouseEvent): void => {
+    const info = islandAt(e);
+    if (info === null) return;
+    if (info.unlocked) {
+      enter(info.biome);
+      return;
+    }
+    const button = list.current?.querySelector<HTMLElement>(`[data-spot="${info.biome}"] button`);
+    if (button) nudge(info, button);
+  };
+
   return (
-    <div class={styles.map} ref={root} data-mode={mode} data-open={open ?? undefined}>
-      <header class={styles.top} ref={top}>
+    <div
+      class={styles.map}
+      ref={root}
+      data-mode={mode}
+      data-open={open ?? undefined}
+      data-pointing={hovered === null ? undefined : "island"}
+    >
+      {/*
+       * The 3D picture's own layer, under the heading, the labels and the corner buttons: clicks
+       * and hovers on the islands land here. Hidden from screen readers, and the container itself
+       * has no click handler, so nothing else on the map is announced as clickable (a11y review
+       * S3). Each island's label is the button for keys and screen readers.
+       */}
+      {picking ? (
+        // oxlint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions -- reason: a pointer shortcut on the picture, hidden from screen readers; each island's label is the button for keys and screen readers
+        <div
+          class={styles.stage}
+          data-stage=""
+          aria-hidden="true"
+          onPointerMove={onPointerMove}
+          onPointerLeave={() => hoverOn(null)}
+          onClick={onMapClick}
+        />
+      ) : null}
+      <header class={styles.top} ref={top} data-toast-clear>
         <h1 class={styles.title}>{t("map.title")}</h1>
         {open === null ? <p class={styles.hint}>{t("map.hint")}</p> : null}
         {/* Always in the page, so a screen reader hears the line when it appears. */}
@@ -516,6 +729,7 @@ function MapScreen({ app, profile }: { app: AppApi; profile: Profile }) {
           <li key={info.biome} class={styles.spot} data-spot={info.biome}>
             <IslandButton
               info={info}
+              hovered={hovered === info.biome}
               onEnter={() => enter(info.biome)}
               onSelect={() => select(info.biome)}
               onLocked={(button) => nudge(info, button)}

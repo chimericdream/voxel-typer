@@ -3,7 +3,9 @@
  * found filling their slots, a personal-best badge, a warm message (never negative) and Again /
  * Next / Map. Miner and Builder also see "Great aim: 94%"; Sprout sees stars only.
  *
- * Under reduced motion the stars and slots appear at once and one `star` sound plays.
+ * Under reduced motion the stars and slots appear at once and one `star` sound plays. The setting is
+ * read live: if the OS switches to reduced motion while Results is up, the stars and slots stop
+ * moving at once (M3-07 review N7).
  *
  * The screen comes up while a child may still be typing. For a short moment the buttons ignore
  * presses, so a stray Space or Enter can't skip past the stars.
@@ -19,7 +21,7 @@ import { paintTile } from "@/render/atlas/recipes";
 import { Button } from "@/ui/kit/Button";
 import { Slot } from "@/ui/kit/Slot";
 import { Stars } from "@/ui/kit/Stars";
-import { focusOnControl, prefersReducedMotion, useScreenInput } from "./nav";
+import { focusOnControl, useReducedMotion, useScreenInput } from "./nav";
 import {
   aimLine,
   isPersonalBest,
@@ -69,14 +71,16 @@ export default function Results({ app, route }: ScreenProps) {
   const lesson = route.lesson === undefined ? null : app.lesson(route.lesson);
   const actions = useRef<HTMLDivElement>(null);
   const armed = useRef(false);
-  const reduced = prefersReducedMotion(profile?.settings.reducedMotion);
+  const reduced = useReducedMotion(profile?.settings.reducedMotion);
   const stars = result?.stars ?? 0;
+  // The star sounds are planned once, on arrival; a later motion change only stops the pictures.
+  const reducedAtStart = useRef(reduced);
 
   useEffect(() => {
     actions.current?.querySelector("button")?.focus();
     const timers = [setTimeout(() => (armed.current = true), ARM_MS)];
     if (stars > 0) {
-      if (reduced) app.audio.sfx("star");
+      if (reducedAtStart.current) app.audio.sfx("star");
       else {
         for (let i = 0; i < stars; i++) {
           timers.push(setTimeout(() => app.audio.sfx("star"), i * STAR_STEP_MS + STAR_LAND_MS));
@@ -84,7 +88,7 @@ export default function Results({ app, route }: ScreenProps) {
       }
     }
     return () => timers.forEach(clearTimeout);
-  }, [app, stars, reduced]);
+  }, [app, stars]);
 
   const loot = useMemo(() => lootRows(result?.loot ?? {}), [result]);
   const next = lesson ? nextLesson(app.lessons, lesson) : null;

@@ -17,7 +17,12 @@ import { Dialog } from "../../../src/ui/kit/Dialog";
 import { attachRouteAnnouncer } from "../../../src/a11y/route-announcer";
 import { BADGE_SETTLE_MS } from "../../../src/app/App";
 import { screens } from "../../../src/app/routes";
-import { FIRST_ANNOUNCE_MS, announce, announcer } from "../../../src/ui/kit/announce";
+import {
+  FIRST_ANNOUNCE_MS,
+  TOAST_AFTER_PAGE_MS,
+  announce,
+  announcer,
+} from "../../../src/ui/kit/announce";
 import type { Harness } from "./screens/harness";
 import { fixture, mount, text } from "./screens/harness";
 
@@ -212,7 +217,8 @@ const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms)
 
 describe("a badge toast under a modal (M3-FIX-8)", () => {
   it("waits while a modal is open, then shows and reads it out once the modal closes", async () => {
-    const region = announcer(document).region;
+    // Toasts speak in their own region (M3-FIX-4), at least TOAST_AFTER_PAGE_MS after a page message.
+    const region = announcer(document, "toast").region;
     const spoken: string[] = [];
     const watch = new MutationObserver(() => {
       const now = region.textContent ?? "";
@@ -225,7 +231,7 @@ describe("a badge toast under a modal (M3-FIX-8)", () => {
     const s = show(["first-word"], true);
     const badge = t("achievements.toast", { name: t("achievements.firstWord.name") });
     try {
-      await wait(FIRST_ANNOUNCE_MS + 100);
+      await wait(TOAST_AFTER_PAGE_MS + FIRST_ANNOUNCE_MS + 100);
       // Held: not drawn, not read, and its time on screen hasn't started.
       expect(s.root.textContent).toBe("");
       expect(spoken).not.toContain(badge);
@@ -233,7 +239,7 @@ describe("a badge toast under a modal (M3-FIX-8)", () => {
 
       dialog.set(false);
       expect(document.querySelector("dialog[open]")).toBeNull();
-      await wait(FIRST_ANNOUNCE_MS + 100);
+      await wait(TOAST_AFTER_PAGE_MS + FIRST_ANNOUNCE_MS + 100);
       expect(text(s.root)).toContain(badge);
       expect(spoken.at(-1)).toBe(badge);
       expect(s.onShown).not.toHaveBeenCalled();
@@ -281,6 +287,15 @@ describe("a badge toast keeps clear of the map's corner (M3-FIX-8)", () => {
     const s = show(["first-word"], true);
     try {
       expect(clearBelow(document)).toBe(60);
+      // Only what is above or below the toast counts: a heading on the left doesn't push it down.
+      const heading = document.createElement("header");
+      heading.setAttribute("data-toast-clear", "");
+      heading.getBoundingClientRect = () => new DOMRect(16, 70, 500, 80);
+      document.body.append(heading);
+      expect(clearBelow(document, { left: 900, right: 1264 })).toBe(60);
+      expect(clearBelow(document, { left: 480, right: 1264 })).toBe(150);
+      expect(clearBelow(document)).toBe(150);
+      heading.remove();
       const wrap = s.root.querySelector<HTMLElement>("[data-testid='badge-toast']");
       expect(wrap?.style.top).toBe("72px");
       // Text scale 2: the corner row wraps and doubles.
@@ -299,7 +314,7 @@ describe("a badge toast keeps clear of the map's corner (M3-FIX-8)", () => {
   });
 });
 
-describe("badge toasts and the route announcer share the live region (review B1)", () => {
+describe("badge toasts and the route announcer, each in its own live region (review B1, M3-07 N6)", () => {
   it("never opens on the play route; on Results the stars are read first, then the badge", async () => {
     h = await mount({ initialProfile: fixture("fresh-sprout"), initial: { id: "map" } });
     const s = h;
@@ -314,12 +329,17 @@ describe("badge toasts and the route announcer share the live region (review B1)
         announce(document, msg);
       },
     });
-    const region = announcer(document).region;
-    const watch = new MutationObserver(() => {
-      const now = region.textContent ?? "";
-      if (now !== "" && spoken.at(-1) !== now) spoken.push(now);
+    const regions = [announcer(document).region, announcer(document, "toast").region];
+    const watch = new MutationObserver((records) => {
+      for (const r of records) {
+        const region = regions.find((el) => el.contains(r.target));
+        const now = region?.textContent ?? "";
+        if (now !== "" && spoken.at(-1) !== now) spoken.push(now);
+      }
     });
-    watch.observe(region, { childList: true, characterData: true, subtree: true });
+    for (const region of regions) {
+      watch.observe(region, { childList: true, characterData: true, subtree: true });
+    }
     try {
       // A badge earned as the lesson finishes, while the route is still `play`.
       s.shell.api.navigate({ id: "play", lesson: "meadow-01" });

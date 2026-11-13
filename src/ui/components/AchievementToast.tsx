@@ -61,12 +61,18 @@ const CLEAR = "[data-toast-clear]";
 /** Room between the toast and what it stays below, in px. */
 const CLEAR_GAP_PX = 12;
 
-/** The lowest bottom edge of the page's `data-toast-clear` elements, or null if there are none. */
-export function clearBelow(doc: Document): number | null {
+/**
+ * The lowest bottom edge of the page's `data-toast-clear` elements, or null if there are none.
+ * With `span` (the toast's left and right), only elements above or below the toast count: the map
+ * heading, which goes under the corner buttons at large text (M3-FIX-4), on the left, out of the
+ * toast's way, doesn't push it down.
+ */
+export function clearBelow(doc: Document, span?: { left: number; right: number }): number | null {
   let bottom: number | null = null;
   for (const el of doc.querySelectorAll(CLEAR)) {
     const r = el.getBoundingClientRect();
     if (r.height === 0 && r.width === 0) continue;
+    if (span !== undefined && (r.right <= span.left || r.left >= span.right)) continue;
     bottom = Math.max(bottom ?? 0, r.bottom);
   }
   return bottom;
@@ -86,7 +92,8 @@ function useClearTop(ref: { current: HTMLElement | null }, shown: boolean): void
     const sizes = typeof ResizeObserver === "function" ? new ResizeObserver(() => place()) : null;
     let watched: Element[] = [];
     function place(): void {
-      const bottom = clearBelow(doc);
+      const self = el?.getBoundingClientRect();
+      const bottom = clearBelow(doc, self && self.width > 0 ? self : undefined);
       if (bottom === null) el?.style.removeProperty("top");
       else el?.style.setProperty("top", `${Math.ceil(bottom) + CLEAR_GAP_PX}px`);
     }

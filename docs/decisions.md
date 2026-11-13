@@ -445,3 +445,40 @@ PRs, and the orchestrator's rulings in those PRs.
       count lifetime Mine loot, not current inventory.
     - Every M4-08 blueprint costs at least one block that only Mine loot gives.
     - M4-07 must never replace a damaged island with a fresh one.
+100.  **Letter groups that sound safe read aloud (M3-FIX-6, PR #185; owner playtest 2026-11-12).**
+      Read-aloud said the random group "fak", which sounded like a swear word. A pure check,
+      `soundsUnsafe` (`src/content/wordlists/spoken-blocklist.ts`), normalises a group's likely
+      pronunciation and rejects it if a stem appears anywhere inside; `x` as `ks` is covered
+      (`fux`, `dix`, `kox`). Short runs that sit inside safe words (`hor`, `wee`, `sod`) live in the
+      generator's `BLOCKED_RUNS` instead, which only applies to random letters. Every fixed item in
+      `src/content` passes a test. The stem list is for M6-08's content review and never reaches
+      the UI or `t()`. When unsure, add a stem: a false alarm costs one redraw.
+101.  **No pixel font for text (M3-FIX-2, PR #186; owner playtest 2026-11-12).** Pixelify read B as
+      G or 8, C as O, 5 as S and 0 as O at every weight and size the game uses. Every UI font is now
+      Atkinson Hyperlegible; only the Splash logo keeps a blocky look (SVG voxel letters). Settings
+      drops "Blocky"; a saved `font: 'pixel'` still loads and shows as Clear, so no schema change.
+102.  **Digging keeps every block (M4-FIX-1, PR #184; owner playtest 2026-11-12).** A dug block
+      always reaches the inventory and the hotbar. The hotbar replaces its least-recently-used slot,
+      and its order is saved as the optional `island.palette` (contracts §15). The habit-space window
+      depends on the band. Corner buttons open their tip on focus and long press.
+103.  **Night Defense pacing (M4-FIX-2, PR #188; owner playtest 2026-11-12).** The field is never
+      empty for more than `maxIdleMs` = 2.5 s (every band); dawn is the only exception. The first
+      wave starts with dusk, so its first mob comes 1.2 s in, under the banner, and plates stay
+      below the HUD message. Convergence numbers are unchanged. 5 WPM tuning is M4-FIX-3.
+104.  **Replay variety and optional No Peeking! (M3-FIX-7, PR #187; owner playtest 2026-11-12).**
+      "Play again" after Meadow gave only "ha ha": the comfort-cap fallback kept picking one item.
+      Word-like items don't repeat within the last `min(4, ⌊candidates / 2⌋)` picks. Mine weights a
+      lesson's review keys only when they are a real subset of its allowed keys, so weak-key practice
+      stays on. "No Peeking!" is optional (contracts §6); the map stops pointing at a skipped one.
+105.  **Grown-up settings and import/export (M3-08 PR #166, M3-12 PR #170).** The parent gate is a
+      speed bump, not security. Settings is reachable from the map, and picture quality is wired to
+      the scene. Import has no schema bump; `:prev` is a backup, not an undo, and "replace" is
+      permanent.
+106.  **Night Defense rules (M4-04, PR #174).** Provisional nights are `birch-08`, `shore-05` and
+      `frosty-06` (M5-06 re-picks them). `lockOn` priority is spawn order. The 50 WPM sim pin is
+      "mean in 90–97 %". Stars need half the visitors sent home for 2 and four fifths for 3.
+      Results has an `extra.resultLines` hook; the `hands` HUD slice hides on Sprout nights; only
+      root parts cast shadows by default. Mobs (M4-03): 87 draw calls for all types, 95 on High.
+107.  **Builder rules (M4-07, PR #173).** One habit Space after an auto-run word is ignored (now a
+      per-band window, decision 102). Builder records a practice session. A damaged island is never
+      written. The map corner uses picture buttons at ≤ 1100 px.

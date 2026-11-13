@@ -49,9 +49,8 @@ async function setLook(page: Page, look: { scale: number; contrast?: boolean }):
 }
 
 /**
- * The map's My Badges button, by keyboard. At text scale 2 on 1280×720 the map's hint lies over
- * this button and takes its clicks (reported in docs/handoffs/M3-FIX-8.md; WorldMap is not this
- * task's), so a click would hang.
+ * The map's My Badges button, by keyboard. (At text scale 2 the map's hint used to take this
+ * button's clicks; M3-FIX-4 made the heading ignore the pointer. Enter works either way.)
  */
 async function openBadges(page: Page): Promise<void> {
   await page.getByRole("button", { name: "My Badges", exact: true }).press("Enter");
@@ -209,22 +208,29 @@ test.describe("badge toast on the World Map", () => {
     await page.getByRole("button", { name: "Map", exact: true }).click();
     await expectScreen(page, "map");
     await page.keyboard.press("Escape");
-    const corner = page.locator("[data-toast-clear]");
+    const corner = page.locator("[data-toast-clear]").filter({ has: page.getByRole("button") });
     await expect(corner).toBeVisible();
 
     const toast = page.getByTestId("badge-toast");
     await expect(toast).toBeVisible({ timeout: 15_000 });
     const box = await toast.boundingBox();
     if (box === null) throw new Error("the toast has no box");
-    for (const button of await corner.getByRole("button").all()) {
-      const b = await button.boundingBox();
+    // Clear of the corner buttons and of the heading's plates, which go under the buttons at
+    // large text (M3-FIX-4).
+    const keepOut = [
+      ...(await corner.getByRole("button").all()),
+      page.getByRole("heading", { name: "World Map" }),
+      page.getByText("Pick an island. Press Enter to go in."),
+    ];
+    for (const other of keepOut) {
+      const b = await other.boundingBox();
       if (b === null) continue;
       const apart =
         box.x + box.width <= b.x ||
         b.x + b.width <= box.x ||
         box.y + box.height <= b.y ||
         b.y + b.height <= box.y;
-      expect(apart, await button.innerText()).toBe(true);
+      expect(apart, await other.innerText()).toBe(true);
     }
     // And on screen.
     expect(box.y + box.height).toBeLessThanOrEqual(720);

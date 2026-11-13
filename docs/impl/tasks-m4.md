@@ -159,5 +159,23 @@ Field legend: see the top of `tasks-m0-m1.md`.
     `maxIdleMs` + 250 ms, except the dawn ending.
   - [ ] The existing director tests pass, or the handoff explains each retuned number.
 
+### M4-FIX-3 Night Defense for 5 WPM learners
+- **Size/Tier:** S / B · **Review:** required (feel)
+- **Depends on:** M4-FIX-2
+- **Owns:** `src/modes/defense/director.ts`, `tools/sim-defense.ts`, their tests, `docs/sim.md`
+- **Spec:** from the M4-FIX-2 handoff and review (#188). 5 WPM learners struggle: 37–52 % of their
+  waves fall under 85 %, and 46 % of a brand-new Builder's waves are swamped. The 10 WPM pin
+  (≤ 25 % of waves under 85 %) has little headroom (26.7 % for Miner in a 30-learner run).
+  Tune the director's low end (speed floor, counts, calm pace) so a 5 WPM learner feels capable.
+  Keep `maxIdleMs` (decision 103): fewer mobs, slower walking, never long empty waits.
+  Also from the #188 review:
+  - Cache the per-frame banner rect used by `clearOfBanner`.
+  - Update the night e2e budget comment (3.9 min on CI).
+  - Calm mode's "wave was slow" signal is now tied to the idle pull; check it.
+- **Acceptance:**
+  - [ ] Pin 5 WPM: at most 30 % of waves under 85 % and no swamped waves for any band, new
+    profile included. 10 WPM keeps ≤ 25 % with headroom across 3 seeds of 100 learners.
+  - [ ] The 50 WPM pin and the idle cap still pass.
+
 ### M4-GATE
 `PLAN.md` Phase 4 acceptance (no-failure verified, wave convergence, island round-trip) + visual review of Defense and Builder. Tag `m4`.

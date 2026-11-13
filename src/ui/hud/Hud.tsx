@@ -12,6 +12,8 @@
  * The HUD takes no pointer input and never takes focus: in play, keys go to the mode.
  */
 import { useComputed } from "@preact/signals";
+import { useMemo } from "preact/hooks";
+import { allowFlash } from "@/a11y/flashes";
 import type { LayoutDef } from "@/content/layouts/types";
 import { t } from "@/i18n";
 import type { Settings } from "@/save/settings";
@@ -90,13 +92,27 @@ export function HudTimer({ fields }: Fields) {
 }
 
 /**
+ * Whether the message keyed `key` may pop in. A new message's pop-in is a flash, so it asks the
+ * page's flash guard once (M3-07 review N3); if the guard says no, the message still shows, only
+ * without the pop. An unchanged message asks nothing.
+ */
+function usePopAllowed(key: string | null): boolean {
+  // Asked once per message: the memo runs again only when the message changes.
+  return useMemo(() => key === null || allowFlash(), [key]);
+}
+
+/**
  * One message at a time over the stage. The Caps Lock hint wins over a banner: while Caps Lock is on
  * the child can't type the word at all. The banner shows again once Caps Lock is off.
  */
 export function HudMessage({ fields }: Fields) {
-  if (fields.capsLock.value) {
+  const caps = fields.capsLock.value;
+  const banner = fields.banner.value;
+  const key = caps ? "caps" : banner === null ? null : `${banner.key}:${banner.tone}`;
+  const pop = usePopAllowed(key);
+  if (caps) {
     return (
-      <Toast key="caps" tone="info">
+      <Toast key="caps" tone="info" still={!pop}>
         <span class={styles.capsKey} aria-hidden="true">
           ⇪
         </span>{" "}
@@ -104,11 +120,10 @@ export function HudMessage({ fields }: Fields) {
       </Toast>
     );
   }
-  const banner = fields.banner.value;
-  if (banner === null) return null;
+  if (banner === null || key === null) return null;
   // Keyed by the message, so a new message pops in and an unchanged one stays still.
   return (
-    <Toast key={`${banner.key}:${banner.tone}`} tone={banner.tone}>
+    <Toast key={key} tone={banner.tone} still={!pop}>
       {t(banner.key, banner.params)}
     </Toast>
   );
