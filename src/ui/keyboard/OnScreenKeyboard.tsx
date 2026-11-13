@@ -169,9 +169,9 @@ const DUAL_LINE = 1.05;
 /**
  * Marks each two-char key too short for its two lines (`data-face-tight`); the CSS then shows one
  * char. The room is the key cap less its outer outline (one bevel unit a side) and the lift that
- * clears a finger label (always counted when labels are on, since hover shows one). It is read from the key cap, whose size and padding `data-face-tight`
- * doesn't change, so a fit never undoes itself. Runs after the labels are fitted: a hidden label
- * gives its lift back.
+ * clears a finger label (always counted when labels are on, since hover shows one). It is read
+ * from the key cap, whose size and padding `data-face-tight` doesn't change, so a fit never undoes
+ * itself. Runs after the labels are fitted: a hidden label gives its lift back.
  */
 export function fitFaces(board: Element): void {
   const labelsOn = board.closest("[data-labels]") !== null;

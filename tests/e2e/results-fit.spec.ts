@@ -4,7 +4,7 @@
  * every button and the focus ring show together, with nothing scrolled. At text scale 1 one column
  * fits, whole card included, and stays; at text scale 2, where one column runs past the window
  * (always for a Builder), the buttons stand beside the card. (Before, at text scale 2, the heading
- * scrolled off by up to 308 px.) The badge toast's dock is checked in results-toast.spec.
+ * scrolled off by up to 308 px.) Once more with high contrast on, at text scale 2. The badge toast's dock is checked in results-toast.spec.
  */
 import { expect, test } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
@@ -35,6 +35,8 @@ const PROFILES = [
   { profile: "big-text-builder", scale: 2 },
   { profile: "small-text-sprout", scale: 1 },
   { profile: "big-text-sprout", scale: 2 },
+  // High contrast at text scale 2: the same checks, focus ring included.
+  { profile: "contrast-sprout", scale: 2 },
 ] as const;
 const VIEWS = [
   { width: 1024, height: 600 },
@@ -61,6 +63,9 @@ for (const p of PROFILES) {
           ),
         )
         .toBe(String(p.scale));
+      if (p.profile === "contrast-sprout") {
+        await expect(page.locator("html")).toHaveAttribute("data-theme", "contrast");
+      }
       await firstLesson(page);
 
       const main = page.locator("main");

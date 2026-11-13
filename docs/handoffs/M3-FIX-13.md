@@ -45,7 +45,11 @@ Status: done (CI is the e2e gate: no local e2e was run, by the owner's daytime r
   layout chosen), `escape-race.spec.ts`; `achievements.spec.ts` and `results-toast.spec.ts`
   (`waitsPastLessonIntro`) wait for the map before Escape; the text scale 2 toast test again
   expects no toast on Results and one on the map.
-- Baselines: `results.png` changes; remade by the Update snapshots workflow on CI.
+- Fixture `contrast-sprout` (Sprout, text scale 2, high contrast). High-contrast cases: one in
+  `key-faces.spec.ts` per window size (icons drawn in the key's text color, every face 12 px or
+  more) and Results in `results-fit.spec.ts` at text scale 2 (focus ring wholly on screen).
+- Baselines: none changed. `results.png` is shot at text scale 1, where Results stays one column,
+  and Update snapshots run 43452083045 (50-minute limit) finished with nothing to commit.
 
 ## Acceptance
 
@@ -77,6 +81,9 @@ Status: done (CI is the e2e gate: no local e2e was run, by the owner's daytime r
   window size alone: it follows the real content (finds, message length, fonts). At text scale 2 a
   tall card can still run below the window (the page scrolls), but the heading, the stars and the
   buttons show on arrival.
+- Escape compares the drawn route by identity, not by id: the app reports the current
+  `route.value` object, and every navigation makes a fresh one, so a screen drawn for an earlier
+  arrival (the same id, say Lesson Intro for another lesson) never counts for the new one.
 - Escape: held back in the shell's router path, not by a timer. Kept out of `ScreenView`'s loading
   logic (one hook call), so PR #218's screen cache merges around it: there, `drawn` becomes
   "the screen drew in this render".

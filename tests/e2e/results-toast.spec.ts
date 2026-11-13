@@ -197,9 +197,6 @@ for (const view of [
     await setScale(page, 2);
     await firstLesson(page);
     await page.waitForTimeout(RESULTS_ARM_MS);
-    // A toast that shows covers nothing (watchToast checks). Since the buttons stand beside the
-    // card (M3-FIX-13), the dock is under both, and on the wider window a toast may fit there.
-    // When none fits, it never shows on Results, nor on Lesson Intro: it waits for the map.
     // At this size the card runs to the window's bottom (the buttons stand beside it, M3-FIX-13),
     // so there is no room under it: the toast never shows on Results, nor on Lesson Intro, and
     // waits for the map, where it must show.
