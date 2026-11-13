@@ -9,10 +9,12 @@
  * get a generous timeout.
  */
 import { describe, expect, it } from "vitest";
+import { DIRECTOR_CONSTANTS } from "../../../src/modes/defense/director";
 import {
   DEFAULT_PRESSURE,
   converged,
   formatDefense,
+  pacingRows,
   parseDefenseArgs,
   reportRows,
   simulateDefense,
@@ -86,6 +88,30 @@ describe("defense sim", () => {
         // The youngest children are the slow typists: at most a quarter of their waves may fall
         // under 85 % (15–23 % today; a wave of theirs is only about 20 keys).
         if (r.spec.typist === "10wpm") expect(r.low, label).toBeLessThanOrEqual(0.25);
+      }
+    },
+    TIMEOUT,
+  );
+
+  it(
+    "pacing: across bands and 5–60 WPM typists, the field is never empty for longer than maxIdleMs + 250 ms (M4-FIX-2)",
+    () => {
+      const limit = DIRECTOR_CONSTANTS.maxIdleMs + 250;
+      for (const r of main())
+        expect(r.idleMax, `${r.spec.typist} ${r.spec.band}`).toBeLessThanOrEqual(limit);
+      // Every band and typist, with a baseline, as a new profile and calm. The dawn at the end
+      // of a night isn't measured: it is empty on purpose.
+      const rows = simulateDefense({ runs: 6, waves: 5, seed: 4 }, pacingRows());
+      expect(rows).toHaveLength(6 * 3 * 3);
+      for (const r of rows) {
+        const label = `${r.spec.label} ${r.spec.typist} ${r.spec.band}`;
+        expect(r.idleMax, label).toBeLessThanOrEqual(limit);
+        // The night's opening counts too: from the first frame of dusk, when the first wave
+        // starts, to its first mob (the dusk announcement is still up).
+        expect(r.openingMax, label).toBeGreaterThan(0);
+        expect(r.openingMax, label).toBeLessThanOrEqual(DIRECTOR_CONSTANTS.maxIdleMs);
+        // The measure sees the pauses: the field does empty between mobs and waves.
+        expect(r.idleMax, label).toBeGreaterThan(1000);
       }
     },
     TIMEOUT,

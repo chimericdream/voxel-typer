@@ -50,14 +50,19 @@ export const SETTINGS_TABS: readonly SettingsTab[] = ["play", "look", "sound", "
 
 const AGE_BANDS: readonly AgeBand[] = ["sprout", "miner", "builder"];
 const BUSES: readonly Bus[] = ["master", "music", "sfx", "voice"];
-const FONTS: readonly SettingsData["font"][] = ["pixel", "clean", "dyslexic"];
+/**
+ * The font choices shown. `"pixel"` (Blocky) is no longer offered: since M3-FIX-2 every UI font
+ * is Atkinson, so it looked the same as Clear, and its own label was drawn in Pixelify, which
+ * misreads B and C. Saves keep accepting `"pixel"`; the picker shows it as Clear.
+ */
+const FONTS: readonly SettingsData["font"][] = ["clean", "dyslexic"];
 const QUALITIES: readonly (QualityLevel | "auto")[] = ["auto", "low", "medium", "high"];
 type MotionChoice = "system" | "full" | "reduced";
 const MOTIONS: readonly MotionChoice[] = ["system", "full", "reduced"];
 
 /** Each font choice is shown in its own letters, whatever the current font is. */
 const FONT_STACK: Record<SettingsData["font"], string> = {
-  pixel: '"Pixelify Sans", ui-monospace, monospace',
+  pixel: '"Atkinson Hyperlegible", system-ui, sans-serif',
   clean: '"Atkinson Hyperlegible", system-ui, sans-serif',
   dyslexic: DYSLEXIC_STACK,
 };
@@ -216,7 +221,7 @@ function LookTab({ s, set, disabled }: TabProps) {
       <Choice
         name="font"
         legend={t("settings.look.font")}
-        value={s.font}
+        value={s.font === "pixel" ? "clean" : s.font}
         options={FONTS}
         label={(f) => t(`settings.look.fontName.${f}`)}
         font={(f) => FONT_STACK[f]}

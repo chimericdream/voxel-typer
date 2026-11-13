@@ -158,9 +158,10 @@ describe("stylesheets use only checked colors", () => {
     }
     // No network fonts, ever (PLAN.md §6.1): no url(), @import or @font-face here.
     expect(css).not.toMatch(/url\(|@import|@font-face|https?:/);
-    // Fonts fall back to system fonts until M2-08 self-hosts them.
-    expect(css).toMatch(/--font-pixel:[^;]*monospace;/);
     expect(css).toMatch(/--font-body:[^;]*sans-serif;/);
+    // M3-FIX-2: UI chrome uses the body font. Pixelify's B, C, 5 and 0 misread at every size.
+    expect(css).toMatch(/--font-pixel:\s*var\(--font-body\);/);
+    expect(css).not.toMatch(/--font-[\w-]+:[^;]*Pixelify/);
   });
 });
 

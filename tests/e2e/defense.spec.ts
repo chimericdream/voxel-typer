@@ -51,6 +51,8 @@ async function plates(page: Page): Promise<{
   overlaps: number;
   fonts: string[];
   overHud: number;
+  /** Plates the HUD's banner (the dusk announcement, say) covers. */
+  overBanner: number;
   locked: number;
 }> {
   return page.evaluate(() => {
@@ -80,11 +82,23 @@ async function plates(page: Page): Promise<{
     for (const r of rects)
       for (const h of hud)
         if (r.left < h.right && h.left < r.right && r.top < h.bottom && h.top < r.bottom) overHud++;
+    const banner = document.querySelector('[data-hud="stage"] output')?.getBoundingClientRect();
+    let overBanner = 0;
+    if (banner && banner.height > 0)
+      for (const r of rects)
+        if (
+          r.left < banner.right &&
+          banner.left < r.right &&
+          r.top < banner.bottom &&
+          banner.top < r.bottom
+        )
+          overBanner++;
     return {
       count: els.length,
       overlaps,
       fonts: [...new Set(els.map((e) => getComputedStyle(e).fontFamily))],
       overHud,
+      overBanner,
       locked: els.filter((e) => e.dataset["locked"] === "1").length,
     };
   });
@@ -112,9 +126,13 @@ async function toDusk(page: Page, info: TestInfo, query: string, name: string): 
   info.annotations.push({ type: `fps (${name})`, description: String((await state(page)).fps) });
 }
 
-/** Waits for the first visitor's plate, then types `chars` chars of its word. */
+/**
+ * Waits for the first visitor's plate, then types `chars` chars of its word. The first visitor
+ * sets out while the dusk announcement is still up (M4-FIX-2): its plate must be clear of it.
+ */
 async function lockFirst(page: Page, chars: number): Promise<void> {
   await expect(page.locator(".vt-defense-plate").first()).toBeVisible({ timeout: 60_000 });
+  expect((await plates(page)).overBanner, "the banner covers a word plate").toBe(0);
   for (let i = 0; i < chars; i++) {
     const s = await night(page);
     if (s.next === null) break;
@@ -130,7 +148,11 @@ async function lockFirst(page: Page, chars: number): Promise<void> {
 test("a Miner's night plays from day to dawn inside the draw-call budget", async ({
   page,
 }, info) => {
-  test.setTimeout(420_000);
+  // A whole night runs on game time, and CI's software renderer draws frames slowly, so game time
+  // runs well behind the wall clock: on main this test took 6.1-7.2 min against 7 (M4-FIX-2). The
+  // pacing fix cut the night itself by about a third (124 s to 82 s of game time at 300 ms a
+  // key), and this budget keeps a third in hand on top of the slowest run seen.
+  test.setTimeout(600_000);
   const errors = collectErrors(page);
   await toDusk(page, info, "profile=meadow-done-miner", "miner");
   const app = page.locator("#app");
@@ -181,6 +203,7 @@ test("a Miner's night plays from day to dawn inside the draw-call budget", async
       peakPlates = Math.max(peakPlates, p.count);
       expect(p.overlaps, "word plates overlap").toBe(0);
       expect(p.overHud, "a word plate covers the HUD").toBe(0);
+      expect(p.overBanner, "the banner covers a word plate").toBe(0);
       // Typing targets use the body font, never the pixel font (decision 68).
       for (const font of p.fonts) expect(font).not.toMatch(/Pixelify/i);
     }
@@ -216,12 +239,17 @@ test("a Sprout's calm night: the field fits above the keyboard and no clock show
   const errors = collectErrors(page);
   await toDusk(page, info, "profile=fresh-sprout", "sprout");
   await shot(page, info, "sprout-dusk-banner");
+  // The first visitor comes while the dusk announcement is still up: no long wait (M4-FIX-2).
+  await expect(page.locator(".vt-defense-plate").first()).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator("#app").getByText(/on the way!$/)).toBeVisible();
+  await shot(page, info, "sprout-dusk-first-visitor");
   await lockFirst(page, 1);
   const p = await plates(page);
   expect(p.count).toBeGreaterThan(0);
   expect(p.locked).toBe(1);
   expect(p.overlaps).toBe(0);
   expect(p.overHud).toBe(0);
+  expect(p.overBanner).toBe(0);
   for (const font of p.fonts) expect(font).not.toMatch(/Pixelify/i);
   // Calm mode: no countdown anywhere.
   await expect(page.locator("#app").getByText("Time left")).toHaveCount(0);
@@ -252,6 +280,7 @@ test("a Builder's night uses the whole screen, with five lanes", async ({ page }
   expect(p.locked).toBe(1);
   expect(p.overlaps).toBe(0);
   expect(p.overHud).toBe(0);
+  expect(p.overBanner).toBe(0);
   await shot(page, info, "builder-lock");
   expect((await state(page)).calls).toBeLessThanOrEqual(150);
   expect(errors).toEqual([]);

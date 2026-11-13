@@ -68,7 +68,7 @@ import type { Flight } from "../mine/logic";
 import { createLootFly } from "../mine/loot-fly";
 import type { LootFly } from "../mine/loot-fly";
 import type { ModeContext, ModeInstance } from "../types";
-import { createDirector } from "./director";
+import { breakMs, createDirector, idlePullMs } from "./director";
 import type { WaveSpec } from "./director";
 import {
   BAND_LANES,
@@ -82,7 +82,9 @@ import {
   SHIELD_SEGMENTS,
   baselineAccuracy,
   bonkShield,
+  clearOfBanner,
   emptyTally,
+  fieldEmpty,
   fitLaneView,
   laneSlot,
   lockedWpm,
@@ -247,6 +249,11 @@ export function create(ctx: ModeContext): DefenseInstance {
   let nextSpawn = 0;
   let spawnClock: Ms = 0;
   let intermissionLeft: Ms = 0;
+  /**
+   * How long the field has had no mob left to type, in night time (waves and the pauses between
+   * them). The next mob never waits for more than `maxIdleMs` of it (M4-FIX-2).
+   */
+  let emptyMs: Ms = 0;
   let wavesDone = 0;
   let tally: WaveTally = emptyTally();
   /** Mobs of the current wave that are gone (typed or bonked, their anim over). */
@@ -309,7 +316,7 @@ export function create(ctx: ModeContext): DefenseInstance {
       progress01: summary
         ? 1
         : nightProgress(wavesDone, waveCount, waveGone, wave?.mobs.length ?? 0),
-      nextKey: phase === "night" ? nextKeyFor(v.active, field) : null,
+      nextKey: phase === "night" || phase === "dusk" ? nextKeyFor(v.active, field) : null,
     });
   };
 
@@ -369,6 +376,7 @@ export function create(ctx: ModeContext): DefenseInstance {
       state: "walking",
     };
     field.push(mob);
+    emptyMs = 0;
     seqOf.set(mob.id, spawnSeq);
     // Each mob is a lockOn target, added on spawn. No trailing space: its last char sends it home.
     session.addTargets([{ id: mob.id, text: mob.word, trailingSpace: false, priority: spawnSeq }]);
@@ -487,7 +495,11 @@ export function create(ctx: ModeContext): DefenseInstance {
       return;
     }
     nextWave = director.nextWave();
-    intermissionLeft = INTERMISSION_MS;
+    // The pause ends so that the next wave's first mob comes `maxIdleMs` after the field emptied.
+    intermissionLeft = Math.min(
+      INTERMISSION_MS,
+      breakMs(emptyMs, nextWave.mobs[0]?.spawnAtMs ?? 0),
+    );
     announce(nextWave, INTERMISSION_MS);
   };
 
@@ -497,6 +509,10 @@ export function create(ctx: ModeContext): DefenseInstance {
     tally.activeMs += dtMs;
     // Calm mode: nobody new sets out while a few friends are already waiting.
     if (!w.calm || field.length < CALM_MAX_LIVE) spawnClock += dtMs;
+    // An empty field brings the next mob forward, and the rest of the wave with it.
+    const upcoming = w.mobs[nextSpawn];
+    if (upcoming !== undefined)
+      spawnClock += idlePullMs(upcoming.spawnAtMs - spawnClock, fieldEmpty(field) ? emptyMs : null);
     while (nextSpawn < w.mobs.length) {
       const m = w.mobs[nextSpawn];
       if (m === undefined || m.spawnAtMs > spawnClock) break;
@@ -515,6 +531,11 @@ export function create(ctx: ModeContext): DefenseInstance {
     view?.setGlow(GLOW[timeOfDay]);
   };
 
+  /**
+   * Dusk starts the night: the first wave starts with it, so its first mob sets out while the
+   * announcement is still up and the field is never empty for long (M4-FIX-2). The sky turns to
+   * night once the announcement has had its time.
+   */
   const toDusk = (): void => {
     phase = "dusk";
     phaseLeft = DUSK_MS;
@@ -522,12 +543,29 @@ export function create(ctx: ModeContext): DefenseInstance {
     nextWave = director.nextWave();
     announce(nextWave, DUSK_MS);
     audio.sfx("whoosh", { gain: 0.4 });
+    emptyMs = 0;
+    startWave();
   };
 
   const toNight = (): void => {
     phase = "night";
     setTime("night");
-    startWave();
+    // The start hint waits for the dusk announcement to go.
+    if (!typedOnce && !hintUp && field.length > 0) {
+      setBanner("defense.start", "info", undefined, START_HINT_MS);
+      hintUp = true;
+    }
+  };
+
+  /** One frame of the waves and the pauses between them (dusk and night). */
+  const stepNight = (dtMs: Ms): void => {
+    emptyMs = fieldEmpty(field) ? emptyMs + dtMs : 0;
+    if (wave === null) {
+      intermissionLeft -= dtMs;
+      if (intermissionLeft <= 0) startWave();
+    } else {
+      runWave(dtMs);
+    }
   };
 
   function toDawn(): void {
@@ -735,7 +773,11 @@ export function create(ctx: ModeContext): DefenseInstance {
         order: locked ? -1 : (seqOf.get(mob.id) ?? 0),
       });
     }
-    plates.sync(items, bounds);
+    // The HUD's message (the dusk announcement, a banner, the Caps Lock hint) sits over the top
+    // of the stage: plates stay below it.
+    const message = stageCanvas?.ownerDocument.querySelector('[data-hud="stage"] output');
+    const box = message?.getBoundingClientRect();
+    plates.sync(items, clearOfBanner(bounds, box && box.height > 0 ? box : null));
   };
 
   const ready = (): void => {
@@ -772,7 +814,7 @@ export function create(ctx: ModeContext): DefenseInstance {
   };
 
   const offHear = bus.on(HEAR_AGAIN_EVENT, () => {
-    if (phase !== "night") return;
+    if (phase !== "night" && phase !== "dusk") return;
     // The locked word, or else the word of the visitor nearest the camp.
     const active = session.view().active;
     const near = field
@@ -808,7 +850,8 @@ export function create(ctx: ModeContext): DefenseInstance {
         if (dayRan >= DAY_HOLD_MS) phaseLeft = Math.min(phaseLeft, DAY_SKIP_MS);
         return;
       }
-      if (phase !== "night") return;
+      // Dusk is part of the night: its first mob sets out while the announcement is up.
+      if (phase !== "night" && phase !== "dusk") return;
       const v = session.view();
       // With no visitor on the field there is nothing to type: the key is dropped, not a slip.
       if (!field.some((m) => m.state === "walking" || m.state === "waiting")) return;
@@ -842,15 +885,11 @@ export function create(ctx: ModeContext): DefenseInstance {
         phaseLeft -= dtMs;
         if (phaseLeft <= 0) toDusk();
       } else if (phase === "dusk") {
+        stepNight(dtMs);
         phaseLeft -= dtMs;
-        if (phaseLeft <= 0) toNight();
+        if (phase === "dusk" && phaseLeft <= 0) toNight();
       } else if (phase === "night") {
-        if (intermissionLeft > 0) {
-          intermissionLeft -= dtMs;
-          if (intermissionLeft <= 0) startWave();
-        } else {
-          runWave(dtMs);
-        }
+        stepNight(dtMs);
       } else if (phase === "dawn") {
         phaseLeft -= dtMs;
         if (phaseLeft <= 0) finishNow();
