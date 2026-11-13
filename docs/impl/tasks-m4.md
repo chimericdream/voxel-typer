@@ -177,5 +177,76 @@ Field legend: see the top of `tasks-m0-m1.md`.
     profile included. 10 WPM keeps ≤ 25 % with headroom across 3 seeds of 100 learners.
   - [ ] The 50 WPM pin and the idle cap still pass.
 
+### M4-FIX-4 Night Defense layout on short screens
+- **Size/Tier:** M / A · **Review:** required (visual + a11y) · **Issue:** #208 · **PR:** #213
+- **Depends on:** M4-04
+- **Spec:** from the M4 gate visual review (2026-11-13). Blocking for the gate.
+  1. At 1024×600 the keyboard took about 45 % of the screen; the field was about 100 px tall and mobs
+     about 20 px. Give the field at least about 40 % of the stage; below that use a compact keyboard
+     and pull the camera in (`fitLaneView`).
+  2. Mobs were dark on the dark night lanes. Add a rim light or emissive lift at night.
+  3. Hotbar count badges covered the icons at text scale 2.
+  4. Hide the empty hotbar during the day until there's loot (it read like a well-known game's HUD).
+  5. Shorten the dusk banner fade-in; reduced motion stays instant.
+- **Acceptance:** an e2e measures mob height at 1024×600, text scale 1 and 2 (≥ about 48 px), with no
+  plate covering its own mob. Key floor 28 px, letters ≥ 14 px.
+
+### M3-FIX-12 Results toast placement and Sprout finger labels
+- **Size/Tier:** S / B · **Review:** required (a11y) · **Issue:** #209 · **PR:** #214
+- **Depends on:** M3-10, M2-09
+- **Spec:** from the M4 gate visual review.
+  1. The 'New badge' toast covered the Results card and its stars line. Hold badge toasts until the
+     stars have filled, dock them where they never cover the card, and fit the heading at 600 px tall.
+  2. Sprout finger labels overlapped at 1024 px or narrower (10 px text). Hide a label that doesn't fit
+     (the hint line names the finger). Never show 10 px text to Sprouts.
+- **Acceptance:** e2e checks for both at 1024×600 and 1280×720.
+
+### M4-FIX-5 Builder: see what you built, simpler Sprout help
+- **Size/Tier:** S / B · **Review:** optional · **Issue:** #210 · **PR:** #212
+- **Depends on:** M4-08
+- **Spec:** from the M4 gate visual review.
+  1. A stamped blueprint sat half behind trees. After 'You built a …!', orbit to a clear angle or fade
+     what's in the way. Reduced motion: cut, don't swing.
+  2. Hotbar count badges covered the icons at text scale 2.
+  3. Simpler Sprout help ('Arrow keys move.'); keep the full help for Miner and Builder.
+  Don't change the Sprout Builder words: that's still the owner's decision.
+
+### M4-FIX-6 Art: move three looks further from famous games
+- **Size/Tier:** S / A · **Review:** required (visual + IP) · **Issue:** #211 · **PR:** #217
+- **Depends on:** M4-03, M2-03
+- **Spec:** IP polish from the M4 gate visual review.
+  1. Lantern block: orange panes in a grey frame read like a familiar lamp block. Now a round paper
+     lantern on dark wood.
+  2. Moss Golem: the flower echoed a well-known golem holding a flower. Now a red-brown mushroom
+     (still 10 parts).
+  3. Grass side: the ragged fringe was the most familiar single picture. Now a smooth wave with a dark
+     rim and small tufts (moss shares it; snow gets no tufts).
+  4. Optional: the map's 'Go here next!' tag sits inside its plate.
+- **Acceptance:** baselines remade on CI; property tests pin the edge and the tufts.
+
+### M4-FIX-7 Night Defense Results line slow, plates over other mobs
+- **Size/Tier:** S / B · **Review:** required (code) · **Issue:** #216 · **PR:** #218
+- **Depends on:** M4-FIX-4
+- **Spec:** found by the M4-FIX-4 worker. The Results line appeared 10.4 s after the route change on
+  main. Cause: a random preview-server stall on the lazily loaded Results chunk. Fix: preload the
+  screen a lesson ends on at lesson start, and draw a loaded screen in the same render as the route
+  change (`src/app/screen-cache.ts`). Also from the #213 review: word plates avoid other mobs' heads
+  (up or sideways); with no free spot they keep #213's rule and stay fully opaque.
+- **Acceptance:** Results lines within 1.5 s (0.5 s reduced motion) locally; 4 s on CI, where one
+  software-render task blocks 1.5–2.9 s (trace in the handoff). Follow-ups: #219 (Try again on a
+  failed lazy screen), #221 (profile software rendering).
+
+### M3-FIX-13 Small key names, Results at text scale 2, Escape race
+- **Size/Tier:** S / B · **Review:** required (a11y) · **Issue:** #215 · **PR:** #220
+- **Depends on:** M4-FIX-4, M3-FIX-12
+- **Spec:** from the a11y review and re-review of #214.
+  1. No on-screen keyboard text a Sprout must read under 12 px: icons for long key names (⌫, Shift,
+     Caps Lock), named through `t()`.
+  2. Results at text scale 2 on 1024×600: a two-column layout for short, wide windows so the heading,
+     stars and buttons fit with 'Next lesson' focused.
+  3. Escape right after 'Back to the map', before the map has drawn, stepped back to Lesson Intro.
+     Escape is ignored until the route has drawn (no timer).
+- **Acceptance:** e2e at 1024×600 and 1280×720, text scale 1 and 2, plus an Escape-race e2e.
+
 ### M4-GATE
 `PLAN.md` Phase 4 acceptance (no-failure verified, wave convergence, island round-trip) + visual review of Defense and Builder. Tag `m4`.

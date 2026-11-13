@@ -95,13 +95,19 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 - [x] **M4-05** Wave director (M/A) — merged (PR #167)
 - [x] **M4-06** Island data + persistence (S/B) — merged (PR #159)
 - [x] **M4-07** ✦ ⛩ Builder mode (L/A) — merged (PR #173)
-- [ ] **M4-08** Blueprints, expansion, snapshot (M/B) — review (PR #204)
-- [ ] **M4-09** Inventory screen (M/B) — review (PR #205)
-- [ ] **M4-10** ⛩ No-failure invariants + E2E (M/B) — todo
+- [x] **M4-08** Blueprints, expansion, snapshot (M/B) — merged (PR #204)
+- [x] **M4-09** Inventory screen (M/B) — merged (PR #205)
+- [x] **M4-10** ⛩ No-failure invariants + E2E (M/B) — merged (PR #207)
 - [x] **M4-FIX-1** Builder: digging keeps every block (S/B) — merged (PR #184)
 - [x] **M4-FIX-2** Night Defense pacing (S/B) — merged (PR #188)
 - [x] **M4-FIX-3** Night Defense for 5 WPM learners (S/B) — merged (PR #197)
-- [ ] **M4-GATE** Gate — todo
+- [x] **M4-FIX-4** Night Defense layout on short screens (M/A) — merged (PR #213)
+- [x] **M3-FIX-12** Results toast placement and Sprout finger labels (S/B) — merged (PR #214)
+- [x] **M4-FIX-5** Builder: see what you built, simpler Sprout help (S/B) — merged (PR #212)
+- [x] **M4-FIX-6** Art: move three looks further from famous games (S/A) — merged (PR #217)
+- [x] **M4-FIX-7** Night Defense Results line slow, plates over other mobs (S/B) — merged (PR #218)
+- [x] **M3-FIX-13** Small key names, Results at text scale 2, Escape race (S/B) — merged (PR #220)
+- [ ] **M4-GATE** Gate — ready for the owner's playtest (2026-11-13); tag `m4` waits for the owner's OK
 
 ## M5: Minecart, Bosses, Daily Quest, biomes 5–9
 
@@ -136,6 +142,25 @@ Status values: `todo` · `ready` · `running` · `review` · `merged` · `blocke
 ## Gate notes
 
 Each gate records its result here: the date, the reviewer's verdict, owner checks (👤) and any accepted debt with its reason.
+
+### M4 — ready 2026-11-13, waiting for the owner's playtest; tags `m3` and `m4` pending owner OK
+
+- **Cards:** M4-01..10 merged, plus M4-FIX-1..7 and the M3 follow-ups M3-FIX-12 and M3-FIX-13.
+- **PLAN Phase 4 acceptance:**
+  - No-failure verified: M4-10 property tests (nothing lowers inventory, `found`, biomes or stars;
+    island plus bag is conserved; remedials write no lesson record), plus M4-FIX-1 for digging.
+  - Wave convergence: the M4-05 director tests and the M4-FIX-2/3 pins (10 WPM ≤ 25 % of waves under
+    85 % across 3 seeds of 100 learners; 5 WPM ≤ 30 % with no swamped waves; idle cap held).
+  - Island round-trip: M4-06 persistence tests, export/import (M3-12, M3-FIX-9), and M4-10 e2e.
+  - Visual review of Defense and Builder (Opus, 2026-11-13 about 04:00): "not ready", which produced
+    M4-FIX-4..7 and M3-FIX-12/13, all merged with their required reviews.
+- **Owner checks (👤, still open):** Sprout's 2nd star at 80 %; mob names (branding); Builder Sprout
+  words; damaged-island reset; the `veteran-builder` fixture; GrayText contrast; 60 fps on an
+  integrated GPU; the Moss Golem's new mushroom (no baseline shows it).
+- **Accepted debt:**
+  - On CI's software renderer the lesson → Results hand-over blocks 1.5–2.9 s, so the e2e limit is
+    4 s on CI (1.5 s locally). #221 profiles software rendering for old laptops.
+  - A failed lazy screen load leaves a blank page with no retry (#219).
 
 ### M3 — passed 2026-11-13, no child playtest (owner: "Skip the M3 playtest"); tag `m3` pending owner OK
 
